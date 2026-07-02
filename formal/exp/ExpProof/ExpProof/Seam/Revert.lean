@@ -8,7 +8,7 @@ import FormalYul.Preservation
 /-!
 # Revert reduction for the overflow guard
 
-`fun_expRayToWad_70` takes the overflow-guard branch for inputs at/above the threshold and calls
+`fun_expRayToWad_68` takes the overflow-guard branch for inputs at/above the threshold and calls
 `fun_panic_8`, which does `mstore;mstore;revert(0x1c,0x24)`. These per-function "direct" lemmas
 step the interpreter through that branch; mirrors the `ln` revert path.
 -/
@@ -49,31 +49,30 @@ theorem call_fun_panic_8_revert_direct
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [
+    EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, primCall_revert_yul]
+    EvmYul.Yul.State.setStore,
+    FormalYul.word, primCall_revert_yul]
 
 set_option maxHeartbeats 8000000 in
-/-- For inputs at/above the overflow threshold, `fun_expRayToWad_70` takes the guard branch and
+/-- For inputs at/above the overflow threshold, `fun_expRayToWad_68` takes the guard branch and
 reverts via `fun_panic_8(ARITHMETIC_OVERFLOW)`. -/
-theorem call_fun_expRayToWad_70_revert_direct
+theorem call_fun_expRayToWad_68_revert_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + (extra + 1000)) [FormalYul.word x] (.some "fun_expRayToWad_70")
+    EvmYul.Yul.call (fuel + (extra + 1000)) [FormalYul.word x] (.some "fun_expRayToWad_68")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
   rw [show fuel + (extra + 1000) = (fuel + extra) + 1000 by omega]
   rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_70]
-  simp only [yulFunction_fun_expRayToWad_70,
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_68]
+  simp only [yulFunction_fun_expRayToWad_68,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -96,9 +95,8 @@ theorem call_fun_expRayToWad_70_revert_direct
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word,
     slt_thresh_ge h1 h2,
     call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 976)
       (shared := shared) (hlookup := hlookup),
@@ -107,7 +105,7 @@ theorem call_fun_expRayToWad_70_revert_direct
     hcleanup, hconv44, hconvu, hpanic]
 
 set_option maxHeartbeats 8000000 in
-/-- The thin wrapper `fun_wrap_expRayToWad_99` just forwards to `fun_expRayToWad_70`, so it reverts
+/-- The thin wrapper `fun_wrap_expRayToWad_97` just forwards to `fun_expRayToWad_68`, so it reverts
 on the same out-of-range inputs. -/
 theorem call_fun_wrap_expRayToWad_revert_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
@@ -115,36 +113,34 @@ theorem call_fun_wrap_expRayToWad_revert_direct
       some (FormalYul.accountFor yulContract))
     (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + (extra + 1200)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_99")
+    EvmYul.Yul.call (fuel + (extra + 1200)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_97")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
   rw [show fuel + (extra + 1200) = (fuel + extra) + 1200 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have h70 :=
-    call_fun_expRayToWad_70_revert_direct (x := x) (fuel := fuel + extra) (extra := 191)
+    call_fun_expRayToWad_68_revert_direct (x := x) (fuel := fuel + extra) (extra := 191)
       (shared := shared) (h1 := h1) (h2 := h2) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at h70
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word,
     call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 1176)
       (shared := shared) (hlookup := hlookup),
     h70]
 
 set_option maxHeartbeats 8000000 in
-/-- The external entrypoint `external_fun_wrap_expRayToWad_99` decodes the calldata argument `x`
-(`callvalue` is 0, so the value guard is skipped) and forwards to `fun_wrap_expRayToWad_99`, which
+/-- The external entrypoint `external_fun_wrap_expRayToWad_97` decodes the calldata argument `x`
+(`callvalue` is 0, so the value guard is skipped) and forwards to `fun_wrap_expRayToWad_97`, which
 reverts for out-of-range `x`. -/
 theorem external_fun_wrap_expRayToWad_calldata_revert
     (x : Nat) (store : EvmYul.Yul.VarStore)
@@ -156,7 +152,7 @@ theorem external_fun_wrap_expRayToWad_calldata_revert
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -172,8 +168,8 @@ theorem external_fun_wrap_expRayToWad_calldata_revert
       (shared := expSharedAfterFreePtr x)
       (hlookup := expSharedAfterFreePtr_lookup x) (h1 := h1) (h2 := h2)
   simp only [Nat.reduceAdd, FormalYul.word] at hwrap
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,

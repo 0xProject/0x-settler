@@ -6,7 +6,7 @@ import FormalYul.Preservation
 # Per-function "direct" reductions for the trivial solc ABI/cleanup helpers
 
 These functions (`cleanup_*`, `identity`, `convert_*`, the constant accessor, `zero_value_*`) are
-the solc-emitted plumbing called from `fun_expRayToWad_70`'s overflow guard and panic-code path.
+the solc-emitted plumbing called from `fun_expRayToWad_68`'s overflow guard and panic-code path.
 Each is a one-liner; the directs step the interpreter through them. They are branch-agnostic —
 the value path also evaluates the guard (to decide *not* to revert) — so they live here, shared by
 both `Seam/Revert.lean` and the value-path seam.
@@ -179,9 +179,8 @@ theorem call_convert_44_to_int256_direct
       (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -205,8 +204,8 @@ theorem call_cleanup_t_uint8_17_direct
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -243,8 +242,8 @@ theorem call_convert_17_to_uint8_17_direct
       (store := Finmap.insert "value" (FormalYul.word 0x11) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
-    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -275,9 +274,8 @@ theorem call_constant_ARITHMETIC_OVERFLOW_17_direct
       (store := Finmap.insert "expr_16" (FormalYul.word 0x11) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at hconv
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
-    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -313,8 +311,8 @@ theorem call_convert_uint8_to_uint256_17_direct
       (store := Finmap.insert "value" (FormalYul.word 0x11) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
-    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,

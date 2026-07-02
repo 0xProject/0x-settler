@@ -87,14 +87,14 @@ theorem call_validator_revert_t_int256_direct
     call_cleanup_t_int256_direct (v := v) (fuel := fuel + extra) (extra := 51)
       (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hcleanup
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, hcleanup]
+    FormalYul.word, hcleanup]
 
 /-- `abi_decode_t_int256(offset, end) := calldataload(offset); validator(value)` — for the
 `expRayToWad` calldata at offset 4 it reads `x` and validates (no revert). -/
@@ -225,7 +225,7 @@ theorem call_abi_encode_t_int256_to_t_int256_fromStack_direct
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, hcleanup]
+    FormalYul.word, hcleanup]
 
 /-- `abi_encode_tuple_t_int256__to_t_int256__fromStack(headStart, value)` encodes a single `int256`
 return value (`value = word v`) and returns the tail pointer `headStart + 32`. -/
@@ -365,10 +365,10 @@ theorem selectSwitchCase_expRayToWad_sharedFor_mk (x : Nat) :
         (FormalYul.word 224))
       [(FormalYul.word 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_99") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_99") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])] := by
   rw [expRayToWad_selector_sharedFor_mk]
   rfl
 
@@ -388,10 +388,10 @@ theorem selectSwitchCase_expRayToWad_sharedFor_mk_raw (x : Nat) :
         (EvmYul.UInt256.ofNat 224))
       [(EvmYul.UInt256.ofNat 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_99") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_99") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])] := by
   simpa [FormalYul.word] using selectSwitchCase_expRayToWad_sharedFor_mk x
 
 /-- Revert-analogue of `Preservation.runContract_ok_of_dispatcherReturn`: if the bare dispatcher

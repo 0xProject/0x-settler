@@ -22,25 +22,25 @@ open Common.Word
 set_option maxRecDepth 100000
 
 set_option maxHeartbeats 8000000 in
-/-- The kernel `fun__expRayToWad_80` at the scale point `x = 0`: every `mul` by `x` vanishes, so
+/-- The kernel `fun__expRayToWad_78` at the scale point `x = 0`: every `mul` by `x` vanishes, so
 `k = t = v = 0`, the rational form evaluates to `2^126`, and the final `iszero(0) = 1` fix-up makes
 the result exactly `10^18`. -/
-theorem call_fun__expRayToWad_80_zero_direct
+theorem call_fun__expRayToWad_78_zero_direct
     (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
-    EvmYul.Yul.call (fuel + (extra + 700)) [FormalYul.word 0] (.some "fun__expRayToWad_80")
+    EvmYul.Yul.call (fuel + (extra + 700)) [FormalYul.word 0] (.some "fun__expRayToWad_78")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 1000000000000000000]) := by
   rw [show fuel + (extra + 700) = (fuel + extra) + 700 by omega]
   rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayToWad_80]
-  simp only [yulFunction_fun__expRayToWad_80,
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayToWad_78]
+  simp only [yulFunction_fun__expRayToWad_78,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
@@ -52,19 +52,19 @@ theorem call_fun__expRayToWad_80_zero_direct
       (shared := shared) (hlookup := hlookup)]
 
 set_option maxHeartbeats 8000000 in
-/-- `fun_expRayToWad_70` at `x = 0`: the overflow guard `iszero(slt(0, threshold)) = 0` is false, so
+/-- `fun_expRayToWad_68` at `x = 0`: the overflow guard `iszero(slt(0, threshold)) = 0` is false, so
 the panic branch is skipped and the kernel result `10^18` is forwarded. -/
-theorem call_fun_expRayToWad_70_zero_direct
+theorem call_fun_expRayToWad_68_zero_direct
     (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
-    EvmYul.Yul.call (fuel + (extra + 900)) [FormalYul.word 0] (.some "fun_expRayToWad_70")
+    EvmYul.Yul.call (fuel + (extra + 900)) [FormalYul.word 0] (.some "fun_expRayToWad_68")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 1000000000000000000]) := by
   rw [show fuel + (extra + 900) = (fuel + extra) + 900 by omega]
   rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_70]
-  simp only [yulFunction_fun_expRayToWad_70,
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_68]
+  simp only [yulFunction_fun_expRayToWad_68,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -76,7 +76,7 @@ theorem call_fun_expRayToWad_70_zero_direct
     call_cleanup_t_int256_direct (v := 0) (fuel := fuel + extra) (extra := 865)
       (shared := shared) (hlookup := hlookup)
   have hkernel :=
-    call_fun__expRayToWad_80_zero_direct (fuel := fuel + extra) (extra := 187)
+    call_fun__expRayToWad_78_zero_direct (fuel := fuel + extra) (extra := 187)
       (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hconv44 hcleanup hkernel
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
@@ -85,36 +85,36 @@ theorem call_fun_expRayToWad_70_zero_direct
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
+    EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word,
     call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 876)
       (shared := shared) (hlookup := hlookup),
     hcleanup, hconv44, hkernel]
 
 set_option maxHeartbeats 8000000 in
-/-- `fun_wrap_expRayToWad_99` at `x = 0` forwards to `fun_expRayToWad_70`, giving `10^18`. -/
+/-- `fun_wrap_expRayToWad_97` at `x = 0` forwards to `fun_expRayToWad_68`, giving `10^18`. -/
 theorem call_fun_wrap_expRayToWad_zero_direct
     (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
-    EvmYul.Yul.call (fuel + (extra + 1100)) [FormalYul.word 0] (.some "fun_wrap_expRayToWad_99")
+    EvmYul.Yul.call (fuel + (extra + 1100)) [FormalYul.word 0] (.some "fun_wrap_expRayToWad_97")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 1000000000000000000]) := by
   rw [show fuel + (extra + 1100) = (fuel + extra) + 1100 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have h70 :=
-    call_fun_expRayToWad_70_zero_direct (fuel := fuel + extra) (extra := 191)
+    call_fun_expRayToWad_68_zero_direct (fuel := fuel + extra) (extra := 191)
       (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at h70
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -142,7 +142,7 @@ theorem external_fun_wrap_expRayToWad_zero_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -196,7 +196,7 @@ theorem external_fun_wrap_expRayToWad_zero_calldata_result
     EvmYul.Yul.State.store,
     EvmYul.Yul.State.toMachineState, FormalYul.returnOf,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    hdecode, hwrap, halloc, hencode, baseStore, memPos, memShared, encStore]
+    hdecode, hwrap, halloc, hencode]
   have hmload :
       ((expSharedAfterFreePtr 0).mload (EvmYul.UInt256.ofNat 64)).1 =
         EvmYul.UInt256.ofNat 128 := by
@@ -225,7 +225,7 @@ theorem external_fun_wrap_expRayToWad_zero_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -277,9 +277,9 @@ theorem external_fun_wrap_expRayToWad_zero_calldata_halts
     GetElem?.getElem!, decidableGetElem?,
     EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
     EvmYul.Yul.State.store,
-    EvmYul.Yul.State.toMachineState, FormalYul.returnOf,
+    EvmYul.Yul.State.toMachineState,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    hdecode, hwrap, halloc, hencode, baseStore, memPos, memShared, encStore]
+    hdecode, hwrap, halloc, hencode]
 
 set_option maxHeartbeats 12000000 in
 /-- Result, starting from the exact state the dispatcher hands the external function. -/
@@ -403,15 +403,15 @@ theorem run_exp_ray_to_wad_evm_zero :
     (hReturn := hReturn) (by simpa using hresult)
 
 set_option maxHeartbeats 4000000 in
-/-- General kernel reduction for symbolic `x`: `fun__expRayToWad_80(x)` evaluates to the inline,
+/-- General kernel reduction for symbolic `x`: `fun__expRayToWad_78(x)` evaluates to the inline,
 `let`-shared `evm*` arithmetic tree transcribed from `Exp.sol`'s `_expRayToWad` (constants are the
 literal hex). No hand model: the RHS is the interpreter's own `evm*` ops. The foundation for
 the runtime floor and monotonicity claims. -/
-theorem call_fun__expRayToWad_80_direct
+theorem call_fun__expRayToWad_78_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
-    EvmYul.Yul.call (fuel + (extra + 700)) [FormalYul.word x] (.some "fun__expRayToWad_80")
+    EvmYul.Yul.call (fuel + (extra + 700)) [FormalYul.word x] (.some "fun__expRayToWad_78")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
@@ -436,13 +436,13 @@ theorem call_fun__expRayToWad_80_direct
     )]) := by
   rw [show fuel + (extra + 700) = (fuel + extra) + 700 by omega]
   rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayToWad_80]
-  simp only [yulFunction_fun__expRayToWad_80,
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayToWad_78]
+  simp only [yulFunction_fun__expRayToWad_78,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
@@ -457,25 +457,25 @@ theorem call_fun__expRayToWad_80_direct
     FormalYul.Preservation.wordNat_add, FormalYul.Preservation.wordNat_sub,
     FormalYul.Preservation.wordNat_mul, FormalYul.Preservation.wordNat_iszero,
     FormalYul.Preservation.wordNat_ofNat, wordNat_sar, wordNat_div, wordNat_slt]
-  simp only [FormalYul.Preservation.evmAdd_u256_left, FormalYul.Preservation.evmAdd_u256_right,
+  simp only [FormalYul.Preservation.evmAdd_u256_left,
     FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right,
     FormalYul.Preservation.evmMul_u256_left, FormalYul.Preservation.evmMul_u256_right,
     FormalYul.Preservation.evmShl_u256_left, FormalYul.Preservation.evmShl_u256_right,
-    FormalYul.Preservation.evmShr_u256_left, FormalYul.Preservation.evmShr_u256_right,
-    FormalYul.Preservation.evmIszero_u256, evmSar_u256_left, evmSar_u256_right,
-    evmDiv_u256_left, evmDiv_u256_right, evmSlt_u256_left, evmSlt_u256_right,
-    u256_idem, FormalYul.Preservation.u256_evmAdd]
+    FormalYul.Preservation.evmShr_u256_left,
+    FormalYul.Preservation.evmIszero_u256, evmSar_u256_left,
+    evmSlt_u256_left, evmSlt_u256_right,
+    FormalYul.Preservation.u256_evmAdd]
 
 set_option maxHeartbeats 4000000 in
-/-- `fun_expRayToWad_70(x)` for a signed input strictly below the threshold: the overflow guard
+/-- `fun_expRayToWad_68(x)` for a signed input strictly below the threshold: the overflow guard
 `iszero(slt(x, C)) = 0` is skipped (via `slt_thresh_lt`), so the kernel result — the `evm*` tree —
 is forwarded. -/
-theorem call_fun_expRayToWad_70_direct
+theorem call_fun_expRayToWad_68_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
-    EvmYul.Yul.call (fuel + (extra + 900)) [FormalYul.word x] (.some "fun_expRayToWad_70")
+    EvmYul.Yul.call (fuel + (extra + 900)) [FormalYul.word x] (.some "fun_expRayToWad_68")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
@@ -500,8 +500,8 @@ theorem call_fun_expRayToWad_70_direct
     )]) := by
   rw [show fuel + (extra + 900) = (fuel + extra) + 900 by omega]
   rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_70]
-  simp only [yulFunction_fun_expRayToWad_70,
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_68]
+  simp only [yulFunction_fun_expRayToWad_68,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -513,7 +513,7 @@ theorem call_fun_expRayToWad_70_direct
     call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 865)
       (shared := shared) (hlookup := hlookup)
   have hkernel :=
-    call_fun__expRayToWad_80_direct (x := x) (fuel := fuel + extra) (extra := 187)
+    call_fun__expRayToWad_78_direct (x := x) (fuel := fuel + extra) (extra := 187)
       (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hconv44 hcleanup hkernel
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
@@ -522,7 +522,8 @@ theorem call_fun_expRayToWad_70_direct
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
+    EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word,
     slt_thresh_lt hval,
     call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 876)
@@ -530,14 +531,14 @@ theorem call_fun_expRayToWad_70_direct
     hcleanup, hconv44, hkernel]
 
 set_option maxHeartbeats 4000000 in
-/-- `fun_wrap_expRayToWad_99(x)` for a signed input below the threshold forwards to
-`fun_expRayToWad_70`, returning the `evm*` tree. -/
+/-- `fun_wrap_expRayToWad_97(x)` for a signed input below the threshold forwards to
+`fun_expRayToWad_68`, returning the `evm*` tree. -/
 theorem call_fun_wrap_expRayToWad_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
-    EvmYul.Yul.call (fuel + (extra + 1100)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_99")
+    EvmYul.Yul.call (fuel + (extra + 1100)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_97")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
@@ -563,18 +564,17 @@ theorem call_fun_wrap_expRayToWad_direct
   rw [show fuel + (extra + 1100) = (fuel + extra) + 1100 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have h70 :=
-    call_fun_expRayToWad_70_direct (x := x) (fuel := fuel + extra) (extra := 191)
+    call_fun_expRayToWad_68_direct (x := x) (fuel := fuel + extra) (extra := 191)
       (shared := shared) (hlookup := hlookup) (hval := hval)
   simp only [Nat.reduceAdd, FormalYul.word] at h70
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -624,7 +624,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -699,7 +699,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
     EvmYul.Yul.State.store,
     EvmYul.Yul.State.toMachineState, FormalYul.returnOf,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    hdecode, hwrap, halloc, hencode, baseStore, memPos, memShared, encStore]
+    hdecode, hwrap, halloc, hencode]
   have hmload :
       ((expSharedAfterFreePtr x).mload (EvmYul.UInt256.ofNat 64)).1 =
         EvmYul.UInt256.ofNat 128 := by
@@ -725,7 +725,7 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_97,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -800,7 +800,7 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
     EvmYul.Yul.State.store,
     EvmYul.Yul.State.toMachineState,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    hdecode, hwrap, halloc, hencode, baseStore, memPos, memShared, encStore]
+    hdecode, hwrap, halloc, hencode]
 
 set_option maxHeartbeats 16000000 in
 /-- Result from the dispatcher-handed state. -/

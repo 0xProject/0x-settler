@@ -3,7 +3,7 @@ import Common.Word
 /-!
 # The overflow-guard comparison
 
-`fun_expRayToWad_70` branches on `iszero(slt(x, C))` with `C = 0x8e383a2cdfa1b74a9422d2e1`
+`fun_expRayToWad_68` branches on `iszero(slt(x, C))` with `C = 0x8e383a2cdfa1b74a9422d2e1`
 (`= 0x8e383a2cdfa1b74a9422d2e1`, the first input whose octave count reaches 64). For a signed
 input `x ≥ C` (with `u256 x < 2^255`, i.e. `x` a nonnegative signed value at least `C`), the
 signed comparison `slt(x, C)` is `0`, so the guard `iszero(slt(x, C))` is `1` and the revert
