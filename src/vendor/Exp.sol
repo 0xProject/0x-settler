@@ -13,13 +13,13 @@ library Exp {
     ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
-    function expRayToWad(int256 x) internal pure returns (int256 r) {
+    function expRayToWad(int256 x) internal pure returns (int256) {
         // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 64. The error in
         // `_expRayToWad` exceeds 1ulp at that scale.
         if (x >= 0x8e383a2cdfa1b74a9422d2e1) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        r = _expRayToWad(x);
+        return _expRayToWad(x);
     }
 
     /// @dev The rational polynomial approximation kernel
