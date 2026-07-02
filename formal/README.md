@@ -20,6 +20,58 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 3. **The `formal/yul` Lake importer** consumes `forge inspect ... ir` output and emits ignored EVMYulLean runtime/proof modules.
 4. **Runtime bridge modules** execute ABI calls through EVMYulLean against the Yul emitted by solc. The implementation is Solidity; Lean proof machinery consumes the generated Yul artifacts rather than a second hand-maintained model.
 
+## Deriving the fixed-point rational coefficients
+
+The polynomial/rational coefficients in `Ln.sol` and `Exp.sol` (and their error margins)
+come from a three-step pipeline. Exact minimax fitting alone is not enough: rounding an
+optimal real-coefficient rational at the mixed fixed-point staircase bases re-rolls ten
+independent quantization residuals and typically triples the realized error, so the
+integer low bits are re-optimized jointly after rounding.
+
+1. **Converged weighted rational Remez** ([Bloemen's scheme](https://xn--2-umb.com/22/approximation/)):
+   fit the target under the weight that the consumer's error metric induces. For
+   `expRayToWad`, `Od(v)/Ev(v) ≈ tanh(√v/2)/√v` on `v ∈ [0, (ln2/2)²]` under
+   `w(v) = 2√v·cosh²(√v/2)`, the pushforward of the relative error of
+   `(Ev + t·Od)/(Ev − t·Od)` against `exp(t)`. Each iteration solves the linearized
+   equioscillation system at the current alternation nodes, closing on the level `e`
+   with a root find:
+
+   ```python
+   # nodes x[i], signs s[i], weights w[i]; unknowns: p, q (q0 = 1), level e
+   #   p(x_i) − (f(x_i) + s_i·e/w_i)·(q(x_i) − 1) = f(x_i) + s_i·e/w_i
+   e = findroot(lambda e: solve_linear(e)[2] - e, e0)   # e_out = e_in at the optimum
+   ```
+
+   Iterate node exchange until the *coefficients* converge, not merely the level: the
+   leading coefficient lies along a near-null direction of the objective (its monomial
+   contributes ~`4e-17` of the polynomial's value on the domain) and settles orders of
+   magnitude later than `e`.
+
+2. **Staircase quantization**: round each real coefficient to nearest at its staircase
+   basis — the widest basis whose literal fits the chosen byte width, with the leading
+   (monic-stage) coefficient carried at `v`'s own basis so that stage needs no
+   renormalizing shift.
+
+3. **Joint low-bit refinement**: the realized error is linear in per-coefficient grain
+   offsets `n_i`, so precompute the base error curve and one sensitivity curve per
+   coefficient once in high precision, then search the integer offsets in fast float
+   arithmetic:
+
+   ```python
+   err(t; n) = base(t) + Σ_i n_i·φ_i(t),  φ_i(t) = ∂ê/∂c_i · 2^(126−b_i)  # Q126 ulps
+   minimize over n ∈ ℤ^10:  max(max_t err, −min_t err)   # coordinate + pair descent
+   ```
+
+   Low-degree coefficients dominate (one grain of a Q87 constant term moves the quotient
+   by ~0.3–0.8 ulp); the descent needs paired moves because single-coefficient steps are
+   too coarse near the optimum. The refined ensemble equioscillates in the max metric —
+   for `Exp.sol`, at ±0.019 ulp against plain rounding's ~0.35 — which is what lets the
+   certificate's dyadic nudge (and with it the subtracted output margin) tighten.
+
+Every step is re-verified against the exact target at ≥60 digits on a dense grid, and
+the resulting envelope must clear the proof's cut-certificate nudge with slack before
+the margin constant is derived from the error budget.
+
 ## Build
 
 Generated EVMYulLean artifacts (`*YulRuntime.lean`, `*YulProof.lean`) are `.gitignore`d and regenerated in CI. See `.github/workflows/*-formal.yml` for the canonical build steps.
