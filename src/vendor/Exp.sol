@@ -50,7 +50,7 @@ library Exp {
         //     Ev, Od, t⋅Od, and the numerator/denominator: Q87
         //     quotient: one `DIV` placing exp(t) at Q126 (the dividend, numerator << 126, stays
         //         below 2²⁵⁵: a nonnegative signed word)
-        //     output: multiplying by 10¹⁸ lands E on the 10¹⁸⋅2¹²⁶ grid; the closing `sar(126 - k,
+        //     output: multiplying by 10¹⁸ lands E on the 10¹⁸⋅2¹²⁶ grid; the closing `shr(126 - k,
         //         …)` is the single output-rounding floor, with 2ᵏ folded in
         //
         // Error budget. The integer rational `e` lands on the Q126 grid; write its excess over the
@@ -137,9 +137,9 @@ library Exp {
             r := div(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
             // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin (the provable minimum
-            // 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 -
+            // 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `shr(126 -
             // k, …)` which folds in the 2ᵏ octave scaling (126 - k ∈ [63, 186]).
-            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0x9fe769d0fa58e9f))
+            r := shr(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0x9fe769d0fa58e9f))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
