@@ -83,7 +83,7 @@ library Exp {
     ///      can fall two below E; that input is reverted. On the central octave k = 0 the margin is
     ///      margin⋅2⁻¹²⁶ ≈ 8.5⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the
     ///      round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))` is half-open, so the k = 0 band is
-    ///      exactly [-H, H) with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
+    ///      exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
     ///
     ///      This margin is the floor of the bound above: Δ's two √2-driven terms are irrational, so
     ///      Δ itself is irrational and the margin ⌊10¹⁸⋅Δ⌋ + 1 cannot be reduced without lowering
