@@ -75,7 +75,8 @@ src/
 ├── deployer/                # Deployment infrastructure
 ├── multicall/               # ERC-2771 multicall forwarding
 ├── utils/                   # Utilities (512Math, UnsafeMath, etc.)
-└── vendor/                  # Vendored libraries (SafeTransferLib, FullMath)
+├── vendor/                  # Vendored libraries (SafeTransferLib, FullMath)
+└── wrappers/                # Minimal wrapper contracts for math libraries
 
 test/
 ├── integration/             # Fork tests (run with FOUNDRY_PROFILE=integration)
