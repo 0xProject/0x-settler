@@ -1,5 +1,6 @@
 import LnProof.Error.Core
 import Common.Foundation.KroneckerShift
+import Common.GenCover
 
 /-! Generate the error-bound cert literals (ErrCertLtLit / ErrCertGeLit) and
 their covers for the current BIASc and `lnErrorBoundNum`. Computes
@@ -9,6 +10,7 @@ bridges building, then walks the `checkCoverK` covers (literal signature, as the
 checked `errLt_nonneg`/`errGe_nonneg` theorems use). -/
 
 open Common.Poly LnFloorCert Common.Exp LnFloor LnYul
+open Common.GenCover hiding litText
 
 namespace GenErrLit
 
@@ -30,33 +32,6 @@ def cLt : List Int :=
 def cGe : List Int :=
   expMarginPoly 22 geTN2bLit geTD2bLit (polyScale errGeK [1, 1]) errGeW
 
-/-- Drop trailing zero coefficients (mirror gen_cert_literals.ptrim). -/
-def ptrim (a : List Int) : List Int :=
-  let r := (a.reverse.dropWhile (· == 0)).reverse
-  if r.isEmpty then [0] else r
-
-partial def maxW (S : List Int) (hiW : Int) : Int :=
-  let rec bs (lo hi : Int) : Int :=
-    if lo ≥ hi then lo
-    else let mid := (lo + hi + 1) / 2
-         if 0 ≤ (hornerIv S 0 mid).1 then bs mid hi else bs lo (mid - 1)
-  bs 0 hiW
-partial def walk (C : List Int) (lo hi : Int) : Bool × List (Int × Int) :=
-  let rec go (a : Int) (fuel : Nat) (acc : List (Int × Int)) : Bool × List (Int × Int) :=
-    match fuel with
-    | 0 => (false, acc.reverse)
-    | fuel + 1 =>
-      if a > hi then (true, acc.reverse)
-      else
-        let S := kShiftWitness kB C a
-        if 0 ≤ (hornerIv S 0 0).1 then
-          let w := maxW S (hi - a)
-          go (a + w + 1) fuel ((a, w) :: acc)
-        else (false, ((a, -1) :: acc).reverse)
-  go lo 200000 []
-
-def pad2 (i : Nat) : String := (if i < 10 then "0" else "") ++ toString i
-
 /-- Walk `[lo,hi]`, write one cell file per sub-cell, and write the complete
 cover module `coverMod` (cell imports + the literal-signature `nonnegName`
 ladder). The error covers carry no hand-written content, so they are fully
@@ -68,7 +43,7 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{pad2 i}.lean"
-      s!"import LnProof.Cert.{litFile}\nimport Common.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
+      (cellText s!"LnProof.Cert.{litFile}" "LnFloorCert" s!"{cellPrefix}{pad2 i}" litName a w)
   let lb := "{"; let rb := "}"
   let mut s := ""
   for (_, i) in cells.zipIdx do s := s ++ s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
@@ -77,16 +52,14 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
   let n := cells.length
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
-    if i + 1 < n then
-      s := s ++ s!"  rcases Int.lt_or_le m ({a + w} + 1) with h | h\n  · exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) (by omega)\n"
-    else
-      s := s ++ s!"  exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) h2\n"
+    s := s ++ ladderStep s!"{cellPrefix}{pad2 i}" "m" a w (i + 1 == n)
   s := s ++ "\nend LnFloorCert\n"
   IO.FS.writeFile s!"LnProof/Cert/{coverMod}.lean" s
 
+/-- A shared-emitter literal block wrapped in the `LnFloorCert` namespace (each error-cert
+literal is written to its own self-contained module). -/
 def litText (name : String) (c : List Int) : String :=
-  "namespace LnFloorCert\n\ndef " ++ name ++ " : List Int := [\n  " ++
-  String.intercalate ",\n  " (c.map toString) ++ "]\n\nend LnFloorCert\n"
+  "namespace LnFloorCert\n\n" ++ Common.GenCover.litText name c ++ "end LnFloorCert\n"
 
 end GenErrLit
 open GenErrLit

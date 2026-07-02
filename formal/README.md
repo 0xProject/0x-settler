@@ -130,7 +130,7 @@ cd formal/cbrt/Cbrt512Proof && \
 
 cd formal/ln/LnProof && \
   lake build LnProof.LnYulRuntime LnProof.LnYulProof && \
-  lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts && \
+  lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover && \
   lake env lean GenFloorCertLit.lean && \
   lake build LnProof.Cert.FloorCertLit && \
   lake env lean GenCover.lean && \
@@ -148,7 +148,7 @@ cd formal/ln/LnProof && \
 
 cd formal/exp/ExpProof && \
   lake build ExpProof.ExpYulRuntime ExpProof.ExpYulProof && \
-  lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces Common.Foundation.KroneckerShift && \
+  lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces Common.Foundation.KroneckerShift Common.GenCover && \
   lake env lean GenExpVLit.lean && \
   lake build
 ```

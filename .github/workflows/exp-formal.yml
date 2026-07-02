@@ -89,7 +89,7 @@ jobs:
       - name: Generate Lean certificate artifacts
         working-directory: formal/exp/ExpProof
         run: |
-          lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces Common.Foundation.KroneckerShift
+          lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces Common.Foundation.KroneckerShift Common.GenCover
           lake env lean GenExpVLit.lean
 
       - name: Build Exp proof package

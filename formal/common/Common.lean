@@ -4,8 +4,9 @@
 -- implementation. It is generic interval-Horner nonnegativity certificates and
 -- Kronecker identity-testing / packed-shift cell walks (`Common.Poly`), the
 -- `e^(p/q)` Taylor-cut framework (`Common.Exp`), the `Real.exp` bridge for the
--- partial-sum caps (`Common.RealExpBridge`), and the EVM-word op-preservation
--- bridges (`Common.Word`).
+-- partial-sum caps (`Common.RealExpBridge`), the EVM-word op-preservation
+-- bridges (`Common.Word`), and the cover-certificate generator string/IO helpers the
+-- `lake env lean Gen*.lean` scripts share (`Common.GenCover`).
 import Common.Word
 import Common.Foundation.Poly
 import Common.Foundation.ExpSum
@@ -13,3 +14,4 @@ import Common.Foundation.ShiftCert
 import Common.Foundation.Kronecker
 import Common.Foundation.KroneckerShift
 import Common.Seam.RealExpBridge
+import Common.GenCover

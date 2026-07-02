@@ -1,6 +1,7 @@
 import ExpProof.Floor.CertDefsV
 import ExpProof.Floor.GranPieces
 import Common.Foundation.KroneckerShift
+import Common.GenCover
 
 /-!
 # Cert literal + cover generator for the **v-form** reduced-argument Taylor caps
@@ -12,45 +13,16 @@ in-kernel `checkCoverK` decides — and writes one `Cert/ExpV{Up,Lo,…}C<NN>.le
 plus the cover module with the symbolic-cert↔literal equality and the `_nonneg` ladder.
 
 Run with `lake env lean GenExpVLit.lean` after
-`lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces`. Output is deterministic
-(byte-identical on re-run). Only the generated `Cert/ExpV*` files are machine output; this
+`lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces Common.GenCover`. Output is
+deterministic (byte-identical on re-run). Only the generated `Cert/ExpV*` files are machine
+output; this
 generator, the hand-written `Floor/CertDefsV.lean` symbolic definitions, and the
 `Floor/GranPieces.lean` piece table are tracked.
 -/
 
-open Common.Poly ExpCertV
+open Common.Poly ExpCertV Common.GenCover
 
 namespace GenExpVLit
-
-/-- Drop trailing zero coefficients. -/
-def ptrim (a : List Int) : List Int :=
-  let r := (a.reverse.dropWhile (· == 0)).reverse
-  if r.isEmpty then [0] else r
-
-/-- Largest `w ∈ [0, hiW]` with `0 ≤ (hornerIv S 0 w).1` (non-increasing in `w`). -/
-partial def maxW (S : List Int) (hiW : Int) : Int :=
-  let rec bs (lo hi : Int) : Int :=
-    if lo ≥ hi then lo
-    else let mid := (lo + hi + 1) / 2
-         if 0 ≤ (hornerIv S 0 mid).1 then bs mid hi else bs lo (mid - 1)
-  bs 0 hiW
-
-/-- Greedy walk → `(reached?, (anchor, width) list)`. -/
-partial def walk (C : List Int) (lo hi : Int) : Bool × List (Int × Int) :=
-  let rec go (a : Int) (fuel : Nat) (acc : List (Int × Int)) : Bool × List (Int × Int) :=
-    match fuel with
-    | 0 => (false, acc.reverse)
-    | fuel + 1 =>
-      if a > hi then (true, acc.reverse)
-      else
-        let S := kShiftWitness kB C a
-        if 0 ≤ (hornerIv S 0 0).1 then
-          let w := maxW S (hi - a)
-          go (a + w + 1) fuel ((a, w) :: acc)
-        else (false, ((a, -1) :: acc).reverse)
-  go lo 200000 []
-
-def pad2 (i : Nat) : String := (if i < 10 then "0" else "") ++ toString i
 
 /-- Walk `[lo, hi]`, write one cell file per sub-cell, then write the cover module. -/
 def emit (litName coverMod modPrefix cellPrefix certEqName litNonneg symNonneg symName eqTac : String)
@@ -61,7 +33,7 @@ def emit (litName coverMod modPrefix cellPrefix certEqName litNonneg symNonneg s
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     IO.FS.writeFile s!"ExpProof/Cert/{modPrefix}{pad2 i}.lean"
-      s!"import ExpProof.Cert.ExpVCertLit\nimport Common.Foundation.KroneckerShift\n\nnamespace ExpCertV\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend ExpCertV\n"
+      (cellText "ExpProof.Cert.ExpVCertLit" "ExpCertV" s!"{cellPrefix}{pad2 i}" litName a w)
   let lb := "{"; let rb := "}"
   let mut s := "import ExpProof.Floor.CertDefsV\nimport ExpProof.Cert.ExpVCertLit\nimport Common.Foundation.KroneckerShift\n"
   for (_, i) in cells.zipIdx do s := s ++ s!"import ExpProof.Cert.{modPrefix}{pad2 i}\n"
@@ -72,18 +44,11 @@ def emit (litName coverMod modPrefix cellPrefix certEqName litNonneg symNonneg s
   let n := cells.length
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
-    if i + 1 < n then
-      s := s ++ s!"  rcases Int.lt_or_le t ({a + w} + 1) with h | h\n  · exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} t (by omega) (by omega)\n"
-    else
-      s := s ++ s!"  exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} t (by omega) h2\n"
+    s := s ++ ladderStep s!"{cellPrefix}{pad2 i}" "t" a w (i + 1 == n)
   s := s ++ s!"\ntheorem {symNonneg} {lb}t : Int{rb} (h1 : {lo} ≤ t) (h2 : t ≤ {hi}) :\n"
   s := s ++ s!"    0 ≤ evalPoly {symName} t := by\n  rw [{certEqName}]; exact {litNonneg} h1 h2\n"
   s := s ++ "\nend ExpCertV\n"
   IO.FS.writeFile s!"ExpProof/Cert/{coverMod}.lean" s
-
-def litText (name : String) (c : List Int) : String :=
-  "def " ++ name ++ " : List Int := [\n  " ++
-    String.intercalate ",\n  " (c.map toString) ++ "]\n\n"
 
 end GenExpVLit
 

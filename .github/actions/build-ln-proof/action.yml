@@ -25,7 +25,7 @@ runs:
       shell: bash
       working-directory: formal/ln/LnProof
       run: |
-        lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts
+        lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover
         lake env lean GenFloorCertLit.lean
         lake build LnProof.Cert.FloorCertLit
         lake env lean GenCover.lean
