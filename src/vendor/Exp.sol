@@ -34,15 +34,14 @@ library Exp {
         //
         // `exp(t) = (1 + tanh(t/2)) / (1 - tanh(t/2))`, so with the even/odd split N(t) = Ev(t²) +
         // t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational that matches
-        // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln(2)/2)²]. Ev(v) is degree 5 and Od degree
-        // 4(v); in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the integer
-        // coefficients realize ≈126 of them. Ev(v) is monic, so its leading stage is a shift, not a
-        // multiply.
+        // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln(2)/2)²]. Ev(v) is degree 5 and Od(v)
+        // degree 4; in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the
+        // integer coefficients realize ≈126 of them. Ev(v) is monic, so its leading stage is a
+        // shift, not a multiply.
         //
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
-        // its chosen byte width, so a coefficient followed by j more multiplies by v tolerates a
-        // shorter basis. Each renormalizing shift lands a value directly at the basis its consumer
-        // needs.
+        // its chosen byte width. A coefficient followed by more multiplies by v tolerates a shorter
+        // basis. Each renormalizing shift lands a value directly at the basis its consumer needs.
         //     t:      Q128 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2)
         //     v = t²: Q128
         //     Ev(v) Horner down the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at
