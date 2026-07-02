@@ -55,18 +55,17 @@ library Exp {
     ///
     ///      Error budget. The integer rational `e` lands on the Q126 grid; write its excess over
     ///      the exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The
-    ///      proof bounds Δ ≤ 0.7201434073703092789 (each term below carried to its supremum at 19
-    ///      decimal places), the sum of three one-sided contributions:
+    ///      proof bounds Δ ≤ 0.7201434073703092789, the sum of three one-sided contributions:
     ///          integer Horner + closing `sdiv` truncation: the Ev shared by the numerator Ev +
     ///              t⋅Od and denominator Ev - t⋅Od cancels to first order in the quotient, so its
-    ///              truncation barely perturbs e; this jitter (the dominant term) stays ≤
-    ///              0.6207065163.
+    ///              truncation barely perturbs e; this jitter (the dominant term) stays <
+    ///              0.62071.
     ///          rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and
-    ///              exp): ≤ 0.0883883477 (its supremum is √2⋅2¹²⁶/(2¹³⁰-1)).
+    ///              exp): < 0.08839 (its supremum is √2⋅2¹²⁶/(2¹³⁰-1)).
     ///          reduced-argument gap: the Q128 floor of t only pushes e downward (that direction is
     ///              budgeted on the under side); the over side is the K27/LN2 constant-grid residue
     ///              (the k⋅ln2 grid error stays below 2⁻²²⁹), which the proof envelopes one-sidedly
-    ///              at 2⁻¹³³ of reduced argument, lifting e by ≤ 0.0110485435 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
+    ///              at 2⁻¹³³ of reduced argument, lifting e by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
     ///              √2/128).
     ///      Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63
     ///      at S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0781 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least
