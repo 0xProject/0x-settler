@@ -10,9 +10,9 @@ For two inputs adjacent in the signed order (`int256 x2 = int256 x1 + 1`) lying 
 G ≤ int256 (tTree x2) − int256 (tTree x1) ≤ G + 1,    G = ⌊K27 / 2^107⌋ = 340282366920.
 ```
 
-From that, the squared argument `v = ⌊t²/2^128⌋` (which drives the even/odd accumulators) moves by
-at most `G + 1`: `|t2² − t1²| = |t2 − t1|·|t2 + t1| < (G + 1)·2^128` since `|t| < 2^127`, and the
-common-denominator floor loses at most one unit.
+From that, the squared argument `v = ⌊t²/2^133⌋` (which drives the even/odd accumulators) moves by
+at most `W = ⌊(G + 1)/2^5⌋ + 1`: `|t2² − t1²| = |t2 − t1|·|t2 + t1| < (G + 1)·2^128` since
+`|t| < 2^127`, and the common-denominator floor loses at most one unit at the `2^133` scale.
 -/
 
 namespace ExpYul
@@ -65,27 +65,33 @@ theorem tTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   · nlinarith [hlo1, hhi1, hlo2, hhi2, hK27, hrem_pos, hrem_lt, hp107]
   · nlinarith [hlo1, hhi1, hlo2, hhi2, hK27, hrem_pos, hrem_lt, hp107]
 
-/-- The squared-argument floor sandwich: `2^128·v ≤ t² < 2^128·v + 2^128`, from `vTree_eq`. -/
+/-- The squared-argument floor sandwich: `2^133·v ≤ t² < 2^133·v + 2^133`, from `vTree_eq`. -/
 theorem vTree_sandwich {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    (2 ^ 128 : Int) * (vTree x : Int) ≤ (int256 (tTree x)) ^ 2 ∧
-      (int256 (tTree x)) ^ 2 < (2 ^ 128 : Int) * (vTree x : Int) + 2 ^ 128 := by
+    (2 ^ 133 : Int) * (vTree x : Int) ≤ (int256 (tTree x)) ^ 2 ∧
+      (int256 (tTree x)) ^ 2 < (2 ^ 133 : Int) * (vTree x : Int) + 2 ^ 133 := by
   obtain ⟨hveq, _⟩ := vTree_eq hx hC hC0
   rw [hveq]
   set a := (int256 (tTree x)) ^ 2 with ha
-  have h1 := Int.ediv_add_emod a (2 ^ 128)
-  have h2 := Int.emod_nonneg a (by norm_num : (2 : Int) ^ 128 ≠ 0)
-  have h3 := Int.emod_lt_of_pos a (by norm_num : (0 : Int) < 2 ^ 128)
+  have h1 := Int.ediv_add_emod a (2 ^ 133)
+  have h2 := Int.emod_nonneg a (by norm_num : (2 : Int) ^ 133 ≠ 0)
+  have h3 := Int.emod_lt_of_pos a (by norm_num : (0 : Int) < 2 ^ 133)
   constructor <;> nlinarith [h1, h2, h3]
 
-/-- The squared-argument step for adjacent same-octave inputs is bounded by `G + 1`. -/
+/-- The squared-argument step width `W = ⌊(G + 1)/2^5⌋ + 1`: one `v` unit is `2^133` of `t²`, so
+the reduced-argument step `G + 1` moves `v` by at most `(G + 1)·2^128/2^133` plus one floor unit. -/
+def Wstep : Nat := 10633823967
+
+theorem Wstep_eq : Wstep = (Gstep + 1) / 2 ^ 5 + 1 := by unfold Wstep Gstep; rfl
+
+/-- The squared-argument step for adjacent same-octave inputs is bounded by `W`. -/
 theorem vTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
     (hk : int256 (kTree x1) = int256 (kTree x2))
     (hadj : int256 x2 = int256 x1 + 1) :
-    -((Gstep : Int) + 1) ≤ (vTree x2 : Int) - (vTree x1 : Int) ∧
-      (vTree x2 : Int) - (vTree x1 : Int) ≤ Gstep + 1 := by
+    -((Wstep : Int)) ≤ (vTree x2 : Int) - (vTree x1 : Int) ∧
+      (vTree x2 : Int) - (vTree x1 : Int) ≤ Wstep := by
   obtain ⟨htg1, htg2⟩ := tTree_step hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   obtain ⟨htlo1, hthi1⟩ := tTree_bound hx1 hC1 hC01
   obtain ⟨htlo2, hthi2⟩ := tTree_bound hx2 hC2 hC02
@@ -93,9 +99,9 @@ theorem vTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   obtain ⟨hvlo2, hvhi2⟩ := vTree_sandwich hx2 hC2 hC02
   have hGpos : (0 : Int) ≤ Gstep := by unfold Gstep; norm_num
   have hp127 : (2 : Int) ^ 127 = 170141183460469231731687303715884105728 := by norm_num
-  have hp128 : (2 : Int) ^ 128 = 340282366920938463463374607431768211456 := by norm_num
+  have hp133 : (2 : Int) ^ 133 = 10889035741470030830827987437816582766592 := by norm_num
   rw [hp127] at htlo1 hthi1 htlo2 hthi2
-  rw [hp128] at hvlo1 hvhi1 hvlo2 hvhi2
+  rw [hp133] at hvlo1 hvhi1 hvlo2 hvhi2
   set t1 := int256 (tTree x1)
   set t2 := int256 (tTree x2)
   set v1 := (vTree x1 : Int)
@@ -103,7 +109,9 @@ theorem vTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   -- `t2² − t1² = (t2 − t1)(t2 + t1)`, with `|t2 − t1| ≤ G + 1`, `|t1 + t2| < 2^128`.
   have hsqdiff : t2 ^ 2 - t1 ^ 2 = (t2 - t1) * (t2 + t1) := by ring
   have hGv : (Gstep : Int) = 340282366920 := by unfold Gstep; norm_num
-  rw [hGv] at htg1 htg2 ⊢
+  have hWv : (Wstep : Int) = 10633823967 := by unfold Wstep; norm_num
+  rw [hGv] at htg1 htg2
+  rw [hWv]
   constructor
   · nlinarith [hvlo1, hvhi1, hvlo2, hvhi2, htg1, htg2, htlo1, hthi1, htlo2, hthi2, hsqdiff]
   · nlinarith [hvlo1, hvhi1, hvlo2, hvhi2, htg1, htg2, htlo1, hthi1, htlo2, hthi2, hsqdiff]

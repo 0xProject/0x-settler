@@ -96,8 +96,9 @@ example (x1 x2 : Nat)
 Each bracket is stated on the runtime result `r` (`run_exp_ray_to_wad_evm x = .ok r`) against the
 target `E = 10¹⁸·exp(x/10²⁷)`. The pre-floor accumulator brackets `E` unconditionally
 (`accumReal_over`/`accumReal_under`: the cert `Floor.CapsV` against the exact rational
-`ê = NUM/DEN`, folded with the octave `2^k`, plus the reduced-argument and Horner-`sdiv`
-truncation envelopes the `MARGIN` absorbs), and below the clamp the target satisfies `E < 1`
+`ê = NUM/DEN`, folded with the octave `2^k`, plus the argument-granularity, reduced-argument and
+Horner-`sdiv` truncation envelopes the `MARGIN` absorbs), and below the clamp the target satisfies
+`E < 1`
 (`belowC_target_lt_one`), so the global brackets hold with no analytic hypothesis. -/
 
 /-- Global floor-or-one-less bracket. -/
@@ -129,8 +130,8 @@ Proved directly and axiom-clean:
 * `tTree_in_cert_domain` — the runtime reduced argument stays in the certificate domain
   `|tTree x| ≤ H128`, so the Taylor caps (`Floor.CapsV`) instantiate at `t := tTree x`;
 * `evTree_bracket` / `odTree_bracket` — the Horner-truncation bridge: the runtime even/odd
-  accumulators bracket the exact integer polynomials `evNumV`/`odNumV` (in `v = vTree x`) within `2`
-  units at the cleared scales `2^553`/`2^530`;
+  accumulators bracket the exact integer polynomials `evNumV`/`odNumV` (in `v = vTree x`) within
+  `≈1.008`/`≈1.002` units at the cleared scales `2^528`/`2^510`;
 * `belowC_target_lt_one` — below the clamp boundary the target satisfies `E < 1`;
 * `accumReal_over` / `accumReal_under` — the pre-floor accumulator never exceeds `E` and lies
   within one output unit below it. -/

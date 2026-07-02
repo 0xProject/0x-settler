@@ -29,7 +29,7 @@ theorem accumReal_eq {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     ∃ s : Nat, (s : Int) = 126 - int256 (kTree x) ∧
       accumReal x =
-        ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - (720143407370309279 : Real)) /
+        ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - (1015508772319713069 : Real)) /
           (2 ^ s : Real) := by
   obtain ⟨s, hseq, _, _, hsint⟩ := closing_shift hx hC hC0
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
@@ -39,7 +39,7 @@ theorem accumReal_eq {x : Nat} (hx : x < 2 ^ 256)
   rw [hseq]
   -- the integer shift argument has the closed value `WAD·r0 − MARGIN`
   have hwadc : (0xde0b6b3a7640000 : Int) = 1000000000000000000 := by norm_num
-  have hmarc : (0x9fe769d0fa58e9f : Int) = 720143407370309279 := by norm_num
+  have hmarc : (0xe17cfd91868d72d : Int) = 1015508772319713069 := by norm_num
   rw [hargeq, hwadc, hmarc]
   push_cast
   ring

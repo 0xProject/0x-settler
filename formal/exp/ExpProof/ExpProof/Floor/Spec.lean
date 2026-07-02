@@ -20,8 +20,8 @@ The two floor facts `(r : Real) ≤ A` and `A < (r : Real) + 1` (i.e. `r = ⌊A�
 from the `evmSar` sandwich. The relation between the *real-valued* runtime accumulator `A` and the
 target `E = WAD·exp(x/RAY)` — never-over `A ≤ E` and deficit-under-one `E < A + 1` — is not a
 runtime-plumbing fact; it is discharged in `Floor.R0BoundHolds` (`accumReal_over`/`accumReal_under`:
-the cert `Floor/CapsV` against the exact rational, plus the reduced-argument and Horner-truncation
-envelopes the `MARGIN` absorbs).
+the cert `Floor/CapsV` against the exact rational, plus the argument-granularity, reduced-argument
+and Horner-truncation envelopes the `MARGIN` absorbs).
 -/
 
 namespace ExpYul
@@ -81,7 +81,7 @@ A x = int256 (WAD·r0 − MARGIN) / 2^(126 − k).
 
 /-- The real pre-floor accumulator of the runtime body, as an explicit `Real`. -/
 def accumReal (x : Nat) : Real :=
-  (int256 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f) : Real) /
+  (int256 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xe17cfd91868d72d) : Real) /
     (2 ^ (evmSub 0x7e (kTree x)) : Real)
 
 /-- On the meaningful region the body word `r1Tree x` is the integer floor of its real accumulator
@@ -91,18 +91,18 @@ theorem r1Tree_floor_accum {x : Nat} (hx : x < 2 ^ 256)
     (int256 (r1Tree x) : Real) ≤ accumReal x ∧
       accumReal x < (int256 (r1Tree x) : Real) + 1 := by
   obtain ⟨s, hseq, hslo, hshi, _⟩ := closing_shift hx hC hC0
-  have hr1 : r1Tree x = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f) := by
+  have hr1 : r1Tree x = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xe17cfd91868d72d) := by
     have : r1Tree x = evmSar (evmSub 0x7e (kTree x))
-        (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f) := rfl
+        (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xe17cfd91868d72d) := rfl
     rw [this, hseq]
-  have hWw : evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f < 2 ^ 256 :=
+  have hWw : evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xe17cfd91868d72d < 2 ^ 256 :=
     evmSub_lt _ _
-  have hfloor := sar_real_floor (W := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f)
+  have hfloor := sar_real_floor (W := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xe17cfd91868d72d)
     (s := s) (by omega) hWw
   simp only at hfloor
   -- align `accumReal` (shift `evmSub 0x7e (kTree x)`) with the lemma's shift `s`
   have hAeq : accumReal x =
-      (int256 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f) : Real) /
+      (int256 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xe17cfd91868d72d) : Real) /
         (2 ^ s : Real) := by
     unfold accumReal; rw [hseq]
   rw [hAeq, hr1]

@@ -23,7 +23,7 @@ def kTree (x : Nat) : Nat :=
 def tTree (x : Nat) : Nat :=
   evmSar tArgShift (evmSub (evmMul k27Q235 x) (evmMul ln2Q235 (kTree x)))
 
-/-- `v = t^2` in Q128. -/
+/-- `v = t^2` in Q123. -/
 def vTree (x : Nat) : Nat := evmShr squareShift (evmMul (tTree x) (tTree x))
 
 /-- `Ev(v)`, the even Horner accumulator. -/
@@ -33,7 +33,7 @@ def evTree (x : Nat) : Nat :=
     (evmAdd ev3 (evmShr evShift3 (evmMul
     (evmAdd ev2 (evmShr evShift2 (evmMul
     (evmAdd ev1 (evmShr evShift1 (evmMul
-    (evmAdd ev0 (evmShr evShift0 v)) v))) v))) v))) v))
+    (evmAdd ev0 v) v))) v))) v))) v))
 
 /-- `Od(v)`, the odd Horner accumulator. -/
 def odTree (x : Nat) : Nat :=

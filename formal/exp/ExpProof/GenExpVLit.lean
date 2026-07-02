@@ -108,6 +108,14 @@ def numEqTac : String :=
 def denM1EqTac : String :=
   "  unfold certDenM1 denExpV evNumVPoly todNumV odNumVPoly mulT2\n  decide +kernel"
 
+/-- Tactic block proving `certDOver = certDOverLit`. -/
+def dOverEqTac : String :=
+  "  unfold certDOver evVPoly odVPoly\n  decide +kernel"
+
+/-- Tactic block proving `certDUnder = certDUnderLit`. -/
+def dUnderEqTac : String :=
+  "  unfold certDUnder evVPoly odVPoly\n  decide +kernel"
+
 #eval do
   let cUp := ptrim certExpUp
   let cLo := ptrim certExpLo
@@ -124,6 +132,8 @@ def denM1EqTac : String :=
       litText "certDenM1Lit" (ptrim certDenM1) ++
       litText "certExpUpLit" cUp ++
       litText "certExpLoLit" cLo ++
+      litText "certDOverLit" (ptrim certDOver) ++
+      litText "certDUnderLit" (ptrim certDUnder) ++
       "end ExpCertV\n")
   IO.println "v-form literals written"
   emit "certExpUpLit" "ExpVUp" "ExpVUpC" "expVUp_cell" "certExpUp_eq" "expVUpLit_nonneg"
@@ -134,3 +144,7 @@ def denM1EqTac : String :=
     "numExpV_nonneg" "numExpV" numEqTac (ptrim numExpV) 0 (H128 : Int)
   emit "certDenM1Lit" "ExpVDenM1" "ExpVDenM1C" "expVDenM1_cell" "certDenM1_eq" "denM1VLit_nonneg"
     "denM1V_nonneg" "certDenM1" denM1EqTac (ptrim certDenM1) 0 (H128 : Int)
+  emit "certDOverLit" "ExpVDOver" "ExpVDOverC" "expVDOver_cell" "certDOver_eq" "dOverVLit_nonneg"
+    "dOverV_nonneg" "certDOver" dOverEqTac (ptrim certDOver) 0 ((vmaxV : Int) + 1)
+  emit "certDUnderLit" "ExpVDUnder" "ExpVDUnderC" "expVDUnder_cell" "certDUnder_eq" "dUnderVLit_nonneg"
+    "dUnderV_nonneg" "certDUnder" dUnderEqTac (ptrim certDUnder) 0 ((vmaxV : Int) + 1)

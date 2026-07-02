@@ -11,8 +11,8 @@ below-clamp bound (`belowC_target_lt_one`) establish the never-over and deficit-
 about the real pre-floor accumulator unconditionally and axiom-clean, via the octave fold
 `E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 − k`, the closing shift; `k ≤ 63` so `s ≥ 63`).
 
-* `accumReal_over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` and `WAD·7201434073703092789/10000000000000000000 ≤ MARGIN`;
-* `accumReal_under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 13/2` and `(13/2)·WAD + MARGIN < 2⁶³ ≤ 2^s`.
+* `accumReal_over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 10155087723197130681/10000000000000000000` and `WAD·10155087723197130681/10000000000000000000 ≤ MARGIN`;
+* `accumReal_under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 67/10` and `(67/10)·WAD + MARGIN < 2⁶³ ≤ 2^s`.
 
 These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free.
 -/
@@ -38,12 +38,12 @@ theorem accumReal_over (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 
   have hover := r0_real_over_within hx hC hC0
   set Ert := Real.exp (reducedArg x) with hErt
   -- WAD·r0 − MARGIN ≤ WAD·2^126·Ert = E·2^s
-  have hbound : (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279 ≤
+  have hbound : (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 1015508772319713069 ≤
       expRayToWadTarget (int256 x) * (2 ^ s : Real) := by
     rw [hfold]
-    have hr0R : (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Ert + 7201434073703092789 / 10000000000000000000 := hover
+    have hr0R : (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Ert + 10155087723197130681 / 10000000000000000000 := hover
     have hscaled : (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) ≤
-        (10 ^ 18 : Real) * ((2 ^ 126 : Real) * Ert + 7201434073703092789 / 10000000000000000000) :=
+        (10 ^ 18 : Real) * ((2 ^ 126 : Real) * Ert + 10155087723197130681 / 10000000000000000000) :=
       mul_le_mul_of_nonneg_left hr0R (by norm_num)
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     rw [hwad]; nlinarith [hscaled]
@@ -61,24 +61,24 @@ theorem accumReal_under (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256
   set Ert := Real.exp (reducedArg x) with hErt
   -- E·2^s = WAD·2^126·Ert < WAD·r0 − MARGIN + 2^s
   have hbound : expRayToWadTarget (int256 x) * (2 ^ s : Real) <
-      ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) + (2 ^ s : Real) := by
+      ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 1015508772319713069) + (2 ^ s : Real) := by
     rw [hfold]
-    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 13 / 2 := hunder
+    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 67 / 10 := hunder
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     have hs63 : (63 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
     have hs63n : 63 ≤ s := by exact_mod_cast hs63
     have hpow : (2 ^ 63 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs63n
     rw [hwad]
     have h8wad : (10 ^ 18 : Real) * ((2 ^ 126 : Real) * Ert) ≤
-        (10 ^ 18 : Real) * ((int256 (r0Tree x) : Real) + 13 / 2) :=
+        (10 ^ 18 : Real) * ((int256 (r0Tree x) : Real) + 67 / 10) :=
       mul_le_mul_of_nonneg_left (by linarith [hr0R]) (by norm_num)
-    have hbudget : (10 ^ 18 : Real) * (13 / 2) + 720143407370309279 < (2 ^ 63 : Real) := by norm_num
+    have hbudget : (10 ^ 18 : Real) * (67 / 10) + 1015508772319713069 < (2 ^ 63 : Real) := by norm_num
     nlinarith [h8wad, hbudget, hpow]
   -- E < accumReal + 1  ⟺  E·2^s < (WAD·r0 − MARGIN) + 2^s
   rw [hAeq]
-  have hdiv : ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) /
+  have hdiv : ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 1015508772319713069) /
       (2 ^ s : Real) + 1 =
-      (((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) + (2 ^ s : Real)) /
+      (((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 1015508772319713069) + (2 ^ s : Real)) /
         (2 ^ s : Real) := by field_simp
   rw [hdiv, lt_div_iff₀ hps]; linarith [hbound]
 

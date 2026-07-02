@@ -35,8 +35,8 @@ theorem r0_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hk : int256 (kTree x1) = int256 (kTree x2))
     (hadj : int256 x2 = int256 x1 + 1) :
     int256 (r0Tree x1) ≤ int256 (r0Tree x2) := by
-  have hv1 : vTree x1 < 2 ^ 126 := (vTree_eq hx1 hC1 hC01).2
-  have hv2 : vTree x2 < 2 ^ 126 := (vTree_eq hx2 hC2 hC02).2
+  have hv1 : vTree x1 < 2 ^ 120 := (vTree_eq hx1 hC1 hC01).2
+  have hv2 : vTree x2 < 2 ^ 120 := (vTree_eq hx2 hC2 hC02).2
   obtain ⟨hev1lo, hev1hi⟩ := evTree_int hv1
   obtain ⟨hev2lo, hev2hi⟩ := evTree_int hv2
   obtain ⟨htod1lo, htod1hi⟩ := todTree_cross_bounds hx1 hC1 hC01
@@ -90,14 +90,14 @@ theorem r1_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hk2w : kTree x2 < 2 ^ 256 := by unfold kTree; exact evmSar_lt _ _
   have hseq := closing_shift_eq hk hk1w hk2w
   obtain ⟨s, hseqx, hslo, hshi, _⟩ := closing_shift hx1 hC1 hC01
-  have hr1eq1 : r1Tree x1 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f) := by
+  have hr1eq1 : r1Tree x1 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xe17cfd91868d72d) := by
     unfold r1Tree; rw [hseqx]
-  have hr1eq2 : r1Tree x2 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f) := by
+  have hr1eq2 : r1Tree x2 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xe17cfd91868d72d) := by
     unfold r1Tree; rw [← hseq, hseqx]
   rw [hr1eq1, hr1eq2]
   -- the two shift arguments, transported to `Int`, are ordered (monotone `r0`)
-  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f with harg1
-  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f with harg2
+  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xe17cfd91868d72d with harg1
+  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xe17cfd91868d72d with harg2
   have hargle : int256 arg1 ≤ int256 arg2 := by
     rw [harg1eq, harg2eq]
     have hwad : (0 : Int) ≤ 0xde0b6b3a7640000 := by norm_num
