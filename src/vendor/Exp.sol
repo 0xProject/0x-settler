@@ -8,11 +8,10 @@ library Exp {
     ///         result as a fixnum with 10**18 (wad) basis.
     /// @dev Let E = 10¹⁸ ⋅ exp(x / 10²⁷) be the exact, infinite-precision result. This function
     ///      returns either ⌊E⌋ or ⌊E⌋ - 1; it never overestimates. `expRayToWad(0) == 10**18`
-    ///      exactly, and the result is never negative. The function is monotonic; x₁ < x₂ →
-    ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For canonical central wad inputs
-    ///      707106781186547525 ≤ w ≤ 1414213562373095048,
-    ///      `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it returns w. Reverts
-    ///      with `Panic(17)` when x is large enough to leave the supported range
+    ///      exactly. The result is never negative. The function is monotonic; x₁ < x₂ →
+    ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For "central" inputs 707106781186547525 ≤ w ≤
+    ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
+    ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256 r) {
         // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64, where the deficit
