@@ -3,17 +3,17 @@ import ExpProof.Mono.RegionMono
 /-!
 # The octave-seam step from the `r0` doubling bound
 
-Across a seam (`k` advances by one, `int256 x2 = int256 x1 + 1`) the closing shift `126 − k` drops
+Across a seam (`k` advances by one, `int256 x2 = int256 x1 + 1`) the closing shift `108 − k` drops
 exactly one bit, so with the same shift argument `arg = WAD·r0 − MARGIN` the floor identity
 
 ```
 r1Tree x2 = ⌊arg2 / 2^(s−1)⌋ = ⌊2·arg2 / 2^s⌋ ≥ ⌊arg1 / 2^s⌋ = r1Tree x1   ⟸   arg1 ≤ 2·arg2
 ```
 
-reduces the seam step to `arg1 ≤ 2·arg2`, which (since `MARGIN < 2·WAD`) follows from the **`r0`
+reduces the seam step to `arg1 ≤ 2·arg2`, which (since `MARGIN ≤ 2·WAD`) follows from the **`r0`
 doubling bound** `r0Tree x1 + 2 ≤ 2·r0Tree x2` (`SeamR0Bound`; the comparison consumes two
 integer units of the doubling gap because the margin exceeds one wad unit). The reduction is assembled over the
-opaque shift-argument words (`seam_close`), so the deep `evmSar`/`evmSub`/`evmMul` tree behind
+opaque shift-argument words (`seam_close`), so the deep `evmShr`/`evmSub`/`evmMul` tree behind
 `r1Tree` is never forced into whnf.
 -/
 
@@ -39,35 +39,48 @@ def SeamR0Bound : Prop :=
     int256 x2 = int256 x1 + 1 →
     int256 (r0Tree x1) + 2 ≤ 2 * int256 (r0Tree x2)
 
-/-- Abstract seam floor reduction over opaque shift-argument words and shift amounts. With the
-closing shift dropping one bit (`s2 + 1 = s1`) and `arg1 ≤ 2·arg2`, the two arithmetic-shift floors
-are `≤`-ordered: `⌊arg1 / 2^s1⌋ ≤ ⌊arg2 / 2^(s1−1)⌋`. -/
+/-- Abstract seam floor reduction over opaque nonnegative shift-argument words and shift amounts.
+With the closing shift dropping one bit (`s2 + 1 = s1`) and `arg1 ≤ 2·arg2`, the two logical-shift
+floors are `≤`-ordered: `⌊arg1 / 2^s1⌋ ≤ ⌊arg2 / 2^(s1−1)⌋`. -/
 theorem seam_close {arg1 arg2 s1 s2 : Nat}
     (ha1 : arg1 < 2 ^ 256) (ha2 : arg2 < 2 ^ 256)
     (hs1 : s1 < 256) (hs2 : s2 < 256) (hseq : s2 + 1 = s1)
+    (hnn1 : 0 ≤ int256 arg1) (hnn2 : 0 ≤ int256 arg2)
     (hle : int256 arg1 ≤ 2 * int256 arg2) :
-    int256 (evmSar s1 arg1) ≤ int256 (evmSar s2 arg2) := by
-  obtain ⟨_, hsl1, _⟩ := evmSar_sandwich (s := s1) hs1 ha1
-  obtain ⟨_, _, hsh2⟩ := evmSar_sandwich (s := s2) hs2 ha2
-  have hpow : (2 : Int) ^ s1 = 2 * 2 ^ s2 := by rw [← hseq, pow_succ]; ring
-  have hp2 : (0 : Int) < 2 ^ s2 := by positivity
-  set R1 := int256 (evmSar s1 arg1)
-  set R2 := int256 (evmSar s2 arg2)
-  -- `2^s1·R1 ≤ arg1 ≤ 2·arg2 < 2·(2^s2·R2 + 2^s2) = 2^s1·R2 + 2^s1` ⇒ `R1 < R2 + 1` ⇒ `R1 ≤ R2`.
-  rw [hpow] at hsl1
-  nlinarith [hsl1, hsh2, hle, hp2]
+    int256 (evmShr s1 arg1) ≤ int256 (evmShr s2 arg2) := by
+  obtain ⟨he1, hlt1⟩ := int256_eq_of_nonneg ha1 hnn1
+  obtain ⟨he2, hlt2⟩ := int256_eq_of_nonneg ha2 hnn2
+  have hleN : arg1 ≤ 2 * arg2 := by
+    have : ((arg1 : Nat) : Int) ≤ ((2 * arg2 : Nat) : Int) := by
+      rw [← he1]; push_cast; rw [← he2]; exact hle
+    exact_mod_cast this
+  rw [evmShr_eq_div hs1 ha1, evmShr_eq_div hs2 ha2]
+  -- ⌊arg1 / 2^s1⌋ ≤ ⌊2·arg2 / 2^s1⌋ = ⌊arg2 / 2^s2⌋
+  have hkey : 2 * arg2 / 2 ^ s1 = arg2 / 2 ^ s2 := by
+    rw [← hseq, pow_succ, Nat.mul_comm (2 ^ s2) 2, Nat.mul_div_mul_left arg2 (2 ^ s2) (by norm_num)]
+  have hqle : arg1 / 2 ^ s1 ≤ arg2 / 2 ^ s2 := by
+    rw [← hkey]
+    exact Nat.div_le_div_right hleN
+  have hq1lt : arg1 / 2 ^ s1 < 2 ^ 255 := by
+    have := Nat.div_le_self arg1 (2 ^ s1)
+    omega
+  have hq2lt : arg2 / 2 ^ s2 < 2 ^ 255 := by
+    have := Nat.div_le_self arg2 (2 ^ s2)
+    omega
+  rw [int256_of_lt hq1lt, int256_of_lt hq2lt]
+  exact_mod_cast hqle
 
-/-- The closing shifts at a seam differ by one (`s2 = s1 − 1`), both in `[63, 187]`. -/
+/-- The closing shifts at a seam differ by one (`s2 = s1 − 1`), both in `[45, 169]`. -/
 theorem seam_closing_shifts {x1 x2 : Nat}
     (hx1 : x1 < 2 ^ 256) (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hx2 : x2 < 2 ^ 256) (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
     (hk : int256 (kTree x2) = int256 (kTree x1) + 1) :
-    ∃ s1 s2 : Nat, evmSub 0x7e (kTree x1) = s1 ∧ evmSub 0x7e (kTree x2) = s2 ∧
+    ∃ s1 s2 : Nat, evmSub 0x6c (kTree x1) = s1 ∧ evmSub 0x6c (kTree x2) = s2 ∧
       s1 < 256 ∧ s2 < 256 ∧ s2 + 1 = s1 := by
   obtain ⟨s1, hs1eq, _, hs1hi, hs1int⟩ := closing_shift hx1 hC1 hC01
   obtain ⟨s2, hs2eq, hs2lo, _, hs2int⟩ := closing_shift hx2 hC2 hC02
   refine ⟨s1, s2, hs1eq, hs2eq, by omega, by omega, ?_⟩
-  -- `(s2 : Int) + 1 = 126 − k2 + 1 = 126 − k1 = (s1 : Int)`
+  -- `(s2 : Int) + 1 = 108 − k2 + 1 = 108 − k1 = (s1 : Int)`
   have : (s2 : Int) + 1 = (s1 : Int) := by rw [hs1int, hs2int, hk]; ring
   omega
 
@@ -84,26 +97,27 @@ theorem seamStep_of_r0 (hr0 : SeamR0Bound) {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (h
     seam_closing_shifts hx1 hC1 hC01 hx2 hC2 hC02 hk
   obtain ⟨hr0lo1, hr0hi1⟩ := r0Tree_bounds hx1 hC1 hC01
   obtain ⟨hr0lo2, hr0hi2⟩ := r0Tree_bounds hx2 hC2 hC02
-  obtain ⟨harg1eq, _, _⟩ := shiftArg_bounds_of (r0 := r0Tree x1) (r0Tree_lt x1) hr0lo1 hr0hi1
-  obtain ⟨harg2eq, _, _⟩ := shiftArg_bounds_of (r0 := r0Tree x2) (r0Tree_lt x2) hr0lo2 hr0hi2
+  obtain ⟨harg1eq, harg1nn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x1) (r0Tree_lt x1) hr0lo1 hr0hi1
+  obtain ⟨harg2eq, harg2nn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x2) (r0Tree_lt x2) hr0lo2 hr0hi2
   have hr1eq1 : r1Tree x1 =
-      evmSar s1 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xe17cfd91868d72d) := by
+      evmShr s1 (evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf) := by
     unfold r1Tree; rw [hs1eq]
   have hr1eq2 : r1Tree x2 =
-      evmSar s2 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xe17cfd91868d72d) := by
+      evmShr s2 (evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf) := by
     unfold r1Tree; rw [hs2eq]
   rw [hr1eq1, hr1eq2]
   -- name the deep shift arguments opaquely before feeding the floor lemma
-  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xe17cfd91868d72d with harg1def
-  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xe17cfd91868d72d with harg2def
+  set arg1 := evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf with harg1def
+  set arg2 := evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf with harg2def
   have hr0bound : int256 (r0Tree x1) + 2 ≤ 2 * int256 (r0Tree x2) :=
     hr0 hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   have hargle : int256 arg1 ≤ 2 * int256 arg2 := by
-    rw [harg1eq, harg2eq, show (0xde0b6b3a7640000 : Int) = 1000000000000000000 by norm_num,
-      show (0xe17cfd91868d72d : Int) = 1015508772319713069 by norm_num]
+    rw [harg1eq, harg2eq, show (0x3782dace9d9 : Int) = 3814697265625 by norm_num,
+      show (0x37c9ed9cabf : Int) = 3833775901375 by norm_num]
     -- `WAD·r0a − M ≤ 2·(WAD·r0b − M)` ⟸ `WAD·r0a + M ≤ 2·WAD·r0b` ⟸ `r0a ≤ 2·r0b − 2` and `M ≤ 2·WAD`
     nlinarith [hr0bound]
-  exact seam_close (harg1def ▸ evmSub_lt _ _) (harg2def ▸ evmSub_lt _ _) hs1lt hs2lt hseq hargle
+  exact seam_close (harg1def ▸ evmSub_lt _ _) (harg2def ▸ evmSub_lt _ _) hs1lt hs2lt hseq
+    (by rw [harg1eq]; exact harg1nn) (by rw [harg2eq]; exact harg2nn) hargle
 
 /-- The seam step (`SeamStep`) follows from the `r0` doubling bound. -/
 theorem seamStep_of_seamR0 (hr0 : SeamR0Bound) : SeamStep :=

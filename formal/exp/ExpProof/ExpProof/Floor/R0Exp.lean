@@ -12,18 +12,18 @@ This module bounds the Q126 quotient `r0Tree x` above by `2¹²⁶·exp(rt)` plu
 (`rt = X/RAY − k·ln2` the reduced argument), the analytic content the floor brackets
 (`Floor.R0BoundHolds`) consume. The chain has four links:
 
-1. **`r0` vs `ê(v)`** — Horner stage truncation and the closing `sdiv` floor only: the runtime
+1. **`r0` vs `ê(v)`** — Horner stage truncation and the closing `div` floor only: the runtime
    accumulators bracket the exact integer polynomials (`evTree_bracket`/`odTree_bracket`), and the
    shared even truncation cancels through the floor, leaving the jitter
    `≤ 6207065162659510332/10¹⁹`;
 2. **`ê(v)` vs `ê(t²)`** — the argument-granularity link (`Floor.GranV`): one `v`-grid grain,
-   `≤ 3395595387735630095/10¹⁹` on this half;
+   `≤ 3290521163436398582/10¹⁹` on this half (the 32-piece certified envelope);
 3. **`ê(t²)` vs `exp(t/2¹²⁸)`** — the `2⁻¹³¹`-nudged Taylor cut (`Floor.CapsV`), the `Mp` factor
    `≤ 441941738241592203/10¹⁹`;
 4. **`exp(t/2¹²⁸)` vs `exp(rt)`** — the reduced-argument gap (`Floor.Reduce`),
    `≤ 110485434560398051/10¹⁹`.
 
-The total is the budget `B = 10155087723197130681/10¹⁹`; `MARGIN = ⌊10¹⁸·B⌋ + 1`. On the `t ≤ 0`
+The total is the budget `B = 10050013498897899168/10¹⁹`; `MARGIN = ⌊5¹⁸·B⌋ + 1`. On the `t ≤ 0`
 half link 2 is free (the grain moves `ê` the other way) and links 3–4 shrink (`ê ≤ 1`), so the same
 `B` covers both halves.
 -/
@@ -38,7 +38,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1600000
 set_option exponentiation.threshold 2000
 
-/-! ## The `sdiv` floor sandwich -/
+/-! ## The `div` floor sandwich -/
 
 /-- The Q126 quotient is the integer floor: `r0·den_rt ≤ 2¹²⁶·num_rt < (r0+1)·den_rt` with
 `num_rt = ev + tod`, `den_rt = ev − tod`. -/
@@ -71,12 +71,12 @@ theorem r0_floor_sandwich {x : Nat} (hx : x < 2 ^ 256)
     nlinarith [this, ht125]
   have hshl : int256 (evmShl 0x7e num) = 2 ^ 0x7e * int256 num :=
     shl126_transport hnumw (by rw [hnumi]; omega) hnumlt128
-  -- r0 = sdiv (shl 126 num) den, with both operands positive
-  have hr0eq : r0Tree x = evmSdiv (evmShl 0x7e num) den := rfl
+  -- r0 = div (shl 126 num) den, with both operands positive
+  have hr0eq : r0Tree x = evmDiv (evmShl 0x7e num) den := rfl
   have hshlw : evmShl 0x7e num < 2 ^ 256 := evmShl_lt _ _
   have hshlpos : 0 ≤ int256 (evmShl 0x7e num) := by rw [hshl, hnumi]; positivity
   have hdenpos' : 0 < int256 den := by rw [hdeni]; omega
-  have hdiv := evmSdiv_pos_pos hshlw hdenw hshlpos hdenpos'
+  have hdiv := evmDiv_pos_pos hshlw hdenw hshlpos hdenpos'
   rw [← hr0eq] at hdiv
   -- toNat values
   have hshl_toNat : (int256 (evmShl 0x7e num)).toNat = (evmShl 0x7e num) := by
@@ -674,12 +674,12 @@ theorem Qv_le_14145 {x : Nat} (hx : x < 2 ^ 256)
       apply mul_le_mul (le_trans hEtsqrt2 hsqrt2_val) hMp_le (by positivity) (by norm_num)
     have h2 : (14143 / 10000 : Real) * (14144 / 14143) = 14144 / 10000 := by norm_num
     linarith [hNEDE_le, h1, h2 ▸ h1]
-  -- add the grain: 2^126·Qv ≤ 2^126·(NE/DE) + 0.34 ⟹ Qv ≤ 14144/10000 + 0.34/2^126 ≤ 14145/10000
+  -- add the grain: 2^126·Qv ≤ 2^126·(NE/DE) + 0.33 ⟹ Qv ≤ 14144/10000 + 0.33/2^126 ≤ 14145/10000
   have h2126 : (2 ^ 126 : Real) * ((NUMv (vTree x) t : Real) / (DENv (vTree x) t : Real)) ≤
-      (2 ^ 126 : Real) * (14144 / 10000) + 3395595387735630095 / 10000000000000000000 := by
+      (2 ^ 126 : Real) * (14144 / 10000) + 3290521163436398582 / 10000000000000000000 := by
     have := mul_le_mul_of_nonneg_left hNEDE14144 (by positivity : (0:Real) ≤ (2:Real) ^ 126)
     linarith [hgran, this]
-  have hfin : (2 ^ 126 : Real) * (14144 / 10000) + 3395595387735630095 / 10000000000000000000 ≤
+  have hfin : (2 ^ 126 : Real) * (14144 / 10000) + 3290521163436398582 / 10000000000000000000 ≤
       (2 ^ 126 : Real) * (14145 / 10000) := by norm_num
   have hp : (0:Real) < (2 ^ 126 : Real) := by positivity
   exact le_of_mul_le_mul_left (le_trans h2126 hfin) hp
@@ -816,13 +816,13 @@ theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
           mul_le_mul_of_nonneg_left hDENlowR (by norm_num)
 
 /-- **The per-point never-over (nonneg half).** `r0 ≤ 2¹²⁶·exp(rt) + B` with the four-link budget
-`B = 10155087723197130681/10¹⁹`: link-1 jitter `≤ 0.6207…`, granularity `≤ 0.3396…`, the `Mp`
+`B = 10050013498897899168/10¹⁹`: link-1 jitter `≤ 0.6207…`, granularity `≤ 0.3291…`, the `Mp`
 factor `≤ √2·2¹²⁶/(2¹³¹−1) ≤ 0.0442…`, and the reduced-argument gap `≤ √2/128 ≤ 0.0111…`. -/
 theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htnn : 0 ≤ int256 (tTree x)) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-      10155087723197130681 / 10000000000000000000 := by
+      10050013498897899168 / 10000000000000000000 := by
   obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
   have hvle := vTree_le_vmax hx hC hC0
   set t := int256 (tTree x) with htdef
@@ -924,17 +924,17 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
   calc (r0 : Real) ≤ (2 ^ 126 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
         6207065162659510332 / 10000000000000000000 := hlink1
     _ ≤ ((2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) +
-          3395595387735630095 / 10000000000000000000) +
+          3290521163436398582 / 10000000000000000000) +
         6207065162659510332 / 10000000000000000000 := by linarith [hgran]
     _ ≤ (((2 ^ 126 : Real) * Et + 441941738241592203 / 10000000000000000000) +
-          3395595387735630095 / 10000000000000000000) +
+          3290521163436398582 / 10000000000000000000) +
         6207065162659510332 / 10000000000000000000 := by linarith [hNEMp, hcMp]
     _ ≤ ((((2 ^ 126 : Real) * Ert + 110485434560398051 / 10000000000000000000) +
           441941738241592203 / 10000000000000000000) +
-          3395595387735630095 / 10000000000000000000) +
+          3290521163436398582 / 10000000000000000000) +
         6207065162659510332 / 10000000000000000000 := by linarith [hEtErt]
     _ = (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-        10155087723197130681 / 10000000000000000000 := by rw [hErtdef]; ring
+        10050013498897899168 / 10000000000000000000 := by rw [hErtdef]; ring
 
 /-! ## The per-point never-over (nonpositive half) -/
 
@@ -1012,7 +1012,7 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htneg : int256 (tTree x) ≤ 0) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-      10155087723197130681 / 10000000000000000000 := by
+      10050013498897899168 / 10000000000000000000 := by
   have htdom := tdom_neg hx hC hC0 htneg
   have hvle := vTree_le_vmax hx hC hC0
   set t := int256 (tTree x) with htdef
@@ -1105,29 +1105,30 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
           441941738241592203 / 10000000000000000000) +
         6207065162659510332 / 10000000000000000000 := by linarith [hEtErt]
     _ ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-        10155087723197130681 / 10000000000000000000 := by
+        10050013498897899168 / 10000000000000000000 := by
         rw [hErtdef]
         have : (110485434560398051 : Real) / 10000000000000000000 +
             441941738241592203 / 10000000000000000000 +
             6207065162659510332 / 10000000000000000000 ≤
-            10155087723197130681 / 10000000000000000000 := by norm_num
+            10050013498897899168 / 10000000000000000000 := by norm_num
         linarith [this]
 
 /-- **Per-point never-over (tight, any sign):** `r0 ≤ 2¹²⁶·exp(rt) + B` (`WAD·B < MARGIN`). -/
 theorem r0_real_over_within {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-      10155087723197130681 / 10000000000000000000 := by
+      10050013498897899168 / 10000000000000000000 := by
   rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
   · exact r0_real_over_tight hx hC hC0 htnn
   · exact r0_real_over_tight_neg hx hC hC0 (le_of_lt htneg)
 
-/-! ## The octave real identity `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`
+/-! ## The octave real identity `E·2^(108−k) = WAD·2¹⁰⁸·exp(rt)`
 
 The target `E = WAD·exp(X/RAY)`. With `rt = X/RAY − k·ln2` the reduced argument, `exp(X/RAY) =
-exp(rt)·2^k`, so the closing-shift fold `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`. This collapses the
-never-over/deficit inequalities (stated against `E·2^s`, `s = 126 − k`) onto the clean
-octave-independent relation `r0 ≈ 2¹²⁶·exp(rt)`. -/
+exp(rt)·2^k`, so the closing-shift fold `E·2^(108−k) = WAD·2¹⁰⁸·exp(rt)` (and `WAD·2¹⁰⁸ = 5¹⁸·2¹²⁶`,
+the `5¹⁸·2¹⁰⁸` output grid's image of the Q126 quotient). This collapses the never-over/deficit
+inequalities (stated against `E·2^s`, `s = 108 − k`) onto the clean octave-independent relation
+`r0 ≈ 2¹²⁶·exp(rt)`. -/
 
 /-- `exp(X/RAY) = exp(rt)·2^k` (`k = int256 (kTree x)`, possibly negative; `2^k` is a real `zpow`). -/
 theorem exp_X_over_RAY (x : Nat) :
@@ -1141,24 +1142,24 @@ theorem exp_X_over_RAY (x : Nat) :
       unfold reducedArg; ring,
     Real.exp_add, hlog]
 
-/-- **The octave fold of the target.** `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`, with `s = 126 − k` the
+/-- **The octave fold of the target.** `E·2^(108−k) = WAD·2¹⁰⁸·exp(rt)`, with `s = 108 − k` the
 closing shift. -/
-theorem target_octave_fold {x : Nat} (s : Nat) (hs : (s : Int) = 126 - int256 (kTree x)) :
+theorem target_octave_fold {x : Nat} (s : Nat) (hs : (s : Int) = 108 - int256 (kTree x)) :
     expRayToWadTarget (int256 x) * (2 ^ s : Real) =
-      (WAD : Real) * (2 ^ 126 : Real) * Real.exp (reducedArg x) := by
+      (WAD : Real) * (2 ^ 108 : Real) * Real.exp (reducedArg x) := by
   unfold expRayToWadTarget
   rw [show (RAY : Real) = (10 ^ 27 : Real) from by unfold RAY; norm_num, exp_X_over_RAY x]
-  -- 2^k · 2^s = 2^126 with k+s = 126 (k : Int, s : Nat).
+  -- 2^k · 2^s = 2^108 with k+s = 108 (k : Int, s : Nat).
   set k := int256 (kTree x) with hkdef
-  have hks : k + (s : Int) = 126 := by omega
-  have hpow : (2 : Real) ^ k * (2 : Real) ^ (s : Nat) = (2 : Real) ^ (126 : Nat) := by
+  have hks : k + (s : Int) = 108 := by omega
+  have hpow : (2 : Real) ^ k * (2 : Real) ^ (s : Nat) = (2 : Real) ^ (108 : Nat) := by
     rw [show ((2 : Real) ^ (s : Nat)) = (2 : Real) ^ (s : Int) from by
       rw [zpow_natCast], ← zpow_add₀ (by norm_num : (2:Real) ≠ 0), hks]
     norm_num
   rw [show ((2 ^ s : Real)) = (2 : Real) ^ (s : Nat) from by norm_num]
   calc (WAD : Real) * (Real.exp (reducedArg x) * (2 : Real) ^ k) * (2 : Real) ^ (s : Nat)
       = (WAD : Real) * ((2 : Real) ^ k * (2 : Real) ^ (s : Nat)) * Real.exp (reducedArg x) := by ring
-    _ = (WAD : Real) * (2 ^ 126 : Real) * Real.exp (reducedArg x) := by
+    _ = (WAD : Real) * (2 ^ 108 : Real) * Real.exp (reducedArg x) := by
           rw [hpow]
 
 end

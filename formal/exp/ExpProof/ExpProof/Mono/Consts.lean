@@ -40,8 +40,9 @@ abbrev odShift4 : Nat := 0x82
 
 abbrev todShift : Nat := 0x80
 abbrev expQShift : Nat := 0x7e
-abbrev wadWord : Nat := 0xde0b6b3a7640000
-abbrev marginWord : Nat := 0xe17cfd91868d72d
+abbrev foldShift : Nat := 0x6c
+abbrev wadWord : Nat := 0x3782dace9d9
+abbrev marginWord : Nat := 0x37c9ed9cabf
 
 theorem int256_Cmask : int256 Cmask = -41446531673892822312323846185 := by
   unfold Cmask int256

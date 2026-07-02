@@ -7,12 +7,12 @@ This module contains the counterpart to the never-over `r0_real_over_within`: th
 `2¹²⁶·exp(rt) ≤ r0 + 67/10` (`r0_real_under_within`), both signs, with the same four-link chain:
 
 1. link-1 deficit against the grid rational, `≤ 6001/1000`;
-2. the argument granularity (`Floor.GranV`) — free on the `t ≥ 0` half, `≤ 1685843742692980488/10¹⁹`
+2. the argument granularity (`Floor.GranV`) — free on the `t ≥ 0` half, `≤ 1644901622230542074/10¹⁹`
    (`Mp`-folded) on the `t ≤ 0` half;
 3. the `Mp` factor, `≤ 1/20` (via `r0 ≤ 1.45·2¹²⁶`);
 4. the under-direction reduced-argument gap, `≤ 37/100` (via `exp(rt) ≤ √2·(1+ε)`).
 
-The sum `6001/1000 + 1/20 + 1685843742692980488/10¹⁹ + 37/100 ≤ 67/10` feeds the `k = 63` deficit
+The sum `6001/1000 + 1/20 + 1644901622230542074/10¹⁹ + 37/100 ≤ 67/10` feeds the `k = 63` deficit
 envelope `((67/10)·10¹⁸ + MARGIN)/2⁶³ < 1`. The module closes with the octave-seam `r0`-doubling
 bound `r0₁ + 2 ≤ 2·r0₂` (`SeamR0Bound`), where the `1 − exp(−1/RAY)` seam slack (≈ `1.7·10¹¹` grid
 units against `r0₂ > 2¹²⁴`) dwarfs both per-point budgets and the two integer units.
@@ -375,7 +375,7 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
 /-! ## The per-point deficit (nonpositive half) -/
 
 /-- **The per-point deficit (nonpositive half).** `2¹²⁶·exp(rt) ≤ r0 + 67/10`: link-1 `≤ 6001/1000`,
-the `Mp`-folded granularity `≤ 1685843742692980488/10¹⁹`, the `Mp` factor `≤ 1/20`
+the `Mp`-folded granularity `≤ 1644901622230542074/10¹⁹`, the `Mp` factor `≤ 1/20`
 (via `r0 ≤ 2¹²⁶`), the under gap `≤ 37/100`. -/
 theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
@@ -424,7 +424,7 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     push_cast at h
     linarith [h]
   have hEt_bound : (2 ^ 126 : Real) * Et ≤ (r0 : Real) + 6001 / 1000 + 1 / 20 +
-      1685843742692980488 / 10000000000000000000 := by
+      1644901622230542074 / 10000000000000000000 := by
     have h1 : (2 ^ 126 : Real) * Et ≤ (2 ^ 126 : Real) * (((NE : Real) / (DE : Real)) * Mp) :=
       mul_le_mul_of_nonneg_left hEt_le (by positivity)
     -- split: 2^126·(NE/DE)·Mp = 2^126·Qv + 2^126·Qv·(Mp−1) + 2^126·Mp·(NE/DE − Qv)
@@ -466,7 +466,7 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
   have hdist : (2 ^ 126 : Real) * Ert = (2 ^ 126 : Real) * Et + (2 ^ 126 : Real) * (Ert - Et) := by
     ring
   show (2 ^ 126 : Real) * Ert ≤ (r0 : Real) + 67 / 10
-  have hsum : (6001 : Real) / 1000 + 1 / 20 + 1685843742692980488 / 10000000000000000000 +
+  have hsum : (6001 : Real) / 1000 + 1 / 20 + 1644901622230542074 / 10000000000000000000 +
       37 / 100 ≤ 67 / 10 := by norm_num
   linarith [hEt_bound, hgap126, hdist, hsum]
 
@@ -542,10 +542,10 @@ theorem r0_seam_double {x1 x2 : Nat}
   have hE2bound : (2 ^ 126 : Real) * E2 ≤ (int256 (r0Tree x2) : Real) + 67 / 10 := hunder2
   have hr0_1 : (int256 (r0Tree x1) : Real) ≤
       2 * ((int256 (r0Tree x2) : Real) + 67 / 10) * y +
-        10155087723197130681 / 10000000000000000000 := by
+        10050013498897899168 / 10000000000000000000 := by
     have h1 : (2 ^ 126 : Real) * E1 = 2 * ((2 ^ 126 : Real) * E2) * y := by rw [hseam]; ring
     have h2 : (int256 (r0Tree x1) : Real) ≤ (2 ^ 126 : Real) * E1 +
-        10155087723197130681 / 10000000000000000000 := hover1
+        10050013498897899168 / 10000000000000000000 := hover1
     rw [h1] at h2
     have h3 : 2 * ((2 ^ 126 : Real) * E2) * y ≤ 2 * ((int256 (r0Tree x2) : Real) + 67 / 10) * y :=
       mul_le_mul_of_nonneg_right
@@ -555,7 +555,7 @@ theorem r0_seam_double {x1 x2 : Nat}
   have hr0_2nn : (0:Real) ≤ (int256 (r0Tree x2) : Real) := by
     linarith [hr0_2_big, (by positivity : (0:Real) ≤ (2:Real)^124)]
   have hkey : 2 * ((int256 (r0Tree x2) : Real) + 67 / 10) * y +
-      10155087723197130681 / 10000000000000000000 + 2 < 2 * (int256 (r0Tree x2) : Real) := by
+      10050013498897899168 / 10000000000000000000 + 2 < 2 * (int256 (r0Tree x2) : Real) := by
     -- the seam gap is dominated by `(r0 + 67/10) / RAY`; the quotient exceeds `1562` here
     have hyb : 2 * ((int256 (r0Tree x2) : Real) + 67 / 10) * y ≤
         2 * ((int256 (r0Tree x2) : Real) + 67 / 10) * (1 - 1 / (2 * (10 ^ 27 : Real))) :=

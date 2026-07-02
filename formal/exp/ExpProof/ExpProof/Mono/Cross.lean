@@ -62,7 +62,7 @@ theorem shl126_transport {N : Nat} (hNw : N < 2 ^ 256) (hNnn : 0 ≤ int256 N)
   push_cast; ring
 
 /-- Abstract `r0` monotonicity from the `tod·ev` cross inequality, over opaque even/odd words.
-Given the numerator/denominator positivity and `tod1·ev2 ≤ tod2·ev1`, the two `sdiv` quotients are
+Given the numerator/denominator positivity and `tod1·ev2 ≤ tod2·ev1`, the two `div` quotients are
 `≤`-ordered. -/
 theorem r0_mono_of_cross {E1 TD1 E2 TD2 : Nat}
     (hE1 : E1 < 2 ^ 256) (hTD1 : TD1 < 2 ^ 256) (hE2 : E2 < 2 ^ 256) (hTD2 : TD2 < 2 ^ 256)
@@ -75,8 +75,8 @@ theorem r0_mono_of_cross {E1 TD1 E2 TD2 : Nat}
     (htod2_lo : -(42535295865117307932921825928971026432 : Int) ≤ int256 TD2)
     (htod2_hi : int256 TD2 < 42535295865117307932921825928971026432)
     (hcross : int256 TD1 * (E2 : Int) ≤ int256 TD2 * (E1 : Int)) :
-    int256 (evmSdiv (evmShl 0x7e (evmAdd E1 TD1)) (evmSub E1 TD1)) ≤
-      int256 (evmSdiv (evmShl 0x7e (evmAdd E2 TD2)) (evmSub E2 TD2)) := by
+    int256 (evmDiv (evmShl 0x7e (evmAdd E1 TD1)) (evmSub E1 TD1)) ≤
+      int256 (evmDiv (evmShl 0x7e (evmAdd E2 TD2)) (evmSub E2 TD2)) := by
   obtain ⟨hadd1, hsub1, hnum1, hden1⟩ := numden_pos_of hE1 hTD1 hev1_lo hev1_hi htod1_lo htod1_hi
   obtain ⟨hadd2, hsub2, hnum2, hden2⟩ := numden_pos_of hE2 hTD2 hev2_lo hev2_hi htod2_lo htod2_hi
   -- bound the tod magnitude by 2^127 (looser, symbolic) to avoid large-literal kernel work
@@ -101,9 +101,9 @@ theorem r0_mono_of_cross {E1 TD1 E2 TD2 : Nat}
     rw [hA1]; exact Int.mul_pos (by positivity) (hadd1 ▸ hnum1)
   have hA2pos : 0 < int256 (evmShl 0x7e (evmAdd E2 TD2)) := by
     rw [hA2]; exact Int.mul_pos (by positivity) (hadd2 ▸ hnum2)
-  -- both sdivs are floor divisions of nonnegative magnitudes
-  rw [evmSdiv_pos_pos (evmShl_lt _ _) (evmSub_lt _ _) (le_of_lt hA1pos) hD1pos,
-    evmSdiv_pos_pos (evmShl_lt _ _) (evmSub_lt _ _) (le_of_lt hA2pos) hD2pos]
+  -- both divs are floor divisions of nonnegative magnitudes
+  rw [evmDiv_pos_pos (evmShl_lt _ _) (evmSub_lt _ _) (le_of_lt hA1pos) hD1pos,
+    evmDiv_pos_pos (evmShl_lt _ _) (evmSub_lt _ _) (le_of_lt hA2pos) hD2pos]
   -- cross_to_div with the cross product A1·B2 ≤ A2·B1
   have hdd := cross_to_div (le_of_lt hA1pos) (le_of_lt hA2pos) hD1pos hD2pos (by
     rw [hA1, hA2, hsub1, hsub2, hadd1, hadd2]

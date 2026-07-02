@@ -76,7 +76,7 @@ def requiredCalls : ModelKind → List String
   | .cbrt => ["clz"]
   | .cbrt512 => ["clz", "mulmod"]
   | .ln => ["clz", "sdiv"]
-  | .exp => ["sdiv"]
+  | .exp => ["div"]
 
 end ModelKind
 

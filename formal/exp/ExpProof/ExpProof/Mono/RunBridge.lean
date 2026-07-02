@@ -26,7 +26,7 @@ theorem run_exp_ray_to_wad_evm_eq_expTree
   unfold Cmask kRoundShift kHalfShift cInvQ200 k27Q235 ln2Q235 tArgShift squareShift
   unfold ev0 ev1 ev2 ev3 ev4 evShift1 evShift2 evShift3 evShift4
   unfold od0 od1 od2 od3 od4 odShift1 odShift2 odShift3 odShift4
-  unfold todShift expQShift wadWord marginWord
+  unfold todShift expQShift foldShift wadWord marginWord
   rfl
 
 end ExpYul

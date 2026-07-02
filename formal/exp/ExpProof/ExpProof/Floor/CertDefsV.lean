@@ -26,9 +26,11 @@ Two certificate shapes are declared:
 * the Taylor cut, the standard `Common.Exp.capUB_of_partial`/`capLB` shape at depth `K = 27`,
   nudging the rational by a dyadic margin (`yUB/wUB = ê_v·(1 + 2⁻¹³¹)`, `yLB/wLB = ê_v·(1 − 2⁻¹³¹)`);
   the realized envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.019` ulp is inside those margins with 2.3× slack;
-* the **denominator floors** over the integer `v`-grid (`certDOver`/`certDUnder`), which pin
-  `Ev(v)·2^110 ∓ H128·Od(v)` above explicit constants for every `v ∈ [0, vmaxV + 1]`; the
-  argument-granularity link divides one `v`-grid step of `ê_v` by these floors.
+* the **denominator floors** over the integer `v`-grid: the parameterized shapes
+  `certDOverP`/`certDUnderP` pin `Ev(v)·2^110 ∓ T·Od(v)` above explicit constants, instantiated
+  once globally (`certDOver`, at the domain edge `T = H128` over all of `[0, vmaxV + 1]`) and once
+  per granularity piece (32 pieces, each with its own `t`-cap `T` and floor constant over its
+  `v`-range); the argument-granularity link divides one `v`-grid step of `ê_v` by the piece floors.
 -/
 
 namespace ExpCertV
@@ -145,18 +147,20 @@ def odVPoly : List Int :=
    0xc926ddbecdeeb42e68cd16db7da8c1 * 2 ^ 126,
    0xdc07aff8276bde9a361278df6a10]
 
-/-- Over-half denominator floor: `Ev(v)·2^110 − H128·Od(v) − 554482771859·2^725 ≥ 0` on
-`[0, vmaxV + 1]` (so `DEN(v, t) ≥ 554482771859·2^725` for every `0 ≤ t ≤ H128`; the floor constant
-is `2^725` times the real-scale minimum `≈ 5.5448·10¹¹`, attained at `v = 0`). -/
-def certDOver : List Int :=
-  polyAdd (polySub (polyScale (2 ^ 110) evVPoly) (polyScale (H128 : Int) odVPoly))
-    [-(554482771859 * 2 ^ 725)]
+/-- Over-half denominator floor shape: `Ev(v)·2^110 − T·Od(v) − D·2^725 ≥ 0`. Nonnegativity over a
+`v`-range gives `DEN(v, t) ≥ D·2^725` there for every `0 ≤ t ≤ T` (the floor constant is `2^725`
+times a real-scale minimum). -/
+def certDOverP (T D : Int) : List Int :=
+  polyAdd (polySub (polyScale (2 ^ 110) evVPoly) (polyScale T odVPoly)) [-(D * 2 ^ 725)]
 
-/-- Under-half denominator floor: `Ev(v)·2^110 + H128·Od(v) − 786932288647·2^725 ≥ 0` on
-`[0, vmaxV + 1]` (the `t = −H128` denominator; the granularity lift is monotone in `|t|`, so this
-single evaluation floors the whole negative half). -/
-def certDUnder : List Int :=
-  polyAdd (polyAdd (polyScale (2 ^ 110) evVPoly) (polyScale (H128 : Int) odVPoly))
-    [-(786932288647 * 2 ^ 725)]
+/-- Under-half (`t = −T`) denominator floor shape: `Ev(v)·2^110 + T·Od(v) − D·2^725 ≥ 0`. The
+granularity lift is monotone in `|t|`, so the single cap evaluation floors a whole piece's
+negative half. -/
+def certDUnderP (T D : Int) : List Int :=
+  polyAdd (polyAdd (polyScale (2 ^ 110) evVPoly) (polyScale T odVPoly)) [-(D * 2 ^ 725)]
+
+/-- The global over-half floor at the domain edge: `DEN(v, t) ≥ 554482771859·2^725` on all of
+`[0, vmaxV + 1]` for every `0 ≤ t ≤ H128` (real-scale minimum `≈ 5.5448·10¹¹`, attained interior). -/
+def certDOver : List Int := certDOverP (H128 : Int) 554482771859
 
 end ExpCertV

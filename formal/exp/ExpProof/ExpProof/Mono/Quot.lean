@@ -8,7 +8,8 @@ From the stage bounds this file assembles the closing quotient `r0 = exp(t)·2^1
 * `tod = ⌊t·Od / 2^128⌋` transported to `Int`, with `|tod| < 2^125`;
 * the numerator `num = ev + tod` and denominator `den = ev − tod` are strictly positive (the
   reduced argument keeps `|tod|` well below `ev`);
-* `r0 = sdiv(2^126·num, den)` is at least `2^123` and below `2^128`.
+* `r0 = div(2^126·num, den)` — a plain `Nat` floor division — is at least `2^123` and below
+  `2^128`.
 
 These give the range and nonnegativity obligations directly, and (via the cross-multiplication
 identity) reduce the within-octave monotonicity to a fact about `tod·ev`.
@@ -135,7 +136,7 @@ theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 128) (hDlt : D < 2 ^ 128) (hD
     (hNpos : 0 < (N : Int)) (hDpos : 0 < (D : Int))
     (hNlo : 2 ^ 125 ≤ N)
     (hND : (N : Int) < 4 * (D : Int)) :
-    2 ^ 123 ≤ int256 (evmSdiv (evmShl 0x7e N) D) ∧ int256 (evmSdiv (evmShl 0x7e N) D) < 2 ^ 128 := by
+    2 ^ 123 ≤ int256 (evmDiv (evmShl 0x7e N) D) ∧ int256 (evmDiv (evmShl 0x7e N) D) < 2 ^ 128 := by
   -- shl(126, N) = N·2^126 (fits: N < 2^128 ⇒ N·2^126 < 2^254)
   have hshl : evmShl 0x7e N = N * 2 ^ 0x7e := by
     refine evmShl_eq (by norm_num) ?_
@@ -144,30 +145,12 @@ theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 128) (hDlt : D < 2 ^ 128) (hD
       exact (Nat.mul_lt_mul_right hp).mpr hN
     rw [show (2:Nat) ^ 128 * 2 ^ 0x7e = 2 ^ 254 by rw [← Nat.pow_add]] at this
     omega
-  have hNpos' : 0 < N := by exact_mod_cast hNpos
-  have hShlLt254 : N * 2 ^ 0x7e < 2 ^ 254 := by
-    have hp : 0 < 2 ^ 0x7e := Nat.two_pow_pos _
-    calc N * 2 ^ 0x7e < 2 ^ 128 * 2 ^ 0x7e := (Nat.mul_lt_mul_right hp).mpr hN
-      _ = 2 ^ 254 := by rw [← Nat.pow_add]
-  have hShlLt255 : N * 2 ^ 0x7e < 2 ^ 255 := by
-    have : (2:Nat) ^ 254 < 2 ^ 255 := by norm_num
-    omega
-  have hdivpos : 0 < int256 (evmShl 0x7e N) := by
-    rw [hshl, int256_of_lt hShlLt255]
-    have hpos : 0 < N * 2 ^ 0x7e := Nat.mul_pos hNpos' (Nat.two_pow_pos _)
-    exact_mod_cast hpos
-  -- both operands positive ⇒ sdiv = floor division
-  have hshl_lt : evmShl 0x7e N < 2 ^ 256 := evmShl_lt _ _
-  rw [evmSdiv_pos_pos hshl_lt hD (le_of_lt hdivpos) (by rw [hDi]; exact hDpos)]
-  -- the toNat magnitudes
-  have hshl_nat : evmShl 0x7e N = N * 2 ^ 0x7e := hshl
-  have hN_toNat : (int256 (evmShl 0x7e N)).toNat = N * 2 ^ 0x7e := by
-    rw [hshl, int256_of_lt hShlLt255, Int.toNat_natCast]
-  have hD_toNat : (int256 D).toNat = D := by rw [hDi, Int.toNat_natCast]
-  rw [hN_toNat, hD_toNat]
-  set q := N * 2 ^ 0x7e / D with hq
   have hDnat_pos : 0 < D := by exact_mod_cast hDpos
   have hNnat_pos : 0 < N := by exact_mod_cast hNpos
+  -- the quotient is a plain Nat floor division
+  have hdiv : evmDiv (evmShl 0x7e N) D = N * 2 ^ 0x7e / D := by
+    rw [evmDiv_eq (evmShl_lt _ _) hD (by omega), hshl]
+  set q := N * 2 ^ 0x7e / D with hq
   have hq_lt : q < 2 ^ 128 := by
     rw [hq]
     rw [Nat.div_lt_iff_lt_mul hDnat_pos]
@@ -189,9 +172,13 @@ theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 128) (hDlt : D < 2 ^ 128) (hD
     have h2 : (2:Nat) ^ 123 * 2 ^ 128 = 2 ^ 125 * 2 ^ 0x7e := by norm_num
     have h3 : (2:Nat) ^ 125 * 2 ^ 0x7e ≤ N * 2 ^ 0x7e := Nat.mul_le_mul_right _ hNlo
     omega
-  exact ⟨by exact_mod_cast hq_ge, by
-    have : (q : Int) < 2 ^ 128 := by exact_mod_cast hq_lt
-    simpa using this⟩
+  have hqi : int256 (evmDiv (evmShl 0x7e N) D) = (q : Int) := by
+    rw [hdiv]
+    exact int256_of_lt (by
+      have : (2:Nat) ^ 128 < 2 ^ 255 := by norm_num
+      omega)
+  rw [hqi]
+  exact ⟨by exact_mod_cast hq_ge, by exact_mod_cast hq_lt⟩
 
 /-- For a canonical word with nonnegative signed value, the signed value is the Nat value (and the
 word lies in the lower half). -/
@@ -204,15 +191,15 @@ theorem int256_eq_of_nonneg {w : Nat} (hw : w < 2 ^ 256) (hnn : 0 ≤ int256 w) 
     simp only [ipow256] at this; omega
 
 /-- Abstract `r0` bounds: `2^123 ≤ r0 < 2^128` over opaque even/odd words `E`, `TD` with their
-bounds. `r0 = sdiv(2^126·(E+TD), E−TD)`; the numerator and denominator are positive and the
+bounds. `r0 = div(2^126·(E+TD), E−TD)`; the numerator and denominator are positive and the
 quotient lands in `[2^123, 2^128)` (the reduced argument keeps `exp(t) ∈ [1/√2, √2)`). -/
 theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
     (hev_lo : (103786963397729689639908782561058906594 : Int) ≤ (E : Int))
     (hev_hi : (E : Int) < 2 ^ 127)
     (htod_lo : -(42535295865117307932921825928971026432 : Int) ≤ int256 TD)
     (htod_hi : int256 TD < 42535295865117307932921825928971026432) :
-    2 ^ 123 ≤ int256 (evmSdiv (evmShl 0x7e (evmAdd E TD)) (evmSub E TD)) ∧
-      int256 (evmSdiv (evmShl 0x7e (evmAdd E TD)) (evmSub E TD)) < 2 ^ 128 := by
+    2 ^ 123 ≤ int256 (evmDiv (evmShl 0x7e (evmAdd E TD)) (evmSub E TD)) ∧
+      int256 (evmDiv (evmShl 0x7e (evmAdd E TD)) (evmSub E TD)) < 2 ^ 128 := by
   obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_of hevw htodw hev_lo hev_hi htod_lo htod_hi
   have hNwlt : evmAdd E TD < 2 ^ 256 := evmAdd_lt _ _
   have hDwlt : evmSub E TD < 2 ^ 256 := evmSub_lt _ _
@@ -248,7 +235,7 @@ theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hev_lo, hev_hi⟩ := evTree_facts hvlt
   obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound hx hC hC0
   have hr0 : r0Tree x =
-      evmSdiv (evmShl 0x7e (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x)) := rfl
+      evmDiv (evmShl 0x7e (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x)) := rfl
   rw [hr0]
   have hevw : evTree x < 2 ^ 256 := by unfold evTree; exact evmAdd_lt _ _
   have htodw : todTree x < 2 ^ 256 := by unfold todTree; exact evmSar_lt _ _

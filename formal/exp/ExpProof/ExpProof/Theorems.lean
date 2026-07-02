@@ -97,7 +97,7 @@ Each bracket is stated on the runtime result `r` (`run_exp_ray_to_wad_evm x = .o
 target `E = 10¹⁸·exp(x/10²⁷)`. The pre-floor accumulator brackets `E` unconditionally
 (`accumReal_over`/`accumReal_under`: the cert `Floor.CapsV` against the exact rational
 `ê = NUM/DEN`, folded with the octave `2^k`, plus the argument-granularity, reduced-argument and
-Horner-`sdiv` truncation envelopes the `MARGIN` absorbs), and below the clamp the target satisfies
+Horner-`div` truncation envelopes the `MARGIN` absorbs), and below the clamp the target satisfies
 `E < 1`
 (`belowC_target_lt_one`), so the global brackets hold with no analytic hypothesis. -/
 
