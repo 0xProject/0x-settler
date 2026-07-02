@@ -14,8 +14,8 @@ library Exp {
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256 r) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64. The rounding error
-        // in `_expRayToWad` exceeds 1ulp at that scale.
+        // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64. The error in
+        // `_expRayToWad` exceeds 1ulp at that scale.
         if (x >= 0x8e383a2cdfa1b74a9422d2e1) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
@@ -77,11 +77,11 @@ library Exp {
     ///      under-direction reduced-argument gap (≤ 37/100, via exp(t) ≤ √2). Hence the maximum
     ///      underestimation of the pre-floor accumulator A is E - A ≤ ((13/2)⋅10¹⁸ + margin)/2⁶³ ≈
     ///      0.78281 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The deficit envelope ((13/2)⋅10¹⁸ +
-    ///      margin)/2^(126 - k) doubles each octave, so at k = 64 it exceeds one ulp and the floor
-    ///      can fall two below E; that input is reverted. On the central octave k = 0 the margin is
-    ///      margin⋅2⁻¹²⁶ ≈ 8.5⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the
-    ///      round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))` is half-open, so the k = 0 band is
-    ///      exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
+    ///      margin)/2^(126 - k) doubles each octave, so at k = 64 it exceeds 1ulp. On the central
+    ///      octave k = 0 the margin is margin⋅2⁻¹²⁶ ≈ 8.5⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap
+    ///      `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))` is
+    ///      half-open, so the k = 0 band is exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching
+    ///      `lnWadToRay`'s image over [1/√2, √2).
     ///
     ///      Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves
     ///      the pre-floor accumulator by at least 10¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 6⋅10²⁸ grid units. The error
