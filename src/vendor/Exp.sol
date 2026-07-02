@@ -61,16 +61,18 @@ library Exp {
     ///
     ///      Error budget. The integer rational `e` lands on the Q126 grid; write its excess over the
     ///      exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The budget
-    ///      bounds Δ ≤ 1.0046699360423807336 (each term below carried to its supremum at 19 decimal
+    ///      bounds Δ ≤ 1.0155087723197130681 (each term below carried to its supremum at 19 decimal
     ///      places), the sum of four one-sided contributions:
     ///          integer Horner + closing `sdiv` truncation: the Ev shared by the numerator Ev + t⋅Od
     ///              and denominator Ev - t⋅Od cancels to first order in the quotient, so its
     ///              truncation barely perturbs e; this jitter stays ≤ 0.6207065163.
     ///          argument granularity: v carries t² on the Q123 grid, and its floor only lowers the
     ///              polynomials' shared argument (by < 2⁻¹²³), which lifts e on the t > 0 half by
-    ///              ≤ 0.3287207024962306750 = 2³⋅sup|∂e/∂v̂| (v̂ = v⋅2⁻¹²³; the sensitivity
-    ///              supremum 0.0410900878… sits at t = ln2/2). The t < 0 direction is budgeted
-    ///              on the under side.
+    ///              ≤ 0.3395595387735630095: one v-grain moves the quotient by
+    ///              2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose one-signed numerator is maximal at the
+    ///              domain edge and whose denominator is floored globally (the pointwise
+    ///              supremum is ≈ 0.3287 at t = ln2/2). The t < 0 direction is budgeted on
+    ///              the under side.
     ///          rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
     ///              ≤ 0.0441941739 (its supremum is √2⋅2¹²⁶/(2¹³¹-1)).
     ///          reduced-argument gap: the Q128 floor of t only pushes e downward (that direction
@@ -79,17 +81,17 @@ library Exp {
     ///              2⁻¹³³ of reduced argument, lifting e by ≤ 0.0110485435
     ///              (√2⋅2¹²⁶/(32⋅2¹²⁸) = √2/128).
     ///      Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
-    ///      S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1089 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
-    ///      strictly above 2⁶³⋅S: 0xdf14dfbde520dbe = ⌊10¹⁸⋅Δ⌋ + 1 = 1004669936042380734 (worth ≈ S ulp
+    ///      S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1101 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
+    ///      strictly above 2⁶³⋅S: 0xe17cfd91868d72d = ⌊10¹⁸⋅Δ⌋ + 1 = 1015508772319713069 (worth ≈ S ulp
     ///      at k = 63; the +1 makes the never-over strict, which the round trip below needs). So
     ///      10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates). The under side is bounded to the same
     ///      precision: e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 67/10, where 67/10 bounds the sum of the integer-rational
     ///      deficit (≤ 6001/1000, the Horner/`sdiv`/floor truncation against the denominator), the `Mp`
     ///      factor (≤ 1/20, via e ≤ 1.45·2¹²⁶), the under-direction reduced-argument gap (≤ 37/100,
-    ///      via exp(t) ≤ √2), and the under-direction argument granularity (≤ 17/100: the over-side
-    ///      supremum divided by e^(ln2) = 2, by reciprocal symmetry). Hence the maximum
+    ///      via exp(t) ≤ √2), and the under-direction argument granularity (≤ 17/100, the same
+    ///      one-grain envelope with the negative-half denominator floor). Hence the maximum
     ///      underestimation of the pre-floor accumulator A is
-    ///      E - A ≤ ((67/10)⋅10¹⁸ + margin)/2⁶³ ≈ 0.83535 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the
+    ///      E - A ≤ ((67/10)⋅10¹⁸ + margin)/2⁶³ ≈ 0.83652 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the
     ///      1-ulp underestimate is achieved, ⌊E⌋ - 2 never occurs). The deficit envelope
     ///      ((67/10)⋅10¹⁸ + margin)/2^(126 - k) doubles each octave, so at k = 64 it exceeds one ulp
     ///      and the floor can fall two below E; that input is reverted. On the central octave k = 0 the
@@ -164,9 +166,9 @@ library Exp {
             r := sdiv(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
             // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin
-            // (0xdf14dfbde520dbe = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 - k, …)`
+            // (0xe17cfd91868d72d = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 - k, …)`
             // which folds in the 2ᵏ octave scaling (126 - k ∈ [63, 187]).
-            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0xdf14dfbde520dbe))
+            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0xe17cfd91868d72d))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
