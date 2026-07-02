@@ -20,10 +20,10 @@ library Ln {
 
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     require(x > 0);
-        //     k = ⌊log₂(x)⌋ - 95;                       // x = m ⋅ 2ᵏ, m ∈ [2⁹⁵, 2⁹⁶)
-        //     m = x / 2ᵏ;                               // Q95 fixnum ∈ [1, 2)
-        //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2⁹⁵; |z| ≤ 3 - 2√2
-        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²);      // ln(m / 2⁹⁵) = 2h + ln(s / 2⁹⁵)
+        //     k = ⌊log₂(x)⌋ - 95;                  // x = m ⋅ 2ᵏ, m ∈ [2⁹⁵, 2⁹⁶)
+        //     m = x / 2ᵏ;                          // Q95 fixnum ∈ [1, 2)
+        //     z = (s - m) / (m + s);               // s = √2 ⋅ 2⁹⁵; |z| ≤ 3 - 2√2
+        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²); // ln(m / 2⁹⁵) = 2h + ln(s / 2⁹⁵)
         //     r = ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋
         //     return r + (r = -1);
         //
@@ -35,7 +35,7 @@ library Ln {
         // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.327ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
-        // at the basis its consumer needs (each quantity is rounded exactly once):
+        // at the basis its consumer needs:
         //     m:      Q95 (truncated from x; error < 2⁻⁹⁵)
         //     z:      Q100 (one sdiv)
         //     u = z²: Q96 (one `shr` by 104, straight from the Q200 product)

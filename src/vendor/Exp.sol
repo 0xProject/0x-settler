@@ -25,28 +25,29 @@ library Exp {
     /// @dev The rational polynomial approximation kernel
     function _expRayToWad(int256 x) private pure returns (int256 r) {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
-        //     k = round(x / (10²⁷⋅ln(2)));                      // x = (k⋅ln2 + t)⋅10²⁷, |t| ≤ ln2/2
-        //     t = x/10²⁷ - k⋅ln2;                               // reduced argument (Q128)
-        //     e = (Ev(t²) + t⋅Od(t²)) / (Ev(t²) - t⋅Od(t²));    // ≈ exp(t) (Ev Q87; Od Q87; e Q126)
-        //     r = ⌊(10¹⁸⋅e)⋅2ᵏ - margin⌋;                       // wad
-        //     r = r ⋅ (x > C);                                  // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
-        //     return r + (x == 0);                              // pin exp(0) = 10¹⁸ exactly
+        //     k = round(x / (10²⁷⋅ln(2)));                   // x = (k⋅ln2 + t)⋅10²⁷, |t| ≤ ln2/2
+        //     t = x/10²⁷ - k⋅ln2;                            // reduced argument (Q128)
+        //     e = (Ev(t²) + t⋅Od(t²)) / (Ev(t²) - t⋅Od(t²)); // ≈ exp(t) (Ev Q87; Od Q87; e Q126)
+        //     r = ⌊(10¹⁸⋅e)⋅2ᵏ - margin⌋;                    // wad
+        //     r = r ⋅ (x > C);                               // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
+        //     return r + (x == 0);                           // pin exp(0) = 10¹⁸ exactly
         //
         // `exp(t) = (1 + tanh(t/2)) / (1 - tanh(t/2))`, so with the even/odd split N(t) = Ev(t²) +
         // t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational that matches
-        // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln2/2)²]. Ev is degree 5 and Od degree 4; in
-        // exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the integer
-        // coefficients realize ≈126 of them. Ev is monic, so its leading stage is a shift, not a
+        // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln(2)/2)²]. Ev(v) is degree 5 and Od degree
+        // 4(v); in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the integer
+        // coefficients realize ≈126 of them. Ev(v) is monic, so its leading stage is a shift, not a
         // multiply.
         //
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
         // its chosen byte width, so a coefficient followed by j more multiplies by v tolerates a
         // shorter basis. Each renormalizing shift lands a value directly at the basis its consumer
         // needs.
-        //     t:      Q128 (one `SAR` from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln2/2)
-        //     v = t²: Q128 (one `SHR` by 128 from the Q256 product)
-        //     Ev Horner down the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at Q99)
-        //     Od Horner down the staircase Q105 → Q102 → Q93 → Q94 → Q87
+        //     t:      Q128 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2)
+        //     v = t²: Q128
+        //     Ev(v) Horner down the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at
+        //         Q99)
+        //     Od(v) Horner down the staircase Q105 → Q102 → Q93 → Q94 → Q87
         //     Ev, Od, t⋅Od, and the numerator/denominator: Q87
         //     quotient: one `DIV` placing exp(t) at Q126 (the dividend, numerator << 126, stays
         //         below 2²⁵⁵: a nonnegative signed word)
@@ -98,10 +99,9 @@ library Exp {
             // and `sar(200, …)` round to nearest with ties resolved toward +∞.
             let k := sar(0xc8, add(shl(0xc7, 0x01), mul(0x724d54edbacbebbb95c52a0f6076, x)))
 
-            // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln2 ⋅ 2²³⁵). Subtracting k ⋅ LN2
+            // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k ⋅ LN2
             // from K27 ⋅ x at the Q235 product basis (so the k ⋅ ln2 rounding error is ~2⁻²³⁵, far
             // below an output ulp) then one `sar(107, …)` leaves the reduced argument at Q128.
-            // Carrying ln(2) in a single wide word matches the op count of a Q128 reduction.
             let t :=
                 sar(
                     0x6b,
