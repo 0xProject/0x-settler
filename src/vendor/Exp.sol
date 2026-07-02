@@ -44,7 +44,7 @@ library Exp {
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
         // its chosen byte width. A coefficient followed by more multiplies by v tolerates a shorter
         // basis. Each renormalizing shift lands a value directly at the basis its consumer needs.
-        //     t:      Q128 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2)
+        //     t: Q128 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2)
         //     v = t²: Q123 the widest basis whose monic-stage product stays inside 256 bits, so
         //         Ev(v)'s leading stage consumes v with no renormalizing shift
         //     Ev(v) Horner down the staircase Q123 → Q97 → Q97 → Q91 → Q87 (monic)
