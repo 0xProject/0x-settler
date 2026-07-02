@@ -84,13 +84,6 @@ library Exp {
     ///      round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))` is half-open, so the k = 0 band is
     ///      exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
     ///
-    ///      This margin is the floor of the bound above: Δ's two √2-driven terms are irrational, so
-    ///      Δ itself is irrational and the margin ⌊10¹⁸⋅Δ⌋ + 1 cannot be reduced without lowering
-    ///      Δ. The dominant truncation term (≈0.62, the affine envelope of the integer Horner) is
-    ///      ≈1.6× the empirically observed jitter; closing that gap is not reachable by the linear
-    ///      bound and would need either round-to-nearest Horner stages (more gas and code) or a
-    ///      number-theoretic bound on the fractional part of E, so the margin rests here.
-    ///
     ///      Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves
     ///      the pre-floor accumulator by at least 10¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 6⋅10²⁸ grid units. The error
     ///      terms above confine the accumulator to a band of width 10¹⁸⋅(Δ + 13/2) ≈ 7.2⋅10¹⁸ grid
