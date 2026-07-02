@@ -14,9 +14,8 @@ library Exp {
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256 r) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64, where the deficit
-        // envelope (the 2ᵏ⁻⁶³-scaled margin plus the under-side truncation) exceeds one ulp and the
-        // floor can fall two below E.
+        // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64. The rounding error
+        // in `_expRayToWad` exceeds 1ulp at that scale.
         if (x >= 0x8e383a2cdfa1b74a9422d2e1) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
