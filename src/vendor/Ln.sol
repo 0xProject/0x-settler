@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.34;
 
+import {Panic} from "../utils/Panic.sol";
+
 library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**27 (ray) basis.
@@ -12,6 +14,10 @@ library Ln {
     ///      documented on `Exp.expRayToWad` consumes this error envelope; the exp formal check
     ///      re-verifies that round trip on any change to this file.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
+        if (x <= 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     require(x > 0);
         //     k = ⌊log₂(x)⌋ - 95;                       // x = m ⋅ 2ᵏ, m ∈ [2⁹⁵, 2⁹⁶)
@@ -63,12 +69,6 @@ library Ln {
         // multi-unit z decrease, and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
         // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
-            if iszero(slt(0x00, x)) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x12)       // panic code for division by zero
-                revert(0x1c, 0x24)
-            }
-
             // Normalize: x := m, a Q95 fixnum, m ∈ [1, 2), truncated from x / 2ᵏ. Truncation
             // underestimates ln(x) by less than 2⁻⁹⁵ (only possible when k > 0).
             let c := clz(x)
