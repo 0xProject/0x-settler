@@ -18,6 +18,8 @@ on:
       - remappings.txt
       - .gitmodules
       - lib/EVMYulLean
+      - .github/actions/setup-formal/**
+      - .github/actions/fetch-lean-cache/**
       - .github/workflows/exp-formal.yml
   pull_request:
     paths:
@@ -34,6 +36,8 @@ on:
       - remappings.txt
       - .gitmodules
       - lib/EVMYulLean
+      - .github/actions/setup-formal/**
+      - .github/actions/fetch-lean-cache/**
       - .github/workflows/exp-formal.yml
 
 jobs:
@@ -44,52 +48,25 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+      - name: Set up the formal toolchain
+        uses: ./.github/actions/setup-formal
         with:
-          version: v1.5.1
-
-      - name: Install pinned Lean toolchain
-        run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          LEAN_TOOLCHAIN="$(cat formal/exp/ExpProof/lean-toolchain)"
-          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
-          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
-
-      - name: Restore Lean build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            formal/yul/.lake/build
-            formal/yul/.lake/packages/*/.lake/build
-            lib/EVMYulLean/.lake/build
+          lean-toolchain-files: formal/exp/ExpProof/lean-toolchain
+          cache-name: exp-formal
+          cache-paths: |
             formal/common/.lake/build
             formal/ln/LnProof/.lake/build
             formal/exp/ExpProof/.lake/build
-          key: ${{ runner.os }}-exp-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/common/lakefile.toml', 'formal/common/lake-manifest.json', 'formal/common/**/*.lean', 'formal/ln/LnProof/lakefile.toml', 'formal/ln/LnProof/lake-manifest.json', 'formal/ln/LnProof/**/*.lean', 'formal/exp/ExpProof/lakefile.toml', 'formal/exp/ExpProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/exp/ExpProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
-          restore-keys: |
-            ${{ runner.os }}-exp-formal-lean-
-            ${{ runner.os }}-formal-lean-
-
-      - name: Install solc 0.8.34
-        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.34
-
-      - name: Fetch Mathlib cache
-        working-directory: formal/yul
-        run: |
-          # ProofWidgets release directories must exist for `lake exe cache get`.
-          lake build proofwidgets:release
-          mkdir -p \
-            .lake/packages/proofwidgets/.lake/build/lib \
-            .lake/packages/proofwidgets/.lake/build/ir
-          lake exe cache get
-
-      - name: Build Yul importer
-        working-directory: formal/yul
-        run: lake build FormalYul.Preservation yul_importer
+          cache-hash-globs: |
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/**/*.lean
+            formal/ln/LnProof/lakefile.toml
+            formal/ln/LnProof/lake-manifest.json
+            formal/ln/LnProof/**/*.lean
+            formal/exp/ExpProof/lakefile.toml
+            formal/exp/ExpProof/lake-manifest.json
+            formal/exp/ExpProof/**/*.lean
 
       - name: Generate EVMYulLean artifacts from compiled ExpWrapper Yul IR
         run: |
@@ -103,14 +80,9 @@ jobs:
         uses: ./.github/actions/build-ln-proof
 
       - name: Fetch proof dependency cache
-        working-directory: formal/exp/ExpProof
-        run: |
-          # ProofWidgets release directories must exist for `lake exe cache get`.
-          lake build proofwidgets:release
-          mkdir -p \
-            .lake/packages/proofwidgets/.lake/build/lib \
-            .lake/packages/proofwidgets/.lake/build/ir
-          lake exe cache get
+        uses: ./.github/actions/fetch-lean-cache
+        with:
+          working-directory: formal/exp/ExpProof
 
       - name: Generate Lean certificate artifacts
         working-directory: formal/exp/ExpProof

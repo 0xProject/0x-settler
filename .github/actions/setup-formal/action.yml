@@ -1,0 +1,83 @@
+name: Set up the formal toolchain
+description: >-
+  The shared prefix of every *-formal workflow: install Foundry and the pinned
+  Lean toolchain, restore the Lean build cache, install solc 0.8.34, fetch the
+  Yul importer's Mathlib cache, and build the Yul importer. Requires the
+  repository (with submodules) to be checked out first.
+
+inputs:
+  lean-toolchain-files:
+    description: >-
+      Newline-separated lean-toolchain file paths. The first names the
+      toolchain to install; every subsequent file must pin the same toolchain.
+    required: true
+  cache-name:
+    description: Per-proof segment of the Lean build cache key (e.g. exp-formal).
+    required: true
+  cache-paths:
+    description: >-
+      Newline-separated proof-package build directories to cache, in addition
+      to the Yul importer's and EVMYulLean's.
+    required: true
+  cache-hash-globs:
+    description: >-
+      Newline-separated hashFiles patterns covering the proof packages' lake
+      configuration and Lean sources, hashed into the cache key alongside the
+      Yul importer's and EVMYulLean's.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: v1.5.1
+
+    - name: Install pinned Lean toolchain
+      shell: bash
+      env:
+        LEAN_TOOLCHAIN_FILES: ${{ inputs.lean-toolchain-files }}
+      run: |
+        curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+        echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+        LEAN_TOOLCHAIN=''
+        while IFS= read -r file; do
+          [ -n "$file" ] || continue
+          if [ -z "$LEAN_TOOLCHAIN" ]; then
+            LEAN_TOOLCHAIN="$(cat "$file")"
+          else
+            test "$LEAN_TOOLCHAIN" = "$(cat "$file")"
+          fi
+        done <<< "$LEAN_TOOLCHAIN_FILES"
+        "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
+        "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
+
+    - name: Restore Lean build cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          formal/yul/.lake/build
+          formal/yul/.lake/packages/*/.lake/build
+          lib/EVMYulLean/.lake/build
+          ${{ inputs.cache-paths }}
+        key: ${{ runner.os }}-${{ inputs.cache-name }}-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}-${{ hashFiles(inputs.cache-hash-globs) }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.cache-name }}-lean-
+          ${{ runner.os }}-formal-lean-
+
+    - name: Install solc 0.8.34
+      shell: bash
+      run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
+      env:
+        FOUNDRY_SOLC_VERSION: 0.8.34
+
+    - name: Fetch Mathlib cache
+      uses: ./.github/actions/fetch-lean-cache
+      with:
+        working-directory: formal/yul
+
+    - name: Build Yul importer
+      shell: bash
+      working-directory: formal/yul
+      run: lake build FormalYul.Preservation yul_importer

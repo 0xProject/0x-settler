@@ -17,17 +17,9 @@ runs:
           0.8.34
 
     - name: Fetch Ln proof dependency cache
-      shell: bash
-      working-directory: formal/ln/LnProof
-      run: |
-        # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-        # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-        # the release and ensure those directories exist before it runs.
-        lake build proofwidgets:release
-        mkdir -p \
-          .lake/packages/proofwidgets/.lake/build/lib \
-          .lake/packages/proofwidgets/.lake/build/ir
-        lake exe cache get
+      uses: ./.github/actions/fetch-lean-cache
+      with:
+        working-directory: formal/ln/LnProof
 
     - name: Generate Ln certificate artifacts
       shell: bash
