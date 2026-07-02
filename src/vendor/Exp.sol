@@ -48,7 +48,7 @@ library Exp {
         //     Ev Horner down the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at Q99)
         //     Od Horner down the staircase Q105 → Q102 → Q93 → Q94 → Q87
         //     Ev, Od, t⋅Od, and the numerator/denominator: Q87
-        //     quotient: one `SDIV` placing exp(t) at Q126 (the dividend, numerator << 126, stays
+        //     quotient: one `DIV` placing exp(t) at Q126 (the dividend, numerator << 126, stays
         //         below 2²⁵⁵: a nonnegative signed word)
         //     output: multiplying by 10¹⁸ lands E on the 10¹⁸⋅2¹²⁶ grid; the closing `sar(126 - k,
         //         …)` is the single output-rounding floor, with 2ᵏ folded in
@@ -58,7 +58,7 @@ library Exp {
         // tightest bound the proof technique can bear, in spite of the fact that the worst-case
         // error contributions do not co-occur. The proof bounds Δ ≤ 0.7201434073703092789, the sum
         // of three one-sided contributions:
-        //     integer Horner + closing `SDIV` truncation: the Ev shared by the numerator Ev + t⋅Od
+        //     integer Horner + closing `DIV` truncation: the Ev shared by the numerator Ev + t⋅Od
         //         and denominator Ev - t⋅Od cancels to first order in the quotient, so its
         //         truncation barely perturbs e; this jitter stays < 0.62071.
         //     rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
@@ -74,7 +74,7 @@ library Exp {
         // (worth ≈ S ulp at k = 63; the +1 is needed to meet the strict never overestimate
         // requirement). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E. The under side is bounded to the same precision:
         // e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 13/2, where 13/2 is the proven sum of the integer-rational deficit
-        // (≤ 6001/1000, the Horner/`sdiv`/floor truncation against the denominator), the `Mp`
+        // (≤ 6001/1000, the Horner/`DIV`/floor truncation against the denominator), the `Mp`
         // factor (≤ 1/10, via e ≤ 1.45·2¹²⁶), and the under-direction reduced-argument gap (≤
         // 37/100, via exp(t) ≤ √2). Hence the maximum underestimation of the pre-floor accumulator
         // A is E - A ≤ ((13/2)⋅10¹⁸ + margin)/2⁶³ ≈ 0.78281 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ -
@@ -101,7 +101,7 @@ library Exp {
             // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln2 ⋅ 2²³⁵). Subtracting k ⋅ LN2
             // from K27 ⋅ x at the Q235 product basis (so the k ⋅ ln2 rounding error is ~2⁻²³⁵, far
             // below an output ulp) then one `sar(107, …)` leaves the reduced argument at Q128.
-            // Carrying ln2 in a single wide word matches the op count of a Q128 reduction.
+            // Carrying ln(2) in a single wide word matches the op count of a Q128 reduction.
             let t :=
                 sar(
                     0x6b,
@@ -115,9 +115,7 @@ library Exp {
             let v := shr(0x80, mul(t, t))
 
             // Ev(v), monic, Horner down the staircase. The leading v⁵ coefficient is 1, so the
-            // first stage is a shift and an add, not a multiply. Both polynomials carry a common
-            // scaling (the reciprocal of Ev's pre-normalization leading coefficient) that makes Ev
-            // monic and cancels in the quotient below.
+            // first stage is a shift and an add, not a multiply.
             let ev := add(0xb9aacfad41060587203a79af0ebc, shr(0x1d, v))
             ev := add(0x9a036222e11aee18465042f8ea64c8, shr(0x82, mul(ev, v)))
             ev := add(0x9064d965e1c4863b73604e0ddbec53f9, shr(0x80, mul(ev, v)))
@@ -137,7 +135,7 @@ library Exp {
 
             // exp(t) in Q126: the dividend (numerator << 126) stays below 2²⁵⁵, the denominator >
             // 0.
-            r := sdiv(shl(0x7e, add(ev, tod)), sub(ev, tod))
+            r := div(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
             // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin (the provable minimum
             // 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 -
