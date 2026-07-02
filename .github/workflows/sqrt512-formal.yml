@@ -21,6 +21,8 @@ on:
       - remappings.txt
       - .gitmodules
       - lib/EVMYulLean
+      - .github/actions/setup-formal/**
+      - .github/actions/fetch-lean-cache/**
       - .github/workflows/sqrt512-formal.yml
   pull_request:
     paths:
@@ -40,6 +42,8 @@ on:
       - remappings.txt
       - .gitmodules
       - lib/EVMYulLean
+      - .github/actions/setup-formal/**
+      - .github/actions/fetch-lean-cache/**
       - .github/workflows/sqrt512-formal.yml
 
 jobs:
@@ -50,52 +54,23 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install pinned Lean toolchain
-        run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          LEAN_TOOLCHAIN="$(cat formal/sqrt/Sqrt512Proof/lean-toolchain)"
-          test "$LEAN_TOOLCHAIN" = "$(cat formal/sqrt/SqrtProof/lean-toolchain)"
-          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
-          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
-
-      - name: Restore Lean build cache
-        uses: actions/cache@v4
+      - name: Set up the formal toolchain
+        uses: ./.github/actions/setup-formal
         with:
-          path: |
-            formal/yul/.lake/build
-            formal/yul/.lake/packages/*/.lake/build
-            lib/EVMYulLean/.lake/build
+          lean-toolchain-files: |
+            formal/sqrt/Sqrt512Proof/lean-toolchain
+            formal/sqrt/SqrtProof/lean-toolchain
+          cache-name: sqrt512-formal
+          cache-paths: |
             formal/sqrt/SqrtProof/.lake/build
             formal/sqrt/Sqrt512Proof/.lake/build
-          key: ${{ runner.os }}-sqrt512-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/sqrt/SqrtProof/lakefile.toml', 'formal/sqrt/SqrtProof/lake-manifest.json', 'formal/sqrt/Sqrt512Proof/lakefile.toml', 'formal/sqrt/Sqrt512Proof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/sqrt/SqrtProof/**/*.lean', 'formal/sqrt/Sqrt512Proof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
-          restore-keys: |
-            ${{ runner.os }}-sqrt512-formal-lean-
-            ${{ runner.os }}-formal-lean-
-
-      - name: Install solc 0.8.34
-        run: forge build -- src/wrappers/Sqrt512Wrapper.sol
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.34
-
-      - name: Fetch Mathlib cache
-        working-directory: formal/yul
-        run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
-          lake build proofwidgets:release
-          mkdir -p \
-            .lake/packages/proofwidgets/.lake/build/lib \
-            .lake/packages/proofwidgets/.lake/build/ir
-          lake exe cache get
-
-      - name: Build Yul importer
-        working-directory: formal/yul
-        run: lake build FormalYul.Preservation yul_importer
+          cache-hash-globs: |
+            formal/sqrt/SqrtProof/lakefile.toml
+            formal/sqrt/SqrtProof/lake-manifest.json
+            formal/sqrt/Sqrt512Proof/lakefile.toml
+            formal/sqrt/Sqrt512Proof/lake-manifest.json
+            formal/sqrt/SqrtProof/**/*.lean
+            formal/sqrt/Sqrt512Proof/**/*.lean
 
       - name: Generate 512-bit EVMYulLean artifacts from compiled Sqrt512Wrapper Yul IR
         run: |
@@ -111,16 +86,9 @@ jobs:
             --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
 
       - name: Fetch proof dependency cache
-        working-directory: formal/sqrt/Sqrt512Proof
-        run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
-          lake build proofwidgets:release
-          mkdir -p \
-            .lake/packages/proofwidgets/.lake/build/lib \
-            .lake/packages/proofwidgets/.lake/build/ir
-          lake exe cache get
+        uses: ./.github/actions/fetch-lean-cache
+        with:
+          working-directory: formal/sqrt/Sqrt512Proof
 
       - name: Build Sqrt512 proof package
         working-directory: formal/sqrt/Sqrt512Proof

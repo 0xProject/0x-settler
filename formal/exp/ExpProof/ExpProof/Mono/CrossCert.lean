@@ -25,26 +25,26 @@ open FormalYul.Preservation
 set_option maxRecDepth 100000
 
 /-- The even accumulator's signed value is its (nonnegative) Nat value, in `[a0, 2^127)`. -/
-theorem evTree_int {x : Nat} (hv : vTree x < 2 ^ 126) :
-    (103786963415199049567855548359006885036 : Int) ≤ (evTree x : Int) ∧
+theorem evTree_int {x : Nat} (hv : vTree x < 2 ^ 120) :
+    (103786963397729689639908782561058906594 : Int) ≤ (evTree x : Int) ∧
       (evTree x : Int) < 2 ^ 127 := by
   obtain ⟨hlo, hhi⟩ := evTree_facts hv
   constructor
-  · have : (0x4e14a45e8ec305e233e11b4174e214ac : Int) ≤ (evTree x : Int) := by exact_mod_cast hlo
-    rw [show (0x4e14a45e8ec305e233e11b4174e214ac : Int) = 103786963415199049567855548359006885036 by
+  · have : (0x4e14a45e5650b506e97f4c5da23861e2 : Int) ≤ (evTree x : Int) := by exact_mod_cast hlo
+    rw [show (0x4e14a45e5650b506e97f4c5da23861e2 : Int) = 103786963397729689639908782561058906594 by
       norm_num] at this
     exact this
   · have : (evTree x : Int) < (2 ^ 127 : Nat) := by exact_mod_cast hhi
     rw [show ((2 ^ 127 : Nat) : Int) = 2 ^ 127 by norm_num] at this; exact this
 
 /-- The odd accumulator's signed value is its (nonnegative) Nat value, in `[b0, 2^126)`. -/
-theorem odTree_int {x : Nat} (hv : vTree x < 2 ^ 126) :
-    (51893481707599524783927774179503442518 : Int) ≤ (odTree x : Int) ∧
+theorem odTree_int {x : Nat} (hv : vTree x < 2 ^ 120) :
+    (51893481698864844819954391280529453297 : Int) ≤ (odTree x : Int) ∧
       (odTree x : Int) < 2 ^ 126 := by
   obtain ⟨hlo, hhi⟩ := odTree_facts hv
   constructor
-  · have : (0x270a522f476182f119f08da0ba710a56 : Int) ≤ (odTree x : Int) := by exact_mod_cast hlo
-    rw [show (0x270a522f476182f119f08da0ba710a56 : Int) = 51893481707599524783927774179503442518 by
+  · have : (0x270a522f2b285a8374bfa62ed11c30f1 : Int) ≤ (odTree x : Int) := by exact_mod_cast hlo
+    rw [show (0x270a522f2b285a8374bfa62ed11c30f1 : Int) = 51893481698864844819954391280529453297 by
       norm_num] at this
     exact this
   · have : (odTree x : Int) < (2 ^ 126 : Nat) := by exact_mod_cast hhi
@@ -52,22 +52,22 @@ theorem odTree_int {x : Nat} (hv : vTree x < 2 ^ 126) :
 
 /-- The even/odd accumulators' signed difference is bounded by `DEv`/`DOd` (the Lipschitz bound
 transported to `Int`). -/
-theorem evTree_lip_int {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 126) (hv2 : vTree x2 < 2 ^ 126)
+theorem evTree_lip_int {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 ^ 120)
     (hg1 : vTree x1 ≤ vTree x2 + Wstep) (hg2 : vTree x2 ≤ vTree x1 + Wstep) :
-    -(42701611664 : Int) ≤ (evTree x1 : Int) - (evTree x2 : Int) ∧
-      (evTree x1 : Int) - (evTree x2 : Int) ≤ 42701611664 := by
+    -(42618413185 : Int) ≤ (evTree x1 : Int) - (evTree x2 : Int) ∧
+      (evTree x1 : Int) - (evTree x2 : Int) ≤ 42618413185 := by
   obtain ⟨h1, h2⟩ := evTree_lip hv1 hv2 hg1 hg2
-  have c1 : ((evTree x1 : Nat) : Int) ≤ (evTree x2 : Int) + 42701611664 := by exact_mod_cast h1
-  have c2 : ((evTree x2 : Nat) : Int) ≤ (evTree x1 : Int) + 42701611664 := by exact_mod_cast h2
+  have c1 : ((evTree x1 : Nat) : Int) ≤ (evTree x2 : Int) + 42618413185 := by exact_mod_cast h1
+  have c2 : ((evTree x2 : Nat) : Int) ≤ (evTree x1 : Int) + 42618413185 := by exact_mod_cast h2
   omega
 
-theorem odTree_lip_int {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 126) (hv2 : vTree x2 < 2 ^ 126)
+theorem odTree_lip_int {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 ^ 120)
     (hg1 : vTree x1 ≤ vTree x2 + Wstep) (hg2 : vTree x2 ≤ vTree x1 + Wstep) :
-    -(5327301648 : Int) ≤ (odTree x1 : Int) - (odTree x2 : Int) ∧
-      (odTree x1 : Int) - (odTree x2 : Int) ≤ 5327301648 := by
+    -(5322105549 : Int) ≤ (odTree x1 : Int) - (odTree x2 : Int) ∧
+      (odTree x1 : Int) - (odTree x2 : Int) ≤ 5322105549 := by
   obtain ⟨h1, h2⟩ := odTree_lip hv1 hv2 hg1 hg2
-  have c1 : ((odTree x1 : Nat) : Int) ≤ (odTree x2 : Int) + 5327301648 := by exact_mod_cast h1
-  have c2 : ((odTree x2 : Nat) : Int) ≤ (odTree x1 : Int) + 5327301648 := by exact_mod_cast h2
+  have c1 : ((odTree x1 : Nat) : Int) ≤ (odTree x2 : Int) + 5322105549 := by exact_mod_cast h1
+  have c2 : ((odTree x2 : Nat) : Int) ≤ (odTree x1 : Int) + 5322105549 := by exact_mod_cast h2
   omega
 
 /-- The squared-argument step, as a `Nat` two-sided gap (`vTree x_i ≤ vTree x_j + W`). -/
@@ -78,9 +78,8 @@ theorem vTree_step_nat {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hadj : int256 x2 = int256 x1 + 1) :
     vTree x1 ≤ vTree x2 + Wstep ∧ vTree x2 ≤ vTree x1 + Wstep := by
   obtain ⟨hlo, hhi⟩ := vTree_step hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
-  have hW : (Wstep : Int) = Gstep + 1 := by unfold Wstep Gstep; norm_num
-  have c1 : (vTree x1 : Int) ≤ (vTree x2 : Int) + Wstep := by rw [hW]; omega
-  have c2 : (vTree x2 : Int) ≤ (vTree x1 : Int) + Wstep := by rw [hW]; omega
+  have c1 : (vTree x1 : Int) ≤ (vTree x2 : Int) + Wstep := by omega
+  have c2 : (vTree x2 : Int) ≤ (vTree x1 : Int) + Wstep := by omega
   exact ⟨by exact_mod_cast c1, by exact_mod_cast c2⟩
 
 /-- Abstract smooth certificate over opaque accumulator/argument values. The gain `d·od2·ev1`
@@ -90,16 +89,16 @@ theorem smooth_cross_of {t1 d ev1 ev2 od1 od2 : Int}
     (hd1 : (340282366920 : Int) ≤ d) (hd2 : d ≤ 340282366921)
     (ht1lo : -(170141183460469231731687303715884105728 : Int) < t1)
     (ht1hi : t1 < 170141183460469231731687303715884105728)
-    (hev1lo : (103786963415199049567855548359006885036 : Int) ≤ ev1)
+    (hev1lo : (103786963397729689639908782561058906594 : Int) ≤ ev1)
     (hev1hi : ev1 < 170141183460469231731687303715884105728)
-    (hev2lo : (103786963415199049567855548359006885036 : Int) ≤ ev2)
+    (hev2lo : (103786963397729689639908782561058906594 : Int) ≤ ev2)
     (hev2hi : ev2 < 170141183460469231731687303715884105728)
-    (hod1lo : (51893481707599524783927774179503442518 : Int) ≤ od1)
+    (hod1lo : (51893481698864844819954391280529453297 : Int) ≤ od1)
     (hod1hi : od1 < 85070591730234615865843651857942052864)
-    (hod2lo : (51893481707599524783927774179503442518 : Int) ≤ od2)
+    (hod2lo : (51893481698864844819954391280529453297 : Int) ≤ od2)
     (hod2hi : od2 < 85070591730234615865843651857942052864)
-    (hevd1 : -(42701611664 : Int) ≤ ev1 - ev2) (hevd2 : ev1 - ev2 ≤ 42701611664)
-    (hodd1 : -(5327301648 : Int) ≤ od1 - od2) (hodd2 : od1 - od2 ≤ 5327301648) :
+    (hevd1 : -(42618413185 : Int) ≤ ev1 - ev2) (hevd2 : ev1 - ev2 ≤ 42618413185)
+    (hodd1 : -(5322105549 : Int) ≤ od1 - od2) (hodd2 : od1 - od2 ≤ 5322105549) :
     t1 * od1 * ev2 + 340282366920938463463374607431768211456 * ev1 ≤
       (t1 + d) * od2 * ev1 := by
   -- cross difference `cd = od1·ev2 − od2·ev1`, bounded by `CB = DOd·2^127 + 2^126·DEv`
@@ -107,17 +106,17 @@ theorem smooth_cross_of {t1 d ev1 ev2 od1 od2 : Int}
   -- bound each piece
   have hev2nn : (0 : Int) ≤ ev2 := by linarith
   have hod2nn : (0 : Int) ≤ od2 := by linarith
-  have hp1 : (od1 - od2) * ev2 ≤ 5327301648 * 170141183460469231731687303715884105728 := by
+  have hp1 : (od1 - od2) * ev2 ≤ 5322105549 * 170141183460469231731687303715884105728 := by
     nlinarith [hodd2, hodd1, hev2nn, hev2hi]
-  have hp1' : -(5327301648 * 170141183460469231731687303715884105728 : Int) ≤ (od1 - od2) * ev2 := by
+  have hp1' : -(5322105549 * 170141183460469231731687303715884105728 : Int) ≤ (od1 - od2) * ev2 := by
     nlinarith [hodd1, hev2nn, hev2hi]
-  have hp2 : od2 * (ev2 - ev1) ≤ 85070591730234615865843651857942052864 * 42701611664 := by
+  have hp2 : od2 * (ev2 - ev1) ≤ 85070591730234615865843651857942052864 * 42618413185 := by
     nlinarith [hod2nn, hod2hi, hevd1, hevd2]
-  have hp2' : -(85070591730234615865843651857942052864 * 42701611664 : Int) ≤ od2 * (ev2 - ev1) := by
+  have hp2' : -(85070591730234615865843651857942052864 * 42618413185 : Int) ≤ od2 * (ev2 - ev1) := by
     nlinarith [hod2nn, hod2hi, hevd1, hevd2]
   -- so |cd| ≤ CB
-  set CB : Int := 5327301648 * 170141183460469231731687303715884105728 +
-    85070591730234615865843651857942052864 * 42701611664 with hCB
+  set CB : Int := 5322105549 * 170141183460469231731687303715884105728 +
+    85070591730234615865843651857942052864 * 42618413185 with hCB
   have hcd_hi : od1 * ev2 - od2 * ev1 ≤ CB := by rw [hcd_eq, hCB]; linarith
   have hcd_lo : -CB ≤ od1 * ev2 - od2 * ev1 := by rw [hcd_eq, hCB]; linarith
   -- `t1·(od1·ev2 − od2·ev1) ≤ 2^127·CB`
@@ -136,13 +135,13 @@ theorem smooth_cross_of {t1 d ev1 ev2 od1 od2 : Int}
       linarith
   -- gain: d·od2·ev1 ≥ 340282366920·b0·a0
   have hev1nn : (0 : Int) ≤ ev1 := by linarith
-  have hgain : (340282366920 : Int) * 51893481707599524783927774179503442518 *
-      103786963415199049567855548359006885036 ≤ d * od2 * ev1 := by
-    have g1 : (340282366920 : Int) * 51893481707599524783927774179503442518 ≤ d * od2 := by
-      have := mul_le_mul hd1 hod2lo (by norm_num : (0:Int) ≤ 51893481707599524783927774179503442518) (by linarith)
+  have hgain : (340282366920 : Int) * 51893481698864844819954391280529453297 *
+      103786963397729689639908782561058906594 ≤ d * od2 * ev1 := by
+    have g1 : (340282366920 : Int) * 51893481698864844819954391280529453297 ≤ d * od2 := by
+      have := mul_le_mul hd1 hod2lo (by norm_num : (0:Int) ≤ 51893481698864844819954391280529453297) (by linarith)
       linarith
-    have g2 : (340282366920 : Int) * 51893481707599524783927774179503442518 *
-        103786963415199049567855548359006885036 ≤ (d * od2) * ev1 :=
+    have g2 : (340282366920 : Int) * 51893481698864844819954391280529453297 *
+        103786963397729689639908782561058906594 ≤ (d * od2) * ev1 :=
       mul_le_mul g1 hev1lo (by norm_num) (by positivity)
     linarith [g2]
   -- assemble: goal `t1·od1·ev2 + 2^128·ev2 ≤ (t1+d)·od2·ev1 = t1·od2·ev1 + d·od2·ev1`
@@ -153,8 +152,8 @@ theorem smooth_cross_of {t1 d ev1 ev2 od1 od2 : Int}
   -- numeric closure: 2^128·ev2 + 2^127·CB ≤ gain, and ev2 < 2^127
   have hkey : (340282366920938463463374607431768211456 : Int) * ev1 +
       170141183460469231731687303715884105728 * CB ≤
-      (340282366920 : Int) * 51893481707599524783927774179503442518 *
-        103786963415199049567855548359006885036 := by
+      (340282366920 : Int) * 51893481698864844819954391280529453297 *
+        103786963397729689639908782561058906594 := by
     rw [hCB]
     nlinarith [hev1hi]
   nlinarith [htcd, hgain, hkey, hdecomp]
@@ -169,8 +168,8 @@ theorem smooth_cross {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     int256 (tTree x1) * (odTree x1 : Int) * (evTree x2 : Int) +
         2 ^ 128 * (evTree x1 : Int) ≤
       int256 (tTree x2) * (odTree x2 : Int) * (evTree x1 : Int) := by
-  have hv1 : vTree x1 < 2 ^ 126 := (vTree_eq hx1 hC1 hC01).2
-  have hv2 : vTree x2 < 2 ^ 126 := (vTree_eq hx2 hC2 hC02).2
+  have hv1 : vTree x1 < 2 ^ 120 := (vTree_eq hx1 hC1 hC01).2
+  have hv2 : vTree x2 < 2 ^ 120 := (vTree_eq hx2 hC2 hC02).2
   obtain ⟨hg1, hg2⟩ := vTree_step_nat hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   obtain ⟨hev1lo, hev1hi⟩ := evTree_int hv1
   obtain ⟨hev2lo, hev2hi⟩ := evTree_int hv2
@@ -219,8 +218,8 @@ theorem tod_cross {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     int256 (todTree x1) * (evTree x2 : Int) ≤ int256 (todTree x2) * (evTree x1 : Int) := by
   obtain ⟨_, _, hfl1, _⟩ := todTree_bound hx1 hC1 hC01
   obtain ⟨_, _, _, hfu2⟩ := todTree_bound hx2 hC2 hC02
-  have hv1 : vTree x1 < 2 ^ 126 := (vTree_eq hx1 hC1 hC01).2
-  have hv2 : vTree x2 < 2 ^ 126 := (vTree_eq hx2 hC2 hC02).2
+  have hv1 : vTree x1 < 2 ^ 120 := (vTree_eq hx1 hC1 hC01).2
+  have hv2 : vTree x2 < 2 ^ 120 := (vTree_eq hx2 hC2 hC02).2
   have hev1pos : 0 < (evTree x1 : Int) := by
     have := (evTree_int hv1).1; linarith
   have hev2nn : 0 ≤ (evTree x2 : Int) := Int.natCast_nonneg _

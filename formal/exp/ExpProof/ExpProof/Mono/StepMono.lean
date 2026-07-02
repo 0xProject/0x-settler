@@ -7,7 +7,7 @@ import ExpProof.Mono.RangeNonneg
 For two inputs adjacent in the signed order (`int256 x2 = int256 x1 + 1`) in a common octave, the
 quotient `r0` is nondecreasing (`r0_mono_adjacent`, via the cross inequality `tod_cross` fed to
 `r0_mono_of_cross`), and hence so is the closing accumulator `r1` (`r1_mono_adjacent`): with `k`
-fixed the closing shift `126 − k` is fixed, and the arithmetic-shift floor of the nondecreasing
+fixed the closing shift `108 − k` is fixed, and the logical-shift floor of the nondecreasing
 `WAD·r0 − MARGIN` is nondecreasing.
 -/
 
@@ -35,8 +35,8 @@ theorem r0_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hk : int256 (kTree x1) = int256 (kTree x2))
     (hadj : int256 x2 = int256 x1 + 1) :
     int256 (r0Tree x1) ≤ int256 (r0Tree x2) := by
-  have hv1 : vTree x1 < 2 ^ 126 := (vTree_eq hx1 hC1 hC01).2
-  have hv2 : vTree x2 < 2 ^ 126 := (vTree_eq hx2 hC2 hC02).2
+  have hv1 : vTree x1 < 2 ^ 120 := (vTree_eq hx1 hC1 hC01).2
+  have hv2 : vTree x2 < 2 ^ 120 := (vTree_eq hx2 hC2 hC02).2
   obtain ⟨hev1lo, hev1hi⟩ := evTree_int hv1
   obtain ⟨hev2lo, hev2hi⟩ := evTree_int hv2
   obtain ⟨htod1lo, htod1hi⟩ := todTree_cross_bounds hx1 hC1 hC01
@@ -47,9 +47,9 @@ theorem r0_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have htodw2 : todTree x2 < 2 ^ 256 := by unfold todTree; exact evmSar_lt _ _
   have hcross := tod_cross hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   have hr01 : r0Tree x1 =
-      evmSdiv (evmShl 0x7e (evmAdd (evTree x1) (todTree x1))) (evmSub (evTree x1) (todTree x1)) := rfl
+      evmDiv (evmShl 0x7e (evmAdd (evTree x1) (todTree x1))) (evmSub (evTree x1) (todTree x1)) := rfl
   have hr02 : r0Tree x2 =
-      evmSdiv (evmShl 0x7e (evmAdd (evTree x2) (todTree x2))) (evmSub (evTree x2) (todTree x2)) := rfl
+      evmDiv (evmShl 0x7e (evmAdd (evTree x2) (todTree x2))) (evmSub (evTree x2) (todTree x2)) := rfl
   rw [hr01, hr02]
   exact r0_mono_of_cross hevw1 htodw1 hevw2 htodw2 hev1lo hev1hi htod1lo htod1hi
     hev2lo hev2hi htod2lo htod2hi hcross
@@ -58,7 +58,7 @@ theorem r0_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
 theorem closing_shift_eq {x1 x2 : Nat}
     (hk : int256 (kTree x1) = int256 (kTree x2))
     (hk1 : kTree x1 < 2 ^ 256) (hk2 : kTree x2 < 2 ^ 256) :
-    evmSub 0x7e (kTree x1) = evmSub 0x7e (kTree x2) := by
+    evmSub 0x6c (kTree x1) = evmSub 0x6c (kTree x2) := by
   -- `int256` is injective on canonical words (`[0, 2^256)`), so `k` words coincide.
   have hinj : ∀ a b : Nat, a < 2 ^ 256 → b < 2 ^ 256 → int256 a = int256 b → a = b := by
     intro a b ha hb h
@@ -72,7 +72,7 @@ theorem closing_shift_eq {x1 x2 : Nat}
   rw [hinj _ _ hk1 hk2 hk]
 
 /-- **Adjacent `r1` monotonicity** within an octave: with `k` fixed, the closing shift is fixed and
-the arithmetic-shift floor of the nondecreasing shift argument is nondecreasing. -/
+the logical-shift floor of the nondecreasing shift argument is nondecreasing. -/
 theorem r1_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
@@ -90,28 +90,39 @@ theorem r1_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hk2w : kTree x2 < 2 ^ 256 := by unfold kTree; exact evmSar_lt _ _
   have hseq := closing_shift_eq hk hk1w hk2w
   obtain ⟨s, hseqx, hslo, hshi, _⟩ := closing_shift hx1 hC1 hC01
-  have hr1eq1 : r1Tree x1 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f) := by
+  have hr1eq1 : r1Tree x1 = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf) := by
     unfold r1Tree; rw [hseqx]
-  have hr1eq2 : r1Tree x2 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f) := by
+  have hr1eq2 : r1Tree x2 = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf) := by
     unfold r1Tree; rw [← hseq, hseqx]
   rw [hr1eq1, hr1eq2]
   -- the two shift arguments, transported to `Int`, are ordered (monotone `r0`)
-  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f with harg1
-  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f with harg2
+  set arg1 := evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf with harg1
+  set arg2 := evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf with harg2
   have hargle : int256 arg1 ≤ int256 arg2 := by
     rw [harg1eq, harg2eq]
-    have hwad : (0 : Int) ≤ 0xde0b6b3a7640000 := by norm_num
+    have hwad : (0 : Int) ≤ 0x3782dace9d9 := by norm_num
     have := mul_le_mul_left_nonneg hr0mono hwad
     omega
-  -- `evmSar s` is monotone in the signed value (the floor of the same shift)
+  -- the shift arguments are nonnegative canonical words, ordered as Nats
   have ha1lt : arg1 < 2 ^ 256 := by rw [harg1]; exact evmSub_lt _ _
   have ha2lt : arg2 < 2 ^ 256 := by rw [harg2]; exact evmSub_lt _ _
-  obtain ⟨_, hsl1, hsh1⟩ := evmSar_sandwich (s := s) (by omega) ha1lt
-  obtain ⟨_, hsl2, hsh2⟩ := evmSar_sandwich (s := s) (by omega) ha2lt
-  have hpow : (0 : Int) < 2 ^ s := by positivity
-  set R1 := int256 (evmSar s arg1)
-  set R2 := int256 (evmSar s arg2)
-  -- `2^s·R1 ≤ arg1 ≤ arg2 < 2^s·R2 + 2^s ⇒ R1 < R2 + 1 ⇒ R1 ≤ R2`
-  nlinarith [hsl1, hsh2, hargle, hpow]
+  obtain ⟨he1, hlt1⟩ := int256_eq_of_nonneg ha1lt (by rw [harg1eq]; exact harg1nn)
+  obtain ⟨he2, hlt2⟩ := int256_eq_of_nonneg ha2lt (by rw [harg2eq]; exact harg2nn)
+  -- the deep tree behind the shift arguments is opaque from here on
+  clear_value arg1 arg2
+  have hargleN : arg1 ≤ arg2 := by
+    have : ((arg1 : Nat) : Int) ≤ ((arg2 : Nat) : Int) := by rw [← he1, ← he2]; exact hargle
+    exact_mod_cast this
+  -- `evmShr s` is the same-shift Nat floor: monotone
+  rw [evmShr_eq_div (by omega) ha1lt, evmShr_eq_div (by omega) ha2lt]
+  have hqle : arg1 / 2 ^ s ≤ arg2 / 2 ^ s := Nat.div_le_div_right hargleN
+  have hq1lt : arg1 / 2 ^ s < 2 ^ 255 := by
+    have h1 : arg1 / 2 ^ s ≤ arg1 := Nat.div_le_self _ _
+    omega
+  have hq2lt : arg2 / 2 ^ s < 2 ^ 255 := by
+    have h1 : arg2 / 2 ^ s ≤ arg2 := Nat.div_le_self _ _
+    omega
+  rw [int256_of_lt hq1lt, int256_of_lt hq2lt]
+  exact_mod_cast hqle
 
 end ExpYul

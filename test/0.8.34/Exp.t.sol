@@ -101,6 +101,28 @@ contract ExpTest is Test {
         }
     }
 
+    /// Exact value witnesses across the negative octaves, k = -1 down to k = -60 (the deepest
+    /// octave above the clamp). Every point has
+    /// frac(E) > 0.09 while the deficit envelope at k <= -1 is below 1e-19 ulp, so each result
+    /// is exactly floor(E).
+    function testExpRayToWadNegativeHalfExactFloor() external pure {
+        int256[8] memory xs = [
+            int256(-1e27), // k = -1
+            -1.5e27, // k = -2
+            -5e27, // k = -7
+            -10e27, // k = -14
+            -20e27, // k = -29
+            -30e27, // k = -43
+            -40e27, // k = -58
+            -41.3e27 // k = -60
+        ];
+        int256[8] memory floors =
+            [int256(367879441171442321), 223130160148429828, 6737946999085467, 45399929762484, 2061153622, 93576, 4, 1];
+        for (uint256 i; i < xs.length; ++i) {
+            assertEq(Exp.expRayToWad(xs[i]), floors[i], "negative-half floor");
+        }
+    }
+
     /// The largest supported input, one below the revert threshold. frac(E) ~= 0.74, comfortably
     /// inside the k = 63 deficit envelope.
     function testExpRayToWadSupportedEdge() external pure {

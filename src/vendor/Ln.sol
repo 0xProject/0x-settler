@@ -56,7 +56,7 @@ library Ln {
         // approximation and coefficient quantization ≤0.327 combined; mantissa (Q95) truncation
         // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `SDIV` truncations ≤0.005 combined; Horner
         // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by
-        // a margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
+        // a margin of ~1.598⋅10²¹ units (0.3383 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
         // margin plus downward errors total < 0.699 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
         // `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //

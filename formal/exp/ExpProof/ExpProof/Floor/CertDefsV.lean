@@ -1,12 +1,12 @@
 import Common.Foundation.ShiftCert
 
 /-!
-# The v-form reduced-argument rational target and its Taylor cut certificates
+# The v-form reduced-argument rational target and its cut / denominator-floor certificates
 
 The runtime forms `r0 = ⌊ê_v(t)·2^126⌋` with the **v-form** rational
 
 ```
-ê_v(t) = (evNumV(v) · 2^105 + t · odNumV(v)) / (evNumV(v) · 2^105 − t · odNumV(v)),   v = t²/2^128,
+ê_v(t) = (evNumV(v) · 2^110 + t · odNumV(v)) / (evNumV(v) · 2^110 − t · odNumV(v)),   v = t²/2^133,
 ```
 
 built from the exact integer even/odd Horner polynomials `evNumV`/`odNumV` (defined in
@@ -16,14 +16,21 @@ t-form `ê_t = numExp/denExp`. `ê_v` and `ê_t` are equal as reals but differ a
 polynomials (different shift-clearing), so this module re-derives the cut against `ê_v` directly.
 
 Here `v = t²` is carried symbolically (each Horner stage multiplies by `t²` via `mulT2`, with the
-runtime per-stage `>>128` cleared into the per-stage scale): `evNumVPoly` accumulates `Ev` to the
+runtime per-stage shift cleared into the per-stage scale): `evNumVPoly` accumulates `Ev` to the
 cleared scale `2^1193` and `odNumVPoly` accumulates `Od` to `2^1042`; `t·Od` (lifted by `2^23`) joins
 `Ev` at the common `2^1193`. The shared scale cancels in `ê_v = NUM/DEN`. As a polynomial in `t` the
 numerator/denominator are degree 10.
 
-The cut is the standard `Common.Exp.capUB_of_partial`/`capLB` shape at Taylor depth `K = 27`, nudging
-the rational by a dyadic margin (`yUB/wUB = ê_v·(1 + 2⁻¹³⁰)`, `yLB/wLB = ê_v·(1 − 2⁻¹³⁰)`); the
-verified envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.057` ulp is far inside those margins.
+Two certificate shapes are declared:
+
+* the Taylor cut, the standard `Common.Exp.capUB_of_partial`/`capLB` shape at depth `K = 27`,
+  nudging the rational by a dyadic margin (`yUB/wUB = ê_v·(1 + 2⁻¹³¹)`, `yLB/wLB = ê_v·(1 − 2⁻¹³¹)`);
+  the realized envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.019` ulp is inside those margins with 2.3× slack;
+* the **denominator floors** over the integer `v`-grid: the parameterized shapes
+  `certDOverP`/`certDUnderP` pin `Ev(v)·2^110 ∓ T·Od(v)` above explicit constants, instantiated
+  once globally (`certDOver`, at the domain edge `T = H128` over all of `[0, vmaxV + 1]`) and once
+  per granularity piece (32 pieces, each with its own `t`-cap `T` and floor constant over its
+  `v`-range); the argument-granularity link divides one `v`-grid step of `ê_v` by the piece floors.
 -/
 
 namespace ExpCertV
@@ -40,32 +47,32 @@ def H128 : Nat := 117932881612756647068972071382077242199
 
 /-! ## Exact integer `ê_v(t) = NUM(t)/DEN(t)` from the implementation coefficients
 
-The even/odd Horner accumulators evaluated as exact polynomials in `t` with `v = t²/2^128`, each
-runtime per-stage `>>128` cleared into the stage scale. `evNumVPoly` is `evNumV(t²)` cleared to scale
-`2^640` (so its evaluation is `Ev·2^1193`); `odNumVPoly` is `odNumV(t²)` cleared to scale `2^512`
-(evaluation `Od·2^1042`); `t·Od` (lifted by `2^23` to the common `2^1193`) joins `Ev`. The shared
-`2^1193` cancels in `ê_v = NUM/DEN`. -/
+The even/odd Horner accumulators evaluated as exact polynomials in `t` with `v = t²/2^133`, each
+runtime per-stage shift cleared into the stage scale. `evNumVPoly` is `evNumV(t²)` cleared so its
+evaluation is `Ev·2^1193` (`= evNumV(v)·2^665` at grid points `t² = 2^133·v`); `odNumVPoly`
+evaluates to `Od·2^1042` (`= odNumV(v)·2^532` at grid points); `t·Od` (lifted by `2^23` to the
+common `2^1193`) joins `Ev`. The shared `2^1193` cancels in `ê_v = NUM/DEN`. -/
 
-/-- `t²·P` at the polynomial level (one Horner `·v` stage, with the runtime `>>128` cleared into the
-per-stage constant scale). -/
+/-- `t²·P` at the polynomial level (one Horner `·v` stage, with the runtime per-stage shift cleared
+into the per-stage constant scale). -/
 def mulT2 (P : List Int) : List Int := 0 :: 0 :: P
 
-/-- The even Horner accumulator `Ev`, cleared to scale `2^640` (evaluation `Ev·2^1193`). The
-per-stage constants are the even coefficients `A0..A4` lifted by the cleared stage scale; the
-innermost monic `v` stage clears to `[A4·2^157, 0, 1]`. -/
+/-- The even Horner accumulator `Ev` (evaluation `Ev·2^1193`; `evNumV(v)·2^665` at grid points).
+The per-stage constants are the even coefficients `A0..A4` lifted by the cleared stage scale; the
+innermost monic `v` stage clears to `[A4·2^133, 0, 1]` (A4 is carried at v's own Q123 basis). -/
 def evNumVPoly : List Int :=
-  polyAdd [0x4e14a45e8ec305e233e11b4174e214ac * 2 ^ 1193]
-    (mulT2 (polyAdd [0x93f11e65781741b92fa7fc4f4fffcca2 * 2 ^ 933]
-      (mulT2 (polyAdd [0x9064d965e1c4863b73604e0ddbec53f9 * 2 ^ 671]
-        (mulT2 (polyAdd [0x9a036222e11aee18465042f8ea64c8 * 2 ^ 415]
-          (mulT2 [0xb9aacfad41060587203a79af0ebc * 2 ^ 157, 0, 1])))))))
+  polyAdd [0x4e14a45e5650b506e97f4c5da23861e2 * 2 ^ 1193]
+    (mulT2 (polyAdd [0x93f11e650dd6c64b96ce79065cdf809e * 2 ^ 933]
+      (mulT2 (polyAdd [0x9064d9657e9a21fc16bb69331c5c3057 * 2 ^ 671]
+        (mulT2 (polyAdd [0x9a036222841f47c6ed6fc3f7602053 * 2 ^ 415]
+          (mulT2 [0xb9aacfacf3c10b378435f8e22adf48500e * 2 ^ 133, 0, 1])))))))
 
-/-- The odd Horner accumulator `Od`, cleared to scale `2^512` (evaluation `Od·2^1042`). -/
+/-- The odd Horner accumulator `Od` (evaluation `Od·2^1042`; `odNumV(v)·2^532` at grid points). -/
 def odNumVPoly : List Int :=
-  polyAdd [0x270a522f476182f119f08da0ba710a56 * 2 ^ 1042]
-    (mulT2 (polyAdd [0xaf5662483c4ce783a9ef5fe025f42e9e * 2 ^ 779]
-      (mulT2 (polyAdd [0xad4506b00b1246c7e5b4fd33e1201b * 2 ^ 524]
-        (mulT2 [0xc926ddbf3830ca5561cc01585402d0 * 2 ^ 259, 0, 0xdc07aff85e5bb5629d0fb64a84bb])))))
+  polyAdd [0x270a522f2b285a8374bfa62ed11c30f1 * 2 ^ 1042]
+    (mulT2 (polyAdd [0xaf566247c05753b42892f77b67a6b7c6 * 2 ^ 779]
+      (mulT2 (polyAdd [0xad4506af99be27419341e1816ff351 * 2 ^ 524]
+        (mulT2 [0xc926ddbecdeeb42e68cd16db7da8c1 * 2 ^ 259, 0, 0xdc07aff8276bde9a361278df6a10])))))
 
 /-- `t·Od` lifted to the common scale `2^1193` (`= 2^23 · t · odNumVPoly`). -/
 def todNumV : List Int := polyScale (2 ^ 23) (0 :: odNumVPoly)
@@ -83,14 +90,14 @@ def expN27 : List Int := expPolyNum [0, 1] [(Qexp : Int)] 27
 
 /-! ## Margin-nudged rational targets
 
-`yUB/wUB = ê_v·(1 + 2⁻¹³⁰)` and `yLB/wLB = ê_v·(1 − 2⁻¹³⁰)`. The tight `2⁻¹³⁰` margins keep the
-`2¹²⁶·(ê_v − exp)` contribution to the runtime over/under budget below `2¹²⁶·exp·2⁻¹³⁰ ≈ 0.09` ulp,
-inside the `MARGIN`; the verified envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.057` ulp leaves slack. -/
+`yUB/wUB = ê_v·(1 + 2⁻¹³¹)` and `yLB/wLB = ê_v·(1 − 2⁻¹³¹)`. The tight `2⁻¹³¹` margins keep the
+`2¹²⁶·(ê_v − exp)` contribution to the runtime over/under budget below `2¹²⁶·exp·2⁻¹³¹ ≈ 0.045` ulp,
+inside the `MARGIN`; the realized envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.019` ulp leaves slack. -/
 
-def yUB : List Int := polyScale (2 ^ 130 + 1) numExpV
-def wUB : List Int := polyScale (2 ^ 130) denExpV
-def yLB : List Int := polyScale (2 ^ 130 - 1) numExpV
-def wLB : List Int := polyScale (2 ^ 130) denExpV
+def yUB : List Int := polyScale (2 ^ 131 + 1) numExpV
+def wUB : List Int := polyScale (2 ^ 131) denExpV
+def yLB : List Int := polyScale (2 ^ 131 - 1) numExpV
+def wLB : List Int := polyScale (2 ^ 131) denExpV
 
 /-! ## The cut certificate polynomials -/
 
@@ -110,5 +117,50 @@ def certExpLo : List Int := polySub (polyMul expN27 wLB) (polyScale fact27Q27 yL
 
 /-- `DEN(t) − 1`: nonnegativity over the domain certifies `1 ≤ DEN(t)`. -/
 def certDenM1 : List Int := polyAdd denExpV [-1]
+
+/-! ## The v-grid denominator floors
+
+The argument-granularity link works on the integer `v`-grid: with `Ev(v)`/`Od(v)` the exact integer
+Horner polynomials (cleared scales `2^528`/`2^510`; `Floor/R0Bound.lean`), the aligned rational is
+`ê_v = (Ev·2^110 + t·Od) / (Ev·2^110 − t·Od)` and one grid step of it is bounded by dividing the
+`K`-identity numerator by the two floors below. The grid never leaves `[0, vmaxV + 1]`
+(`v = ⌊t²/2^133⌋ ≤ vmaxV` for `|t| ≤ H128`, and the step looks one cell ahead). -/
+
+/-- The top of the `v`-grid: `vmaxV = ⌊H128²/2^133⌋`. -/
+def vmaxV : Nat := 1277263193518626341050532535110179582
+
+/-- The even integer Horner polynomial `Ev` in `v` (degree 5, monic, cleared scale `2^528`):
+coefficient list of `evNumV` (`Floor/R0Bound.lean`). -/
+def evVPoly : List Int :=
+  [0x4e14a45e5650b506e97f4c5da23861e2 * 2 ^ 528,
+   0x93f11e650dd6c64b96ce79065cdf809e * 2 ^ 401,
+   0x9064d9657e9a21fc16bb69331c5c3057 * 2 ^ 272,
+   0x9a036222841f47c6ed6fc3f7602053 * 2 ^ 149,
+   0xb9aacfacf3c10b378435f8e22adf48500e,
+   1]
+
+/-- The odd integer Horner polynomial `Od` in `v` (degree 4, cleared scale `2^510`). -/
+def odVPoly : List Int :=
+  [0x270a522f2b285a8374bfa62ed11c30f1 * 2 ^ 510,
+   0xaf566247c05753b42892f77b67a6b7c6 * 2 ^ 380,
+   0xad4506af99be27419341e1816ff351 * 2 ^ 258,
+   0xc926ddbecdeeb42e68cd16db7da8c1 * 2 ^ 126,
+   0xdc07aff8276bde9a361278df6a10]
+
+/-- Over-half denominator floor shape: `Ev(v)·2^110 − T·Od(v) − D·2^725 ≥ 0`. Nonnegativity over a
+`v`-range gives `DEN(v, t) ≥ D·2^725` there for every `0 ≤ t ≤ T` (the floor constant is `2^725`
+times a real-scale minimum). -/
+def certDOverP (T D : Int) : List Int :=
+  polyAdd (polySub (polyScale (2 ^ 110) evVPoly) (polyScale T odVPoly)) [-(D * 2 ^ 725)]
+
+/-- Under-half (`t = −T`) denominator floor shape: `Ev(v)·2^110 + T·Od(v) − D·2^725 ≥ 0`. The
+granularity lift is monotone in `|t|`, so the single cap evaluation floors a whole piece's
+negative half. -/
+def certDUnderP (T D : Int) : List Int :=
+  polyAdd (polyAdd (polyScale (2 ^ 110) evVPoly) (polyScale T odVPoly)) [-(D * 2 ^ 725)]
+
+/-- The global over-half floor at the domain edge: `DEN(v, t) ≥ 554482771859·2^725` on all of
+`[0, vmaxV + 1]` for every `0 ≤ t ≤ H128` (real-scale minimum `≈ 5.5448·10¹¹`, attained interior). -/
+def certDOver : List Int := certDOverP (H128 : Int) 554482771859
 
 end ExpCertV

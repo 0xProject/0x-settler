@@ -417,20 +417,20 @@ theorem call_fun__expRayToWad_80_direct
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
     )]) := by
@@ -456,14 +456,14 @@ theorem call_fun__expRayToWad_80_direct
   simp only [FormalYul.Preservation.wordNat_shiftRight, FormalYul.Preservation.wordNat_shiftLeft,
     FormalYul.Preservation.wordNat_add, FormalYul.Preservation.wordNat_sub,
     FormalYul.Preservation.wordNat_mul, FormalYul.Preservation.wordNat_iszero,
-    FormalYul.Preservation.wordNat_ofNat, wordNat_sar, wordNat_sdiv, wordNat_slt]
+    FormalYul.Preservation.wordNat_ofNat, wordNat_sar, wordNat_div, wordNat_slt]
   simp only [FormalYul.Preservation.evmAdd_u256_left, FormalYul.Preservation.evmAdd_u256_right,
     FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right,
     FormalYul.Preservation.evmMul_u256_left, FormalYul.Preservation.evmMul_u256_right,
     FormalYul.Preservation.evmShl_u256_left, FormalYul.Preservation.evmShl_u256_right,
     FormalYul.Preservation.evmShr_u256_left, FormalYul.Preservation.evmShr_u256_right,
     FormalYul.Preservation.evmIszero_u256, evmSar_u256_left, evmSar_u256_right,
-    evmSdiv_u256_left, evmSdiv_u256_right, evmSlt_u256_left, evmSlt_u256_right,
+    evmDiv_u256_left, evmDiv_u256_right, evmSlt_u256_left, evmSlt_u256_right,
     u256_idem, FormalYul.Preservation.u256_evmAdd]
 
 set_option maxHeartbeats 4000000 in
@@ -481,20 +481,20 @@ theorem call_fun_expRayToWad_70_direct
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
     )]) := by
@@ -543,20 +543,20 @@ theorem call_fun_wrap_expRayToWad_direct
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
     )]) := by
@@ -604,20 +604,20 @@ theorem external_fun_wrap_expRayToWad_calldata_result
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
     ) := by
@@ -633,20 +633,20 @@ theorem external_fun_wrap_expRayToWad_calldata_result
       (let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
     with htree
@@ -734,20 +734,20 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
       (let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
     with htree
@@ -840,20 +840,20 @@ theorem external_fun_wrap_expRayToWad_dispatcher_state_result
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
     ) := by
@@ -919,20 +919,20 @@ theorem run_exp_ray_to_wad_evm_eq_tree
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
-      let v := evmShr 0x80 (evmMul t t)
-      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
-        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
-        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
-        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
-        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
-      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
-        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
-        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
-        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
-        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let v := evmShr 0x85 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+        (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
+        (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
+        (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+        (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+        (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
+        (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
+        (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+        0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x80 (evmMul t od)
-      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f)
+      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf)
       evmAdd (evmIszero x)
         (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
     ) := by

@@ -36,63 +36,85 @@ library Exp {
         // t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational that matches
         // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln(2)/2)²]. Ev(v) is degree 5 and Od(v)
         // degree 4; in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the
-        // integer coefficients realize ≈126 of them. Ev(v) is monic, so its leading stage is a
-        // shift, not a multiply.
+        // integer coefficients realize ≈131 of them: each coefficient's low bits are chosen
+        // jointly, after rounding at the staircase bases, to re-center the ten quantization
+        // residuals, holding the realized envelope at ≤ 0.019 ulp. Ev(v) is monic, so its leading
+        // stage is just an add.
         //
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
         // its chosen byte width. A coefficient followed by more multiplies by v tolerates a shorter
         // basis. Each renormalizing shift lands a value directly at the basis its consumer needs.
         //     t:      Q128 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2)
-        //     v = t²: Q128
-        //     Ev(v) Horner down the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at
-        //         Q99)
+
+        //     v = t²: Q123 the widest basis whose monic-stage product stays inside 256 bits, so
+        //         Ev(v)'s leading stage consumes v with no renormalizing shift
+
+        //     Ev(v) Horner down the staircase Q123 → Q97 → Q97 → Q91 → Q87 (monic)
+
         //     Od(v) Horner down the staircase Q105 → Q102 → Q93 → Q94 → Q87
         //     Ev, Od, t⋅Od, and the numerator/denominator: Q87
         //     quotient: one `DIV` placing exp(t) at Q126 (the dividend, numerator << 126, stays
-        //         below 2²⁵⁵: a nonnegative signed word)
-        //     output: multiplying by 10¹⁸ lands E on the 10¹⁸⋅2¹²⁶ grid; the closing `shr(126 - k,
-        //         …)` is the single output-rounding floor, with 2ᵏ folded in
+        //         below 2²⁵⁵)
+
+        //     output: multiplying by 5¹⁸ lands E on the 2¹⁰⁸ output grid (the 10¹⁸⋅2¹²⁶ grid with
+        //         the wad unit's 2¹⁸ pre-folded); the closing `shr(108 - k, …)` is the single
+        //         output-rounding floor, with 2ᵏ folded in
         //
         // Error budget. The integer rational `e` lands on the Q126 grid; write its excess over the
         // exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). Δ is the
         // tightest bound the proof technique can bear, in spite of the fact that the worst-case
-        // error contributions do not co-occur. The proof bounds Δ ≤ 0.7201434073703092789, the sum
+        // error contributions do not co-occur. The budget bounds Δ ≤ 1.0050013498897899168, the sum
         // of three one-sided contributions:
+        
         //     integer Horner + closing `DIV` truncation: the Ev shared by the numerator Ev + t⋅Od
         //         and denominator Ev - t⋅Od cancels to first order in the quotient, so its
         //         truncation barely perturbs e; this jitter stays < 0.62071.
+        
+        //     argument granularity: v carries t² on the Q123 grid, and its floor only lowers the
+        //         polynomials' shared argument (by < 2⁻¹²³), which lifts e on the t > 0 half by <
+        //         0.32906: one v-grain moves the quotient by 2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose
+        //         one-signed numerator maximal at each
+        //         piece's upper edge and whose denominator is floored piecewise over 32 domain
+        //         pieces (the pointwise supremum is ≈ 0.3287 at t = ln2/2). The t < 0
+        //         direction is budgeted on the under side.
+        
         //     rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
-        //         < 0.08839 (its supremum is √2⋅2¹²⁶/(2¹³⁰-1)).
+        //         < 0.04420 (its supremum is √2⋅2¹²⁶/(2¹³¹-1)).
+        
         //     reduced-argument gap: the Q128 floor of t only pushes e downward (that direction is
         //         budgeted on the under side); the over side is the K27/LN2 constant-grid residue
         //         (the k⋅ln2 grid error stays below 2⁻²²⁹), which the proof envelopes one-sidedly
         //         at 2⁻¹³³ of reduced argument, lifting e by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
         //         √2/128).
+
         // Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
-        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0781 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least
-        // integer strictly above 2⁶³⋅S: 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1 = 720143407370309279
-        // (worth ≈ S ulp at k = 63; the +1 is needed to meet the strict never overestimate
-        // requirement). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E. The under side is bounded to the same precision:
-        // e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 13/2, where 13/2 is the proven sum of the integer-rational deficit
-        // (≤ 6001/1000, the Horner/`DIV`/floor truncation against the denominator), the `Mp`
-        // factor (≤ 1/10, via e ≤ 1.45·2¹²⁶), and the under-direction reduced-argument gap (≤
-        // 37/100, via exp(t) ≤ √2). Hence the maximum underestimation of the pre-floor accumulator
-        // A is E - A ≤ ((13/2)⋅10¹⁸ + margin)/2⁶³ ≈ 0.78281 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ -
-        // 1. The deficit envelope ((13/2)⋅10¹⁸ + margin)/2^(126 - k) doubles each octave, so at k =
-        // 64 it exceeds 1ulp. On the central octave k = 0 the margin is margin⋅2⁻¹²⁶ ≈ 8.5⋅10⁻²¹
-        // ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to
-        // ⌊E⌋. The k = 0 band is exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s
-        // image over [1/√2, √2).
+        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1090 ulp (1 ulp = 10⁻¹⁸ of the result).The margin is the least integer
+        // on the 2¹⁰⁸ output grid strictly above Δ's image: 0x37c9ed9cabf = ⌊5¹⁸⋅Δ⌋ + 1 =
+        // 3833775901375 (worth ≈ S ulp at k = 63; the +1 is needed to meet the strict never
+        // overestimate requirement). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E. The under side is bounded to the
+        // same precision: e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 67/10, where 67/10 bounds the sum of the
+        // integer-rational deficit (≤ 6001/1000, the Horner/`DIV`/floor truncation against the
+        // denominator), the `Mp` factor (≤ 1/20, via e ≤ 1.45·2¹²⁶), the under-direction
+        // reduced-argument gap (≤ 37/100, via exp(t) ≤ √2), and the under-direction argument
+        // granularity (≤ 17/100: the same one-grain envelope with the negative-half denominator
+        // floor). Hence the maximum underestimation of the pre-floor accumulator A is E - A ≤
+        // ((67/10)⋅10¹⁸ + 2¹⁸⋅margin)/2⁶³ ≈ 0.83538 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
+        // deficit envelope ((67/10)⋅10¹⁸ + 2¹⁸⋅margin)/2^(126 - k) doubles each octave, so at k = 64 it
+        // exceeds 1ulp. On the central octave k = 0 the margin is margin⋅2⁻¹⁰⁸ ≈ 1.2⋅10⁻²⁰ ulp, far
+        // below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. The k = 0
+        // band is exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image over [1/√2,
+        // √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
-        // pre-floor accumulator by at least 10¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 6⋅10²⁸ grid units. The error terms
-        // above confine the accumulator to a band of width 10¹⁸⋅(Δ + 13/2) ≈ 7.2⋅10¹⁸ grid units
-        // just below E's grid image at every octave (in grid units the band is k-independent; an
-        // octave seam rescales E and the band together), so the per-step gain exceeds any adverse
-        // swing within the band by more than 9 orders of magnitude, and the pre-floor accumulator
-        // strictly increases at every step; its floor is non-decreasing. The zeroing clamp and the
-        // +1 pin at x = 0 preserve order: below C the result is 0 while just above it ⌊E⌋ ≥ 0, and
-        // the adjacent runtime values around x = 0 bracket the pinned scale-point value.
+        // pre-floor accumulator by at least 5¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 2.3⋅10²³ grid units. The error
+        // terms above confine the accumulator to a band of width 5¹⁸⋅(Δ + 67/10) ≈ 2.9⋅10¹³ grid
+        // units just below E's grid image at every octave (in grid units the band is k-independent;
+        // an octave seam rescales E and the band together), so the per-step gain exceeds any
+        // adverse swing within the band by more than 9 orders of magnitude, and the pre-floor
+        // accumulator strictly increases at every step; its floor is non-decreasing. The zeroing
+        // clamp and the +1 pin at x = 0 preserve order: below C the result is 0 while just above it
+        // ⌊E⌋ ≥ 0, and the adjacent runtime values around x = 0 bracket the pinned scale-point
+        // value.
         assembly ("memory-safe") {
             // k = round(x / (10²⁷⋅ln(2))), half-open. CINV = round(2²⁰⁰ / (10²⁷⋅ln(2))); the +2¹⁹⁹
             // and `sar(200, …)` round to nearest with ties resolved toward +∞.
@@ -110,23 +132,24 @@ library Exp {
                     )
                 )
 
-            // v = t² in Q128 (nonnegative; logical shift).
-            let v := shr(0x80, mul(t, t))
+            // v = t² in Q128 (nonnegative; logical shift): the widest basis at which the
+            // monic-stage product below stays inside 256 bits.
+            let v := shr(0x85, mul(t, t))
 
             // Ev(v), monic, Horner down the staircase. The leading v⁵ coefficient is 1, so the
-            // first stage is a shift and an add, not a multiply.
-            let ev := add(0xb9aacfad41060587203a79af0ebc, shr(0x1d, v))
-            ev := add(0x9a036222e11aee18465042f8ea64c8, shr(0x82, mul(ev, v)))
-            ev := add(0x9064d965e1c4863b73604e0ddbec53f9, shr(0x80, mul(ev, v)))
-            ev := add(0x93f11e65781741b92fa7fc4f4fffcca2, shr(0x86, mul(ev, v)))
-            ev := add(0x4e14a45e8ec305e233e11b4174e214ac, shr(0x84, mul(ev, v)))
+            // first stage is just an add.
+            let ev := add(0xb9aacfacf3c10b378435f8e22adf48500e, v)
+            ev := add(0x9a036222841f47c6ed6fc3f7602053, shr(0x95, mul(ev, v)))
+            ev := add(0x9064d9657e9a21fc16bb69331c5c3057, shr(0x7b, mul(ev, v)))
+            ev := add(0x93f11e650dd6c64b96ce79065cdf809e, shr(0x81, mul(ev, v)))
+            ev := add(0x4e14a45e5650b506e97f4c5da23861e2, shr(0x7f, mul(ev, v)))
 
             // Od(v), Horner down the staircase.
-            let od := 0xdc07aff85e5bb5629d0fb64a84bb
-            od := add(0xc926ddbf3830ca5561cc01585402d0, shr(0x83, mul(od, v)))
-            od := add(0xad4506b00b1246c7e5b4fd33e1201b, shr(0x89, mul(od, v)))
-            od := add(0xaf5662483c4ce783a9ef5fe025f42e9e, shr(0x7f, mul(od, v)))
-            od := add(0x270a522f476182f119f08da0ba710a56, shr(0x87, mul(od, v)))
+            let od := 0xdc07aff8276bde9a361278df6a10
+            od := add(0xc926ddbecdeeb42e68cd16db7da8c1, shr(0x7e, mul(od, v)))
+            od := add(0xad4506af99be27419341e1816ff351, shr(0x84, mul(od, v)))
+            od := add(0xaf566247c05753b42892f77b67a6b7c6, shr(0x7a, mul(od, v)))
+            od := add(0x270a522f2b285a8374bfa62ed11c30f1, shr(0x82, mul(od, v)))
 
             // t⋅Od in Q87 (signed via t); the numerator Ev + t⋅Od and denominator Ev - t⋅Od are
             // both positive.
@@ -136,10 +159,11 @@ library Exp {
             // 0.
             r := div(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
-            // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin (the provable minimum
-            // 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `shr(126 -
-            // k, …)` which folds in the 2ᵏ octave scaling (126 - k ∈ [63, 186]).
-            r := shr(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0x9fe769d0fa58e9f))
+            // E on the 2¹⁰⁸ output grid (5¹⁸ = 10¹⁸/2¹⁸ multiplies the Q126 quotient), less the
+            // one-sided margin (0xe17cfd91868d72d = ⌊5¹⁸⋅Δ⌋ + 1; see the budget above), then
+            // floored by `shr(126 - k, …)` which folds in the 2ᵏ octave scaling and the wad unit's
+            // remaining 2¹⁸ (108 - k ∈ [45, 168]).
+            r := shr(sub(0x6c, k), sub(mul(0x3782dace9d9, r), 0x37c9ed9cabf))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs

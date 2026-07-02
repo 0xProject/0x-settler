@@ -23,7 +23,7 @@ def kTree (x : Nat) : Nat :=
 def tTree (x : Nat) : Nat :=
   evmSar tArgShift (evmSub (evmMul k27Q235 x) (evmMul ln2Q235 (kTree x)))
 
-/-- `v = t^2` in Q128. -/
+/-- `v = t^2` in Q123. -/
 def vTree (x : Nat) : Nat := evmShr squareShift (evmMul (tTree x) (tTree x))
 
 /-- `Ev(v)`, the even Horner accumulator. -/
@@ -33,7 +33,7 @@ def evTree (x : Nat) : Nat :=
     (evmAdd ev3 (evmShr evShift3 (evmMul
     (evmAdd ev2 (evmShr evShift2 (evmMul
     (evmAdd ev1 (evmShr evShift1 (evmMul
-    (evmAdd ev0 (evmShr evShift0 v)) v))) v))) v))) v))
+    (evmAdd ev0 v) v))) v))) v))) v))
 
 /-- `Od(v)`, the odd Horner accumulator. -/
 def odTree (x : Nat) : Nat :=
@@ -49,11 +49,11 @@ def todTree (x : Nat) : Nat := evmSar todShift (evmMul (tTree x) (odTree x))
 
 /-- `exp(t)` in Q126. -/
 def r0Tree (x : Nat) : Nat :=
-  evmSdiv (evmShl expQShift (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
+  evmDiv (evmShl expQShift (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
 
-/-- The floored, octave-scaled, margin-subtracted accumulator. -/
+/-- The floored, octave-scaled, margin-subtracted accumulator on the `5¹⁸·2¹⁰⁸` grid. -/
 def r1Tree (x : Nat) : Nat :=
-  evmSar (evmSub expQShift (kTree x)) (evmSub (evmMul wadWord (r0Tree x)) marginWord)
+  evmShr (evmSub foldShift (kTree x)) (evmSub (evmMul wadWord (r0Tree x)) marginWord)
 
 /-- The clamp/pin shell wrapped around `r1Tree`. -/
 def expTree (x : Nat) : Nat :=
@@ -61,11 +61,11 @@ def expTree (x : Nat) : Nat :=
 
 theorem r0Tree_lt (x : Nat) : r0Tree x < 2 ^ 256 := by
   unfold r0Tree
-  exact evmSdiv_lt _ _
+  exact evmDiv_lt _ _
 
 theorem r1Tree_lt (x : Nat) : r1Tree x < 2 ^ 256 := by
   unfold r1Tree
-  exact evmSar_lt _ _
+  exact evmShr_lt _ _
 
 theorem expTree_lt (x : Nat) : expTree x < 2 ^ 256 := by
   unfold expTree
