@@ -148,7 +148,7 @@ cd formal/ln/LnProof && \
 
 cd formal/exp/ExpProof && \
   lake build ExpProof.ExpYulRuntime ExpProof.ExpYulProof && \
-  lake build ExpProof.Floor.CertDefsV Common.Foundation.KroneckerShift && \
+  lake build ExpProof.Floor.CertDefsV ExpProof.Floor.GranPieces Common.Foundation.KroneckerShift && \
   lake env lean GenExpVLit.lean && \
   lake build
 ```
