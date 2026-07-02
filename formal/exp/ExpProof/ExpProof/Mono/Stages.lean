@@ -208,7 +208,7 @@ theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
   have hmul_small : evmMul (tTree x) (tTree x) < 2 ^ 255 := by
     have h := hmul
     unfold int256 at h
-    split at h <;> simp only [ipow255, ipow256] at * <;> nlinarith [hsq_nn, hsq_lt]
+    split at h <;> simp only [ipow256] at * <;> nlinarith [hsq_nn, hsq_lt]
   have hmul_nat : (evmMul (tTree x) (tTree x) : Int) = t * t := by
     rw [← hmul]; exact (int256_of_lt hmul_small).symm
   have hmul_nat_lt : evmMul (tTree x) (tTree x) < 2 ^ 253 := by
@@ -220,7 +220,7 @@ theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
     rw [evmShr_eq_div (by norm_num) hmul_lt]
     have he : ((evmMul (tTree x) (tTree x) / 2 ^ 133 : Nat) : Int) =
         (evmMul (tTree x) (tTree x) : Int) / 2 ^ 133 := by
-      rw [Int.ofNat_ediv]; norm_num
+      rw [Int.natCast_ediv]; norm_num
     rw [he, hmul_nat, ← sq]
   · unfold vTree
     rw [evmShr_eq_div (by norm_num) hmul_lt]

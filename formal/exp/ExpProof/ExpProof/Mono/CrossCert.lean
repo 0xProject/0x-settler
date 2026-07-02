@@ -86,15 +86,13 @@ theorem vTree_step_nat {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
 dominates the loss `2^128·ev2 + |t1|·|od1·ev2 − od2·ev1|`, where the cross difference is controlled
 by the Lipschitz near-constancy. -/
 theorem smooth_cross_of {t1 d ev1 ev2 od1 od2 : Int}
-    (hd1 : (340282366920 : Int) ≤ d) (hd2 : d ≤ 340282366921)
+    (hd1 : (340282366920 : Int) ≤ d)
     (ht1lo : -(170141183460469231731687303715884105728 : Int) < t1)
     (ht1hi : t1 < 170141183460469231731687303715884105728)
     (hev1lo : (103786963397729689639908782561058906594 : Int) ≤ ev1)
     (hev1hi : ev1 < 170141183460469231731687303715884105728)
     (hev2lo : (103786963397729689639908782561058906594 : Int) ≤ ev2)
     (hev2hi : ev2 < 170141183460469231731687303715884105728)
-    (hod1lo : (51893481698864844819954391280529453297 : Int) ≤ od1)
-    (hod1hi : od1 < 85070591730234615865843651857942052864)
     (hod2lo : (51893481698864844819954391280529453297 : Int) ≤ od2)
     (hod2hi : od2 < 85070591730234615865843651857942052864)
     (hevd1 : -(42618413185 : Int) ≤ ev1 - ev2) (hevd2 : ev1 - ev2 ≤ 42618413185)
@@ -173,23 +171,22 @@ theorem smooth_cross {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   obtain ⟨hg1, hg2⟩ := vTree_step_nat hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   obtain ⟨hev1lo, hev1hi⟩ := evTree_int hv1
   obtain ⟨hev2lo, hev2hi⟩ := evTree_int hv2
-  obtain ⟨hod1lo, hod1hi⟩ := odTree_int hv1
   obtain ⟨hod2lo, hod2hi⟩ := odTree_int hv2
   obtain ⟨hevd1, hevd2⟩ := evTree_lip_int hv1 hv2 hg1 hg2
   obtain ⟨hodd1, hodd2⟩ := odTree_lip_int hv1 hv2 hg1 hg2
-  obtain ⟨htg1, htg2⟩ := tTree_step hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
+  obtain ⟨htg1, -⟩ := tTree_step hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   obtain ⟨htlo1, hthi1⟩ := tTree_bound hx1 hC1 hC01
   -- numeric rewrites of the power bounds
   have hGv : (Gstep : Int) = 340282366920 := by unfold Gstep; norm_num
-  rw [hGv] at htg1 htg2
+  rw [hGv] at htg1
   rw [show (2 : Int) ^ 127 = 170141183460469231731687303715884105728 by norm_num] at hev1hi hev2hi htlo1 hthi1
-  rw [show (2 : Int) ^ 126 = 85070591730234615865843651857942052864 by norm_num] at hod1hi hod2hi
+  rw [show (2 : Int) ^ 126 = 85070591730234615865843651857942052864 by norm_num] at hod2hi
   rw [show (2 : Int) ^ 128 = 340282366920938463463374607431768211456 by norm_num]
   -- t2 = t1 + d, d ∈ [G, G+1]
   have ht2eq : int256 (tTree x2) = int256 (tTree x1) + (int256 (tTree x2) - int256 (tTree x1)) := by
     ring
   rw [ht2eq]
-  exact smooth_cross_of htg1 htg2 htlo1 hthi1 hev1lo hev1hi hev2lo hev2hi hod1lo hod1hi hod2lo hod2hi
+  exact smooth_cross_of htg1 htlo1 hthi1 hev1lo hev1hi hev2lo hev2hi hod2lo hod2hi
     hevd1 hevd2 hodd1 hodd2
 
 /-- Abstract bridge: from the two `tod` floor sandwiches, the smooth inequality, and `ev1 > 0`,

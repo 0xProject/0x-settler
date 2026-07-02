@@ -480,9 +480,8 @@ private theorem call_convert_0_to_int256_direct
       (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -506,8 +505,8 @@ private theorem call_cleanup_t_uint8_18_direct
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -567,8 +566,8 @@ private theorem call_convert_18_to_uint8_18_direct
       (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
-    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -628,8 +627,8 @@ private theorem call_convert_uint8_to_uint256_18_direct
       (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
-    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -660,9 +659,8 @@ private theorem call_constant_DIVISION_BY_ZERO_20_direct
       (store := Finmap.insert "expr_19" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at hconv
-  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
-    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -687,14 +685,13 @@ private theorem call_fun_panic_8_revert_direct
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+  simp +decide [
+    EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, primCall_revert_yul]
+    EvmYul.Yul.State.setStore,
+    FormalYul.word, primCall_revert_yul]
 
 set_option maxHeartbeats 8000000 in
 /-- The compiled `fun_lnWadToRay_65` computes the model `lnWadToRayBody` for a
@@ -789,9 +786,8 @@ theorem call_fun_lnWadToRay_revert_direct
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word,
     sgt_zero_nonpos hnonpos,
     call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 976)
       (shared := shared) (hlookup := hlookup),

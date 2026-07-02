@@ -258,7 +258,7 @@ theorem cho_fact : ∀ n i, i ≤ n → cho n i * (fact i * fact (n - i)) = fact
         -- cho k i * ((i+1)! * (k-i)!) = (i+1) * k!
         have e1 : cho k i * (fact (i + 1) * fact (k - i)) = (i + 1) * fact k := by
           rw [hf1, ← h1]
-          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+          simp only [Nat.mul_assoc, Nat.mul_left_comm]
         -- cho k (i+1) * ((i+1)! * (k-i)!) = (k-i) * k!
         have e2 : cho k (i + 1) * (fact (i + 1) * fact (k - i)) = (k - i) * fact k := by
           rw [hs2, show fact ((k - (i + 1)) + 1) = ((k - (i + 1)) + 1) * fact (k - (i + 1))

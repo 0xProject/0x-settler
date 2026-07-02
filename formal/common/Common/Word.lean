@@ -225,7 +225,7 @@ theorem wordNat_slt (a b : EvmYul.UInt256) :
       if (a.toNat + 2 ^ 255) % 2 ^ 256 < (b.toNat + 2 ^ 255) % 2 ^ 256 then 1 else 0 := by
     unfold EvmYul.UInt256.slt
     rw [key]
-    simp only [EvmYul.fromBool, Bool.toUInt256, decide_eq_true_eq]
+    simp only [Bool.toUInt256, decide_eq_true_eq]
     split_ifs <;> decide
   have hua' : u256 (wordNat a) = a.toNat := hua
   have hub' : u256 (wordNat b) = b.toNat := hub

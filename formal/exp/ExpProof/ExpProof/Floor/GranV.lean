@@ -164,14 +164,14 @@ def Pod : List Int :=
 theorem evNumVPoly_eq_Pev_sq (t : Int) :
     evalPoly ExpCertV.evNumVPoly t = evalPoly Pev (t ^ 2) := by
   unfold ExpCertV.evNumVPoly ExpCertV.mulT2 Pev
-  simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly]
+  simp only [evalPoly_polyAdd, evalPoly]
   ring
 
 /-- `odNumVPoly(t) = Pod(t²)`. -/
 theorem odNumVPoly_eq_Pod_sq (t : Int) :
     evalPoly ExpCertV.odNumVPoly t = evalPoly Pod (t ^ 2) := by
   unfold ExpCertV.odNumVPoly ExpCertV.mulT2 Pod
-  simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly]
+  simp only [evalPoly_polyAdd, evalPoly]
   ring
 
 /-- `Pev(2¹³³·v) = evNumV(v)·2⁶⁶⁵` — the `w`-polynomial at the grid point `w = 2¹³³·v` recovers the
@@ -320,7 +320,7 @@ theorem evalDUnderP (T D : Int) (v : Nat) :
 /-- The over-half denominator floor: `DENv(v, t) ≥ 554482771859·2^725` for `0 ≤ t ≤ H128` on the
 grid `[0, vmaxV + 1]`, from the cover certificate `certDOver`. -/
 theorem DENv_ge_over {v : Nat} {t : Int} (hv : v ≤ ExpCertV.vmaxV + 1)
-    (ht0 : 0 ≤ t) (htH : t ≤ 117932881612756647068972071382077242199) :
+    (htH : t ≤ 117932881612756647068972071382077242199) :
     554482771859 * 2 ^ 725 ≤ DENv v t := by
   have hvI : (0 : Int) ≤ (v : Int) := Int.natCast_nonneg _
   have hvI2 : (v : Int) ≤ 1277263193518626341050532535110179583 := by
@@ -345,7 +345,7 @@ theorem DENv_ge_over {v : Nat} {t : Int} (hv : v ≤ ExpCertV.vmaxV + 1)
 /-- The scaled even value alone clears the over floor. -/
 theorem Ev_scaled_ge {v : Nat} (hv : v ≤ ExpCertV.vmaxV + 1) :
     554482771859 * 2 ^ 725 ≤ (evNumV v : Int) * 2 ^ 110 := by
-  have h := DENv_ge_over hv (t := 0) le_rfl (by norm_num)
+  have h := DENv_ge_over hv (t := 0) (by norm_num)
   unfold DENv at h
   linarith [h]
 

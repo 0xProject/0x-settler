@@ -215,7 +215,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
       _ = (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) *
-              10 ^ 40 := by simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+              10 ^ 40 := by simp only [Nat.mul_comm, Nat.mul_left_comm]
   -- assemble `hbudget`
   refine lt_pos_cut_factored h1 h2 hc hneg_le hphase ?_
   -- lower the RHS phase-availability to the constant `minPosAvail`

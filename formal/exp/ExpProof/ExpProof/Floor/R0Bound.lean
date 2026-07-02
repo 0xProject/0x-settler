@@ -59,7 +59,7 @@ theorem stage_exact {c prev v sh : Nat} (hprev : prev < 2^256) (hvw : v < 2^256)
 with shift `s ≥ 120` (constant `A`, `e1 = A + ⌊e0·v/2^s⌋`, `v < 2^120`) produces the new width
 `Wnum' = Wnum + 2^(cum+s−p−120)` at exponent `p' = p + 120` and scale `cum' = cum + s`. -/
 theorem tele_step_frac (e0 e1 v A cum s p Wnum E0 : Nat)
-    (hv : v < 2^120) (hs : 120 ≤ s) (hAe1 : A ≤ e1) (hpcum : p + 120 ≤ cum + s)
+    (hv : v < 2^120) (hAe1 : A ≤ e1) (hpcum : p + 120 ≤ cum + s)
     (hb0lo : 2^cum * e0 ≤ E0) (hb0hi : E0 < 2^cum * e0 + Wnum * 2^p)
     (hslo : 2^s * (e1 - A) ≤ e0 * v) (hshi : e0 * v < 2^s * (e1 - A) + 2^s) :
     2^(cum+s) * e1 ≤ A * 2^(cum+s) + E0 * v ∧
@@ -162,7 +162,7 @@ theorem horner_stage_frac (c prev v cum sh p Wnum Eprev : Nat)
       have : evmShr sh (evmMul prev v) = prev*v/2^sh := by rw [hmul]; exact evmShr_eq_div (by omega) hpv
       rw [this]; omega)]
     omega
-  exact tele_step_frac prev ev1 v c cum sh p Wnum Eprev hv hs hge hpcum hElo hEhi hst.1 hst.2
+  exact tele_step_frac prev ev1 v c cum sh p Wnum Eprev hv hge hpcum hElo hEhi hst.1 hst.2
 
 /-! ## The even accumulator
 
@@ -282,9 +282,9 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
   unfold evNumV
   constructor
   · have := s4.1
-    convert this using 2 <;> ring
+    convert this using 2
   · have := s4.2
-    convert this using 2 <;> ring
+    convert this using 2
 
 
 /-- info: 'ExpYul.evTree_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
@@ -392,8 +392,8 @@ theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
       1075052609 * 2^480
   unfold odNumV
   constructor
-  · have := s4.1; convert this using 2 <;> ring
-  · have := s4.2; convert this using 2 <;> ring
+  · have := s4.1; convert this using 2
+  · have := s4.2; convert this using 2
 
 /-- info: 'ExpYul.odTree_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

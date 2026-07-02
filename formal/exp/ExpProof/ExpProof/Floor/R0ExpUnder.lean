@@ -39,7 +39,7 @@ theorem exp_reducedArg_le_sqrt2bound {x : Nat} (hx : x < 2 ^ 256)
   have hclose := abs_lt.mp (reducedArg_close hx hC hC0)
   have hthalf : (int256 (tTree x) : Real) / (2 ^ 128 : Real) ≤ Real.log 2 / 2 := by
     rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
-    · exact t_over_2128_le_half_log2 hx hC hC0 htnn
+    · exact t_over_2128_le_half_log2 hx hC hC0
     · have htle : (int256 (tTree x) : Real) ≤ 0 := by exact_mod_cast le_of_lt htneg
       have hlog2 : (0:Real) ≤ Real.log 2 := Real.log_nonneg (by norm_num)
       have : (int256 (tTree x) : Real) / (2 ^ 128 : Real) ≤ 0 :=
@@ -292,7 +292,7 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
     rw [show ((ExpCertV.H128 : Nat) : Int) = 117932881612756647068972071382077242199 from by
       unfold ExpCertV.H128; norm_num]
     exact hthi
-  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) htnn hthi
+  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) hthi
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hD
   have hDR : (0:Real) < (DENv v t : Real) := by exact_mod_cast hDpos
   have hDE : (1:Int) ≤ evalPoly ExpCertV.denExpV t := certDE_pos htnn htdom

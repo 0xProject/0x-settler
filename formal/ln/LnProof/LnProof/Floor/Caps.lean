@@ -161,7 +161,7 @@ theorem capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       (23 * evalPoly geTD (m : Int)) =
       23 * (expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
         evalPoly geTD (m : Int)) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [eS]
   have eR : (m : Int) * 10000000000000000000000000003382 *
       (25852016738884976640000 * evalPoly geTD (m : Int) ^ 23) =
@@ -280,7 +280,7 @@ theorem capLtLo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       (23 * evalPoly ltTD (m : Int)) =
       23 * (expNumI 22 (evalPoly ltTN (m : Int)) (evalPoly ltTD (m : Int)) *
         evalPoly ltTD (m : Int)) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [eS]
   have eL : (23 * (expNumI 22 (evalPoly ltTN (m : Int)) (evalPoly ltTD (m : Int)) *
       evalPoly ltTD (m : Int)) + 2 * evalPoly ltTN (m : Int) ^ 23) *

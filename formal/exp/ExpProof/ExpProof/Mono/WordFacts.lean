@@ -32,7 +32,7 @@ theorem evmSlt_eq_ite (a b : Nat) :
   have key : ((u256 a + 2 ^ 255) % 2 ^ 256 < (u256 b + 2 ^ 255) % 2 ^ 256) ↔
       (int256 (u256 a) < int256 (u256 b)) := by
     unfold int256
-    simp only [ipow255, ipow256] at hai hbi
+    simp only [ipow256] at hai hbi
     by_cases ha : 2 ^ 255 ≤ u256 a <;> by_cases hb : 2 ^ 255 ≤ u256 b
     · rw [offneg _ hua ha, offneg _ hub hb,
         if_neg (by omega : ¬ u256 a < 2 ^ 255), if_neg (by omega : ¬ u256 b < 2 ^ 255)]

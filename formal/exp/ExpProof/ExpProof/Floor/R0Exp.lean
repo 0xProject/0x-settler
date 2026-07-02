@@ -557,8 +557,7 @@ theorem tdom_neg {x : Nat} (hx : x < 2 ^ 256)
 /-- On the nonnegative half of the region the reduced argument is below `ln2/2`:
 `t/2¹²⁸ ≤ log 2 / 2`. -/
 theorem t_over_2128_le_half_log2 {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
-    (htnn : 0 ≤ int256 (tTree x)) :
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     (int256 (tTree x) : Real) / (2 ^ 128 : Real) ≤ Real.log 2 / 2 := by
   obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
   have hln2lo := ln2_lower
@@ -579,10 +578,9 @@ theorem t_over_2128_le_half_log2 {x : Nat} (hx : x < 2 ^ 256)
 
 /-- `exp(t/2¹²⁸) ≤ √2` on the nonneg half. -/
 theorem exp_t_le_sqrt2 {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
-    (htnn : 0 ≤ int256 (tTree x)) :
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     Real.exp ((int256 (tTree x) : Real) / (2 ^ 128 : Real)) ≤ Real.sqrt 2 := by
-  have hle := t_over_2128_le_half_log2 hx hC hC0 htnn
+  have hle := t_over_2128_le_half_log2 hx hC hC0
   calc Real.exp ((int256 (tTree x) : Real) / (2 ^ 128 : Real))
       ≤ Real.exp (Real.log 2 / 2) := Real.exp_le_exp.mpr hle
     _ = Real.sqrt 2 := by
@@ -647,7 +645,7 @@ theorem Qv_le_14145 {x : Nat} (hx : x < 2 ^ 256)
   -- NE/DE ≤ Et·Mp ≤ √2·(2^131/(2^131−1)) ≤ 14144/10000
   have hcertlo := certLo_real htnn htdom
   set Et := Real.exp ((t : Real) / (2 ^ 128 : Real)) with hEtdef
-  have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0 htnn
+  have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0
   rw [← hEtdef] at hEtsqrt2
   have hNEDE_le : (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) ≤
       Et * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) := by
@@ -695,7 +693,7 @@ theorem num_ceiling {x : Nat} (hx : x < 2 ^ 256)
   have hvle := vTree_le_vmax hx hC hC0
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) htnn hthi
+  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) hthi
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hD
   have hDR : (0:Real) < (DENv v t : Real) := by exact_mod_cast hDpos
   -- 10000·NUMv ≤ 14145·DENv (from the real cap)
@@ -773,7 +771,7 @@ theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
   set r0 := int256 (r0Tree x) with hr0def
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) htnn hthi
+  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) hthi
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hD
   have hDR : (0:Real) < (DENv v t : Real) := by exact_mod_cast hDpos
   rcases le_or_gt ((r0:Real) - 2^126) 0 with hle0 | hgt0
@@ -832,7 +830,7 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
       unfold ExpCertV.H128; norm_num]
     exact hthi
   set r0 := int256 (r0Tree x) with hr0def
-  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) htnn hthi
+  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) hthi
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hD
   have hDR : (0:Real) < (DENv v t : Real) := by exact_mod_cast hDpos
   have hDE : (1:Int) ≤ evalPoly ExpCertV.denExpV t := certDE_pos htnn htdom
@@ -866,7 +864,7 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
   set NE := evalPoly ExpCertV.numExpV t with hNEdef
   set DE := evalPoly ExpCertV.denExpV t with hDEdef
   set Mp : Real := (2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1) with hMpdef
-  have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0 htnn
+  have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0
   rw [← hEtdef] at hEtsqrt2
   have hEtnn : (0 : Real) ≤ Et := le_of_lt (Real.exp_pos _)
   have hNEDE_le : (NE : Real) / (DE : Real) ≤ Et * Mp := by
