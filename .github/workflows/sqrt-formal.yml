@@ -61,7 +61,7 @@ jobs:
             ${{ runner.os }}-formal-lean-
 
       - name: Install solc 0.8.34
-        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
+        run: forge build -- src/wrappers/SqrtWrapper.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
