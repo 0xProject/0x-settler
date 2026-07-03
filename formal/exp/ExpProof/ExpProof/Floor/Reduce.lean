@@ -18,7 +18,7 @@ Decompose `rt − t/2¹²⁸ = P1 + P2 + P3`:
 
 * `P1 = X·(1/RAY − K27/2²³⁵)` — the rational coefficient error over `|X| < 2⁹⁶`, below `2⁻¹³³`;
 * `P2 = k·(LN2/2²³⁵ − ln2)` — the `ln2`-grid error (`0 ≤ ln2 − LN2/2²³⁵ < 2⁻²³⁵`, from `Ln2Bound`)
-  over `|k| ≤ 63`, below `2⁻²²⁹`;
+  over `|k| ≤ 64`, below `2⁻²²⁹`;
 * `P3 = (K27·X − LN2·k)/2²³⁵ − t/2¹²⁸ ∈ [0, 1/2¹²⁸)` — the integer `t`-rounding sandwich.
 
 The sum is below `2/2¹²⁸`.
@@ -123,23 +123,23 @@ theorem reducedArg_close_over {x : Nat} (hx : x < 2 ^ 256)
   have hP2_hi : -(1 / N235) ≤ LN2R / N235 - LR := by
     have : LR ≤ (LN2R + 1) / N235 := hln2hi
     rw [add_div] at this; linarith [this]
-  -- |k| ≤ 63 ⇒ |P2| ≤ 63/N235 < 1/N128
+  -- |k| ≤ 64 ⇒ |P2| ≤ 64/N235 < 1/N128
   have hkloR : -(61 : Real) ≤ kR := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hklo; rw [hkRdef]; push_cast at this; linarith [this]
-  have hkhiR : kR ≤ (63 : Real) := by
+  have hkhiR : kR ≤ (64 : Real) := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hkhi; rw [hkRdef]; push_cast at this; linarith [this]
   have hP2_abs : |P2| < 1 / (64 * N128) := by
     rw [hP2def]
-    have h1 : |kR| ≤ 63 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
+    have h1 : |kR| ≤ 64 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
     have h2 : |LN2R / N235 - LR| ≤ 1 / N235 := by
       rw [abs_le]
       refine ⟨by linarith [hP2_hi], ?_⟩
       have hpos : (0:Real) ≤ 1 / N235 := by positivity
       linarith [hP2_lo, hpos]
-    have hbound : |kR * (LN2R / N235 - LR)| ≤ 63 * (1 / N235) := by
+    have hbound : |kR * (LN2R / N235 - LR)| ≤ 64 * (1 / N235) := by
       rw [abs_mul]
       exact mul_le_mul h1 h2 (abs_nonneg _) (by norm_num)
-    have hlt : 63 * (1 / N235) < 1 / (64 * N128) := by
+    have hlt : 64 * (1 / N235) < 1 / (64 * N128) := by
       rw [hN235, hN128, mul_one_div, div_lt_div_iff₀ (by positivity) (by positivity)]; norm_num
     linarith [hbound, hlt]
   -- bound P3 ∈ [0, 1/N128) from the integer sandwich
@@ -253,20 +253,20 @@ theorem reducedArg_close_under {x : Nat} (hx : x < 2 ^ 256)
     rw [add_div] at this; linarith [this]
   have hkloR : -(61 : Real) ≤ kR := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hklo; rw [hkRdef]; push_cast at this; linarith [this]
-  have hkhiR : kR ≤ (63 : Real) := by
+  have hkhiR : kR ≤ (64 : Real) := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hkhi; rw [hkRdef]; push_cast at this; linarith [this]
   have hP2_abs : |P2| < 1 / (64 * N128) := by
     rw [hP2def]
-    have h1 : |kR| ≤ 63 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
+    have h1 : |kR| ≤ 64 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
     have h2 : |LN2R / N235 - LR| ≤ 1 / N235 := by
       rw [abs_le]
       refine ⟨by linarith [hP2_hi], ?_⟩
       have hpos : (0:Real) ≤ 1 / N235 := by positivity
       linarith [hP2_lo, hpos]
-    have hbound : |kR * (LN2R / N235 - LR)| ≤ 63 * (1 / N235) := by
+    have hbound : |kR * (LN2R / N235 - LR)| ≤ 64 * (1 / N235) := by
       rw [abs_mul]
       exact mul_le_mul h1 h2 (abs_nonneg _) (by norm_num)
-    have hlt : 63 * (1 / N235) < 1 / (64 * N128) := by
+    have hlt : 64 * (1 / N235) < 1 / (64 * N128) := by
       rw [hN235, hN128, mul_one_div, div_lt_div_iff₀ (by positivity) (by positivity)]; norm_num
     linarith [hbound, hlt]
   have hP3int_hi : 55213970774324510299478046898216203619608872 * X -
@@ -382,23 +382,23 @@ theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
   have hP2_hi : -(1 / N235) ≤ LN2R / N235 - LR := by
     have : LR ≤ (LN2R + 1) / N235 := hln2hi
     rw [add_div] at this; linarith [this]
-  -- |k| ≤ 63 ⇒ |P2| ≤ 63/N235 < 1/N128
+  -- |k| ≤ 64 ⇒ |P2| ≤ 64/N235 < 1/N128
   have hkloR : -(61 : Real) ≤ kR := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hklo; rw [hkRdef]; push_cast at this; linarith [this]
-  have hkhiR : kR ≤ (63 : Real) := by
+  have hkhiR : kR ≤ (64 : Real) := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hkhi; rw [hkRdef]; push_cast at this; linarith [this]
   have hP2_abs : |P2| < 1 / (64 * N128) := by
     rw [hP2def]
-    have h1 : |kR| ≤ 63 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
+    have h1 : |kR| ≤ 64 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
     have h2 : |LN2R / N235 - LR| ≤ 1 / N235 := by
       rw [abs_le]
       refine ⟨by linarith [hP2_hi], ?_⟩
       have hpos : (0:Real) ≤ 1 / N235 := by positivity
       linarith [hP2_lo, hpos]
-    have hbound : |kR * (LN2R / N235 - LR)| ≤ 63 * (1 / N235) := by
+    have hbound : |kR * (LN2R / N235 - LR)| ≤ 64 * (1 / N235) := by
       rw [abs_mul]
       exact mul_le_mul h1 h2 (abs_nonneg _) (by norm_num)
-    have hlt : 63 * (1 / N235) < 1 / (64 * N128) := by
+    have hlt : 64 * (1 / N235) < 1 / (64 * N128) := by
       rw [hN235, hN128, mul_one_div, div_lt_div_iff₀ (by positivity) (by positivity)]; norm_num
     linarith [hbound, hlt]
   -- bound P3 ∈ [0, 1/N128) from the integer sandwich

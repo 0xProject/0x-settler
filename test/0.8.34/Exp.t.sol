@@ -7,7 +7,7 @@ import {Test, stdError} from "@forge-std/Test.sol";
 
 contract ExpTest is Test {
     // First input whose octave count exceeds the supported range; `expRayToWad` reverts here.
-    int256 private constant _TOO_BIG = 0x8e383a2cdfa1b74a9422d2e1;
+    int256 private constant _TOO_BIG = 0x907595ccd30708cabec8a9db;
     // floor(1e27 * ln(1e-18)): the greatest input whose exact result is < 1 and floors to 0.
     int256 private constant _ZERO_MAX = -41446531673892822312323846185;
     // Canonical central wad inputs satisfying 1/sqrt(2) <= w/1e18 < sqrt(2).
@@ -69,7 +69,7 @@ contract ExpTest is Test {
     /// Monotonicity is tightest where the octave count increments and the margin doubles. Check
     /// every octave boundary in the supported range deterministically.
     function testExpRayToWadOctaveBoundaryMonotone() external pure {
-        for (int256 k = -60; k <= 64; ++k) {
+        for (int256 k = -60; k <= 65; ++k) {
             int256 xb = _octaveStart(k);
             for (int256 x = xb - 2; x <= xb + 1; ++x) {
                 if (x + 1 >= _TOO_BIG) continue;
@@ -82,17 +82,23 @@ contract ExpTest is Test {
     /// never-overestimate guarantee, where the over-side envelope (rational approximation plus the
     /// Horner/sdiv truncation jitter) the margin must cover is largest, scaling as 2ᵏ.
     function testExpRayToWadNeverOverestimateHighK() external pure {
-        int256[4] memory xs = [
+        int256[7] memory xs = [
             int256(44014845965556527147989858478),
             43997357674525079384913362454,
             43314167405007111804561657812,
-            43956299042314536509785490661
+            43956299042314536509785490661,
+            44585114869649660801412478168,
+            44194124950069992127775717862,
+            44183539459288389725181420565
         ];
-        int256[4] memory floors = [
+        int256[7] memory floors = [
             int256(13043817825332782212292423780355560294),
             12817686828684532031135154053443771706,
             6472974441739539356346729565753819877,
-            12302067878139647644374925801327210534
+            12302067878139647644374925801327210534,
+            23071156379767734423570518961257410973,
+            15605029656619514838244041715971750817,
+            15440713974442839033966209577600907121
         ];
         for (uint256 i; i < xs.length; ++i) {
             int256 r = Exp.expRayToWad(xs[i]);
@@ -123,11 +129,19 @@ contract ExpTest is Test {
         }
     }
 
-    /// The largest supported input, one below the revert threshold. frac(E) ~= 0.74 exceeds the
-    /// k = 63 deficit envelope (~0.40), so the result is exactly floor(E).
+    /// The largest supported input, one below the revert threshold: frac(E) ~= 0.52 sits inside
+    /// the k = 64 deficit envelope (~0.80), so the result floors to E or one under. At the top of
+    /// k = 63, frac(E) ~= 0.74 exceeds that octave's envelope (~0.40) and the floor is exact.
     function testExpRayToWadSupportedEdge() external pure {
-        int256 floorE = 13043817825332782212349571798501714341;
-        assertEq(Exp.expRayToWad(_TOO_BIG - 1), floorE, "supported-edge floor");
+        int256 floorE = 26087635650665564424699143611138320962;
+        int256 r = Exp.expRayToWad(_TOO_BIG - 1);
+        assertLe(r, floorE, "overestimates exp");
+        assertGe(r, floorE - 1, "below floor minus one");
+        assertEq(
+            Exp.expRayToWad(44014845965556527147994239712),
+            13043817825332782212349571798501714341,
+            "k = 63 top floor"
+        );
     }
 
     /// The 1-ulp underestimate is achieved: the least x >= 44e27 whose result is floor(E) - 1.
@@ -137,6 +151,12 @@ contract ExpTest is Test {
         int256 x = 44000000000000000000000000001;
         int256 floorE = 12851600114359308275809299644994699372;
         assertEq(Exp.expRayToWad(x), floorE - 1, "not the 1-ulp underestimate");
+        // The first input of the k = 64 octave: frac(E) ~= 0.07, again one under the exact floor.
+        assertEq(
+            Exp.expRayToWad(44014845965556527147994239713),
+            13043817825332782212349571811545532167 - 1,
+            "k = 64 underestimate"
+        );
     }
 
     /// Never negative and monotone at every adjacent pair; oracle-free, so it covers octave

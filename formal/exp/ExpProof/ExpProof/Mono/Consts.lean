@@ -7,7 +7,7 @@ open FormalYul.Preservation
 /-! Runtime constants used by the generated exp kernel normal form. -/
 
 abbrev Cmask : Nat := 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7
-abbrev C0thresh : Nat := 0x8e383a2cdfa1b74a9422d2e1
+abbrev C0thresh : Nat := 0x907595ccd30708cabec8a9db
 
 abbrev kRoundShift : Nat := 0xc8
 abbrev kHalfShift : Nat := 0xc7
@@ -52,7 +52,7 @@ theorem Cmask_lt : Cmask < 2 ^ 256 := by
   unfold Cmask
   norm_num
 
-theorem int256_C0thresh : int256 C0thresh = 44014845965556527147994239713 := by
+theorem int256_C0thresh : int256 C0thresh = 44707993146116472457411471835 := by
   unfold C0thresh int256
   norm_num
 

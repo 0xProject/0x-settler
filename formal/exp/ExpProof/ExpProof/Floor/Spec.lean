@@ -9,7 +9,7 @@ import ExpProof.Mono.RangeNonneg
 
 `run_exp_ray_to_wad_evm_eq_expTree` returns `expTree x`, the clamp/pin shell around the floored
 accumulator `r1Tree x = shr(108 − k, WAD·r0 − MARGIN)`. On the meaningful region the closing shift
-`s = 108 − k ∈ [45, 169]` is positive and the shift argument `arg = WAD·r0 − MARGIN` is a
+`s = 108 − k ∈ [44, 169]` is positive and the shift argument `arg = WAD·r0 − MARGIN` is a
 nonnegative canonical word, so the runtime result is exactly the integer floor `⌊arg / 2^s⌋` of the
 *real* pre-floor accumulator
 

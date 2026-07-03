@@ -70,7 +70,7 @@ theorem seam_close {arg1 arg2 s1 s2 : Nat}
   rw [int256_of_lt hq1lt, int256_of_lt hq2lt]
   exact_mod_cast hqle
 
-/-- The closing shifts at a seam differ by one (`s2 = s1 − 1`), both in `[45, 169]`. -/
+/-- The closing shifts at a seam differ by one (`s2 = s1 − 1`), both in `[44, 169]`. -/
 theorem seam_closing_shifts {x1 x2 : Nat}
     (hx1 : x1 < 2 ^ 256) (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hx2 : x2 < 2 ^ 256) (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)

@@ -70,7 +70,7 @@ theorem call_fun_expRayToWad_68_zero_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hconv44 :=
-    call_convert_44_to_int256_direct (v := 0x8e383a2cdfa1b74a9422d2e1) (fuel := fuel + extra) (extra := 767)
+    call_convert_44_to_int256_direct (v := 0x907595ccd30708cabec8a9db) (fuel := fuel + extra) (extra := 767)
       (shared := shared) (hlookup := hlookup)
   have hcleanup :=
     call_cleanup_t_int256_direct (v := 0) (fuel := fuel + extra) (extra := 865)
@@ -474,7 +474,7 @@ theorem call_fun_expRayToWad_68_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     EvmYul.Yul.call (fuel + (extra + 900)) [FormalYul.word x] (.some "fun_expRayToWad_68")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
@@ -507,7 +507,7 @@ theorem call_fun_expRayToWad_68_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hconv44 :=
-    call_convert_44_to_int256_direct (v := 0x8e383a2cdfa1b74a9422d2e1) (fuel := fuel + extra) (extra := 767)
+    call_convert_44_to_int256_direct (v := 0x907595ccd30708cabec8a9db) (fuel := fuel + extra) (extra := 767)
       (shared := shared) (hlookup := hlookup)
   have hcleanup :=
     call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 865)
@@ -537,7 +537,7 @@ theorem call_fun_wrap_expRayToWad_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     EvmYul.Yul.call (fuel + (extra + 1100)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_97")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
@@ -590,7 +590,7 @@ set_option maxHeartbeats 16000000 in
 `evm*` tree. -/
 theorem external_fun_wrap_expRayToWad_calldata_result
     (x : Nat) (store : EvmYul.Yul.VarStore)
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     ((match
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
         (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) store)
@@ -717,7 +717,7 @@ set_option maxHeartbeats 16000000 in
 /-- The external entrypoint halts (returns) for a signed input below the threshold. -/
 theorem external_fun_wrap_expRayToWad_calldata_halts
     (x : Nat) (store : EvmYul.Yul.VarStore)
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     ∃ state value,
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
         (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) store) =
@@ -806,7 +806,7 @@ set_option maxHeartbeats 16000000 in
 /-- Result from the dispatcher-handed state. -/
 theorem external_fun_wrap_expRayToWad_dispatcher_state_result
     (x : Nat)
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     ((match
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
         (EvmYul.Yul.State.Ok
@@ -872,7 +872,7 @@ set_option maxHeartbeats 16000000 in
 /-- Halt from the dispatcher-handed state. -/
 theorem external_fun_wrap_expRayToWad_dispatcher_state_halts
     (x : Nat)
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     ∃ state value,
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
         (EvmYul.Yul.State.Ok
@@ -914,7 +914,7 @@ set_option maxHeartbeats 16000000 in
 the runtime floor and monotonicity claims at the run level. -/
 theorem run_exp_ray_to_wad_evm_eq_tree
     (x : Nat)
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     run_exp_ray_to_wad_evm x = .ok (
       let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)

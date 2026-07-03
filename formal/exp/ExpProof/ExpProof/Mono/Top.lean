@@ -137,15 +137,15 @@ theorem expTree_mono (H : RegionMonotonicityFacts) {x1 x2 : Nat}
 
 /-- A canonical word strictly below the supported threshold is in the non-reverting run domain. -/
 theorem domain_of_below_C0 {x : Nat} (hx : x < 2 ^ 256) (h : int256 x < int256 C0thresh) :
-    u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ u256 x := by
+    u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ u256 x := by
   rw [u256_id hx]
   rw [int256_C0thresh] at h
   by_cases hb : x < 2 ^ 255
   · left
     have : int256 x = (x : Int) := int256_of_lt hb
     rw [this] at h
-    have : (x : Int) < 44014845965556527147994239713 := h
-    have hC0 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) = 44014845965556527147994239713 := by norm_num
+    have : (x : Int) < 44707993146116472457411471835 := h
+    have hC0 : (0x907595ccd30708cabec8a9db : Nat) = 44707993146116472457411471835 := by norm_num
     rw [hC0]; exact_mod_cast h
   · right; omega
 
