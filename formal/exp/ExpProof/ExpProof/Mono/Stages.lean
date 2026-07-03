@@ -330,91 +330,91 @@ theorem pvd (pe ve sh e : Nat) (hpe : pe + ve = sh + e) :
 `(ev0 + v)·v` is capped by the exact literal sum `(ev0 + 2^120)·2^120 < 2^256` — it has no
 power-of-two headroom. -/
 theorem evTree_facts {x : Nat} (hv : vTree x < 2 ^ 120) :
-    0x9c2948bcaca16a0dd2fe98bb4470c3c4 ≤ evTree x ∧ evTree x < 3 * 2 ^ 126 := by
+    0x9c2948bcaca16a0dd2fe98bb4470c388 ≤ evTree x ∧ evTree x < 3 * 2 ^ 126 := by
   have hev : evTree x =
-      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x7e (evmMul
-      (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
-      (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
-      (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
+      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c388 (evmShr 0x7e (evmMul
+      (evmAdd 0x93f11e650dd6c64b96ce79065cdf80f4 (evmShr 0x81 (evmMul
+      (evmAdd 0x9064d9657e9a21fc16bb69331b81ae1e (evmShr 0x7b (evmMul
+      (evmAdd 0x9a036222841f47c6ed6fc3f7599445 (evmShr 0x95 (evmMul
       (evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e (vTree x)) (vTree x)))) (vTree x)))) (vTree x)))) (vTree x))) := rfl
   rw [hev]
   set v := vTree x with hvdef
   have h0 := ev0_lt hv
   set ev0 := evmAdd 0xb9aacfacf3c10b378435f8e22adf48500e v with hev0
-  have h1 : evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul ev0 v)) < 2 ^ 121 := by
-    have := (stage_bounds (c := 0x9a036222841f47c6ed6fc3f7602053) (prev := ev0) (v := v)
+  have h1 : evmAdd 0x9a036222841f47c6ed6fc3f7599445 (evmShr 0x95 (evmMul ev0 v)) < 2 ^ 121 := by
+    have := (stage_bounds (c := 0x9a036222841f47c6ed6fc3f7599445) (prev := ev0) (v := v)
       (P := 0xb9aacfacf3c10b378435f8e22adf48500e + 2 ^ 120) (V := 2 ^ 120) (sh := 0x95) h0 hv
       (by norm_num) (by norm_num) (by norm_num)).2
-    have hcap : (0x9a036222841f47c6ed6fc3f7602053 : Nat) +
+    have hcap : (0x9a036222841f47c6ed6fc3f7599445 : Nat) +
         (0xb9aacfacf3c10b378435f8e22adf48500e + 2 ^ 120) * 2 ^ 120 / 2 ^ 0x95 < 2 ^ 121 := by
       norm_num
     omega
-  set ev1 := evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul ev0 v)) with hev1
-  have h2 : evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul ev1 v)) < 2 ^ 129 := by
-    have := (stage_bounds (c := 0x9064d9657e9a21fc16bb69331c5c3057) (prev := ev1) (v := v)
+  set ev1 := evmAdd 0x9a036222841f47c6ed6fc3f7599445 (evmShr 0x95 (evmMul ev0 v)) with hev1
+  have h2 : evmAdd 0x9064d9657e9a21fc16bb69331b81ae1e (evmShr 0x7b (evmMul ev1 v)) < 2 ^ 129 := by
+    have := (stage_bounds (c := 0x9064d9657e9a21fc16bb69331b81ae1e) (prev := ev1) (v := v)
       (P := 2 ^ 121) (V := 2 ^ 120) (sh := 0x7b) h1 hv (by norm_num) (by norm_num)
       (by rw [pvd 121 120 123 118 (by norm_num)]; norm_num)).2
     rw [pvd 121 120 123 118 (by norm_num)] at this; omega
-  set ev2 := evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul ev1 v)) with hev2
-  have h3 : evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul ev2 v)) < 2 ^ 129 := by
-    have := (stage_bounds (c := 0x93f11e650dd6c64b96ce79065cdf809e) (prev := ev2) (v := v)
+  set ev2 := evmAdd 0x9064d9657e9a21fc16bb69331b81ae1e (evmShr 0x7b (evmMul ev1 v)) with hev2
+  have h3 : evmAdd 0x93f11e650dd6c64b96ce79065cdf80f4 (evmShr 0x81 (evmMul ev2 v)) < 2 ^ 129 := by
+    have := (stage_bounds (c := 0x93f11e650dd6c64b96ce79065cdf80f4) (prev := ev2) (v := v)
       (P := 2 ^ 129) (V := 2 ^ 120) (sh := 0x81) h2 hv (by norm_num) (by norm_num)
       (by rw [pvd 129 120 129 120 (by norm_num)]; norm_num)).2
     rw [pvd 129 120 129 120 (by norm_num)] at this; omega
-  set ev3 := evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul ev2 v)) with hev3
-  have hfin := stage_bounds (c := 0x9c2948bcaca16a0dd2fe98bb4470c3c4) (prev := ev3) (v := v)
+  set ev3 := evmAdd 0x93f11e650dd6c64b96ce79065cdf80f4 (evmShr 0x81 (evmMul ev2 v)) with hev3
+  have hfin := stage_bounds (c := 0x9c2948bcaca16a0dd2fe98bb4470c388) (prev := ev3) (v := v)
     (P := 2 ^ 129) (V := 2 ^ 120) (sh := 0x7e) h3 hv (by norm_num) (by norm_num)
     (by rw [pvd 129 120 126 123 (by norm_num)]; norm_num)
   rw [pvd 129 120 126 123 (by norm_num)] at hfin
   refine ⟨hfin.1, ?_⟩
-  have : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Nat) + 2 ^ 123 < 3 * 2 ^ 126 := by norm_num
+  have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Nat) + 2 ^ 123 < 3 * 2 ^ 126 := by norm_num
   omega
 
 theorem evTree_lt {x : Nat} (hv : vTree x < 2 ^ 120) : evTree x < 3 * 2 ^ 126 :=
   (evTree_facts hv).2
 theorem evTree_ge {x : Nat} (hv : vTree x < 2 ^ 120) :
-    0x9c2948bcaca16a0dd2fe98bb4470c3c4 ≤ evTree x := (evTree_facts hv).1
+    0x9c2948bcaca16a0dd2fe98bb4470c388 ≤ evTree x := (evTree_facts hv).1
 
 /-- Two-sided bound on the odd Horner accumulator: `0x9c29… ≤ od < 5·2^125`. -/
 theorem odTree_facts {x : Nat} (hv : vTree x < 2 ^ 120) :
-    0x9c2948bcaca16a0dd2fe98bb4470c3c4 ≤ odTree x ∧ odTree x < 5 * 2 ^ 125 := by
+    0x9c2948bcaca16a0dd2fe98bb4470c388 ≤ odTree x ∧ odTree x < 5 * 2 ^ 125 := by
   have hod : odTree x =
-      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x80 (evmMul
-      (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
-      (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
-      (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
+      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c388 (evmShr 0x80 (evmMul
+      (evmAdd 0xaf566247c05753b42892f77b67a6b7c7 (evmShr 0x7a (evmMul
+      (evmAdd 0xad4506af99be27419341e181693281 (evmShr 0x84 (evmMul
+      (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
       0xdc07aff8276bde9a361278df6a10 (vTree x)))) (vTree x)))) (vTree x)))) (vTree x))) := rfl
   rw [hod]
   set v := vTree x with hvdef
-  have h0 : evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul 0xdc07aff8276bde9a361278df6a10 v)) < 2 ^ 121 := by
-    have := (stage_bounds (c := 0xc926ddbecdeeb42e68cd16db7da8c1) (prev := 0xdc07aff8276bde9a361278df6a10) (v := v)
+  have h0 : evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul 0xdc07aff8276bde9a361278df6a10 v)) < 2 ^ 121 := by
+    have := (stage_bounds (c := 0xc926ddbecdeeb42e68cd16db7ed378) (prev := 0xdc07aff8276bde9a361278df6a10) (v := v)
       (P := 2 ^ 112) (V := 2 ^ 120) (sh := 0x7e) (by norm_num) hv (by norm_num) (by norm_num)
       (by rw [pvd 112 120 126 106 (by norm_num)]; norm_num)).2
     rw [pvd 112 120 126 106 (by norm_num)] at this; omega
-  set od0 := evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul 0xdc07aff8276bde9a361278df6a10 v)) with hod0
-  have h1 : evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul od0 v)) < 2 ^ 121 := by
-    have := (stage_bounds (c := 0xad4506af99be27419341e1816ff351) (prev := od0) (v := v)
+  set od0 := evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul 0xdc07aff8276bde9a361278df6a10 v)) with hod0
+  have h1 : evmAdd 0xad4506af99be27419341e181693281 (evmShr 0x84 (evmMul od0 v)) < 2 ^ 121 := by
+    have := (stage_bounds (c := 0xad4506af99be27419341e181693281) (prev := od0) (v := v)
       (P := 2 ^ 121) (V := 2 ^ 120) (sh := 0x84) h0 hv (by norm_num) (by norm_num)
       (by rw [pvd 121 120 132 109 (by norm_num)]; norm_num)).2
     rw [pvd 121 120 132 109 (by norm_num)] at this; omega
-  set od1 := evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul od0 v)) with hod1
-  have h2 : evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul od1 v)) < 2 ^ 129 := by
-    have := (stage_bounds (c := 0xaf566247c05753b42892f77b67a6b7c6) (prev := od1) (v := v)
+  set od1 := evmAdd 0xad4506af99be27419341e181693281 (evmShr 0x84 (evmMul od0 v)) with hod1
+  have h2 : evmAdd 0xaf566247c05753b42892f77b67a6b7c7 (evmShr 0x7a (evmMul od1 v)) < 2 ^ 129 := by
+    have := (stage_bounds (c := 0xaf566247c05753b42892f77b67a6b7c7) (prev := od1) (v := v)
       (P := 2 ^ 121) (V := 2 ^ 120) (sh := 0x7a) h1 hv (by norm_num) (by norm_num)
       (by rw [pvd 121 120 122 119 (by norm_num)]; norm_num)).2
     rw [pvd 121 120 122 119 (by norm_num)] at this; omega
-  set od2 := evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul od1 v)) with hod2
-  have hfin := stage_bounds (c := 0x9c2948bcaca16a0dd2fe98bb4470c3c4) (prev := od2) (v := v)
+  set od2 := evmAdd 0xaf566247c05753b42892f77b67a6b7c7 (evmShr 0x7a (evmMul od1 v)) with hod2
+  have hfin := stage_bounds (c := 0x9c2948bcaca16a0dd2fe98bb4470c388) (prev := od2) (v := v)
     (P := 2 ^ 129) (V := 2 ^ 120) (sh := 0x80) h2 hv (by norm_num) (by norm_num)
     (by rw [pvd 129 120 128 121 (by norm_num)]; norm_num)
   rw [pvd 129 120 128 121 (by norm_num)] at hfin
   refine ⟨hfin.1, ?_⟩
-  have : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Nat) + 2 ^ 121 < 5 * 2 ^ 125 := by norm_num
+  have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Nat) + 2 ^ 121 < 5 * 2 ^ 125 := by norm_num
   omega
 
 theorem odTree_lt {x : Nat} (hv : vTree x < 2 ^ 120) : odTree x < 5 * 2 ^ 125 :=
   (odTree_facts hv).2
 theorem odTree_ge {x : Nat} (hv : vTree x < 2 ^ 120) :
-    0x9c2948bcaca16a0dd2fe98bb4470c3c4 ≤ odTree x := (odTree_facts hv).1
+    0x9c2948bcaca16a0dd2fe98bb4470c388 ≤ odTree x := (odTree_facts hv).1
 
 end ExpYul

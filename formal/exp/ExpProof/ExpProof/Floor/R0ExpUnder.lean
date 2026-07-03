@@ -85,7 +85,7 @@ theorem r0_bracket_nonneg {x : Nat} (hx : x < 2 ^ 256)
   set r0 := int256 (r0Tree x) with hr0def
   set ev := (evTree x : Int) with hevdef
   set tod := int256 (todTree x) with htoddef
-  have hden072 : (165038630930342071346895739193146786756 : Int) ≤ ev - tod := by
+  have hden072 : (165038630930342071346895739193146786696 : Int) ≤ ev - tod := by
     have := den_ge_194 hx hC hC0; rw [← hevdef, ← htoddef] at this; exact this
   have hdenpos : (0:Int) < ev - tod := lt_of_lt_of_le (by norm_num) hden072
   -- tod ≥ 0 on nonneg half
@@ -160,8 +160,8 @@ theorem link1_under_int {x : Nat} (hx : x < 2 ^ 256)
   set den := (evTree x : Int) - int256 (todTree x) with hdendef
   set D := DENv (vTree x) t with hDdef
   have hA : 2 ^ 637 * den ≤ D + 2 * 2 ^ 637 := by rw [hDdef]; linarith [hDEN_ge]
-  have hDlow : (2:Int) ^ 637 * (165038630930342071346895739193146786756 - 2) ≤ D := by
-    have h1 : (2:Int) ^ 637 * (165038630930342071346895739193146786756 - 2) ≤
+  have hDlow : (2:Int) ^ 637 * (165038630930342071346895739193146786696 - 2) ≤ D := by
+    have h1 : (2:Int) ^ 637 * (165038630930342071346895739193146786696 - 2) ≤
         2 ^ 637 * den - 2 * 2 ^ 637 := by nlinarith [hden]
     rw [hDdef]; linarith [h1, hDEN_ge]
   have hB : 100 * ((2 ^ 637 + 269746241 * 2 ^ 480 * t) * (2 ^ 126 + r0)) ≤ 149 * D := by
@@ -180,13 +180,13 @@ theorem link1_under_int {x : Nat} (hx : x < 2 ^ 256)
       have hr0cap : 100 * (2 ^ 126 + r0) ≤ 245 * 2 ^ 126 := by linarith [hr0hi145]
       nlinarith [hr0cap]
     have h3 : (2 ^ 637 + 269746241 * 2 ^ 480 * 117932881612756647068972071382077242199) *
-        (245 * 2 ^ 126) ≤ 149 * (2 ^ 637 * (165038630930342071346895739193146786756 - 2)) := by
+        (245 * 2 ^ 126) ≤ 149 * (2 ^ 637 * (165038630930342071346895739193146786696 - 2)) := by
       norm_num
-    have h4 : (149 : Int) * (2 ^ 637 * (165038630930342071346895739193146786756 - 2)) ≤ 149 * D :=
+    have h4 : (149 : Int) * (2 ^ 637 * (165038630930342071346895739193146786696 - 2)) ≤ 149 * D :=
       mul_le_mul_of_nonneg_left hDlow (by norm_num)
     linarith [h1, h2, h3, h4]
   have hC2000 : (2000 : Int) * 2 ^ 637 ≤ D := by
-    have : (2000 : Int) * 2 ^ 637 ≤ 2 ^ 637 * (165038630930342071346895739193146786756 - 2) := by
+    have : (2000 : Int) * 2 ^ 637 ≤ 2 ^ 637 * (165038630930342071346895739193146786696 - 2) := by
       norm_num
     linarith [this, hDlow]
   linarith [hLHS, hA, hB, hC2000]
@@ -254,10 +254,10 @@ theorem link1_under_int_neg {x : Nat} (hx : x < 2 ^ 256)
   set ev := (evTree x : Int) with hevdef
   set tod := int256 (todTree x) with htoddef
   set D := DENv (vTree x) (int256 (tTree x)) with hDdef
-  have hev : (207573926795459379279817565122117813188 : Int) ≤ ev := by
-    have : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) ≤ ev := by
+  have hev : (207573926795459379279817565122117813128 : Int) ≤ ev := by
+    have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) ≤ ev := by
       rw [hevdef]; exact_mod_cast hev_lo
-    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) = 207573926795459379279817565122117813188 from by norm_num] at this
+    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) = 207573926795459379279817565122117813128 from by norm_num] at this
     exact this
   have hden_le : ev - tod ≤ ev + 2 ^ 125 := by
     have : -(2 ^ 125 : Int) ≤ tod := htod_lo125
@@ -266,10 +266,10 @@ theorem link1_under_int_neg {x : Nat} (hx : x < 2 ^ 256)
   -- 1000·(2^637·(ev + 2^125) + Wev·2^590·2^126 + 2·2^637·2^126) ≤ 1000·2^637·ev + 1500·2^637·A0
   have hlit : 1000 * (2 ^ 637 * 2 ^ 125 + 142941343449089 * 2 ^ 590 * 2 ^ 126 +
       2 * 2 ^ 637 * 2 ^ 126) ≤
-      (1500 : Int) * (2 ^ 637 * 207573926795459379279817565122117813188) := by
+      (1500 : Int) * (2 ^ 637 * 207573926795459379279817565122117813128) := by
     norm_num
-  have hAev : (1500 : Int) * (2 ^ 637 * 207573926795459379279817565122117813188) ≤ 1500 * D := by
-    have h1 : (2:Int) ^ 637 * 207573926795459379279817565122117813188 ≤ 2 ^ 637 * ev :=
+  have hAev : (1500 : Int) * (2 ^ 637 * 207573926795459379279817565122117813128) ≤ 1500 * D := by
+    have h1 : (2:Int) ^ 637 * 207573926795459379279817565122117813128 ≤ 2 ^ 637 * ev :=
       mul_le_mul_of_nonneg_left hev (by positivity)
     have := le_trans h1 hDev
     nlinarith [this]
@@ -314,19 +314,19 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
   set Et := Real.exp ((t : Real) / (2 ^ 128 : Real)) with hEtdef
   set NE := evalPoly ExpCertV.numExpV t with hNEdef
   set DE := evalPoly ExpCertV.denExpV t with hDEdef
-  set Mpp : Real := ((2 ^ 131 : Real) + 1) / (2 ^ 131 : Real) with hMppdef
+  set Mpp : Real := ((2 ^ 132 : Real) + 1) / (2 ^ 132 : Real) with hMppdef
   have hEt_le : Et ≤ ((NE : Real) / (DE : Real)) * Mpp := by
-    have hc : Et ≤ ((2 ^ 131 + 1 : Int) : Real) * (NE : Real) /
-        (((2 ^ 131 : Int) : Real) * (DE : Real)) := hcertup
+    have hc : Et ≤ ((2 ^ 132 + 1 : Int) : Real) * (NE : Real) /
+        (((2 ^ 132 : Int) : Real) * (DE : Real)) := hcertup
     rw [hMppdef]
-    have key : ((NE : Real) / (DE : Real)) * (((2 ^ 131 : Real) + 1) / (2 ^ 131 : Real)) =
-        ((2 ^ 131 + 1 : Int) : Real) * (NE : Real) / (((2 ^ 131 : Int) : Real) * (DE : Real)) := by
+    have key : ((NE : Real) / (DE : Real)) * (((2 ^ 132 : Real) + 1) / (2 ^ 132 : Real)) =
+        ((2 ^ 132 + 1 : Int) : Real) * (NE : Real) / (((2 ^ 132 : Int) : Real) * (DE : Real)) := by
       push_cast; field_simp; ring
     rw [key]; exact hc
   have hMpp_nn : (0:Real) ≤ Mpp := by rw [hMppdef]; positivity
   have hEt_le_Qv : Et ≤ ((NUMv v t : Real) / (DENv v t : Real)) * Mpp :=
     le_trans hEt_le (mul_le_mul_of_nonneg_right hgran1 hMpp_nn)
-  have hMpp1 : Mpp - 1 = 1 / (2 ^ 131 : Real) := by rw [hMppdef]; field_simp
+  have hMpp1 : Mpp - 1 = 1 / (2 ^ 132 : Real) := by rw [hMppdef]; field_simp
   obtain ⟨_, hr0hi145⟩ := r0_bracket_nonneg hx hC hC0 htnn
   have hr0R : (r0 : Real) ≤ (145 / 100) * (2 ^ 126 : Real) := by
     have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hr0hi145
@@ -343,8 +343,8 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
       rw [hMpp1]
       have hcap : (2 ^ 126 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
           (145 / 100) * (2 ^ 126 : Real) + 2500 / 1000 := by linarith [hQv_le, hr0R]
-      have := mul_le_mul_of_nonneg_right hcap (by positivity : (0:Real) ≤ 1 / (2 ^ 131 : Real))
-      have hfin : ((145 / 100) * (2 ^ 126 : Real) + 2500 / 1000) * (1 / (2 ^ 131 : Real)) ≤
+      have := mul_le_mul_of_nonneg_right hcap (by positivity : (0:Real) ≤ 1 / (2 ^ 132 : Real))
+      have hfin : ((145 / 100) * (2 ^ 126 : Real) + 2500 / 1000) * (1 / (2 ^ 132 : Real)) ≤
           1 / 20 := by norm_num
       linarith [this, hfin]
     linarith [h1, h2 ▸ h1, h3, hQv_le]
@@ -404,20 +404,20 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
   set Et := Real.exp ((t : Real) / (2 ^ 128 : Real)) with hEtdef
   set NE := evalPoly ExpCertV.numExpV t with hNEdef
   set DE := evalPoly ExpCertV.denExpV t with hDEdef
-  set Mp : Real := (2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1) with hMpdef
+  set Mp : Real := (2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1) with hMpdef
   have hEt_le : Et ≤ ((NE : Real) / (DE : Real)) * Mp := by
     rw [hMpdef]
-    have key : ((NE : Real) / (DE : Real)) * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) =
-        ((2 ^ 131 : Int) : Real) * (NE : Real) /
-          (((2 ^ 131 - 1 : Int) : Real) * (DE : Real)) := by
+    have key : ((NE : Real) / (DE : Real)) * ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) =
+        ((2 ^ 132 : Int) : Real) * (NE : Real) /
+          (((2 ^ 132 - 1 : Int) : Real) * (DE : Real)) := by
       push_cast; field_simp; ring
     rw [key]; exact hcertup
   obtain ⟨_, hgran2⟩ := gran_under_pair hx hC hC0 htneg
   have hMp_nn : (0:Real) ≤ Mp := by
     rw [hMpdef]
-    have : (0:Real) < (2 ^ 131 : Real) - 1 := by norm_num
+    have : (0:Real) < (2 ^ 132 : Real) - 1 := by norm_num
     positivity
-  have hMp1 : Mp - 1 = 1 / ((2 ^ 131 : Real) - 1) := by rw [hMpdef]; field_simp
+  have hMp1 : Mp - 1 = 1 / ((2 ^ 132 : Real) - 1) := by rw [hMpdef]; field_simp
   have hr0le := r0_le_2126_neg hx hC hC0 htneg
   have hr0R : (r0 : Real) ≤ (2 ^ 126 : Real) := by
     have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hr0le
@@ -439,8 +439,8 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
       have hcap : (2 ^ 126 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
           (2 ^ 126 : Real) + 2500 / 1000 := by linarith [hQv_le, hr0R]
       have := mul_le_mul_of_nonneg_right hcap
-        (by positivity : (0:Real) ≤ 1 / ((2 ^ 131 : Real) - 1))
-      have hfin : ((2 ^ 126 : Real) + 2500 / 1000) * (1 / ((2 ^ 131 : Real) - 1)) ≤ 1 / 20 := by
+        (by positivity : (0:Real) ≤ 1 / ((2 ^ 132 : Real) - 1))
+      have hfin : ((2 ^ 126 : Real) + 2500 / 1000) * (1 / ((2 ^ 132 : Real) - 1)) ≤ 1 / 20 := by
         rw [mul_one_div, div_le_div_iff₀ (by norm_num) (by norm_num)]
         norm_num
       linarith [this, hfin]
@@ -542,10 +542,10 @@ theorem r0_seam_double {x1 x2 : Nat}
   have hE2bound : (2 ^ 126 : Real) * E2 ≤ (int256 (r0Tree x2) : Real) + 31 / 10 := hunder2
   have hr0_1 : (int256 (r0Tree x1) : Real) ≤
       2 * ((int256 (r0Tree x2) : Real) + 31 / 10) * y +
-        6013505372794194988 / 10000000000000000000 := by
+        5792534503673398887 / 10000000000000000000 := by
     have h1 : (2 ^ 126 : Real) * E1 = 2 * ((2 ^ 126 : Real) * E2) * y := by rw [hseam]; ring
     have h2 : (int256 (r0Tree x1) : Real) ≤ (2 ^ 126 : Real) * E1 +
-        6013505372794194988 / 10000000000000000000 := hover1
+        5792534503673398887 / 10000000000000000000 := hover1
     rw [h1] at h2
     have h3 : 2 * ((2 ^ 126 : Real) * E2) * y ≤ 2 * ((int256 (r0Tree x2) : Real) + 31 / 10) * y :=
       mul_le_mul_of_nonneg_right
@@ -555,7 +555,7 @@ theorem r0_seam_double {x1 x2 : Nat}
   have hr0_2nn : (0:Real) ≤ (int256 (r0Tree x2) : Real) := by
     linarith [hr0_2_big, (by positivity : (0:Real) ≤ (2:Real)^124)]
   have hkey : 2 * ((int256 (r0Tree x2) : Real) + 31 / 10) * y +
-      6013505372794194988 / 10000000000000000000 + 2 < 2 * (int256 (r0Tree x2) : Real) := by
+      5792534503673398887 / 10000000000000000000 + 2 < 2 * (int256 (r0Tree x2) : Real) := by
     -- the seam gap is dominated by `(r0 + 31/10) / RAY`; the quotient exceeds `1562` here
     have hyb : 2 * ((int256 (r0Tree x2) : Real) + 31 / 10) * y ≤
         2 * ((int256 (r0Tree x2) : Real) + 31 / 10) * (1 - 1 / (2 * (10 ^ 27 : Real))) :=

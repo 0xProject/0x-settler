@@ -82,7 +82,7 @@ theorem todTree_bound {x : Nat} (hx : x < 2 ^ 256)
 /-- Abstract numerator/denominator positivity: stated over opaque words `E` (the even accumulator)
 and `TD` (the signed `t·Od` shift) with their bounds, so the deep Horner tree is never forced. -/
 theorem numden_pos_of {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
-    (hev_lo : (207573926795459379279817565122117813188 : Int) ≤ (E : Int))
+    (hev_lo : (207573926795459379279817565122117813128 : Int) ≤ (E : Int))
     (hev_hi : (E : Int) < 3 * 2 ^ 126)
     (htod_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD)
     (htod_hi : int256 TD < 85070591730234615865843651857942052864) :
@@ -123,8 +123,8 @@ theorem numden_pos {x : Nat} (hx : x < 2 ^ 256)
   have hevw : evTree x < 2 ^ 256 := by unfold evTree; exact evmAdd_lt _ _
   have htodw : todTree x < 2 ^ 256 := by unfold todTree; exact evmSar_lt _ _
   refine numden_pos_of hevw htodw ?_ ?_ ?_ ?_
-  · have : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) ≤ (evTree x : Int) := by exact_mod_cast hev_lo
-    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) = 207573926795459379279817565122117813188 by norm_num] at this
+  · have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) ≤ (evTree x : Int) := by exact_mod_cast hev_lo
+    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) = 207573926795459379279817565122117813128 by norm_num] at this
     exact this
   · have : (evTree x : Int) < ((3 * 2 ^ 126 : Nat) : Int) := by exact_mod_cast hev_hi
     rw [show ((3 * 2 ^ 126 : Nat) : Int) = 3 * 2 ^ 126 by norm_num] at this; exact this
@@ -200,7 +200,7 @@ theorem int256_eq_of_nonneg {w : Nat} (hw : w < 2 ^ 256) (hnn : 0 ≤ int256 w) 
 bounds. `r0 = div(2^126·(E+TD), E−TD)`; the numerator and denominator are positive and the
 quotient lands in `[2^123, 2^128)` (the reduced argument keeps `exp(t) ∈ [1/√2, √2)`). -/
 theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
-    (hev_lo : (207573926795459379279817565122117813188 : Int) ≤ (E : Int))
+    (hev_lo : (207573926795459379279817565122117813128 : Int) ≤ (E : Int))
     (hev_hi : (E : Int) < 3 * 2 ^ 126)
     (htod_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD)
     (htod_hi : int256 TD < 85070591730234615865843651857942052864) :
@@ -247,8 +247,8 @@ theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
   have hevw : evTree x < 2 ^ 256 := by unfold evTree; exact evmAdd_lt _ _
   have htodw : todTree x < 2 ^ 256 := by unfold todTree; exact evmSar_lt _ _
   refine r0Tree_bounds_ofEvTod hevw htodw ?_ ?_ ?_ ?_
-  · have : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) ≤ (evTree x : Int) := by exact_mod_cast hev_lo
-    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) = 207573926795459379279817565122117813188 by norm_num] at this
+  · have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) ≤ (evTree x : Int) := by exact_mod_cast hev_lo
+    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) = 207573926795459379279817565122117813128 by norm_num] at this
     exact this
   · have : (evTree x : Int) < ((3 * 2 ^ 126 : Nat) : Int) := by exact_mod_cast hev_hi
     rw [show ((3 * 2 ^ 126 : Nat) : Int) = 3 * 2 ^ 126 by norm_num] at this; exact this

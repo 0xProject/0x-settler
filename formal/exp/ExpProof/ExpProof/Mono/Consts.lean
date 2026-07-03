@@ -19,20 +19,20 @@ abbrev tArgShift : Nat := 0x6b
 abbrev squareShift : Nat := 0x85
 
 abbrev ev0 : Nat := 0xb9aacfacf3c10b378435f8e22adf48500e
-abbrev ev1 : Nat := 0x9a036222841f47c6ed6fc3f7602053
-abbrev ev2 : Nat := 0x9064d9657e9a21fc16bb69331c5c3057
-abbrev ev3 : Nat := 0x93f11e650dd6c64b96ce79065cdf809e
-abbrev ev4 : Nat := 0x9c2948bcaca16a0dd2fe98bb4470c3c4
+abbrev ev1 : Nat := 0x9a036222841f47c6ed6fc3f7599445
+abbrev ev2 : Nat := 0x9064d9657e9a21fc16bb69331b81ae1e
+abbrev ev3 : Nat := 0x93f11e650dd6c64b96ce79065cdf80f4
+abbrev ev4 : Nat := 0x9c2948bcaca16a0dd2fe98bb4470c388
 abbrev evShift1 : Nat := 0x95
 abbrev evShift2 : Nat := 0x7b
 abbrev evShift3 : Nat := 0x81
 abbrev evShift4 : Nat := 0x7e
 
 abbrev od0 : Nat := 0xdc07aff8276bde9a361278df6a10
-abbrev od1 : Nat := 0xc926ddbecdeeb42e68cd16db7da8c1
-abbrev od2 : Nat := 0xad4506af99be27419341e1816ff351
-abbrev od3 : Nat := 0xaf566247c05753b42892f77b67a6b7c6
-abbrev od4 : Nat := 0x9c2948bcaca16a0dd2fe98bb4470c3c4
+abbrev od1 : Nat := 0xc926ddbecdeeb42e68cd16db7ed378
+abbrev od2 : Nat := 0xad4506af99be27419341e181693281
+abbrev od3 : Nat := 0xaf566247c05753b42892f77b67a6b7c7
+abbrev od4 : Nat := 0x9c2948bcaca16a0dd2fe98bb4470c388
 abbrev odShift1 : Nat := 0x7e
 abbrev odShift2 : Nat := 0x84
 abbrev odShift3 : Nat := 0x7a
@@ -42,7 +42,7 @@ abbrev todShift : Nat := 0x81
 abbrev expQShift : Nat := 0x7e
 abbrev foldShift : Nat := 0x6c
 abbrev wadWord : Nat := 0x3782dace9d9
-abbrev marginWord : Nat := 0x2161b482a02
+abbrev marginWord : Nat := 0x2027afc6c05
 
 theorem int256_Cmask : int256 Cmask = -41446531673892822312323846185 := by
   unfold Cmask int256

@@ -17,8 +17,8 @@ nonnegativity into the two bare-argument Taylor caps the floor layer folds with 
 implementation's exact **v-form** rational `ê_v(t) = NUM(t)/DEN(t)` (built from the even/odd Horner
 polynomials in `v = t²`) nudged by the dyadic margin, with `Qexp = 2^128`:
 
-* `capExpUp` — never-over `exp(t/Qexp) ≤ yUB(t)/wUB(t)` with `yUB/wUB = ê_v·(1 + 2⁻¹³¹)`;
-* `capExpLo` — not-two-below `yLB(t)/wLB(t) ≤ exp(t/Qexp)` with `yLB/wLB = ê_v·(1 − 2⁻¹³¹)`.
+* `capExpUp` — never-over `exp(t/Qexp) ≤ yUB(t)/wUB(t)` with `yUB/wUB = ê_v·(1 + 2⁻¹³²)`;
+* `capExpLo` — not-two-below `yLB(t)/wLB(t) ≤ exp(t/Qexp)` with `yLB/wLB = ê_v·(1 − 2⁻¹³²)`.
 
 The bridge is the depth-`K = 27` `Common.Exp.capUB_of_partial`/`capLB` shape.
 -/
@@ -65,16 +65,16 @@ theorem evalExpN27 (t : Int) : evalPoly expN27 t = expNumI 27 t (Qexp : Int) := 
   rw [evalPoly_expPolyNum]
   congr 1 <;> simp [evalPoly]
 
-theorem evalYUB (t : Int) : evalPoly yUB t = (2 ^ 131 + 1) * evalPoly numExpV t := by
+theorem evalYUB (t : Int) : evalPoly yUB t = (2 ^ 132 + 1) * evalPoly numExpV t := by
   unfold yUB; rw [evalPoly_polyScale]
 
-theorem evalWUB (t : Int) : evalPoly wUB t = 2 ^ 131 * evalPoly denExpV t := by
+theorem evalWUB (t : Int) : evalPoly wUB t = 2 ^ 132 * evalPoly denExpV t := by
   unfold wUB; rw [evalPoly_polyScale]
 
-theorem evalYLB (t : Int) : evalPoly yLB t = (2 ^ 131 - 1) * evalPoly numExpV t := by
+theorem evalYLB (t : Int) : evalPoly yLB t = (2 ^ 132 - 1) * evalPoly numExpV t := by
   unfold yLB; rw [evalPoly_polyScale]
 
-theorem evalWLB (t : Int) : evalPoly wLB t = 2 ^ 131 * evalPoly denExpV t := by
+theorem evalWLB (t : Int) : evalPoly wLB t = 2 ^ 132 * evalPoly denExpV t := by
   unfold wLB; rw [evalPoly_polyScale]
 
 theorem evalTailUp (t : Int) :
@@ -121,15 +121,15 @@ theorem Qexp_eq : (Qexp : Int) = 2 ^ 128 := by unfold Qexp; norm_num
 
 theorem Qexp_pos : 0 < Qexp := by unfold Qexp; norm_num
 
-/-- **Never-over cap** at the v-form rational `yUB/wUB = ê_v·(1 + 2⁻¹³¹)`: for every reduced argument
+/-- **Never-over cap** at the v-form rational `yUB/wUB = ê_v·(1 + 2⁻¹³²)`: for every reduced argument
 `t ∈ [0, H128]`, `exp(t/Qexp) ≤ yUB(t)/wUB(t)`. -/
 theorem capExpUp {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
     capUB t.toNat Qexp (evalPoly yUB t).toNat (evalPoly wUB t).toNat := by
   have hnum : 0 ≤ evalPoly numExpV t := numExpV_nonneg h1 h2
   have hden : 1 ≤ evalPoly denExpV t := denExpV_ge_one h1 h2
   have hden0 : 0 ≤ evalPoly denExpV t := by omega
-  have hc120 : (0 : Int) ≤ 2 ^ 131 + 1 := by norm_num
-  have hp120 : (0 : Int) ≤ 2 ^ 131 := by norm_num
+  have hc120 : (0 : Int) ≤ 2 ^ 132 + 1 := by norm_num
+  have hp120 : (0 : Int) ≤ 2 ^ 132 := by norm_num
   have hyub : 0 ≤ evalPoly yUB t := by
     rw [evalYUB]; exact Int.mul_nonneg hc120 hnum
   have hwub : 0 ≤ evalPoly wUB t := by
@@ -155,15 +155,15 @@ theorem capExpUp {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
       _ ≤ 304888344611713860501504000000 * ((2 : Int) ^ 128) ^ 28 * evalPoly yUB t := key
       _ = evalPoly yUB t * (304888344611713860501504000000 * ((2 : Int) ^ 128) ^ 28) := by ring
 
-/-- **Not-two-below cap** at the v-form rational `yLB/wLB = ê_v·(1 − 2⁻¹³¹)`: for every reduced
+/-- **Not-two-below cap** at the v-form rational `yLB/wLB = ê_v·(1 − 2⁻¹³²)`: for every reduced
 argument `t ∈ [0, H128]`, `yLB(t)/wLB(t) ≤ exp(t/Qexp)`. -/
 theorem capExpLo {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
     capLB t.toNat Qexp (evalPoly yLB t).toNat (evalPoly wLB t).toNat := by
   have hnum : 0 ≤ evalPoly numExpV t := numExpV_nonneg h1 h2
   have hden : 1 ≤ evalPoly denExpV t := denExpV_ge_one h1 h2
   have hden0 : 0 ≤ evalPoly denExpV t := by omega
-  have hc126 : (0 : Int) ≤ 2 ^ 131 - 1 := by norm_num
-  have hp126 : (0 : Int) ≤ 2 ^ 131 := by norm_num
+  have hc126 : (0 : Int) ≤ 2 ^ 132 - 1 := by norm_num
+  have hp126 : (0 : Int) ≤ 2 ^ 132 := by norm_num
   have hylb : 0 ≤ evalPoly yLB t := by
     rw [evalYLB]; exact Int.mul_nonneg hc126 hnum
   have hwlb : 0 ≤ evalPoly wLB t := by

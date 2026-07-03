@@ -18,12 +18,12 @@ This module bounds the Q126 quotient `r0Tree x` above by `2¹²⁶·exp(rt)` plu
    `≤ 2170557036555806152/10¹⁹`;
 2. **`ê(v)` vs `ê(t²)`** — the argument-granularity link (`Floor.GranV`): one `v`-grid grain,
    `≤ 3290521163436398582/10¹⁹` on this half (the 32-piece certified envelope);
-3. **`ê(t²)` vs `exp(t/2¹²⁸)`** — the `2⁻¹³¹`-nudged Taylor cut (`Floor.CapsV`), the `Mp` factor
-   `≤ 441941738241592203/10¹⁹`;
+3. **`ê(t²)` vs `exp(t/2¹²⁸)`** — the `2⁻¹³²`-nudged Taylor cut (`Floor.CapsV`), the `Mp` factor
+   `≤ 220970869120796102/10¹⁹`;
 4. **`exp(t/2¹²⁸)` vs `exp(rt)`** — the reduced-argument gap (`Floor.Reduce`),
    `≤ 110485434560398051/10¹⁹`.
 
-The total is the budget `B = 6013505372794194988/10¹⁹`; `MARGIN = ⌊5¹⁸·B⌋ + 1`. On the `t ≤ 0`
+The total is the budget `B = 5792534503673398887/10¹⁹`; `MARGIN = ⌊5¹⁸·B⌋ + 1`. On the `t ≤ 0`
 half link 2 is free (the grain moves `ê` the other way) and links 3–4 shrink (`ê ≤ 1`), so the same
 `B` covers both halves.
 -/
@@ -162,13 +162,13 @@ theorem todTree_small {x : Nat} (hx : x < 2 ^ 256)
 /-- `den_rt = ev − tod ≥ 1.94·2¹²⁶` on the region (the even accumulator dominates `|tod|`). -/
 theorem den_ge_194 {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    (165038630930342071346895739193146786756 : Int) ≤
+    (165038630930342071346895739193146786696 : Int) ≤
       (evTree x : Int) - int256 (todTree x) := by
   obtain ⟨hevlo, _⟩ := evTree_facts (vTree_eq hx hC hC0).2
   obtain ⟨_, htod_hi⟩ := todTree_small hx hC hC0
-  have hev : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) ≤ (evTree x : Int) := by exact_mod_cast hevlo
+  have hev : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) ≤ (evTree x : Int) := by exact_mod_cast hevlo
   have ht125 : int256 (todTree x) < 2 ^ 125 := htod_hi
-  rw [show (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) = 207573926795459379279817565122117813188 from by norm_num] at hev
+  rw [show (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) = 207573926795459379279817565122117813128 from by norm_num] at hev
   rw [show (2:Int)^125 = 42535295865117307932921825928971026432 from by norm_num] at ht125
   omega
 
@@ -181,7 +181,7 @@ theorem r0_le_2126_neg {x : Nat} (hx : x < 2 ^ 256)
   set r0 := int256 (r0Tree x) with hr0def
   set ev := (evTree x : Int) with hevdef
   set tod := int256 (todTree x) with htoddef
-  have hden072 : (165038630930342071346895739193146786756 : Int) ≤ ev - tod := by
+  have hden072 : (165038630930342071346895739193146786696 : Int) ≤ ev - tod := by
     have := den_ge_194 hx hC hC0; rw [← hevdef, ← htoddef] at this; exact this
   have hdenpos : (0:Int) < ev - tod := lt_of_lt_of_le (by norm_num) hden072
   have htodnp : tod ≤ 0 := by
@@ -436,7 +436,7 @@ theorem NUMv_ge_num {x : Nat} (hx : x < 2 ^ 256)
 
 /-! ## The cert `Real.exp` bounds at the runtime reduced argument
 
-Instantiating the v-form Taylor caps (`ExpCertV.capExpUp`/`capExpLo`, `2⁻¹³¹` nudge) at
+Instantiating the v-form Taylor caps (`ExpCertV.capExpUp`/`capExpLo`, `2⁻¹³²` nudge) at
 `t = int256 (tTree x)` and pushing through the abstract `Common.RealExpBridge` brackets
 `Real.exp(t/2¹²⁸)` by the margin-nudged rational `ê = NE/DE`. -/
 
@@ -444,10 +444,10 @@ open ExpRealSpec Real Common.RealExpBridge Common.Exp
 
 noncomputable section
 
-/-- **Never-over cert real bound (nonneg half).** `(2¹³¹−1)·NE / (2¹³¹·DE) ≤ exp(t/2¹²⁸)`. -/
+/-- **Never-over cert real bound (nonneg half).** `(2¹³²−1)·NE / (2¹³²·DE) ≤ exp(t/2¹²⁸)`. -/
 theorem certLo_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) :
-    ((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-        (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤
+    ((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤
       Real.exp ((t : Real) / (2 ^ 128 : Real)) := by
   have hcap := ExpCertV.capExpLo h1 h2
   have hwpos : 0 < (evalPoly ExpCertV.wLB t).toNat := by
@@ -471,24 +471,24 @@ theorem certLo_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) 
       have := htn; exact_mod_cast this
     exact this
   rw [harg] at h
-  have hynr : ((evalPoly ExpCertV.yLB t).toNat : Real) = ((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) := by
-    have : ((evalPoly ExpCertV.yLB t).toNat : Int) = (2 ^ 131 - 1) * evalPoly ExpCertV.numExpV t := by
+  have hynr : ((evalPoly ExpCertV.yLB t).toNat : Real) = ((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) := by
+    have : ((evalPoly ExpCertV.yLB t).toNat : Int) = (2 ^ 132 - 1) * evalPoly ExpCertV.numExpV t := by
       rw [hyn, ExpCertV.evalYLB]
     have := congrArg (fun z : Int => (z : Real)) this
     push_cast at this ⊢; linarith [this]
-  have hwnr : ((evalPoly ExpCertV.wLB t).toNat : Real) = ((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) := by
-    have : ((evalPoly ExpCertV.wLB t).toNat : Int) = 2 ^ 131 * evalPoly ExpCertV.denExpV t := by
+  have hwnr : ((evalPoly ExpCertV.wLB t).toNat : Real) = ((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) := by
+    have : ((evalPoly ExpCertV.wLB t).toNat : Int) = 2 ^ 132 * evalPoly ExpCertV.denExpV t := by
       rw [hwn, ExpCertV.evalWLB]
     have := congrArg (fun z : Int => (z : Real)) this
     push_cast at this ⊢; linarith [this]
   rw [hynr, hwnr] at h
   exact h
 
-/-- **Not-two-below cert real bound (nonneg half).** `exp(t/2¹²⁸) ≤ (2¹³¹+1)·NE / (2¹³¹·DE)`. -/
+/-- **Not-two-below cert real bound (nonneg half).** `exp(t/2¹²⁸) ≤ (2¹³²+1)·NE / (2¹³²·DE)`. -/
 theorem certUp_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) :
     Real.exp ((t : Real) / (2 ^ 128 : Real)) ≤
-      ((2 ^ 131 + 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-        (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
+      ((2 ^ 132 + 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
   have hcap := ExpCertV.capExpUp h1 h2
   have hwpos : 0 < (evalPoly ExpCertV.wUB t).toNat := by
     have hpos : 0 < evalPoly ExpCertV.wUB t := by
@@ -511,13 +511,13 @@ theorem certUp_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) 
       have := htn; exact_mod_cast this
     exact this
   rw [harg] at h
-  have hynr : ((evalPoly ExpCertV.yUB t).toNat : Real) = ((2 ^ 131 + 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) := by
-    have : ((evalPoly ExpCertV.yUB t).toNat : Int) = (2 ^ 131 + 1) * evalPoly ExpCertV.numExpV t := by
+  have hynr : ((evalPoly ExpCertV.yUB t).toNat : Real) = ((2 ^ 132 + 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) := by
+    have : ((evalPoly ExpCertV.yUB t).toNat : Int) = (2 ^ 132 + 1) * evalPoly ExpCertV.numExpV t := by
       rw [hyn, ExpCertV.evalYUB]
     have := congrArg (fun z : Int => (z : Real)) this
     push_cast at this ⊢; linarith [this]
-  have hwnr : ((evalPoly ExpCertV.wUB t).toNat : Real) = ((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) := by
-    have : ((evalPoly ExpCertV.wUB t).toNat : Int) = 2 ^ 131 * evalPoly ExpCertV.denExpV t := by
+  have hwnr : ((evalPoly ExpCertV.wUB t).toNat : Real) = ((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) := by
+    have : ((evalPoly ExpCertV.wUB t).toNat : Int) = 2 ^ 132 * evalPoly ExpCertV.denExpV t := by
       rw [hwn, ExpCertV.evalWUB]
     have := congrArg (fun z : Int => (z : Real)) this
     push_cast at this ⊢; linarith [this]
@@ -525,11 +525,11 @@ theorem certUp_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) 
   exact h
 
 /-- **Not-too-below cert real bound (negative half).** For `t ≤ 0` with `−t ∈ [0, H128]`:
-`exp(t/2¹²⁸) ≤ (2¹³¹·NE) / ((2¹³¹−1)·DE)`. -/
+`exp(t/2¹²⁸) ≤ (2¹³²·NE) / ((2¹³²−1)·DE)`. -/
 theorem certUp_real_neg {t : Int} (h1 : t ≤ 0) (h2 : (-t) ≤ (ExpCertV.H128 : Int)) :
     Real.exp ((t : Real) / (2 ^ 128 : Real)) ≤
-      ((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-        (((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
+      ((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
   have hnt : 0 ≤ -t := by omega
   have hcl := certLo_real hnt h2
   rw [numExpV_neg_eq_denExpV, denExpV_neg_eq_numExpV] at hcl
@@ -542,21 +542,21 @@ theorem certUp_real_neg {t : Int} (h1 : t ≤ 0) (h2 : (-t) ≤ (ExpCertV.H128 :
       push_cast; ring, Real.exp_neg]
   rw [hexpneg] at hcl
   have hexppos := Real.exp_pos ((t : Real) / (2 ^ 128 : Real))
-  have hlhs_pos : (0:Real) < ((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
-      (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)) := by positivity
+  have hlhs_pos : (0:Real) < ((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
+      (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)) := by positivity
   rw [le_inv_comm₀ hlhs_pos hexppos] at hcl
   calc Real.exp ((t : Real) / (2 ^ 128 : Real))
-      ≤ (((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
-          (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)))⁻¹ := hcl
-    _ = ((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-          (((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
+      ≤ (((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
+          (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)))⁻¹ := hcl
+    _ = ((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+          (((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
         rw [inv_div]
 
 /-- **Never-over cert real bound (negative half).** For `t ≤ 0` with `−t ∈ [0, H128]`:
-`(2¹³¹·NE) / ((2¹³¹+1)·DE) ≤ exp(t/2¹²⁸)`. -/
+`(2¹³²·NE) / ((2¹³²+1)·DE) ≤ exp(t/2¹²⁸)`. -/
 theorem certLo_real_neg {t : Int} (h1 : t ≤ 0) (h2 : (-t) ≤ (ExpCertV.H128 : Int)) :
-    ((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-        (((2 ^ 131 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤
+    ((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 132 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤
       Real.exp ((t : Real) / (2 ^ 128 : Real)) := by
   have hnt : 0 ≤ -t := by omega
   have hcu := certUp_real hnt h2
@@ -570,13 +570,13 @@ theorem certLo_real_neg {t : Int} (h1 : t ≤ 0) (h2 : (-t) ≤ (ExpCertV.H128 :
       push_cast; ring, Real.exp_neg]
   rw [hexpneg] at hcu
   have hexppos := Real.exp_pos ((t : Real) / (2 ^ 128 : Real))
-  have hrhs_pos : (0:Real) < ((2 ^ 131 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
-      (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)) := by positivity
+  have hrhs_pos : (0:Real) < ((2 ^ 132 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
+      (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)) := by positivity
   rw [inv_le_comm₀ hexppos hrhs_pos] at hcu
-  calc ((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-        (((2 ^ 131 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real))
-      = (((2 ^ 131 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
-          (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)))⁻¹ := by
+  calc ((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 132 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real))
+      = (((2 ^ 132 + 1 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) /
+          (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real)))⁻¹ := by
         rw [inv_div]
     _ ≤ Real.exp ((t : Real) / (2 ^ 128 : Real)) := hcu
 
@@ -685,26 +685,26 @@ theorem Qv_le_14145 {x : Nat} (hx : x < 2 ^ 256)
   have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0
   rw [← hEtdef] at hEtsqrt2
   have hNEDE_le : (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) ≤
-      Et * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) := by
-    have hc : ((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-        (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤ Et := hcertlo
+      Et * ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) := by
+    have hc : ((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤ Et := hcertlo
     have key : (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) =
-        ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) *
-          (((2 ^ 131 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
-            (((2 ^ 131 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real))) := by
+        ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) *
+          (((2 ^ 132 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+            (((2 ^ 132 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real))) := by
       push_cast; field_simp; ring
     rw [key, mul_comm Et _]
     exact mul_le_mul_of_nonneg_left hc (by positivity)
   have hsqrt2_val : Real.sqrt 2 ≤ 14143 / 10000 := by
     rw [Real.sqrt_le_iff]; constructor <;> norm_num
-  have hMp_le : ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) ≤ 14144 / 14143 := by
+  have hMp_le : ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) ≤ 14144 / 14143 := by
     rw [div_le_div_iff₀ (by norm_num) (by norm_num)]
-    have h131 : (14144 : Real) ≤ 2 ^ 131 := by norm_num
+    have h131 : (14144 : Real) ≤ 2 ^ 132 := by norm_num
     nlinarith [h131]
   have hNEDE14144 : (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) ≤
       14144 / 10000 := by
     have hEtnn : (0:Real) ≤ Et := le_of_lt (Real.exp_pos _)
-    have h1 : Et * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) ≤
+    have h1 : Et * ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) ≤
         (14143 / 10000) * (14144 / 14143) := by
       apply mul_le_mul (le_trans hEtsqrt2 hsqrt2_val) hMp_le (by positivity) (by norm_num)
     have h2 : (14143 / 10000 : Real) * (14144 / 14143) = 14144 / 10000 := by norm_num
@@ -826,12 +826,12 @@ theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
       linarith [h]
     obtain ⟨hDEN_ge, _⟩ := DENv_runtime_bracket hx hC hC0 htnn
     have hden := den_ge_194 hx hC hC0
-    have hDENlow : (2:Int) ^ 637 * (165038630930342071346895739193146786756 - 2) ≤ DENv v t := by
-      have : (2:Int) ^ 637 * (165038630930342071346895739193146786756 - 2) ≤
+    have hDENlow : (2:Int) ^ 637 * (165038630930342071346895739193146786696 - 2) ≤ DENv v t := by
+      have : (2:Int) ^ 637 * (165038630930342071346895739193146786696 - 2) ≤
           2 ^ 637 * ((evTree x : Int) - int256 (todTree x)) - 2 * 2 ^ 637 := by
         nlinarith [hden]
       linarith [this, hDEN_ge]
-    have hDENlowR : ((2:Real) ^ 637 * (165038630930342071346895739193146786756 - 2)) ≤
+    have hDENlowR : ((2:Real) ^ 637 * (165038630930342071346895739193146786696 - 2)) ≤
         (DENv v t : Real) := by
       have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hDENlow
       push_cast at h
@@ -841,23 +841,23 @@ theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
       mul_le_mul_of_nonneg_left hcapR (by positivity)
     have hbudget : (142941343449089 : Real) * 2 ^ 590 * (4146 * 2 ^ 126 / 10000) ≤
         (2170557036555806152 / 10000000000000000000) *
-          ((2:Real) ^ 637 * (165038630930342071346895739193146786756 - 2)) := by
+          ((2:Real) ^ 637 * (165038630930342071346895739193146786696 - 2)) := by
       norm_num
     calc (142941343449089 : Real) * 2 ^ 590 * ((r0 : Real) - 2 ^ 126)
         ≤ (142941343449089 : Real) * 2 ^ 590 * (4146 * 2 ^ 126 / 10000) := hnum_le
       _ ≤ (2170557036555806152 / 10000000000000000000) *
-          ((2:Real) ^ 637 * (165038630930342071346895739193146786756 - 2)) := hbudget
+          ((2:Real) ^ 637 * (165038630930342071346895739193146786696 - 2)) := hbudget
       _ ≤ (2170557036555806152 / 10000000000000000000) * (DENv v t : Real) :=
           mul_le_mul_of_nonneg_left hDENlowR (by norm_num)
 
 /-- **The per-point never-over (nonneg half).** `r0 ≤ 2¹²⁶·exp(rt) + B` with the four-link budget
-`B = 6013505372794194988/10¹⁹`: link-1 jitter `≤ 0.6207…`, granularity `≤ 0.3291…`, the `Mp`
-factor `≤ √2·2¹²⁶/(2¹³¹−1) ≤ 0.0442…`, and the reduced-argument gap `≤ √2/128 ≤ 0.0111…`. -/
+`B = 5792534503673398887/10¹⁹`: link-1 jitter `≤ 0.6207…`, granularity `≤ 0.3291…`, the `Mp`
+factor `≤ √2·2¹²⁶/(2¹³²−1) ≤ 0.0442…`, and the reduced-argument gap `≤ √2/128 ≤ 0.0111…`. -/
 theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htnn : 0 ≤ int256 (tTree x)) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-      6013505372794194988 / 10000000000000000000 := by
+      5792534503673398887 / 10000000000000000000 := by
   obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
   have hvle := vTree_le_vmax hx hC hC0
   set t := int256 (tTree x) with htdef
@@ -900,32 +900,32 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
   set Et := Real.exp ((t : Real) / (2 ^ 128 : Real)) with hEtdef
   set NE := evalPoly ExpCertV.numExpV t with hNEdef
   set DE := evalPoly ExpCertV.denExpV t with hDEdef
-  set Mp : Real := (2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1) with hMpdef
+  set Mp : Real := (2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1) with hMpdef
   have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0
   rw [← hEtdef] at hEtsqrt2
   have hEtnn : (0 : Real) ≤ Et := le_of_lt (Real.exp_pos _)
   have hNEDE_le : (NE : Real) / (DE : Real) ≤ Et * Mp := by
-    have hc : ((2 ^ 131 - 1 : Int) : Real) * (NE : Real) /
-        (((2 ^ 131 : Int) : Real) * (DE : Real)) ≤ Et := hcertlo
+    have hc : ((2 ^ 132 - 1 : Int) : Real) * (NE : Real) /
+        (((2 ^ 132 : Int) : Real) * (DE : Real)) ≤ Et := hcertlo
     rw [hMpdef]
     have key : (NE : Real) / (DE : Real) =
-        ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) *
-          (((2 ^ 131 - 1 : Int) : Real) * (NE : Real) /
-            (((2 ^ 131 : Int) : Real) * (DE : Real))) := by
+        ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) *
+          (((2 ^ 132 - 1 : Int) : Real) * (NE : Real) /
+            (((2 ^ 132 : Int) : Real) * (DE : Real))) := by
       push_cast; field_simp; ring
     rw [key, mul_comm Et _]; exact mul_le_mul_of_nonneg_left hc (by positivity)
   have hsqrt2_hi : Real.sqrt 2 ≤ 141421356237309504880168872421 / 100000000000000000000000000000 := by
     rw [Real.sqrt_le_iff]; constructor <;> norm_num
   have hsqrt2_nn : (0:Real) ≤ Real.sqrt 2 := Real.sqrt_nonneg _
-  have hMp1 : Mp - 1 = 1 / ((2 ^ 131 : Real) - 1) := by rw [hMpdef]; field_simp
-  have hcMp : (2 ^ 126 : Real) * Et * (Mp - 1) ≤ 441941738241592203 / 10000000000000000000 := by
+  have hMp1 : Mp - 1 = 1 / ((2 ^ 132 : Real) - 1) := by rw [hMpdef]; field_simp
+  have hcMp : (2 ^ 126 : Real) * Et * (Mp - 1) ≤ 220970869120796102 / 10000000000000000000 := by
     rw [hMp1]
-    have hb : (2 ^ 126 : Real) * Et * (1 / ((2 ^ 131 : Real) - 1)) ≤
-        (2 ^ 126 : Real) * Real.sqrt 2 * (1 / ((2 ^ 131 : Real) - 1)) := by
+    have hb : (2 ^ 126 : Real) * Et * (1 / ((2 ^ 132 : Real) - 1)) ≤
+        (2 ^ 126 : Real) * Real.sqrt 2 * (1 / ((2 ^ 132 : Real) - 1)) := by
       apply mul_le_mul_of_nonneg_right _ (by positivity)
       exact mul_le_mul_of_nonneg_left hEtsqrt2 (by positivity)
-    have hn : (2 ^ 126 : Real) * Real.sqrt 2 * (1 / ((2 ^ 131 : Real) - 1)) ≤
-        441941738241592203 / 10000000000000000000 := by
+    have hn : (2 ^ 126 : Real) * Real.sqrt 2 * (1 / ((2 ^ 132 : Real) - 1)) ≤
+        220970869120796102 / 10000000000000000000 := by
       rw [mul_one_div, div_le_div_iff₀ (by norm_num) (by norm_num)]
       nlinarith [hsqrt2_hi, hsqrt2_nn]
     linarith [hb, hn]
@@ -961,15 +961,15 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     _ ≤ ((2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) +
           3290521163436398582 / 10000000000000000000) +
         2170557036555806152 / 10000000000000000000 := by linarith [hgran]
-    _ ≤ (((2 ^ 126 : Real) * Et + 441941738241592203 / 10000000000000000000) +
+    _ ≤ (((2 ^ 126 : Real) * Et + 220970869120796102 / 10000000000000000000) +
           3290521163436398582 / 10000000000000000000) +
         2170557036555806152 / 10000000000000000000 := by linarith [hNEMp, hcMp]
     _ ≤ ((((2 ^ 126 : Real) * Ert + 110485434560398051 / 10000000000000000000) +
-          441941738241592203 / 10000000000000000000) +
+          220970869120796102 / 10000000000000000000) +
           3290521163436398582 / 10000000000000000000) +
         2170557036555806152 / 10000000000000000000 := by linarith [hEtErt]
     _ = (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-        6013505372794194988 / 10000000000000000000 := by rw [hErtdef]; ring
+        5792534503673398887 / 10000000000000000000 := by rw [hErtdef]; ring
 
 /-! ## The per-point never-over (nonpositive half) -/
 
@@ -989,12 +989,12 @@ theorem jitter_over_budget_neg {x : Nat} (hx : x < 2 ^ 256)
   set r0 := int256 (r0Tree x) with hr0def
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  have hev : (207573926795459379279817565122117813188 : Int) ≤ (evTree x : Int) := by
-    have : (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) ≤ (evTree x : Int) := by exact_mod_cast hev_lo
-    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c3c4 : Int) = 207573926795459379279817565122117813188 from by norm_num] at this
+  have hev : (207573926795459379279817565122117813128 : Int) ≤ (evTree x : Int) := by
+    have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) ≤ (evTree x : Int) := by exact_mod_cast hev_lo
+    rw [show (0x9c2948bcaca16a0dd2fe98bb4470c388 : Int) = 207573926795459379279817565122117813128 from by norm_num] at this
     exact this
-  have hDEN_low : (2:Int) ^ 637 * 207573926795459379279817565122117813188 ≤ DENv v t := by
-    have : (2:Int) ^ 637 * 207573926795459379279817565122117813188 ≤ 2 ^ 637 * (evTree x : Int) :=
+  have hDEN_low : (2:Int) ^ 637 * 207573926795459379279817565122117813128 ≤ DENv v t := by
+    have : (2:Int) ^ 637 * 207573926795459379279817565122117813128 ≤ 2 ^ 637 * (evTree x : Int) :=
       mul_le_mul_of_nonneg_left hev (by positivity)
     linarith [this, hDEN_ge]
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hDEN_low
@@ -1025,19 +1025,19 @@ theorem jitter_over_budget_neg {x : Nat} (hx : x < 2 ^ 256)
         (269746241 : Real) * 2 ^ 480 * 117932881612756647068972071382077242199 :=
       mul_le_mul_of_nonneg_left hntH (by positivity)
     exact mul_le_mul h1 hr0pH hr0pR (by positivity)
-  have hDENlowR : ((2:Real) ^ 637 * 207573926795459379279817565122117813188) ≤ (DENv v t : Real) := by
+  have hDENlowR : ((2:Real) ^ 637 * 207573926795459379279817565122117813128) ≤ (DENv v t : Real) := by
     have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hDEN_low
     push_cast at h
     linarith [h]
   have hbudget : (269746241 : Real) * 2 ^ 480 * 117932881612756647068972071382077242199 *
       (2 * 2 ^ 126) ≤ (2170557036555806152 / 10000000000000000000) *
-        ((2:Real) ^ 637 * 207573926795459379279817565122117813188) := by
+        ((2:Real) ^ 637 * 207573926795459379279817565122117813128) := by
     norm_num
   calc (269746241 : Real) * 2 ^ 480 * (-(t : Real)) * ((r0 : Real) + 2 ^ 126)
       ≤ (269746241 : Real) * 2 ^ 480 * 117932881612756647068972071382077242199 * (2 * 2 ^ 126) :=
         hnum_le
     _ ≤ (2170557036555806152 / 10000000000000000000) *
-        ((2:Real) ^ 637 * 207573926795459379279817565122117813188) := hbudget
+        ((2:Real) ^ 637 * 207573926795459379279817565122117813128) := hbudget
     _ ≤ (2170557036555806152 / 10000000000000000000) * (DENv v t : Real) :=
         mul_le_mul_of_nonneg_left hDENlowR (by norm_num)
 
@@ -1047,7 +1047,7 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htneg : int256 (tTree x) ≤ 0) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-      6013505372794194988 / 10000000000000000000 := by
+      5792534503673398887 / 10000000000000000000 := by
   have htdom := tdom_neg hx hC hC0 htneg
   have hvle := vTree_le_vmax hx hC hC0
   set t := int256 (tTree x) with htdef
@@ -1078,15 +1078,15 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
   set Et := Real.exp ((t : Real) / (2 ^ 128 : Real)) with hEtdef
   set NE := evalPoly ExpCertV.numExpV t with hNEdef
   set DE := evalPoly ExpCertV.denExpV t with hDEdef2
-  set Mpp : Real := ((2 ^ 131 : Real) + 1) / (2 ^ 131 : Real) with hMppdef
+  set Mpp : Real := ((2 ^ 132 : Real) + 1) / (2 ^ 132 : Real) with hMppdef
   have hNEDE_le : (NE : Real) / (DE : Real) ≤ Et * Mpp := by
-    have hc : ((2 ^ 131 : Int) : Real) * (NE : Real) /
-        (((2 ^ 131 + 1 : Int) : Real) * (DE : Real)) ≤ Et := hcertlo
+    have hc : ((2 ^ 132 : Int) : Real) * (NE : Real) /
+        (((2 ^ 132 + 1 : Int) : Real) * (DE : Real)) ≤ Et := hcertlo
     rw [hMppdef]
     have key : (NE : Real) / (DE : Real) =
-        (((2 ^ 131 : Real) + 1) / (2 ^ 131 : Real)) *
-          (((2 ^ 131 : Int) : Real) * (NE : Real) /
-            (((2 ^ 131 + 1 : Int) : Real) * (DE : Real))) := by
+        (((2 ^ 132 : Real) + 1) / (2 ^ 132 : Real)) *
+          (((2 ^ 132 : Int) : Real) * (NE : Real) /
+            (((2 ^ 132 + 1 : Int) : Real) * (DE : Real))) := by
       push_cast; field_simp; ring
     rw [key, mul_comm Et _]; exact mul_le_mul_of_nonneg_left hc (by positivity)
   have hEt_le_one : Et ≤ 1 := by
@@ -1095,15 +1095,15 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     have htR : (t : Real) ≤ 0 := by exact_mod_cast htneg
     apply div_nonpos_of_nonpos_of_nonneg htR (by positivity)
   have hEtnn : (0:Real) ≤ Et := le_of_lt (Real.exp_pos _)
-  have hMpp1 : Mpp - 1 = 1 / (2 ^ 131 : Real) := by rw [hMppdef]; field_simp
-  have hcMp : (2 ^ 126 : Real) * Et * (Mpp - 1) ≤ 441941738241592203 / 10000000000000000000 := by
+  have hMpp1 : Mpp - 1 = 1 / (2 ^ 132 : Real) := by rw [hMppdef]; field_simp
+  have hcMp : (2 ^ 126 : Real) * Et * (Mpp - 1) ≤ 220970869120796102 / 10000000000000000000 := by
     rw [hMpp1]
-    have h1 : (2 ^ 126 : Real) * Et * (1 / (2 ^ 131 : Real)) ≤
-        (2 ^ 126 : Real) * 1 * (1 / (2 ^ 131 : Real)) := by
+    have h1 : (2 ^ 126 : Real) * Et * (1 / (2 ^ 132 : Real)) ≤
+        (2 ^ 126 : Real) * 1 * (1 / (2 ^ 132 : Real)) := by
       apply mul_le_mul_of_nonneg_right _ (by positivity)
       exact mul_le_mul_of_nonneg_left hEt_le_one (by positivity)
-    have hn : (2 ^ 126 : Real) * 1 * (1 / (2 ^ 131 : Real)) ≤
-        441941738241592203 / 10000000000000000000 := by norm_num
+    have hn : (2 ^ 126 : Real) * 1 * (1 / (2 ^ 132 : Real)) ≤
+        220970869120796102 / 10000000000000000000 := by norm_num
     linarith [h1, hn]
   -- link 4 with Et ≤ 1
   set Ert := Real.exp (reducedArg x) with hErtdef
@@ -1134,25 +1134,25 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
         2170557036555806152 / 10000000000000000000 := hlink1
     _ ≤ (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) +
         2170557036555806152 / 10000000000000000000 := by linarith [hgranR]
-    _ ≤ ((2 ^ 126 : Real) * Et + 441941738241592203 / 10000000000000000000) +
+    _ ≤ ((2 ^ 126 : Real) * Et + 220970869120796102 / 10000000000000000000) +
         2170557036555806152 / 10000000000000000000 := by linarith [hNEMp, hcMp]
     _ ≤ (((2 ^ 126 : Real) * Ert + 110485434560398051 / 10000000000000000000) +
-          441941738241592203 / 10000000000000000000) +
+          220970869120796102 / 10000000000000000000) +
         2170557036555806152 / 10000000000000000000 := by linarith [hEtErt]
     _ ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-        6013505372794194988 / 10000000000000000000 := by
+        5792534503673398887 / 10000000000000000000 := by
         rw [hErtdef]
         have : (110485434560398051 : Real) / 10000000000000000000 +
-            441941738241592203 / 10000000000000000000 +
+            220970869120796102 / 10000000000000000000 +
             2170557036555806152 / 10000000000000000000 ≤
-            6013505372794194988 / 10000000000000000000 := by norm_num
+            5792534503673398887 / 10000000000000000000 := by norm_num
         linarith [this]
 
 /-- **Per-point never-over (tight, any sign):** `r0 ≤ 2¹²⁶·exp(rt) + B` (`WAD·B < MARGIN`). -/
 theorem r0_real_over_within {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) +
-      6013505372794194988 / 10000000000000000000 := by
+      5792534503673398887 / 10000000000000000000 := by
   rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
   · exact r0_real_over_tight hx hC hC0 htnn
   · exact r0_real_over_tight_neg hx hC hC0 (le_of_lt htneg)
