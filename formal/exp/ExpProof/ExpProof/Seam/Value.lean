@@ -432,7 +432,7 @@ theorem call_fun__expRayToWad_78_direct
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     )]) := by
   rw [show fuel + (extra + 700) = (fuel + extra) + 700 by omega]
   rw [EvmYul.Yul.call.eq_def]
@@ -496,7 +496,7 @@ theorem call_fun_expRayToWad_68_direct
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     )]) := by
   rw [show fuel + (extra + 900) = (fuel + extra) + 900 by omega]
   rw [EvmYul.Yul.call.eq_def]
@@ -559,7 +559,7 @@ theorem call_fun_wrap_expRayToWad_direct
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     )]) := by
   rw [show fuel + (extra + 1100) = (fuel + extra) + 1100 by omega]
   rw [EvmYul.Yul.call.eq_def]
@@ -619,7 +619,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     ) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
@@ -648,7 +648,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1))
     with htree
   let baseStore :=
     Finmap.insert "ret_0" (FormalYul.word tree)
@@ -749,7 +749,7 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1))
     with htree
   let baseStore :=
     Finmap.insert "ret_0" (FormalYul.word tree)
@@ -855,7 +855,7 @@ theorem external_fun_wrap_expRayToWad_dispatcher_state_result
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     ) := by
   rw [sharedFor_inherited_mstore_mk_eq_expSharedAfterFreePtr_raw]
   exact external_fun_wrap_expRayToWad_calldata_result (x := x)
@@ -934,7 +934,7 @@ theorem run_exp_ray_to_wad_evm_eq_tree
       let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
       let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
       evmAdd (evmIszero x)
-        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+        (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     ) := by
   obtain ⟨haltState, _haltValue, hhalt⟩ :=
     external_fun_wrap_expRayToWad_dispatcher_state_halts x hval

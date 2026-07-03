@@ -166,7 +166,7 @@ library Exp {
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
             // where the reduction would overflow, so it also discards those (otherwise garbage).
-            r := mul(slt(0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7, x), r)
+            r := mul(slt(sub(0x00, 0x85ebc478242540a11f5f1029), x), r)
 
             // exp(0) = 1 is the only input whose exact result is an integer; the construction lands
             // on 10¹⁸ - 1, so add one back exactly there.
