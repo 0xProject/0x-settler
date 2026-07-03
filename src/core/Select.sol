@@ -76,7 +76,7 @@ abstract contract Select is SettlerSwapAbstract {
             let fold := calldataload(data.offset)
             shareBps := calldataload(add(data.offset, 0x20))
             let gasCap := calldataload(add(data.offset, 0x40))
-            token := calldataload(add(data.offset, 0x60))
+            token := and(calldataload(add(data.offset, 0x60)), 0xffffffffffffffffffffffffffffffffffffffff)
             let targetsData := add(add(data.offset, calldataload(add(data.offset, 0x80))), 0x20)
             let hurdlesData := add(add(data.offset, calldataload(add(data.offset, 0xa0))), 0x20)
             let base := add(data.offset, calldataload(add(data.offset, 0xc0)))
