@@ -26,7 +26,7 @@ library Exp {
     function _expRayToWad(int256 x) private pure returns (int256 r) {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     k = round(x / (10²⁷⋅ln(2)));                   // x = (k⋅ln(2) + t)⋅10²⁷, |t| ≤ ln(2)/2
-        //     t = x/10²⁷ - k⋅ln(2);                          // reduced argument (Q128)
+        //     t = x/10²⁷ - k⋅ln(2);                          // range-reduced argument (Q128)
         //     e = (Ev(t²) + t⋅Od(t²)) / (Ev(t²) - t⋅Od(t²)); // ≈ exp(t) (Ev Q88; Od Q89; e Q126)
         //     r = ⌊(10¹⁸⋅e)⋅2ᵏ - margin⌋;                    // wad
         //     r = r ⋅ (x > C);                               // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
@@ -48,10 +48,9 @@ library Exp {
         //     v = t²: Q123 the widest basis whose monic-stage product stays inside 256 bits, so
         //         Ev(v)'s leading stage consumes v with no renormalizing shift
         //     Ev(v) Horner down the staircase Q123 → Q97 → Q97 → Q91 → Q88 (monic)
-        //     Od(v) Horner along the staircase Q105 → Q102 → Q93 → Q94 → Q89
-        //     Ev, t⋅Od, and the numerator/denominator: Q88; Od: Q89. The closing bases are the
-        //         widest at which each final coefficient keeps its byte width and the t⋅Od product
-        //         stays inside 256 bits; the t⋅Od `sar` lands at Q88 directly
+        //     Od(v) Horner down the staircase Q105 → Q102 → Q93 → Q94 → Q89
+        //     t⋅Od and the numerator/denominator: Q88. The closing bases are the widest at which
+        //         the t⋅Od intermediate product stays inside 256 bits
         //     quotient: one `DIV` placing exp(t) at Q126 (the dividend, numerator << 126, stays
         //         below 2²⁵⁵)
         //     output: multiplying by 5¹⁸ lands E on the 2¹⁰⁸ output grid (the 10¹⁸⋅2¹²⁶ grid with
@@ -62,7 +61,7 @@ library Exp {
         // exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). Δ is the
         // tightest bound the proof technique can bear, in spite of the fact that the worst-case
         // error contributions do not co-occur. The budget bounds Δ ≤ 0.5792534503673398887, the sum
-        // of four one-sided contributions (displayed rounded up, so the shown values overshoot Δ):
+        // of four one-sided contributions:
         //     integer Horner + closing `DIV` truncation: the Ev shared by the numerator Ev + t⋅Od
         //         and denominator Ev - t⋅Od cancels to first order in the quotient, so its
         //         truncation barely perturbs e; this jitter stays < 0.21706.
@@ -130,8 +129,8 @@ library Exp {
             // monic-stage product below stays inside 256 bits.
             let v := shr(0x85, mul(t, t))
 
-            // Shared constant term of Ev and Od: Ev(0) = 2⋅Od(0) by construction, so at closing
-            // bases one bit apart (Q88/Q89) both constant terms are the same literal.
+            // Ev(0) = 2⋅Od(0) by construction, so at closing bases one bit apart (Q88/Q89) the
+            // constant terms are the same.
             let c0 := 0x9c2948bcaca16a0dd2fe98bb4470c388
 
             // Ev(v), monic, Horner down the staircase. The leading v⁵ coefficient is 1, so the
@@ -163,7 +162,7 @@ library Exp {
             // 2¹⁸ (108 - k ∈ [45, 168]).
             r := shr(sub(0x6c, k), sub(mul(0x3782dace9d9, r), 0x2027afc6c05))
 
-            // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
+            // Zero the result at and below C = ⌊-18⋅ln(10)⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
             // where the reduction would overflow, so it also discards those (otherwise garbage).
             r := mul(slt(0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7, x), r)
