@@ -8,28 +8,32 @@ import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
-/// @notice The JIT selection combinator (scalar). Candidates are non-VIP action lists over held
-///         balance; each runs in a disposable self-call frame (a reverting sub-call is the EVM's only
-///         atomic undo) and is scored by `token`'s balance delta (`token == 0` scores bare success).
-///         CASCADE commits the first candidate clearing its own target (a fallback at targets 0, a
-///         descending-floor ladder otherwise). BEST commits candidate 0 if it clears `targets[0]`,
-///         else measures all (rolling each back) and re-runs the argmax of score − hurdle AT ITS
-///         MEASURED SCORE — so a forged measurement (the tag only rejects accidental look-alikes)
-///         fails closed. A candidate may itself be a SELECT (per-hop candidate sets). Funded once;
-///         the trailing `CHECK_SLIPPAGE` is the taker's real backstop.
+/// @notice Runs several candidate routes and picks one at execution time. A candidate is a list of
+///         non-VIP actions over held balance. Each runs in a self-call that can be reverted to undo
+///         it, and is scored by `token`'s balance delta. A zero `token` scores bare success.
+///
+///         CASCADE commits the first candidate that meets its own target. Zero targets make this a
+///         plain fallback. Descending targets make it a price ladder.
+///
+///         BEST commits candidate 0 if it meets `targets[0]`. Otherwise it measures every candidate
+///         by running and reverting it, then re-runs the best score-minus-hurdle and commits it at
+///         that measured score. The winner is re-run for real, so a faked measurement cannot profit.
+///         The `tag` only rejects accidental look-alike reverts.
+///
+///         A candidate may itself be a SELECT. The route is funded once and the trailing
+///         `CHECK_SLIPPAGE` is the taker's real floor.
 abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using CalldataDecoder for bytes[];
 
-    /// @dev Placeholder for the demo. Production: 0x's fee wallet, HARD-CODED by decision
-    ///      (protocol call 2026-06-29) — an in-calldata receiver invites fee-stripping.
+    /// @dev Hard-coded fee wallet. Passing a receiver in calldata would let integrators strip the fee.
     address internal constant _IMPROVEMENT_FEE_RECEIVER = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
 
-    /// @notice Run one candidate in an isolated frame, scoring `token`'s balance delta (0 when
-    ///         `token == 0`). COMMIT if `score >= minOut`, else revert `Measured(score, tag)`.
-    ///         `onlySelf`. The candidate must deliver `token` to this contract (native ETH via WETH +
-    ///         a later unwrap); the echoed `tag` (keccak of the candidate) rejects accidental
-    ///         Measured-shaped reverts.
+    /// @notice Runs one candidate and scores `token`'s balance delta. A zero `token` scores 0.
+    ///         Commits if the score meets `minOut`, otherwise reverts `Measured(score, tag)`. Only
+    ///         the contract itself may call this. The candidate must deliver `token` here. For native
+    ///         ETH, route into WETH and unwrap afterward. The `tag` is the keccak of the candidate and
+    ///         rejects accidental Measured-shaped reverts.
     function executeSelected(bytes[] calldata actions, IERC20 token, uint256 minOut, bytes32 tag) external {
         require(msg.sender == address(this));
         uint256 balBefore = address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
@@ -39,15 +43,15 @@ abstract contract Select is SettlerSwapAbstract {
         // else: return -> committed
     }
 
-    /// @dev `SELECT` body. `data` = abi.encode(uint256 fold, uint256 shareBps, uint256
+    /// @dev `SELECT` body. `data` is abi.encode(uint256 fold, uint256 shareBps, uint256
     ///      candidateGasLimit, address token, uint256[] targets, uint256[] hurdles, bytes[][]
-    ///      candidates). Assembly forwards each candidate's self-contained `bytes[]` sub-encoding
-    ///      straight from calldata into an `executeSelected` self-call — no decode/re-encode, and the
-    ///      measurement returndata is read at the exact 0x44-byte `Measured` payload. `candidateGasLimit`
-    ///      (0 = uncapped) caps every attempt except the one that must finish (CASCADE's last,
-    ///      BEST's commit), so a stalling candidate can't starve the rest (EIP-150). The fee is
-    ///      computed in Solidity below. Scores/hurdles are token amounts far below 2^255, so the
-    ///      signed netting can't overflow.
+    ///      candidates). The assembly copies each candidate's `bytes[]` sub-encoding straight from
+    ///      calldata into an `executeSelected` self-call with no re-encoding, and reads the
+    ///      measurement from the fixed 0x44-byte `Measured` payload. `candidateGasLimit` caps every
+    ///      attempt except the one that must finish, namely CASCADE's last candidate and BEST's
+    ///      commit, so a stalling candidate cannot starve the rest. Zero means uncapped. The fee is
+    ///      computed in Solidity below. Scores and hurdles are token amounts well below 2^255, so the
+    ///      signed math cannot overflow.
     function _select(bytes calldata data) internal {
         bytes4 selector = this.executeSelected.selector;
         uint256 measuredSelector = uint32(Measured.selector);
@@ -57,7 +61,7 @@ abstract contract Select is SettlerSwapAbstract {
         int256 secondNet = type(int256).min; // stays min unless BEST finds a runner-up -> no fee
         uint256 bestScore;
         assembly ("memory-safe") {
-            // decode the last self-call's `Measured(score, tag)` revert: nonzero iff shape+selector+tag match
+            // reads the last self-call's Measured(score, tag) revert. Returns 0 unless selector and tag match
             function measured(ret_, tag_, sel_) -> s_ {
                 if eq(returndatasize(), 0x44) {
                     returndatacopy(ret_, 0x00, 0x44)
@@ -142,7 +146,7 @@ abstract contract Select is SettlerSwapAbstract {
                         case 1 { sn := bn  bn := net  best := i  bs := s }
                         default { if sgt(net, sn) { sn := net } }
                     }
-                    // commit the winner at its measured score; bubble on any divergence (fail-closed)
+                    // commit the winner at its measured score. Bubble any divergence (fail closed)
                     start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
                     mstore(add(cd, 0x44), bs)
@@ -180,10 +184,10 @@ abstract contract Select is SettlerSwapAbstract {
         }
         for (uint256 i; i < actions.length;) {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
-            // `decodeCall` strips a 4-byte selector via unchecked subtraction; a sub-4-byte encoded
+            // `decodeCall` strips a 4-byte selector via unchecked subtraction. A sub-4-byte encoded
             // length underflows `data.length`, which would make `revertActionInvalid`'s calldatacopy
-            // OOG instead of reverting cleanly. Catch it (no analogous guard exists on the top-level
-            // dispatch loops yet — worth a follow-up there).
+            // OOG instead of reverting cleanly. Catch it here. The top-level
+            // dispatch loops have no analogous guard yet, which is worth a follow-up.
             assembly ("memory-safe") {
                 if gt(data.length, sub(0, 5)) {
                     mstore(0x00, 0x3c74eed6) // selector for `ActionInvalid(uint256,bytes4,bytes)`
