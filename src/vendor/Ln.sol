@@ -10,9 +10,9 @@ library Ln {
     ///      returns either ⌊L⌋ or ⌊L⌋ - 1; it never overestimates. `lnWadToRay(10**18) == 0`
     ///      exactly, and the result is negative iff `x < 10**18`. The maximum error is less than
     ///      1.6986ulp. `lnWadToRay` is monotonic; x₁ < x₂ → lnWadToRay(x₁) ≤
-    ///      lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`. The central-octave round trip
-    ///      documented on `Exp.expRayToWad` consumes this error envelope; the exp formal check
-    ///      re-verifies that round trip on any change to this file.
+    ///      lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`. For "central" inputs
+    ///      707106781186547525 ≤ w ≤ 1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`,
+    ///      except at w = 10¹⁸ where it returns w.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
         if (x <= 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
