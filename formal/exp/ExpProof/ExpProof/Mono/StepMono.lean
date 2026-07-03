@@ -18,15 +18,15 @@ open FormalYul.Preservation
 
 set_option maxRecDepth 100000
 
-/-- The `tod`-bound hypotheses of `r0_mono_of_cross`, in the `2^125` form. -/
+/-- The `tod`-bound hypotheses of `r0_mono_of_cross`, in the `2^126` form. -/
 theorem todTree_cross_bounds {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    -(42535295865117307932921825928971026432 : Int) ≤ int256 (todTree x) ∧
-      int256 (todTree x) < 42535295865117307932921825928971026432 := by
+    -(85070591730234615865843651857942052864 : Int) ≤ int256 (todTree x) ∧
+      int256 (todTree x) < 85070591730234615865843651857942052864 := by
   obtain ⟨hlo, hhi, _, _⟩ := todTree_bound hx hC hC0
   refine ⟨?_, ?_⟩
-  · rw [show (42535295865117307932921825928971026432 : Int) = 2 ^ 125 by norm_num]; exact hlo
-  · rw [show (42535295865117307932921825928971026432 : Int) = 2 ^ 125 by norm_num]; exact hhi
+  · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact hlo
+  · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact hhi
 
 /-- **Adjacent `r0` monotonicity** within an octave. -/
 theorem r0_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
@@ -90,14 +90,14 @@ theorem r1_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hk2w : kTree x2 < 2 ^ 256 := by unfold kTree; exact evmSar_lt _ _
   have hseq := closing_shift_eq hk hk1w hk2w
   obtain ⟨s, hseqx, hslo, hshi, _⟩ := closing_shift hx1 hC1 hC01
-  have hr1eq1 : r1Tree x1 = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf) := by
+  have hr1eq1 : r1Tree x1 = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x2161b482a02) := by
     unfold r1Tree; rw [hseqx]
-  have hr1eq2 : r1Tree x2 = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf) := by
+  have hr1eq2 : r1Tree x2 = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x2161b482a02) := by
     unfold r1Tree; rw [← hseq, hseqx]
   rw [hr1eq1, hr1eq2]
   -- the two shift arguments, transported to `Int`, are ordered (monotone `r0`)
-  set arg1 := evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf with harg1
-  set arg2 := evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf with harg2
+  set arg1 := evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x2161b482a02 with harg1
+  set arg2 := evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x2161b482a02 with harg2
   have hargle : int256 arg1 ≤ int256 arg2 := by
     rw [harg1eq, harg2eq]
     have hwad : (0 : Int) ≤ 0x3782dace9d9 := by norm_num

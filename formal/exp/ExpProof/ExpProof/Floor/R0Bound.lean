@@ -18,7 +18,7 @@ ingredients of that discharge:
   (degree 5, cleared scale `2^528`) and `odNumV (vTree x)` (degree 4, cleared scale `2^510`): the
   monic leading stage is an exact add, and the four lossy stages' floor losses telescope with
   shrinking amplification (each stage shift exceeds `120 = ⌈log₂ v⌉`), leaving widths
-  `283678831804417·2^480 ≈ 1.0079·2^528` and `1075052609·2^480 ≈ 1.0013·2^510`;
+  `142941343449089·2^480 ≈ 1.0157·2^527` and `269746241·2^480 ≈ 1.0049·2^508`;
 * the self-contained **below-clamp bound** — below the clamp boundary the target is under one output
   unit — directly from a `Real.exp` rational bound.
 -/
@@ -29,6 +29,7 @@ open FormalYul
 open FormalYul.Preservation
 
 set_option maxRecDepth 100000
+set_option exponentiation.threshold 2000
 set_option maxHeartbeats 1000000
 
 /-! ## The Horner accumulators bracket the exact polynomials
@@ -167,8 +168,8 @@ theorem horner_stage_frac (c prev v cum sh p Wnum Eprev : Nat)
 /-! ## The even accumulator
 
 The monic leading stage `ev0 = A4 + v` is an exact add (width `1·2^0`); the four `mul/shr` stages
-(shifts `0x95, 0x7b, 0x81, 0x7f`, cumulative `149, 272, 401, 528`) telescope the width to
-`283678831804417·2^480 ≈ 1.0079·2^528`. -/
+(shifts `0x95, 0x7b, 0x81, 0x7e`, cumulative `149, 272, 401, 527`) telescope the width to
+`142941343449089·2^480 ≈ 1.0157·2^527`. -/
 
 /-- Exact integer even-Horner accumulator (degree-5 monic in `v`, cleared scale `2^528`). -/
 def evNumV (v : Nat) : Nat :=
@@ -179,10 +180,10 @@ def evNumV (v : Nat) : Nat :=
   0x4e14a45e5650b506e97f4c5da23861e2 * 2^528 + e3 * v
 
 theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
-    2^528 * evTree x ≤ evNumV (vTree x) ∧
-      evNumV (vTree x) < 2^528 * evTree x + 283678831804417 * 2^480 := by
+    2^527 * evTree x ≤ evNumV (vTree x) ∧
+      evNumV (vTree x) < 2^527 * evTree x + 142941343449089 * 2^480 := by
   have hev : evTree x =
-      evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul
+      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x7e (evmMul
       (evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul
       (evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x7b (evmMul
       (evmAdd 0x9a036222841f47c6ed6fc3f7602053 (evmShr 0x95 (evmMul
@@ -259,8 +260,8 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
       (P := 2^129) (V := 2^120) (sh := 0x81) he2lt hv (by norm_num) (by norm_num)
       (by rw [pvd 129 120 129 120 (by norm_num)]; norm_num)).2
     rw [pvd 129 120 129 120 (by norm_num)] at this; omega
-  -- stage 4: cum 401 -> 528, sh=127; p 360 -> 480; Wnum 2203855093761 -> 283678831804417
-  have s4 := horner_stage_frac 0x4e14a45e5650b506e97f4c5da23861e2 e3 v 401 0x7f 360 2203855093761
+  -- stage 4: cum 401 -> 527, sh=126; p 360 -> 480; Wnum 2203855093761 -> 142941343449089
+  have s4 := horner_stage_frac 0x9c2948bcaca16a0dd2fe98bb4470c3c4 e3 v 401 0x7e 360 2203855093761
     (0x93f11e650dd6c64b96ce79065cdf809e * 2^401 +
       (0x9064d9657e9a21fc16bb69331c5c3057 * 2^272 +
         (0x9a036222841f47c6ed6fc3f7602053 * 2^149 +
@@ -271,14 +272,14 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
     (by calc e3 * v < 2^129 * 2^120 := Nat.mul_lt_mul'' he3lt hv
           _ < 2^256 := by norm_num)
     (by norm_num) (by norm_num) s3.1 s3.2
-  rw [show (401:Nat)+0x7f-(360+120) = 48 from by norm_num,
-    show (2203855093761:Nat)+2^48 = 283678831804417 from by norm_num,
-    show (360:Nat)+120 = 480 from by norm_num, show (401:Nat)+0x7f = 528 from by norm_num] at s4
+  rw [show (401:Nat)+0x7e-(360+120) = 47 from by norm_num,
+    show (2203855093761:Nat)+2^47 = 142941343449089 from by norm_num,
+    show (360:Nat)+120 = 480 from by norm_num, show (401:Nat)+0x7e = 527 from by norm_num] at s4
   -- assemble: evTree x = e4 (the stage-4 value), evNumV v = the cumulative E4.
   rw [hev]
-  show 2^528 * evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul e3 v)) ≤ evNumV v ∧
-    evNumV v < 2^528 * evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul e3 v)) +
-      283678831804417 * 2^480
+  show 2^527 * evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x7e (evmMul e3 v)) ≤ evNumV v ∧
+    evNumV v < 2^527 * evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x7e (evmMul e3 v)) +
+      142941343449089 * 2^480
   unfold evNumV
   constructor
   · have := s4.1
@@ -294,8 +295,8 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
 /-! ## The odd accumulator
 
 The odd accumulator starts at the exact leading constant `B4` (scale `0`) and runs four mul/shr
-stages (shifts `0x7e, 0x84, 0x7a, 0x82`, cumulative `126, 258, 380, 510`), telescoping the width to
-`1075052609·2^480 ≈ 1.0013·2^510`. -/
+stages (shifts `0x7e, 0x84, 0x7a, 0x80`, cumulative `126, 258, 380, 508`), telescoping the width to
+`269746241·2^480 ≈ 1.0049·2^508`. -/
 
 /-- Exact integer odd-Horner accumulator (degree-4 in `v`, cleared scale `2^510`). -/
 def odNumV (v : Nat) : Nat :=
@@ -305,10 +306,10 @@ def odNumV (v : Nat) : Nat :=
   0x270a522f2b285a8374bfa62ed11c30f1 * 2^510 + o3 * v
 
 theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
-    2^510 * odTree x ≤ odNumV (vTree x) ∧
-      odNumV (vTree x) < 2^510 * odTree x + 1075052609 * 2^480 := by
+    2^508 * odTree x ≤ odNumV (vTree x) ∧
+      odNumV (vTree x) < 2^508 * odTree x + 269746241 * 2^480 := by
   have hod : odTree x =
-      evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul
+      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x80 (evmMul
       (evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul
       (evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84 (evmMul
       (evmAdd 0xc926ddbecdeeb42e68cd16db7da8c1 (evmShr 0x7e (evmMul
@@ -372,8 +373,8 @@ theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
       (P := 2^121) (V := 2^120) (sh := 0x7a) ho2lt hv (by norm_num) (by norm_num)
       (by rw [pvd 121 120 122 119 (by norm_num)]; norm_num)).2
     rw [pvd 121 120 122 119 (by norm_num)] at this; omega
-  -- stage 4: cum 380 -> 510, sh=130; p 360 -> 480; Wnum 1310785 -> 1075052609
-  have s4 := horner_stage_frac 0x270a522f2b285a8374bfa62ed11c30f1 o3 v 380 0x82 360 1310785
+  -- stage 4: cum 380 -> 508, sh=128; p 360 -> 480; Wnum 1310785 -> 269746241
+  have s4 := horner_stage_frac 0x9c2948bcaca16a0dd2fe98bb4470c3c4 o3 v 380 0x80 360 1310785
     (0xaf566247c05753b42892f77b67a6b7c6 * 2^380 +
       (0xad4506af99be27419341e1816ff351 * 2^258 +
         (0xc926ddbecdeeb42e68cd16db7da8c1 * 2^126 + 0xdc07aff8276bde9a361278df6a10 * v) * v) * v) hv
@@ -383,13 +384,13 @@ theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 120) :
     (by calc o3 * v < 2^129 * 2^120 := Nat.mul_lt_mul'' ho3lt hv
           _ < 2^256 := by norm_num)
     (by norm_num) (by norm_num) s3.1 s3.2
-  rw [show (380:Nat)+0x82-(360+120) = 30 from by norm_num,
-    show (1310785:Nat)+2^30 = 1075052609 from by norm_num,
-    show (360:Nat)+120 = 480 from by norm_num, show (380:Nat)+0x82 = 510 from by norm_num] at s4
+  rw [show (380:Nat)+0x80-(360+120) = 28 from by norm_num,
+    show (1310785:Nat)+2^28 = 269746241 from by norm_num,
+    show (360:Nat)+120 = 480 from by norm_num, show (380:Nat)+0x80 = 508 from by norm_num] at s4
   rw [hod]
-  show 2^510 * evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul o3 v)) ≤ odNumV v ∧
-    odNumV v < 2^510 * evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul o3 v)) +
-      1075052609 * 2^480
+  show 2^508 * evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x80 (evmMul o3 v)) ≤ odNumV v ∧
+    odNumV v < 2^508 * evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x80 (evmMul o3 v)) +
+      269746241 * 2^480
   unfold odNumV
   constructor
   · have := s4.1; convert this using 2

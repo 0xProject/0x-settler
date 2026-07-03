@@ -123,13 +123,11 @@ contract ExpTest is Test {
         }
     }
 
-    /// The largest supported input, one below the revert threshold. frac(E) ~= 0.74, comfortably
-    /// inside the k = 63 deficit envelope.
+    /// The largest supported input, one below the revert threshold. frac(E) ~= 0.74 exceeds the
+    /// k = 63 deficit envelope (~0.40), so the result is exactly floor(E).
     function testExpRayToWadSupportedEdge() external pure {
-        int256 r = Exp.expRayToWad(_TOO_BIG - 1);
         int256 floorE = 13043817825332782212349571798501714341;
-        assertLe(r, floorE, "overestimates exp");
-        assertGe(r, floorE - 1, "below floor minus one");
+        assertEq(Exp.expRayToWad(_TOO_BIG - 1), floorE, "supported-edge floor");
     }
 
     /// The 1-ulp underestimate is achieved: the least x >= 44e27 whose result is floor(E) - 1.

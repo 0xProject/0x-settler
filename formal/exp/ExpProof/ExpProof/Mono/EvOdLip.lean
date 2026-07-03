@@ -7,8 +7,8 @@ Telescoping `stage_lip` through the five even / four odd Horner stages, with the
 gap `|v2 − v1| ≤ W` from `vTree_step`, bounds the change of the accumulators:
 
 ```
-|evTree x2 − evTree x1| ≤ DEv = 42618413185,
-|odTree x2 − odTree x1| ≤ DOd = 5322105549.
+|evTree x2 − evTree x1| ≤ DEv = 85236826369,
+|odTree x2 − odTree x1| ≤ DOd = 21288422193.
 ```
 
 The intermediate per-stage prev bounds reuse the chained ceilings established inside
@@ -60,7 +60,7 @@ def evS2 (x : Nat) : Nat := evmAdd 0x9064d9657e9a21fc16bb69331c5c3057 (evmShr 0x
 def evS3 (x : Nat) : Nat := evmAdd 0x93f11e650dd6c64b96ce79065cdf809e (evmShr 0x81 (evmMul (evS2 x) (vTree x)))
 
 theorem evTree_layers (x : Nat) :
-    evTree x = evmAdd 0x4e14a45e5650b506e97f4c5da23861e2 (evmShr 0x7f (evmMul (evS3 x) (vTree x))) :=
+    evTree x = evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x7e (evmMul (evS3 x) (vTree x))) :=
   rfl
 
 theorem evS0_lt {x : Nat} (hv : vTree x < 2 ^ 120) :
@@ -94,7 +94,7 @@ def odS1 (x : Nat) : Nat := evmAdd 0xad4506af99be27419341e1816ff351 (evmShr 0x84
 def odS2 (x : Nat) : Nat := evmAdd 0xaf566247c05753b42892f77b67a6b7c6 (evmShr 0x7a (evmMul (odS1 x) (vTree x)))
 
 theorem odTree_layers (x : Nat) :
-    odTree x = evmAdd 0x270a522f2b285a8374bfa62ed11c30f1 (evmShr 0x82 (evmMul (odS2 x) (vTree x))) :=
+    odTree x = evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c3c4 (evmShr 0x80 (evmMul (odS2 x) (vTree x))) :=
   rfl
 
 theorem odS0_lt {x : Nat} (hv : vTree x < 2 ^ 120) : odS0 x < 2 ^ 121 := by
@@ -118,10 +118,10 @@ theorem odS2_lt {x : Nat} (hv : vTree x < 2 ^ 120) : odS2 x < 2 ^ 129 := by
 /-! ## Composed Lipschitz bounds -/
 
 /-- **Even accumulator near-constancy.** Under a squared-argument gap `|v2 − v1| ≤ W` the even
-accumulator changes by at most `DEv = 42618413185`. -/
+accumulator changes by at most `DEv = 85236826369`. -/
 theorem evTree_lip {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 ^ 120)
     (hg1 : vTree x1 ≤ vTree x2 + Wstep) (hg2 : vTree x2 ≤ vTree x1 + Wstep) :
-    dist_le (evTree x1) (evTree x2) 42618413185 := by
+    dist_le (evTree x1) (evTree x2) 85236826369 := by
   -- monic leading stage: distance exactly the argument gap
   have d0 : dist_le (evS0 x1) (evS0 x2) Wstep :=
     evLead_lip (c := 0xb9aacfacf3c10b378435f8e22adf48500e) (W := Wstep) (by norm_num) hv1 hv2 hg1 hg2
@@ -153,20 +153,20 @@ theorem evTree_lip {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 
       unfold Wstep; decide
     rw [he] at h; exact h
   -- final stage
-  have hfin := stage_lip_dist (c := 0x4e14a45e5650b506e97f4c5da23861e2) (P := 2 ^ 129) (V := 2 ^ 120)
-    (sh := 0x7f) (W := Wstep)
+  have hfin := stage_lip_dist (c := 0x9c2948bcaca16a0dd2fe98bb4470c3c4) (P := 2 ^ 129) (V := 2 ^ 120)
+    (sh := 0x7e) (W := Wstep)
     (Dprev := 10639016494) (le_of_lt (evS3_lt hv1)) (le_of_lt (evS3_lt hv2)) hv1 hv2 hg1 hg2 d3
     (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-  have he : (2 ^ 129 * Wstep + 2 ^ 120 * 10639016494) / 2 ^ 0x7f + 1 = 42618413185 := by
+  have he : (2 ^ 129 * Wstep + 2 ^ 120 * 10639016494) / 2 ^ 0x7e + 1 = 85236826369 := by
     unfold Wstep; decide
   rw [he] at hfin
   rw [evTree_layers, evTree_layers]; exact hfin
 
 /-- **Odd accumulator near-constancy.** Under a squared-argument gap `|v2 − v1| ≤ W` the odd
-accumulator changes by at most `DOd = 5322105549`. -/
+accumulator changes by at most `DOd = 21288422193`. -/
 theorem odTree_lip {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 ^ 120)
     (hg1 : vTree x1 ≤ vTree x2 + Wstep) (hg2 : vTree x2 ≤ vTree x1 + Wstep) :
-    dist_le (odTree x1) (odTree x2) 5322105549 := by
+    dist_le (odTree x1) (odTree x2) 21288422193 := by
   -- stage 0: prev is the constant leading coefficient (distance 0)
   have d0 : dist_le (odS0 x1) (odS0 x2) 649038 := by
     have h := stage_lip_dist (c := 0xc926ddbecdeeb42e68cd16db7da8c1) (P := 2 ^ 112) (V := 2 ^ 120)
@@ -191,11 +191,11 @@ theorem odTree_lip {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 
     have he : (2 ^ 121 * Wstep + 2 ^ 120 * 5192456) / 2 ^ 0x7a + 1 = 5318210098 := by
       unfold Wstep; decide
     rw [he] at h; exact h
-  have hfin := stage_lip_dist (c := 0x270a522f2b285a8374bfa62ed11c30f1) (P := 2 ^ 129) (V := 2 ^ 120)
-    (sh := 0x82) (W := Wstep)
+  have hfin := stage_lip_dist (c := 0x9c2948bcaca16a0dd2fe98bb4470c3c4) (P := 2 ^ 129) (V := 2 ^ 120)
+    (sh := 0x80) (W := Wstep)
     (Dprev := 5318210098) (le_of_lt (odS2_lt hv1)) (le_of_lt (odS2_lt hv2)) hv1 hv2 hg1 hg2 d2
     (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-  have he : (2 ^ 129 * Wstep + 2 ^ 120 * 5318210098) / 2 ^ 0x82 + 1 = 5322105549 := by
+  have he : (2 ^ 129 * Wstep + 2 ^ 120 * 5318210098) / 2 ^ 0x80 + 1 = 21288422193 := by
     unfold Wstep; decide
   rw [he] at hfin
   rw [odTree_layers, odTree_layers]; exact hfin

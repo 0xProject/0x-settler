@@ -11,8 +11,8 @@ r1Tree x2 = ⌊arg2 / 2^(s−1)⌋ = ⌊2·arg2 / 2^s⌋ ≥ ⌊arg1 / 2^s⌋ = 
 ```
 
 reduces the seam step to `arg1 ≤ 2·arg2`, which (since `MARGIN ≤ 2·WAD`) follows from the **`r0`
-doubling bound** `r0Tree x1 + 2 ≤ 2·r0Tree x2` (`SeamR0Bound`; the comparison consumes two
-integer units of the doubling gap because the margin exceeds one wad unit). The reduction is assembled over the
+doubling bound** `r0Tree x1 + 2 ≤ 2·r0Tree x2` (`SeamR0Bound`; two integer units of the doubling
+gap cover the margin against `2·WAD`). The reduction is assembled over the
 opaque shift-argument words (`seam_close`), so the deep `evmShr`/`evmSub`/`evmMul` tree behind
 `r1Tree` is never forced into whnf.
 -/
@@ -100,20 +100,20 @@ theorem seamStep_of_r0 (hr0 : SeamR0Bound) {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (h
   obtain ⟨harg1eq, harg1nn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x1) (r0Tree_lt x1) hr0lo1 hr0hi1
   obtain ⟨harg2eq, harg2nn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x2) (r0Tree_lt x2) hr0lo2 hr0hi2
   have hr1eq1 : r1Tree x1 =
-      evmShr s1 (evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf) := by
+      evmShr s1 (evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x2161b482a02) := by
     unfold r1Tree; rw [hs1eq]
   have hr1eq2 : r1Tree x2 =
-      evmShr s2 (evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf) := by
+      evmShr s2 (evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x2161b482a02) := by
     unfold r1Tree; rw [hs2eq]
   rw [hr1eq1, hr1eq2]
   -- name the deep shift arguments opaquely before feeding the floor lemma
-  set arg1 := evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x37c9ed9cabf with harg1def
-  set arg2 := evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x37c9ed9cabf with harg2def
+  set arg1 := evmSub (evmMul 0x3782dace9d9 (r0Tree x1)) 0x2161b482a02 with harg1def
+  set arg2 := evmSub (evmMul 0x3782dace9d9 (r0Tree x2)) 0x2161b482a02 with harg2def
   have hr0bound : int256 (r0Tree x1) + 2 ≤ 2 * int256 (r0Tree x2) :=
     hr0 hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   have hargle : int256 arg1 ≤ 2 * int256 arg2 := by
     rw [harg1eq, harg2eq, show (0x3782dace9d9 : Int) = 3814697265625 by norm_num,
-      show (0x37c9ed9cabf : Int) = 3833775901375 by norm_num]
+      show (0x2161b482a02 : Int) = 2293970250242 by norm_num]
     -- `WAD·r0a − M ≤ 2·(WAD·r0b − M)` ⟸ `WAD·r0a + M ≤ 2·WAD·r0b` ⟸ `r0a ≤ 2·r0b − 2` and `M ≤ 2·WAD`
     nlinarith [hr0bound]
   exact seam_close (harg1def ▸ evmSub_lt _ _) (harg2def ▸ evmSub_lt _ _) hs1lt hs2lt hseq

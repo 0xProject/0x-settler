@@ -38,8 +38,8 @@ theorem cross_identity (ev1 ev2 tod1 tod2 : Int) :
 /-- `num = ev + tod < 2^128` (signed), from the even-accumulator and reduced-argument bounds. Stated
 as its own lemma so it carries a fresh kernel stack frame. -/
 theorem numSum_lt {W : Nat} {ev tod : Int} (hW : int256 W = ev + tod)
-    (hev : ev < 2 ^ 127) (htod : tod < 2 ^ 127) : int256 W < 2 ^ 128 := by
-  rw [hW, show (2:Int)^128 = 2^127 + 2^127 from by ring]; omega
+    (hev : ev < 3 * 2 ^ 126) (htod : tod < 2 ^ 126) : int256 W < 2 ^ 128 := by
+  rw [hW, show (2:Int)^128 = 3 * 2^126 + 2^126 from by ring]; omega
 
 /-- The `shl 0x7e N` dividend transported to `Int` when `N`'s signed value is in `[0, 2^128)`:
 `int256 (shl 126 N) = 2^126 · int256 N`, and the result is in `[0, 2^255)`. -/
@@ -66,25 +66,25 @@ Given the numerator/denominator positivity and `tod1·ev2 ≤ tod2·ev1`, the tw
 `≤`-ordered. -/
 theorem r0_mono_of_cross {E1 TD1 E2 TD2 : Nat}
     (hE1 : E1 < 2 ^ 256) (hTD1 : TD1 < 2 ^ 256) (hE2 : E2 < 2 ^ 256) (hTD2 : TD2 < 2 ^ 256)
-    (hev1_lo : (103786963397729689639908782561058906594 : Int) ≤ (E1 : Int))
-    (hev1_hi : (E1 : Int) < 2 ^ 127)
-    (htod1_lo : -(42535295865117307932921825928971026432 : Int) ≤ int256 TD1)
-    (htod1_hi : int256 TD1 < 42535295865117307932921825928971026432)
-    (hev2_lo : (103786963397729689639908782561058906594 : Int) ≤ (E2 : Int))
-    (hev2_hi : (E2 : Int) < 2 ^ 127)
-    (htod2_lo : -(42535295865117307932921825928971026432 : Int) ≤ int256 TD2)
-    (htod2_hi : int256 TD2 < 42535295865117307932921825928971026432)
+    (hev1_lo : (207573926795459379279817565122117813188 : Int) ≤ (E1 : Int))
+    (hev1_hi : (E1 : Int) < 3 * 2 ^ 126)
+    (htod1_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD1)
+    (htod1_hi : int256 TD1 < 85070591730234615865843651857942052864)
+    (hev2_lo : (207573926795459379279817565122117813188 : Int) ≤ (E2 : Int))
+    (hev2_hi : (E2 : Int) < 3 * 2 ^ 126)
+    (htod2_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD2)
+    (htod2_hi : int256 TD2 < 85070591730234615865843651857942052864)
     (hcross : int256 TD1 * (E2 : Int) ≤ int256 TD2 * (E1 : Int)) :
     int256 (evmDiv (evmShl 0x7e (evmAdd E1 TD1)) (evmSub E1 TD1)) ≤
       int256 (evmDiv (evmShl 0x7e (evmAdd E2 TD2)) (evmSub E2 TD2)) := by
   obtain ⟨hadd1, hsub1, hnum1, hden1⟩ := numden_pos_of hE1 hTD1 hev1_lo hev1_hi htod1_lo htod1_hi
   obtain ⟨hadd2, hsub2, hnum2, hden2⟩ := numden_pos_of hE2 hTD2 hev2_lo hev2_hi htod2_lo htod2_hi
-  -- bound the tod magnitude by 2^127 (looser, symbolic) to avoid large-literal kernel work
-  have htod1_hi' : int256 TD1 < 2 ^ 127 := by
-    have : (42535295865117307932921825928971026432 : Int) < 2 ^ 127 := by norm_num
+  -- the tod magnitude in the symbolic power form
+  have htod1_hi' : int256 TD1 < 2 ^ 126 := by
+    have : (85070591730234615865843651857942052864 : Int) = 2 ^ 126 := by norm_num
     omega
-  have htod2_hi' : int256 TD2 < 2 ^ 127 := by
-    have : (42535295865117307932921825928971026432 : Int) < 2 ^ 127 := by norm_num
+  have htod2_hi' : int256 TD2 < 2 ^ 126 := by
+    have : (85070591730234615865843651857942052864 : Int) = 2 ^ 126 := by norm_num
     omega
   -- numerator/denominator are positive and below 2^128 (signed)
   have hN1lt : int256 (evmAdd E1 TD1) < 2 ^ 128 := numSum_lt hadd1 hev1_hi htod1_hi'

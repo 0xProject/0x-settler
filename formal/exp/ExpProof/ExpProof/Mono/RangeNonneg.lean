@@ -7,9 +7,8 @@ import ExpProof.Mono.Quot
 `5¹⁸·2¹⁰⁸` grid, subtracts the one-sided margin, and floors with the `2ᵏ` octave scaling and the
 wad unit's remaining `2¹⁸` folded into the shift (`108 − k ∈ [45, 169]`).
 
-* **nonneg**: `r0 ≥ 2^123` gives `WAD·r0 > MARGIN` (the margin exceeds one wad unit, so `r0 ≥ 1`
-  alone would not do), and the shift argument is nonnegative; the logical shift of a canonical
-  nonnegative word stays nonnegative.
+* **nonneg**: `r0 ≥ 2^123` gives `WAD·r0 > MARGIN`, and the shift argument is nonnegative; the
+  logical shift of a canonical nonnegative word stays nonnegative.
 * **range**: `r0 < 2^128` gives `WAD·r0 < 2^170`, so even before the shift the argument is below
   `2^170`, and the floor is below `2^125 < 2^254`.
 -/
@@ -60,17 +59,17 @@ theorem closing_shift {x : Nat} (hx : x < 2 ^ 256)
 and below `2^170`. -/
 theorem shiftArg_bounds_of {r0 : Nat} (hr0w : r0 < 2 ^ 256)
     (hr0_lo : (2 ^ 123 : Int) ≤ int256 r0) (hr0_hi : int256 r0 < 2 ^ 128) :
-    int256 (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf) =
-        0x3782dace9d9 * int256 r0 - 0x37c9ed9cabf ∧
-      0 ≤ 0x3782dace9d9 * int256 r0 - 0x37c9ed9cabf ∧
-      0x3782dace9d9 * int256 r0 - 0x37c9ed9cabf < 2 ^ 170 := by
+    int256 (evmSub (evmMul 0x3782dace9d9 r0) 0x2161b482a02) =
+        0x3782dace9d9 * int256 r0 - 0x2161b482a02 ∧
+      0 ≤ 0x3782dace9d9 * int256 r0 - 0x2161b482a02 ∧
+      0x3782dace9d9 * int256 r0 - 0x2161b482a02 < 2 ^ 170 := by
   have hwad : int256 (0x3782dace9d9 : Nat) = 0x3782dace9d9 := by
     rw [int256_of_lt (by norm_num)]; simp
   have hwadlt : (0x3782dace9d9 : Nat) < 2 ^ 256 := by norm_num
   have hp128 : (2:Int)^128 = 340282366920938463463374607431768211456 := by norm_num
   have hp170 : (2:Int)^170 = 1496577676626844588240573268701473812127674924007424 := by norm_num
   have hwadc : (0x3782dace9d9 : Int) = 3814697265625 := by norm_num
-  have hmarc : (0x37c9ed9cabf : Int) = 3833775901375 := by norm_num
+  have hmarc : (0x2161b482a02 : Int) = 2293970250242 := by norm_num
   rw [hp128] at hr0_hi
   -- the product WAD·r0 transported
   have hmul : int256 (evmMul 0x3782dace9d9 r0) = 0x3782dace9d9 * int256 r0 := by
@@ -79,12 +78,12 @@ theorem shiftArg_bounds_of {r0 : Nat} (hr0w : r0 < 2 ^ 256)
       (by rw [hwad, hwadc]; simp only [ipow255]; nlinarith [hr0_lo, hr0_hi])
     rw [hwad] at this; exact this
   have hmullt : evmMul 0x3782dace9d9 r0 < 2 ^ 256 := evmMul_lt _ _
-  have hmarlt : (0x37c9ed9cabf : Nat) < 2 ^ 256 := by norm_num
-  have hmari : int256 (0x37c9ed9cabf : Nat) = 0x37c9ed9cabf := by
+  have hmarlt : (0x2161b482a02 : Nat) < 2 ^ 256 := by norm_num
+  have hmari : int256 (0x2161b482a02 : Nat) = 0x2161b482a02 := by
     rw [int256_of_lt (by norm_num)]; simp
   -- transport the subtraction
-  have hsub : int256 (evmSub (evmMul 0x3782dace9d9 r0) 0x37c9ed9cabf) =
-      0x3782dace9d9 * int256 r0 - 0x37c9ed9cabf := by
+  have hsub : int256 (evmSub (evmMul 0x3782dace9d9 r0) 0x2161b482a02) =
+      0x3782dace9d9 * int256 r0 - 0x2161b482a02 := by
     have := evmSub_transport hmullt hmarlt
       (by rw [hmul, hmari, hwadc, hmarc]; simp only [ipow255]; nlinarith [hr0_lo, hr0_hi])
       (by rw [hmul, hmari, hwadc, hmarc]; simp only [ipow255]; nlinarith [hr0_lo, hr0_hi])
@@ -137,7 +136,7 @@ theorem r1Tree_int256_nonneg {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
   obtain ⟨hargeq, hargnn, harghi⟩ := shiftArg_bounds_of (r0 := r0Tree x) (r0Tree_lt x) hr0lo hr0hi
   have hr1 : r1Tree x = evmShr (evmSub 0x6c (kTree x))
-      (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x37c9ed9cabf) := rfl
+      (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2161b482a02) := rfl
   rw [hr1, hseq]
   exact (closingShr_facts (evmSub_lt _ _) hslo hshi (by rw [hargeq]; exact hargnn)
     (by rw [hargeq]; exact harghi)).1
@@ -150,11 +149,11 @@ theorem r1Tree_range {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
   obtain ⟨hargeq, hargnn, harghi⟩ := shiftArg_bounds_of (r0 := r0Tree x) (r0Tree_lt x) hr0lo hr0hi
   have hr1 : r1Tree x = evmShr (evmSub 0x6c (kTree x))
-      (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x37c9ed9cabf) := rfl
-  obtain ⟨hnn, hlt⟩ := closingShr_facts (W := evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x37c9ed9cabf)
+      (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2161b482a02) := rfl
+  obtain ⟨hnn, hlt⟩ := closingShr_facts (W := evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2161b482a02)
     (s := s) (evmSub_lt _ _) hslo hshi (by rw [hargeq]; exact hargnn) (by rw [hargeq]; exact harghi)
   -- int256 (r1Tree x) ∈ [0, 2^125) ⇒ the Nat word is < 2^254
-  have hReq : int256 (r1Tree x) = int256 (evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x37c9ed9cabf)) := by
+  have hReq : int256 (r1Tree x) = int256 (evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2161b482a02)) := by
     rw [hr1, hseq]
   rw [← hReq] at hnn hlt
   have hr1w : r1Tree x < 2 ^ 256 := r1Tree_lt x

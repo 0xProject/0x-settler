@@ -33,13 +33,13 @@ set_option maxRecDepth 100000
 
 /-! ## Strict never-over: the accumulator stays a positive distance below the target
 
-`accumReal_over` gives `accumReal x ≤ E`. With `B = 10050013498897899168/10¹⁹` the never-over envelope,
+`accumReal_over` gives `accumReal x ≤ E`. With `B = 6013505372794194988/10¹⁹` the never-over envelope,
 `MARGIN` is `⌊WAD·B⌋ + 1` (`WAD = 5¹⁸`), so the inequality is in fact strict — the slack
-`δ = MARGIN − WAD·B ≈ 0.98` (worth `δ/2^s` after the closing shift). The round trip needs this
+`δ = MARGIN − WAD·B ≈ 0.07` (worth `δ/2^s` after the closing shift). The round trip needs this
 strictness to rule out `accumReal x = w` exactly. -/
 
 /-- **Strict never-over.** On the region the real pre-floor accumulator is strictly below the target.
-The proven over bound `r0 ≤ 2¹²⁶·exp(rt) + 10050013498897899168/10000000000000000000` plus `WAD·10050013498897899168/10000000000000000000 < MARGIN` give a strictly
+The proven over bound `r0 ≤ 2¹²⁶·exp(rt) + 6013505372794194988/10000000000000000000` plus `WAD·6013505372794194988/10000000000000000000 < MARGIN` give a strictly
 negative residue. -/
 theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
@@ -49,13 +49,13 @@ theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < 
   have hfold := target_octave_fold s hsint
   have hover := r0_real_over_within hx hC hC0
   set Ert := Real.exp (reducedArg x) with hErt
-  -- WAD·r0 − MARGIN < 5^18·2^126·Ert = E·2^s, using WAD·10050013498897899168/10000000000000000000 < MARGIN
-  have hbound : (3814697265625 : Real) * (int256 (r0Tree x) : Real) - 3833775901375 <
+  -- WAD·r0 − MARGIN < 5^18·2^126·Ert = E·2^s, using WAD·6013505372794194988/10000000000000000000 < MARGIN
+  have hbound : (3814697265625 : Real) * (int256 (r0Tree x) : Real) - 2293970250242 <
       expRayToWadTarget (int256 x) * (2 ^ s : Real) := by
     rw [hfold]
-    have hr0R : (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Ert + 10050013498897899168 / 10000000000000000000 := hover
+    have hr0R : (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Ert + 6013505372794194988 / 10000000000000000000 := hover
     have hscaled : (3814697265625 : Real) * (int256 (r0Tree x) : Real) ≤
-        (3814697265625 : Real) * ((2 ^ 126 : Real) * Ert + 10050013498897899168 / 10000000000000000000) :=
+        (3814697265625 : Real) * ((2 ^ 126 : Real) * Ert + 6013505372794194988 / 10000000000000000000) :=
       mul_le_mul_of_nonneg_left hr0R (by norm_num)
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     rw [hwad]
@@ -65,16 +65,16 @@ theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < 
         norm_num]
       ring
     rw [hconst]
-    -- WAD·B = 3833775901374.02 < 3833775901375 = MARGIN
-    have hBM : (3814697265625 : Real) * (10050013498897899168 / 10000000000000000000) <
-        3833775901375 := by norm_num
+    -- WAD·B = 3833775901374.02 < 2293970250242 = MARGIN
+    have hBM : (3814697265625 : Real) * (6013505372794194988 / 10000000000000000000) <
+        2293970250242 := by norm_num
     linarith [hscaled, hBM]
   rw [hAeq, div_lt_iff₀ hps]; linarith [hbound]
 
 /-- **Accumulator deficit, region-uniform.** On the region the accumulator is below the target by
-strictly less than `24/25`: `E − 24/25 < accumReal x`. The deficit `r0 ≥ 2¹²⁶·exp(rt) − 67/10` and the
-octave fold give `accumReal x ≥ E − ((67/10)·WAD + MARGIN)/2^s` with `s = 108 − k ≥ 45`, and
-`((67/10)·WAD + MARGIN)/2⁴⁵ ≈ 0.835 < 24/25`. The tightness below one is what closes the round trip
+strictly less than `24/25`: `E − 24/25 < accumReal x`. The deficit `r0 ≥ 2¹²⁶·exp(rt) − 31/10` and the
+octave fold give `accumReal x ≥ E − ((31/10)·WAD + MARGIN)/2^s` with `s = 108 − k ≥ 45`, and
+`((31/10)·WAD + MARGIN)/2⁴⁵ ≈ 0.835 < 24/25`. The tightness below one is what closes the round trip
 together with `lnWadToRay`'s ≈10⁻⁹ envelope. -/
 theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
@@ -88,18 +88,18 @@ theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask
   have hs45 : (45 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
   have hs45n : 45 ≤ s := by exact_mod_cast hs45
   have hpow : (2 ^ 45 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs45n
-  -- (E − 24/25)·2^s < WAD·r0 − MARGIN, since E·2^s = 5^18·2^126·Ert ≤ WAD·(r0 + 67/10)
-  -- and (67/10)·WAD + MARGIN < (24/25)·2^45 ≤ (24/25)·2^s
+  -- (E − 24/25)·2^s < WAD·r0 − MARGIN, since E·2^s = 5^18·2^126·Ert ≤ WAD·(r0 + 31/10)
+  -- and (31/10)·WAD + MARGIN < (24/25)·2^45 ≤ (24/25)·2^s
   have hbound : (expRayToWadTarget (int256 x) - 24 / 25) * (2 ^ s : Real) <
-      (3814697265625 : Real) * (int256 (r0Tree x) : Real) - 3833775901375 := by
+      (3814697265625 : Real) * (int256 (r0Tree x) : Real) - 2293970250242 := by
     have hkey : expRayToWadTarget (int256 x) * (2 ^ s : Real) =
         (WAD : Real) * (2 ^ 108 : Real) * Ert := hfold
-    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 67 / 10 := hunder
+    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 31 / 10 := hunder
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     have h8wad : (3814697265625 : Real) * ((2 ^ 126 : Real) * Ert) ≤
-        (3814697265625 : Real) * ((int256 (r0Tree x) : Real) + 67 / 10) :=
+        (3814697265625 : Real) * ((int256 (r0Tree x) : Real) + 31 / 10) :=
       mul_le_mul_of_nonneg_left hr0R (by norm_num)
-    have hbudget : (3814697265625 : Real) * (67 / 10) + 3833775901375 < (24 / 25) * (2 ^ 45 : Real) := by
+    have hbudget : (3814697265625 : Real) * (31 / 10) + 2293970250242 < (24 / 25) * (2 ^ 45 : Real) := by
       norm_num
     rw [hwad] at hkey
     have hconst : (10 ^ 18 : Real) * (2 ^ 108 : Real) * Ert =
@@ -109,7 +109,7 @@ theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask
       ring
     rw [hconst] at hkey
     have hEs : expRayToWadTarget (int256 x) * (2 ^ s : Real) ≤
-        (3814697265625 : Real) * (int256 (r0Tree x) : Real) + (3814697265625 : Real) * (67 / 10) := by
+        (3814697265625 : Real) * (int256 (r0Tree x) : Real) + (3814697265625 : Real) * (31 / 10) := by
       rw [hkey]; nlinarith [h8wad]
     -- (E − 24/25)·2^s = E·2^s − (24/25)·2^s ; (24/25)·2^s ≥ (24/25)·2^45
     have h2425 : (24 / 25 : Real) * (2 ^ 45 : Real) ≤ (24 / 25) * (2 ^ s : Real) :=

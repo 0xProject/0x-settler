@@ -44,7 +44,7 @@ def odTree (x : Nat) : Nat :=
     (evmAdd od1 (evmShr odShift1 (evmMul
     od0 v))) v))) v))) v))
 
-/-- `t * Od(v)` in Q87. -/
+/-- `t * Od(v)` in Q88. -/
 def todTree (x : Nat) : Nat := evmSar todShift (evmMul (tTree x) (odTree x))
 
 /-- `exp(t)` in Q126. -/
