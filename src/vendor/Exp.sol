@@ -79,8 +79,8 @@ library Exp {
         //         at 2⁻¹³³ of reduced argument, lifting e by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
         //         √2/128).
         // Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
-        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0628 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
-        // on the 2¹⁰⁸ output grid strictly above Δ's image: 0x2027afc6c05 = ⌊5¹⁸⋅Δ⌋ + 1 =
+        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0628 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least
+        // integer on the 2¹⁰⁸ output grid strictly above Δ's image: 0x2027afc6c05 = ⌊5¹⁸⋅Δ⌋ + 1 =
         // 2209676553221 (worth ≈ S ulp at k = 63; the +1 is needed to meet the strict never
         // overestimate requirement). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E. The under side is bounded to the
         // same precision: e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 31/10, where 31/10 bounds the sum of the
@@ -92,10 +92,9 @@ library Exp {
         // ((31/10)⋅10¹⁸ + 2¹⁸⋅margin)/2⁶³ ≈ 0.39891 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
         // deficit envelope ((31/10)⋅10¹⁸ + 2¹⁸⋅margin)/2^(126 - k) doubles each octave and first
         // exceeds 1ulp at k = 65; the guard pins the supported range at k ≤ 63. On the central
-        // octave k = 0 the margin is margin⋅2⁻¹⁰⁸ ≈ 6.8⋅10⁻²¹ ulp, far
-        // below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. The k = 0
-        // band is exactly [-H, H] with H = ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2,
-        // √2).
+        // octave k = 0 the margin is margin⋅2⁻¹⁰⁸ ≈ 6.8⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap
+        // `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H]
+        // with H = ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
         // pre-floor accumulator by at least 5¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 2.3⋅10²³ grid units. The error
