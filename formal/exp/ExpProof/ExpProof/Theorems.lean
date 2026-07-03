@@ -20,7 +20,7 @@ stray `sorry` (or any new axiom) breaks the build.
 
 | Property                                          | Theorem                                          |
 |---------------------------------------------------|--------------------------------------------------|
-| Reverts on inputs ≥ `0x8e383a2cdfa1b74a9422d2e1`  | `run_exp_ray_to_wad_evm_revert`                  |
+| Reverts on inputs ≥ `0x907595ccd30708cabec8a9db`  | `run_exp_ray_to_wad_evm_revert`                  |
 | Scale point: `expRayToWad(0) = 10^18`             | `run_exp_ray_to_wad_evm_zero`                    |
 | Value path reduces to the `evm*` tree             | `run_exp_ray_to_wad_evm_eq_tree`                 |
 | Never over / floor-or-one-less: `r ≤ E < r + 2`   | `run_exp_ray_to_wad_evm_floorOrOneLess_uncond`   |
@@ -33,7 +33,7 @@ reduced to the octave-seam `r0` doubling bound `SeamR0Bound`) is discharged by
 `seamR0Bound_holds`; the floor brackets consume the discharged accumulator facts
 (`accumReal_over`, `accumReal_under`, `belowC_target_lt_one`) directly.
 
-The supported-range threshold is `0x8e383a2cdfa1b74a9422d2e1`; at or above it (and below `2^255`,
+The supported-range threshold is `0x907595ccd30708cabec8a9db`; at or above it (and below `2^255`,
 i.e. for any non-negative `int256` that large) the wrapper run halts with `revert`. At the scale
 point `x = 0` the run returns the wad unit `10^18` exactly. For any signed input strictly below the
 threshold the run returns the inline `evm*` arithmetic tree (the handle for the floor/monotone/bound
@@ -46,7 +46,7 @@ open FormalYul
 
 /-- Reverts above the supported range. -/
 example (x : Nat)
-    (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
+    (h1 : (0x907595ccd30708cabec8a9db : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
     run_exp_ray_to_wad_evm x = .error "revert" :=
   run_exp_ray_to_wad_evm_revert x h1 h2

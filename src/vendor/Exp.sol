@@ -12,11 +12,11 @@ library Exp {
     ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For "central" inputs 707106781186547525 ≤ w ≤
     ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
-    ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
+    ///      (x ≥ 0x907595ccd30708cabec8a9db ≈ 44.71 ⋅ 10²⁷, i.e. E ≳ 2.61 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 64, the first octave
-        // outside the certified range.
-        if (x >= 0x8e383a2cdfa1b74a9422d2e1) {
+        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 65, where the deficit
+        // envelope below exceeds 1ulp.
+        if (x >= 0x907595ccd30708cabec8a9db) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         return _expRayToWad(x);
@@ -78,10 +78,10 @@ library Exp {
         //         (the k⋅ln(2) grid error stays below 2⁻²²⁹), which the proof envelopes one-sidedly
         //         at 2⁻¹³³ of reduced argument, lifting e by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
         //         √2/128).
-        // Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
-        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0628 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least
+        // Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 64 at
+        // S = 10¹⁸⋅Δ/2⁶² ≈ 0.1256 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least
         // integer on the 2¹⁰⁸ output grid strictly above Δ's image: 0x2027afc6c05 = ⌊5¹⁸⋅Δ⌋ + 1 =
-        // 2209676553221 (worth ≈ S ulp at k = 63; the +1 is needed to meet the strict never
+        // 2209676553221 (worth ≈ S ulp at k = 64; the +1 is needed to meet the strict never
         // overestimate requirement). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E. The under side is bounded to the
         // same precision: e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 31/10, where 31/10 bounds the sum of the
         // integer-rational deficit (≤ 5/2, the Horner/`DIV`/floor truncation against the
@@ -89,12 +89,12 @@ library Exp {
         // reduced-argument gap (≤ 37/100, via exp(t) ≤ √2), and the under-direction argument
         // granularity (≤ 17/100: the same one-grain envelope with the negative-half denominator
         // floor). Hence the maximum underestimation of the pre-floor accumulator A is E - A ≤
-        // ((31/10)⋅10¹⁸ + 2¹⁸⋅margin)/2⁶³ ≈ 0.39891 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
-        // deficit envelope ((31/10)⋅10¹⁸ + 2¹⁸⋅margin)/2^(126 - k) doubles each octave and first
-        // exceeds 1ulp at k = 65; the guard pins the supported range at k ≤ 63. On the central
-        // octave k = 0 the margin is margin⋅2⁻¹⁰⁸ ≈ 6.8⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap
-        // `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H]
-        // with H = ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
+        // ((31/10)⋅10¹⁸ + 2¹⁸⋅margin)/2⁶² ≈ 0.79781 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
+        // deficit envelope ((31/10)⋅10¹⁸ + 2¹⁸⋅margin)/2^(126 - k) doubles each octave and can
+        // exceed 1ulp at k ≥ 65. On the central octave k = 0 the margin is margin⋅2⁻¹⁰⁸ ≈ 6.8⋅10⁻²¹
+        // ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to
+        // ⌊E⌋. The k = 0 band is exactly [-H, H] with H = ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s
+        // image over [1/√2, √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
         // pre-floor accumulator by at least 5¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 2.3⋅10²³ grid units. The error
@@ -158,7 +158,7 @@ library Exp {
             // E on the 2¹⁰⁸ output grid (5¹⁸ = 10¹⁸/2¹⁸ multiplies the Q126 quotient), less the
             // one-sided margin (0x2027afc6c05 = ⌊5¹⁸⋅Δ⌋ + 1; see the budget above), then floored by
             // `shr(108 - k, …)` which folds in the 2ᵏ octave scaling and the wad unit's remaining
-            // 2¹⁸ (108 - k ∈ [45, 168]).
+            // 2¹⁸ (108 - k ∈ [44, 168]).
             r := shr(sub(0x6c, k), sub(mul(0x3782dace9d9, r), 0x2027afc6c05))
 
             // Zero the result at and below C = ⌊-18⋅ln(10)⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x

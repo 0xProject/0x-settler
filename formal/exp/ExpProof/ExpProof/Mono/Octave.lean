@@ -10,7 +10,7 @@ bounds, and proves `k` is nondecreasing in `int256 x` and (for a fixed `k`) `t` 
 `int256 x`.
 
 Constants and their bit widths (so every product stays below `2^255`):
-`CINV` 111 bits, `K27` 146 bits, `LN2` 235 bits, `|int256 x| < 2^96`, `k ∈ [-61, 63]`.
+`CINV` 111 bits, `K27` 146 bits, `LN2` 235 bits, `|int256 x| < 2^96`, `k ∈ [-61, 64]`.
 -/
 
 namespace ExpYul
@@ -25,7 +25,7 @@ theorem region_x_bound {x : Nat} (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
     -(2 ^ 96 : Int) < int256 x ∧ int256 x < 2 ^ 96 := by
   rw [int256_Cmask] at hC
-  have hC0' : int256 x < 44014845965556527147994239713 := by
+  have hC0' : int256 x < 44707993146116472457411471835 := by
     rw [int256_C0thresh] at hC0
     exact hC0
   constructor <;> [skip; skip] <;> simp only [show (2:Int)^96 = 79228162514264337593543950336 from by norm_num] <;> omega
@@ -123,13 +123,13 @@ theorem kTree_mono {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hpow : (0 : Int) < 2 ^ 200 := by norm_num
   nlinarith [hlo1, hhi2, hargle, hpow]
 
-/-- On the meaningful region the octave index is bounded: `-61 ≤ k ≤ 63`. -/
+/-- On the meaningful region the octave index is bounded: `-61 ≤ k ≤ 64`. -/
 theorem kTree_bound {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    -61 ≤ int256 (kTree x) ∧ int256 (kTree x) ≤ 63 := by
+    -61 ≤ int256 (kTree x) ∧ int256 (kTree x) ≤ 64 := by
   obtain ⟨hlo, hhi⟩ := kTree_sandwich hx hC hC0
   have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh
+  have hC0i : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
   rw [hCi] at hC
   rw [hC0i] at hC0
   have hcinv : (0x724d54edbacbebbb95c52a0f6076 : Int) = 2318321547468254865173387471183990 := by
@@ -139,7 +139,7 @@ theorem kTree_bound {x : Nat} (hx : x < 2 ^ 256)
       0x724d54edbacbebbb95c52a0f6076 * (-41446531673892822312323846185) := by
     rw [hcinv]; nlinarith [hC]
   have hprod_hi : (0x724d54edbacbebbb95c52a0f6076 : Int) * int256 x <
-      0x724d54edbacbebbb95c52a0f6076 * 44014845965556527147994239713 := by
+      0x724d54edbacbebbb95c52a0f6076 * 44707993146116472457411471835 := by
     rw [hcinv]; nlinarith [hC0]
   constructor
   · nlinarith [hhi, hprod_lo]
@@ -156,7 +156,7 @@ theorem int256_tArg {x : Nat} (hx : x < 2 ^ 256)
       0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
         0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) := by
   have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh
+  have hC0i : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
   have hxr := hC; rw [hCi] at hxr
   have hxr0 := hC0; rw [hC0i] at hxr0
   obtain ⟨hklo, hkhi⟩ := kTree_bound hx hC hC0

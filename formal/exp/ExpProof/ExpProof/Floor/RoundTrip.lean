@@ -73,8 +73,8 @@ theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < 
 
 /-- **Accumulator deficit, region-uniform.** On the region the accumulator is below the target by
 strictly less than `24/25`: `E − 24/25 < accumReal x`. The deficit `r0 ≥ 2¹²⁶·exp(rt) − 31/10` and the
-octave fold give `accumReal x ≥ E − ((31/10)·WAD + MARGIN)/2^s` with `s = 108 − k ≥ 45`, and
-`((31/10)·WAD + MARGIN)/2⁴⁵ ≈ 0.835 < 24/25`. The tightness below one is what closes the round trip
+octave fold give `accumReal x ≥ E − ((31/10)·WAD + MARGIN)/2^s` with `s = 108 − k ≥ 44`, and
+`((31/10)·WAD + MARGIN)/2⁴⁴ ≈ 0.798 < 24/25`. The tightness below one is what closes the round trip
 together with `lnWadToRay`'s ≈10⁻⁹ envelope. -/
 theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
@@ -85,11 +85,11 @@ theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask
   have hunder := r0_real_under_within hx hC hC0
   obtain ⟨_, hkhi⟩ := kTree_bound hx hC hC0
   set Ert := Real.exp (reducedArg x) with hErt
-  have hs45 : (45 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
-  have hs45n : 45 ≤ s := by exact_mod_cast hs45
-  have hpow : (2 ^ 45 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs45n
+  have hs44 : (44 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
+  have hs44n : 44 ≤ s := by exact_mod_cast hs44
+  have hpow : (2 ^ 44 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs44n
   -- (E − 24/25)·2^s < WAD·r0 − MARGIN, since E·2^s = 5^18·2^126·Ert ≤ WAD·(r0 + 31/10)
-  -- and (31/10)·WAD + MARGIN < (24/25)·2^45 ≤ (24/25)·2^s
+  -- and (31/10)·WAD + MARGIN < (24/25)·2^44 ≤ (24/25)·2^s
   have hbound : (expRayToWadTarget (int256 x) - 24 / 25) * (2 ^ s : Real) <
       (3814697265625 : Real) * (int256 (r0Tree x) : Real) - 2209676553221 := by
     have hkey : expRayToWadTarget (int256 x) * (2 ^ s : Real) =
@@ -99,7 +99,7 @@ theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask
     have h8wad : (3814697265625 : Real) * ((2 ^ 126 : Real) * Ert) ≤
         (3814697265625 : Real) * ((int256 (r0Tree x) : Real) + 31 / 10) :=
       mul_le_mul_of_nonneg_left hr0R (by norm_num)
-    have hbudget : (3814697265625 : Real) * (31 / 10) + 2209676553221 < (24 / 25) * (2 ^ 45 : Real) := by
+    have hbudget : (3814697265625 : Real) * (31 / 10) + 2209676553221 < (24 / 25) * (2 ^ 44 : Real) := by
       norm_num
     rw [hwad] at hkey
     have hconst : (10 ^ 18 : Real) * (2 ^ 108 : Real) * Ert =
@@ -111,8 +111,8 @@ theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask
     have hEs : expRayToWadTarget (int256 x) * (2 ^ s : Real) ≤
         (3814697265625 : Real) * (int256 (r0Tree x) : Real) + (3814697265625 : Real) * (31 / 10) := by
       rw [hkey]; nlinarith [h8wad]
-    -- (E − 24/25)·2^s = E·2^s − (24/25)·2^s ; (24/25)·2^s ≥ (24/25)·2^45
-    have h2425 : (24 / 25 : Real) * (2 ^ 45 : Real) ≤ (24 / 25) * (2 ^ s : Real) :=
+    -- (E − 24/25)·2^s = E·2^s − (24/25)·2^s ; (24/25)·2^s ≥ (24/25)·2^44
+    have h2425 : (24 / 25 : Real) * (2 ^ 44 : Real) ≤ (24 / 25) * (2 ^ s : Real) :=
       mul_le_mul_of_nonneg_left hpow (by norm_num)
     nlinarith [hEs, hbudget, hpow, h2425]
   rw [hAeq, lt_div_iff₀ hps]; linarith [hbound]
@@ -225,7 +225,7 @@ theorem expTarget_band {w : Nat} (r : Int) (hlo : Wlo ≤ w) (hhi : w ≤ Whi)
     linarith [hmul, h2wd]
   -- region membership of r
   have hCmask : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0 : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh
+  have hC0 : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
   -- L > log(1/2) = −log 2 > −1 ; X = 10^27·L > −10^27 ; r ≥ X − 2 > Cmask
   have hLgt : -(1 : Real) < L := by
     have h12 : Real.log ((1:Real)/2) < L := by
@@ -249,8 +249,8 @@ theorem expTarget_band {w : Nat} (r : Int) (hlo : Wlo ≤ w) (hhi : w ≤ Whi)
   · -- r < C0thresh : r ≤ 10^27·L < 10^27 < C0thresh
     rw [hC0]
     have hXhi : (10 ^ 27 : Real) * L < (10 ^ 27 : Real) := by nlinarith [hLlt]
-    have : (r : Real) < (44014845965556527147994239713 : Real) := by
-      have hc : (10 ^ 27 : Real) < (44014845965556527147994239713 : Real) := by norm_num
+    have : (r : Real) < (44707993146116472457411471835 : Real) := by
+      have hc : (10 ^ 27 : Real) < (44707993146116472457411471835 : Real) := by norm_num
       linarith [hr_le, hXhi, hc]
     exact_mod_cast this
 

@@ -19,7 +19,7 @@ set_option maxRecDepth 100000
 /-- `expTree x` is the inline value tree. -/
 theorem run_exp_ray_to_wad_evm_eq_expTree
     (x : Nat)
-    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     run_exp_ray_to_wad_evm x = .ok (expTree x) := by
   rw [run_exp_ray_to_wad_evm_eq_tree x hval]
   unfold expTree r1Tree r0Tree todTree odTree evTree vTree tTree kTree

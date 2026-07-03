@@ -35,7 +35,7 @@ theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hkblo, hkbhi⟩ := kTree_bound hx hC hC0
   -- region endpoints as decimals
   have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh
+  have hC0i : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
   rw [hCi] at hC
   rw [hC0i] at hC0
   -- constants as decimals
@@ -61,7 +61,7 @@ theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
   rw [p107] at htlo hthi
   rw [p199, p200] at hklo hkhi
   clear_value k
-  -- For each fixed integer octave index `k ∈ [−61, 63]` the band of consistent `x` together with
+  -- For each fixed integer octave index `k ∈ [−61, 64]` the band of consistent `x` together with
   -- the reduction sandwich pins `t` to the cert domain; `omega` closes each band (the coupling is
   -- linear in `x` and `t` once `k` is a literal).
   clear htdef hXdef hkdef hCi hC0i hK27 hLN2 hCINV pH p107 p199 p200 hx hxlo hxhi

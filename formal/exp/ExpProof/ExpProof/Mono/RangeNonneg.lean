@@ -5,7 +5,7 @@ import ExpProof.Mono.Quot
 
 `r1Tree x = shr(108 − k, WAD·r0 − MARGIN)` closes the kernel: it scales the Q126 quotient onto the
 `5¹⁸·2¹⁰⁸` grid, subtracts the one-sided margin, and floors with the `2ᵏ` octave scaling and the
-wad unit's remaining `2¹⁸` folded into the shift (`108 − k ∈ [45, 169]`).
+wad unit's remaining `2¹⁸` folded into the shift (`108 − k ∈ [44, 169]`).
 
 * **nonneg**: `r0 ≥ 2^123` gives `WAD·r0 > MARGIN`, and the shift argument is nonnegative; the
   logical shift of a canonical nonnegative word stays nonnegative.
@@ -22,11 +22,11 @@ set_option maxRecDepth 100000
 
 /-! ## The closing shift amount `108 − k` -/
 
-/-- The shift word `evmSub 0x6c k` equals `108 − int256 k` as a `Nat`, and lies in `[45, 169]` on
-the meaningful region (`k ∈ [−61, 63]`). -/
+/-- The shift word `evmSub 0x6c k` equals `108 − int256 k` as a `Nat`, and lies in `[44, 169]` on
+the meaningful region (`k ∈ [−61, 64]`). -/
 theorem closing_shift {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    ∃ s : Nat, evmSub 0x6c (kTree x) = s ∧ 45 ≤ s ∧ s ≤ 169 ∧
+    ∃ s : Nat, evmSub 0x6c (kTree x) = s ∧ 44 ≤ s ∧ s ≤ 169 ∧
       (s : Int) = 108 - int256 (kTree x) := by
   obtain ⟨hklo, hkhi⟩ := kTree_bound hx hC hC0
   have hkw : kTree x < 2 ^ 256 := by unfold kTree; exact evmSar_lt _ _
@@ -45,8 +45,8 @@ theorem closing_shift {x : Nat} (hx : x < 2 ^ 256)
   have hnn : 0 ≤ int256 (evmSub 0x6c (kTree x)) := by rw [hsub]; omega
   obtain ⟨heq, hlt255⟩ := int256_eq_of_nonneg hsublt hnn
   refine ⟨evmSub 0x6c (kTree x), rfl, ?_, ?_, ?_⟩
-  · -- 45 ≤ s
-    have : (45 : Int) ≤ ((evmSub 0x6c (kTree x) : Nat) : Int) := by rw [← heq, hsub]; omega
+  · -- 44 ≤ s
+    have : (44 : Int) ≤ ((evmSub 0x6c (kTree x) : Nat) : Int) := by rw [← heq, hsub]; omega
     exact_mod_cast this
   · have : ((evmSub 0x6c (kTree x) : Nat) : Int) ≤ 169 := by rw [← heq, hsub]; omega
     exact_mod_cast this
@@ -97,26 +97,26 @@ theorem shiftArg_bounds_of {r0 : Nat} (hr0w : r0 < 2 ^ 256)
 
 /-! ## Abstract floor facts for the closing shift -/
 
-/-- Abstract closing-shift facts over an opaque shift argument word `W` and shift `s ∈ [45, 169]`
-with `int256 W ∈ [0, 2^170)`: the floor `shr(s, W)` is nonnegative and below `2^125`. -/
-theorem closingShr_facts {W s : Nat} (hWw : W < 2 ^ 256) (hslo : 45 ≤ s) (hshi : s ≤ 169)
+/-- Abstract closing-shift facts over an opaque shift argument word `W` and shift `s ∈ [44, 169]`
+with `int256 W ∈ [0, 2^170)`: the floor `shr(s, W)` is nonnegative and below `2^126`. -/
+theorem closingShr_facts {W s : Nat} (hWw : W < 2 ^ 256) (hslo : 44 ≤ s) (hshi : s ≤ 169)
     (hWnn : 0 ≤ int256 W) (hWhi : int256 W < 2 ^ 170) :
-    0 ≤ int256 (evmShr s W) ∧ int256 (evmShr s W) < 2 ^ 125 := by
+    0 ≤ int256 (evmShr s W) ∧ int256 (evmShr s W) < 2 ^ 126 := by
   obtain ⟨hWi, _⟩ := int256_eq_of_nonneg hWw hWnn
   have hWnat : W < 2 ^ 170 := by
     have : ((W : Nat) : Int) < 2 ^ 170 := by rw [← hWi]; exact hWhi
     exact_mod_cast this
   rw [evmShr_eq_div (by omega) hWw]
-  have hqlt : W / 2 ^ s < 2 ^ 125 := by
-    have h45 : (2:Nat) ^ 45 ≤ 2 ^ s := Nat.pow_le_pow_right (by norm_num) hslo
-    have h1 : W / 2 ^ s ≤ W / 2 ^ 45 := Nat.div_le_div_left h45 (Nat.two_pow_pos _)
-    have h2 : W / 2 ^ 45 < 2 ^ 125 := by
+  have hqlt : W / 2 ^ s < 2 ^ 126 := by
+    have h44 : (2:Nat) ^ 44 ≤ 2 ^ s := Nat.pow_le_pow_right (by norm_num) hslo
+    have h1 : W / 2 ^ s ≤ W / 2 ^ 44 := Nat.div_le_div_left h44 (Nat.two_pow_pos _)
+    have h2 : W / 2 ^ 44 < 2 ^ 126 := by
       rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
       calc W < 2 ^ 170 := hWnat
-        _ = 2 ^ 125 * 2 ^ 45 := by rw [← Nat.pow_add]
+        _ = 2 ^ 126 * 2 ^ 44 := by rw [← Nat.pow_add]
     omega
   rw [int256_of_lt (by
-    have : (2:Nat) ^ 125 < 2 ^ 255 := by norm_num
+    have : (2:Nat) ^ 126 < 2 ^ 255 := by norm_num
     omega)]
   constructor
   · positivity
@@ -158,7 +158,7 @@ theorem r1Tree_range {x : Nat} (hx : x < 2 ^ 256)
   rw [← hReq] at hnn hlt
   have hr1w : r1Tree x < 2 ^ 256 := r1Tree_lt x
   obtain ⟨hi, _⟩ := int256_eq_of_nonneg hr1w hnn
-  have hp254 : (2:Int)^125 < 2^254 := by norm_num
+  have hp254 : (2:Int)^126 < 2^254 := by norm_num
   have hcast : ((r1Tree x : Nat) : Int) < 2 ^ 254 := by
     rw [← hi]
     generalize int256 (r1Tree x) = V at hlt ⊢
