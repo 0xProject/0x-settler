@@ -224,16 +224,12 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev SELECT: run candidate sub-programs at execution time and commit one. Each candidate is a
-    ///      non-VIP action list over held balance, scored by `token`'s balance delta. A zero `token`
-    ///      scores bare success. `fold` 0 is CASCADE, which commits the first candidate that meets its
-    ///      own target. Zero targets make this a fallback and descending targets make it a price
-    ///      ladder. `fold` 1 is BEST, which commits candidate 0 if it meets `targets[0]`, else measures
-    ///      every candidate and commits the best score net of `hurdles[i]` at its measured score.
-    ///      `shareBps` of the winner's edge over the runner-up is taken in `token` to the hard-coded
-    ///      receiver on the BEST path, capped at 100%. `candidateGasLimit` of 0 is uncapped and
-    ///      otherwise stops a stalling candidate starving the rest. Candidates may themselves be
-    ///      SELECTs. The route is funded once and the trailing check is the backstop.
+    /// @dev SELECT: run candidate sub-programs and commit one. Candidates are non-VIP action lists
+    ///      over held balance, scored by `token`'s balance delta (zero `token` scores bare success).
+    ///      `fold` 0 is CASCADE: commit the first candidate meeting its target. `fold` 1 is BEST:
+    ///      commit candidate 0 at `targets[0]`, else measure all and commit the best net of
+    ///      `hurdles`, taking `shareBps` of its edge over the runner-up. `candidateGasLimit` 0 is
+    ///      uncapped.
     // Pre-req: Funded
     function SELECT(
         uint256 fold,
