@@ -13,6 +13,7 @@ import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {Select} from "../../core/Select.sol";
 import {Hanji} from "../../core/Hanji.sol";
 
 import {IMsgSender} from "../../interfaces/IMsgSender.sol";
@@ -70,7 +71,8 @@ abstract contract BaseMixin is
     //EulerSwap,
     Renegade,
     Bebop,
-    Hanji
+    Hanji,
+    Select
 {
     using FastLogic for bool;
 
@@ -87,6 +89,8 @@ abstract contract BaseMixin is
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
+        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
+            _select(data);
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
             .or(action == uint32(ISettlerActions.BALANCERV3.selector))
             .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {

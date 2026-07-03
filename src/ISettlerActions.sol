@@ -224,6 +224,26 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
+    /// @dev SELECT: fold candidate sub-programs at execution state. Each candidate (a non-VIP action
+    ///      list over held balance) runs in a disposable frame scored by `token`'s balance delta
+    ///      (`token == 0` scores bare success). `fold` 0 = CASCADE (commit the first candidate
+    ///      clearing its own target: a fallback at targets 0, a descending-floor ladder otherwise);
+    ///      `fold` 1 = BEST (candidate 0 wins outright at targets[0], else measure all and commit the
+    ///      argmax of score − hurdles[i] at its measured score). `shareBps` of the measured edge over
+    ///      the runner-up is skimmed in `token` to the hard-coded receiver (BEST only, capped at 100%).
+    ///      `candidateGasLimit` (0 = uncapped) stops a stalling candidate starving the rest. Candidates
+    ///      may themselves be SELECTs. Funded once; the trailing check is the taker's backstop.
+    // Pre-req: Funded
+    function SELECT(
+        uint256 fold,
+        uint256 shareBps,
+        uint256 candidateGasLimit,
+        address token,
+        uint256[] calldata targets,
+        uint256[] calldata hurdles,
+        bytes[][] calldata candidates
+    ) external;
+
     function EKUBO(
         address recipient,
         address sellToken,
