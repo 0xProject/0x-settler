@@ -176,7 +176,7 @@ theorem run_exp_ray_to_wad_evm_mono_of_seam (hseamstep : SeamStep) (x1 x2 : Nat)
 /-- **Runtime monotonicity, modulo the octave-seam `r0` doubling bound.** With the
 seam-step reduction (`Seam.seamStep_of_seamR0`) and all of `range`/`nonneg`/same-octave/
 induction discharged, monotonicity over the entire non-reverting domain follows from the single
-analytic bound `SeamR0Bound` (`r0Tree x1 + 2 ≤ 2·r0Tree x2` across one octave). -/
+analytic bound `SeamR0Bound` (`r0Tree x1 + 3 ≤ 2·r0Tree x2` across one octave). -/
 theorem run_exp_ray_to_wad_evm_mono_of_seamR0 (hr0 : SeamR0Bound) (x1 x2 : Nat)
     (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hle : int256 x1 ≤ int256 x2) (hdom : int256 x2 < int256 C0thresh) :

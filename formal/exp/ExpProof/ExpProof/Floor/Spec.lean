@@ -8,13 +8,13 @@ import ExpProof.Mono.RangeNonneg
 # Floor + branch assembly: the public `Real.exp` brackets
 
 `run_exp_ray_to_wad_evm_eq_expTree` returns `expTree x`, the clamp/pin shell around the floored
-accumulator `r1Tree x = shr(108 − k, WAD·r0 − MARGIN)`. On the meaningful region the closing shift
-`s = 108 − k ∈ [44, 169]` is positive and the shift argument `arg = WAD·r0 − MARGIN` is a
+accumulator `r1Tree x = shr(68 − k, r0 − MARGIN)`. On the meaningful region the closing shift
+`s = 68 − k ∈ [4, 129]` is positive and the shift argument `arg = r0 − MARGIN` is a
 nonnegative canonical word, so the runtime result is exactly the integer floor `⌊arg / 2^s⌋` of the
 *real* pre-floor accumulator
 
 ```
-A = (WAD·r0 − MARGIN) / 2^(108 − k).
+A = (r0 − MARGIN) / 2^(68 − k).
 ```
 
 The two floor facts `(r : Real) ≤ A` and `A < (r : Real) + 1` (i.e. `r = ⌊A⌋`) are established here
@@ -87,17 +87,17 @@ theorem shr_real_floor {W s : Nat} (hs : s < 256) (hWw : W < 2 ^ 256) (hWnn : 0 
 /-! ## The runtime accumulator as a real number
 
 For `x > 0` in the meaningful region the result is the body word, `expTree x = r1Tree x`, with
-`r1Tree x = evmShr (108 − k) (WAD·r0 − MARGIN)`. Its real pre-floor accumulator is
+`r1Tree x = evmShr (68 − k) (r0 − MARGIN)`. Its real pre-floor accumulator is
 
 ```
-A x = int256 (WAD·r0 − MARGIN) / 2^(108 − k).
+A x = int256 (r0 − MARGIN) / 2^(68 − k).
 ```
 -/
 
 /-- The real pre-floor accumulator of the runtime body, as an explicit `Real`. -/
 def accumReal (x : Nat) : Real :=
-  (int256 (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2027afc6c05) : Real) /
-    (2 ^ (evmSub 0x6c (kTree x)) : Real)
+  (int256 (evmSub (r0Tree x) 0x3) : Real) /
+    (2 ^ (evmSub 0x44 (kTree x)) : Real)
 
 /-- On the meaningful region the body word `r1Tree x` is the integer floor of its real accumulator
 `accumReal x`: `(r1Tree x : Real) ≤ accumReal x < (r1Tree x : Real) + 1`. -/
@@ -108,18 +108,18 @@ theorem r1Tree_floor_accum {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨s, hseq, hslo, hshi, _⟩ := closing_shift hx hC hC0
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
   obtain ⟨hargeq, hargnn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x) (r0Tree_lt x) hr0lo hr0hi
-  have hr1 : r1Tree x = evmShr s (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2027afc6c05) := by
-    have : r1Tree x = evmShr (evmSub 0x6c (kTree x))
-        (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2027afc6c05) := rfl
+  have hr1 : r1Tree x = evmShr s (evmSub (r0Tree x) 0x3) := by
+    have : r1Tree x = evmShr (evmSub 0x44 (kTree x))
+        (evmSub (r0Tree x) 0x3) := rfl
     rw [this, hseq]
-  have hWw : evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2027afc6c05 < 2 ^ 256 :=
+  have hWw : evmSub (r0Tree x) 0x3 < 2 ^ 256 :=
     evmSub_lt _ _
-  have hfloor := shr_real_floor (W := evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2027afc6c05)
-    (s := s) (by omega) hWw (by rw [hargeq]; exact hargnn)
+  have hfloor := shr_real_floor (W := evmSub (r0Tree x) 0x3)
+    (s := s) (by omega) hWw (by rw [hargeq]; omega)
   simp only at hfloor
-  -- align `accumReal` (shift `evmSub 0x6c (kTree x)`) with the lemma's shift `s`
+  -- align `accumReal` (shift `evmSub 0x44 (kTree x)`) with the lemma's shift `s`
   have hAeq : accumReal x =
-      (int256 (evmSub (evmMul 0x3782dace9d9 (r0Tree x)) 0x2027afc6c05) : Real) /
+      (int256 (evmSub (r0Tree x) 0x3) : Real) /
         (2 ^ s : Real) := by
     unfold accumReal; rw [hseq]
   rw [hAeq, hr1]

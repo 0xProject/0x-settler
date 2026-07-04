@@ -30,13 +30,13 @@ theorem region_x_bound {x : Nat} (hC : int256 Cmask < int256 x)
     exact hC0
   constructor <;> [skip; skip] <;> simp only [show (2:Int)^96 = 79228162514264337593543950336 from by norm_num] <;> omega
 
-theorem CINV_lt : (0x724d54edbacbebbb95c52a0f6076 : Nat) < 2 ^ 112 := by norm_num
+theorem CINV_lt : (0x724d54edbacbebbb95c52a0f60 : Nat) < 2 ^ 112 := by norm_num
 theorem K27_lt : (0x279d346de4781f921dd7a89933d54d1f72928 : Nat) < 2 ^ 146 := by norm_num
 theorem LN2_lt : (0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d : Nat) < 2 ^ 235 := by
   norm_num
 
 /-- `int256` of the constant `CINV` (it is below `2^255`, so the signed view is the literal). -/
-theorem int256_CINV : int256 0x724d54edbacbebbb95c52a0f6076 = 0x724d54edbacbebbb95c52a0f6076 := by
+theorem int256_CINV : int256 0x724d54edbacbebbb95c52a0f60 = 0x724d54edbacbebbb95c52a0f60 := by
   unfold int256; norm_num
 theorem int256_K27 :
     int256 0x279d346de4781f921dd7a89933d54d1f72928 = 0x279d346de4781f921dd7a89933d54d1f72928 := by
@@ -46,61 +46,61 @@ theorem int256_LN2 :
       0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d := by
   unfold int256; norm_num
 
-/-- `2^199 = evmShl 0xc7 1`. -/
-theorem evmShl_c7_one : evmShl 0xc7 1 = 2 ^ 199 := by
+/-- `2^191 = evmShl 0xbf 1`. -/
+theorem evmShl_bf_one : evmShl 0xbf 1 = 2 ^ 191 := by
   rw [evmShl_eq (by norm_num) (by norm_num)]; norm_num
 
 /-! ## The octave index `k` -/
 
-/-- The argument of the rounding shift, transported to `Int`: `2^199 + CINV · int256 x`. -/
+/-- The argument of the rounding shift, transported to `Int`: `2^191 + CINV · int256 x`. -/
 theorem int256_kArg {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    int256 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x)) =
-      2 ^ 199 + 0x724d54edbacbebbb95c52a0f6076 * int256 x := by
+    int256 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x)) =
+      2 ^ 191 + 0x724d54edbacbebbb95c52a0f60 * int256 x := by
   obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
   have hx96 : (-(2 ^ 96 : Int)) < int256 x ∧ int256 x < 2 ^ 96 := ⟨hxlo, hxhi⟩
   have hb96 : (2 : Int) ^ 96 = 79228162514264337593543950336 := by norm_num
   -- the product `CINV * int256 x` fits
-  have hmul : int256 (evmMul 0x724d54edbacbebbb95c52a0f6076 x) =
-      0x724d54edbacbebbb95c52a0f6076 * int256 x := by
+  have hmul : int256 (evmMul 0x724d54edbacbebbb95c52a0f60 x) =
+      0x724d54edbacbebbb95c52a0f60 * int256 x := by
     rw [evmMul_transport (by norm_num) hx ?_ ?_, int256_CINV]
     · rw [int256_CINV]
       simp only [hb96] at hxlo hxhi
-      have : -(2 ^ 255 : Int) ≤ 0x724d54edbacbebbb95c52a0f6076 * int256 x := by
+      have : -(2 ^ 255 : Int) ≤ 0x724d54edbacbebbb95c52a0f60 * int256 x := by
         simp only [ipow255]; nlinarith [hxlo, hxhi]
       exact this
     · rw [int256_CINV]
       simp only [hb96] at hxlo hxhi
       simp only [ipow255]; nlinarith [hxlo, hxhi]
-  have hshl : evmShl 0xc7 1 = 2 ^ 199 := evmShl_c7_one
+  have hshl : evmShl 0xbf 1 = 2 ^ 191 := evmShl_bf_one
   rw [hshl]
-  have hpow199 : (2 : Nat) ^ 199 < 2 ^ 256 := by norm_num
+  have hpow199 : (2 : Nat) ^ 191 < 2 ^ 256 := by norm_num
   rw [evmAdd_transport hpow199 (evmMul_lt _ _) ?_ ?_]
   · rw [hmul]
-    have : int256 (2 ^ 199 : Nat) = (2 ^ 199 : Int) := by
+    have : int256 (2 ^ 191 : Nat) = (2 ^ 191 : Int) := by
       rw [int256_of_lt (by norm_num)]; norm_num
     rw [this]
   · rw [hmul]
-    have h199 : int256 (2 ^ 199 : Nat) = (2 ^ 199 : Int) := by
+    have h199 : int256 (2 ^ 191 : Nat) = (2 ^ 191 : Int) := by
       rw [int256_of_lt (by norm_num)]; norm_num
     rw [h199]; simp only [hb96, ipow255] at *; nlinarith [hxlo, hxhi]
   · rw [hmul]
-    have h199 : int256 (2 ^ 199 : Nat) = (2 ^ 199 : Int) := by
+    have h199 : int256 (2 ^ 191 : Nat) = (2 ^ 191 : Int) := by
       rw [int256_of_lt (by norm_num)]; norm_num
     rw [h199]; simp only [hb96, ipow255] at *; nlinarith [hxlo, hxhi]
 
 /-- The argument of the `k`-rounding shift is a valid word (so the sandwich applies). -/
 theorem kArg_lt {x : Nat} :
-    evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x) < 2 ^ 256 := evmAdd_lt _ _
+    evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x) < 2 ^ 256 := evmAdd_lt _ _
 
-/-- The `k`-floor sandwich on the meaningful region: `2^200·k ≤ 2^199 + CINV·x < 2^200·k + 2^200`. -/
+/-- The `k`-floor sandwich on the meaningful region: `2^192·k ≤ 2^191 + CINV·x < 2^192·k + 2^192`. -/
 theorem kTree_sandwich {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    (2 ^ 200 : Int) * int256 (kTree x) ≤ 2 ^ 199 + 0x724d54edbacbebbb95c52a0f6076 * int256 x ∧
-      2 ^ 199 + 0x724d54edbacbebbb95c52a0f6076 * int256 x <
-        (2 ^ 200 : Int) * int256 (kTree x) + 2 ^ 200 := by
+    (2 ^ 192 : Int) * int256 (kTree x) ≤ 2 ^ 191 + 0x724d54edbacbebbb95c52a0f60 * int256 x ∧
+      2 ^ 191 + 0x724d54edbacbebbb95c52a0f60 * int256 x <
+        (2 ^ 192 : Int) * int256 (kTree x) + 2 ^ 192 := by
   unfold kTree
-  obtain ⟨_, hlo, hhi⟩ := evmSar_sandwich (s := 0xc8) (by norm_num) (kArg_lt (x := x))
+  obtain ⟨_, hlo, hhi⟩ := evmSar_sandwich (s := 0xc0) (by norm_num) (kArg_lt (x := x))
   rw [int256_kArg hx hC hC0] at hlo hhi
   exact ⟨by simpa using hlo, by simpa using hhi⟩
 
@@ -114,13 +114,13 @@ theorem kTree_mono {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   obtain ⟨hlo1, hhi1⟩ := kTree_sandwich hx1 hC1 hC01
   obtain ⟨hlo2, hhi2⟩ := kTree_sandwich hx2 hC2 hC02
   -- kArg increases with int256 x (CINV > 0), and floor is monotone.
-  have hcinv : (0 : Int) < 0x724d54edbacbebbb95c52a0f6076 := by norm_num
-  have hargle : 2 ^ 199 + 0x724d54edbacbebbb95c52a0f6076 * int256 x1 ≤
-      2 ^ 199 + 0x724d54edbacbebbb95c52a0f6076 * int256 x2 := by
+  have hcinv : (0 : Int) < 0x724d54edbacbebbb95c52a0f60 := by norm_num
+  have hargle : 2 ^ 191 + 0x724d54edbacbebbb95c52a0f60 * int256 x1 ≤
+      2 ^ 191 + 0x724d54edbacbebbb95c52a0f60 * int256 x2 := by
     have := mul_le_mul_left_nonneg hle (le_of_lt hcinv)
     omega
-  -- from the two sandwiches: 2^200·k1 ≤ arg1 ≤ arg2 < 2^200·k2 + 2^200 ⇒ k1 < k2 + 1 ⇒ k1 ≤ k2
-  have hpow : (0 : Int) < 2 ^ 200 := by norm_num
+  -- from the two sandwiches: 2^192·k1 ≤ arg1 ≤ arg2 < 2^192·k2 + 2^192 ⇒ k1 < k2 + 1 ⇒ k1 ≤ k2
+  have hpow : (0 : Int) < 2 ^ 192 := by norm_num
   nlinarith [hlo1, hhi2, hargle, hpow]
 
 /-- On the meaningful region the octave index is bounded: `-61 ≤ k ≤ 64`. -/
@@ -132,14 +132,14 @@ theorem kTree_bound {x : Nat} (hx : x < 2 ^ 256)
   have hC0i : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
   rw [hCi] at hC
   rw [hC0i] at hC0
-  have hcinv : (0x724d54edbacbebbb95c52a0f6076 : Int) = 2318321547468254865173387471183990 := by
+  have hcinv : (0x724d54edbacbebbb95c52a0f60 : Int) = 9055943544797870567083544809312 := by
     norm_num
   -- bound the rounding-shift argument from the exact region endpoints.
-  have hprod_lo : (0x724d54edbacbebbb95c52a0f6076 : Int) * int256 x >
-      0x724d54edbacbebbb95c52a0f6076 * (-41446531673892822312323846185) := by
+  have hprod_lo : (0x724d54edbacbebbb95c52a0f60 : Int) * int256 x >
+      0x724d54edbacbebbb95c52a0f60 * (-41446531673892822312323846185) := by
     rw [hcinv]; nlinarith [hC]
-  have hprod_hi : (0x724d54edbacbebbb95c52a0f6076 : Int) * int256 x <
-      0x724d54edbacbebbb95c52a0f6076 * 44707993146116472457411471835 := by
+  have hprod_hi : (0x724d54edbacbebbb95c52a0f60 : Int) * int256 x <
+      0x724d54edbacbebbb95c52a0f60 * 44707993146116472457411471835 := by
     rw [hcinv]; nlinarith [hC0]
   constructor
   · nlinarith [hhi, hprod_lo]

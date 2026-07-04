@@ -57,12 +57,20 @@ contract ExpTest is Test {
         assertEq(Exp.expRayToWad(Ln.lnWadToRay(1e18 - 1)), 1e18 - 2); // w-1
     }
 
+    /// The round trip at fuzzed points of the central octave: `w - 1` everywhere except the exact
+    /// scale point.
+    function testFuzzExpRayToWadRoundTripCentral(uint256 w) external pure {
+        w = bound(w, _W_LO, _W_HI);
+        int256 expected = w == 1e18 ? int256(w) : int256(w) - 1;
+        assertEq(Exp.expRayToWad(Ln.lnWadToRay(int256(w))), expected, "central round trip");
+    }
+
     /// First input of octave k: the least x with round(x / (10**27 * ln2)) == k, computed as
-    /// ceil((k*2**200 - 2**199) / CINV) with CINV = round(2**200 / (10**27 * ln2)), the same
+    /// ceil((k*2**192 - 2**191) / CINV) with CINV = round(2**192 / (10**27 * ln2)), the same
     /// reciprocal the kernel rounds with.
     function _octaveStart(int256 k) private pure returns (int256) {
-        int256 CINV = 0x724d54edbacbebbb95c52a0f6076;
-        int256 num = k * (int256(1) << 200) - (int256(1) << 199);
+        int256 CINV = 0x724d54edbacbebbb95c52a0f60;
+        int256 num = k * (int256(1) << 192) - (int256(1) << 191);
         return num >= 0 ? (num + CINV - 1) / CINV : num / CINV;
     }
 
@@ -80,7 +88,7 @@ contract ExpTest is Test {
 
     /// High-k inputs whose exact result sits just below an integer: the tightest points for the
     /// never-overestimate guarantee, where the over-side envelope (rational approximation plus the
-    /// Horner/sdiv truncation jitter) the margin must cover is largest, scaling as 2ᵏ.
+    /// Horner truncation jitter) the margin must cover is largest, scaling as 2ᵏ.
     function testExpRayToWadNeverOverestimateHighK() external pure {
         int256[7] memory xs = [
             int256(44014845965556527147989858478),
@@ -130,8 +138,8 @@ contract ExpTest is Test {
     }
 
     /// The largest supported input, one below the revert threshold: frac(E) ~= 0.52 sits inside
-    /// the k = 64 deficit envelope (~0.80), so the result floors to E or one under. At the top of
-    /// k = 63, frac(E) ~= 0.74 exceeds that octave's envelope (~0.40) and the floor is exact.
+    /// the k = 64 deficit envelope (~0.70), so the result floors to E or one under. At the top of
+    /// k = 63, frac(E) ~= 0.74 exceeds that octave's envelope (~0.35) and the floor is exact.
     function testExpRayToWadSupportedEdge() external pure {
         int256 floorE = 26087635650665564424699143611138320962;
         int256 r = Exp.expRayToWad(_TOO_BIG - 1);

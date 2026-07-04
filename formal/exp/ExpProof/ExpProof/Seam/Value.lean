@@ -414,7 +414,7 @@ theorem call_fun__expRayToWad_78_direct
     EvmYul.Yul.call (fuel + (extra + 700)) [FormalYul.word x] (.some "fun__expRayToWad_78")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
-      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -429,8 +429,8 @@ theorem call_fun__expRayToWad_78_direct
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     )]) := by
@@ -478,7 +478,7 @@ theorem call_fun_expRayToWad_68_direct
     EvmYul.Yul.call (fuel + (extra + 900)) [FormalYul.word x] (.some "fun_expRayToWad_68")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
-      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -493,8 +493,8 @@ theorem call_fun_expRayToWad_68_direct
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     )]) := by
@@ -541,7 +541,7 @@ theorem call_fun_wrap_expRayToWad_direct
     EvmYul.Yul.call (fuel + (extra + 1100)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_97")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
-      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -556,8 +556,8 @@ theorem call_fun_wrap_expRayToWad_direct
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     )]) := by
@@ -601,7 +601,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
     | .ok (state, _) => FormalYul.resultWord (FormalYul.returnOf state)) :
       Except String Nat) =
       .ok (
-      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -616,8 +616,8 @@ theorem external_fun_wrap_expRayToWad_calldata_result
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     ) := by
@@ -630,7 +630,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   set tree : Nat :=
-      (let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      (let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -645,8 +645,8 @@ theorem external_fun_wrap_expRayToWad_calldata_result
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1))
     with htree
@@ -731,7 +731,7 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   set tree : Nat :=
-      (let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      (let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -746,8 +746,8 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1))
     with htree
@@ -837,7 +837,7 @@ theorem external_fun_wrap_expRayToWad_dispatcher_state_result
     | .ok (state, _) => FormalYul.resultWord (FormalYul.returnOf state)) :
       Except String Nat) =
       .ok (
-      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -852,8 +852,8 @@ theorem external_fun_wrap_expRayToWad_dispatcher_state_result
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     ) := by
@@ -916,7 +916,7 @@ theorem run_exp_ray_to_wad_evm_eq_tree
     (x : Nat)
     (hval : FormalYul.u256 x < 0x907595ccd30708cabec8a9db ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
     run_exp_ray_to_wad_evm x = .ok (
-      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
       let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
       let v := evmShr 0x85 (evmMul t t)
@@ -931,8 +931,8 @@ theorem run_exp_ray_to_wad_evm_eq_tree
         (evmAdd 0xc926ddbecdeeb42e68cd16db7ed378 (evmShr 0x7e (evmMul
         0xdc07aff8276bde9a361278df6a10 v))) v))) v))) v))
       let tod := evmSar 0x81 (evmMul t od)
-      let r0 := evmDiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
-      let r1 := evmShr (evmSub 0x6c k) (evmSub (evmMul 0x3782dace9d9 r0) 0x2027afc6c05)
+      let r0 := evmDiv (evmMul 0xde0b6b3a764000000000000000000000 (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmShr (evmSub 0x44 k) (evmSub r0 0x3)
       evmAdd (evmIszero x)
         (evmMul (evmSlt (evmSub 0x00 0x85ebc478242540a11f5f1029) x) r1)
     ) := by

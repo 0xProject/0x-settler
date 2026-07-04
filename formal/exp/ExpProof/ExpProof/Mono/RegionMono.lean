@@ -16,7 +16,7 @@ open FormalYul.Preservation
 
 set_option maxRecDepth 100000
 
-/-- The octave index advances by `0` or `1` per unit input step (`CINV ≪ 2^200`). -/
+/-- The octave index advances by `0` or `1` per unit input step (`CINV ≪ 2^192`). -/
 theorem kTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
@@ -25,18 +25,18 @@ theorem kTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   obtain ⟨hlo1, hhi1⟩ := kTree_sandwich hx1 hC1 hC01
   obtain ⟨hlo2, hhi2⟩ := kTree_sandwich hx2 hC2 hC02
   have hmono := kTree_mono hx1 hx2 hC1 (by omega) hC02
-  -- the rounding argument advances by exactly `CINV < 2^200`
+  -- the rounding argument advances by exactly `CINV < 2^192`
   set k1 := int256 (kTree x1)
   set k2 := int256 (kTree x2)
-  have hcinv : (0x724d54edbacbebbb95c52a0f6076 : Int) < 2 ^ 200 := by norm_num
-  have hcinvpos : (0 : Int) < 0x724d54edbacbebbb95c52a0f6076 := by norm_num
-  have hp200 : (0 : Int) < 2 ^ 200 := by norm_num
+  have hcinv : (0x724d54edbacbebbb95c52a0f60 : Int) < 2 ^ 192 := by norm_num
+  have hcinvpos : (0 : Int) < 0x724d54edbacbebbb95c52a0f60 := by norm_num
+  have hp200 : (0 : Int) < 2 ^ 192 := by norm_num
   -- argument at x2 exceeds that at x1 by exactly CINV
-  have hstep : (2 ^ 199 : Int) + 0x724d54edbacbebbb95c52a0f6076 * int256 x2 =
-      (2 ^ 199 + 0x724d54edbacbebbb95c52a0f6076 * int256 x1) + 0x724d54edbacbebbb95c52a0f6076 := by
+  have hstep : (2 ^ 191 : Int) + 0x724d54edbacbebbb95c52a0f60 * int256 x2 =
+      (2 ^ 191 + 0x724d54edbacbebbb95c52a0f60 * int256 x1) + 0x724d54edbacbebbb95c52a0f60 := by
     rw [hadj]; ring
   rw [hstep] at hlo2 hhi2
-  -- 2^200·k2 ≤ A + CINV < 2^200·k1 + 2^200 + CINV < 2^200·(k1 + 2), so k2 < k1 + 2 ⇒ k2 ≤ k1 + 1
+  -- 2^192·k2 ≤ A + CINV < 2^192·k1 + 2^192 + CINV < 2^192·(k1 + 2), so k2 < k1 + 2 ⇒ k2 ≤ k1 + 1
   have hupper : k2 < k1 + 2 := by nlinarith [hlo2, hhi1, hcinv, hp200]
   omega
 

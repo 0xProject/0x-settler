@@ -70,7 +70,7 @@ example : run_exp_ray_to_wad_evm 0 = .ok 1000000000000000000 :=
 /-! ## Monotonicity
 
 The octave-seam `r0`-doubling bound `SeamR0Bound` is discharged (`seamR0Bound_holds`, via the
-per-point real bracket `r0Tree x ≈ 2¹²⁶·exp(rt)` and the seam relation `exp(rt1) =
+per-point real bracket `r0Tree x ≈ (10¹⁸·2⁶⁸)·exp(rt)` and the seam relation `exp(rt1) =
 2·exp(rt2)·exp(−1/RAY)`), so monotonicity holds over the whole supported domain with no analytic
 hypothesis. -/
 

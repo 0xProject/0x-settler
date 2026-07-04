@@ -9,9 +9,9 @@ open FormalYul.Preservation
 abbrev Cmask : Nat := 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7
 abbrev C0thresh : Nat := 0x907595ccd30708cabec8a9db
 
-abbrev kRoundShift : Nat := 0xc8
-abbrev kHalfShift : Nat := 0xc7
-abbrev cInvQ200 : Nat := 0x724d54edbacbebbb95c52a0f6076
+abbrev kRoundShift : Nat := 0xc0
+abbrev kHalfShift : Nat := 0xbf
+abbrev cInvQ192 : Nat := 0x724d54edbacbebbb95c52a0f60
 
 abbrev k27Q235 : Nat := 0x279d346de4781f921dd7a89933d54d1f72928
 abbrev ln2Q235 : Nat := 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d
@@ -39,10 +39,14 @@ abbrev odShift3 : Nat := 0x7a
 abbrev odShift4 : Nat := 0x80
 
 abbrev todShift : Nat := 0x81
-abbrev expQShift : Nat := 0x7e
-abbrev foldShift : Nat := 0x6c
-abbrev wadWord : Nat := 0x3782dace9d9
-abbrev marginWord : Nat := 0x2027afc6c05
+abbrev foldShift : Nat := 0x44
+abbrev scaleQ68 : Nat := 0xde0b6b3a764000000000000000000000
+abbrev marginWord : Nat := 0x3
+
+theorem scaleQ68_eq : (scaleQ68 : Int) = 3814697265625 * 2 ^ 86 := by
+  unfold scaleQ68; norm_num
+
+theorem scaleQ68_lt_2128 : scaleQ68 < 2 ^ 128 := by unfold scaleQ68; norm_num
 
 theorem int256_Cmask : int256 Cmask = -41446531673892822312323846185 := by
   unfold Cmask int256

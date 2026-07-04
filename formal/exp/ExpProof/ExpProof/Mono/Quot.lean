@@ -22,6 +22,17 @@ open FormalYul.Preservation
 
 set_option maxRecDepth 100000
 
+/-- A word whose signed transport is nonnegative is its own `Int` cast and lies below `2 ^ 255`. -/
+theorem int256_eq_of_nonneg {w : Nat} (hw : w < 2 ^ 256) (hnn : 0 ≤ int256 w) :
+    int256 w = (w : Int) ∧ w < 2 ^ 255 := by
+  unfold int256 at hnn ⊢
+  by_cases h : w < 2 ^ 255
+  · rw [if_pos h]
+    exact ⟨rfl, h⟩
+  · rw [if_neg h] at hnn
+    exfalso
+    omega
+
 /-! ## `tod = t·Od` in Q88 -/
 
 /-- `tod` transported to `Int`: a signed floor with `|tod| < 2^126`. The product `t·Od` fits a word
@@ -131,92 +142,75 @@ theorem numden_pos {x : Nat} (hx : x < 2 ^ 256)
   · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact htod_lo
   · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact htod_hi
 
-/-! ## The closing quotient `r0 = exp(t)·2^126` -/
+/-! ## The runtime quotient `r0 = ⌊(10¹⁸·2⁶⁸)·num/den⌋` -/
 
-/-- Abstract quotient bounds over opaque numerator/denominator words. `r0 = ⌊2^126·N/D⌋` lies in
-`[2^123, 2^128)`: the dividend `2^126·N` fits a word, `2^123·D < 2^251 ≤ 2^126·N` keeps the
-quotient `≥ 2^123` (comfortably clearing the closing stage's `WAD·r0 > MARGIN`), and
-`N < 4·D` keeps it below `2^128`. -/
+/-- Abstract scaled-quotient bounds over opaque numerator/denominator words: `⌊scaleQ68·N/D⌋`
+lies in `[2^124, 2^130)`. The dividend `scaleQ68·N` fits a word (`N < 2^128`,
+`scaleQ68 < 2^128`); `2^124·D < 2^252 ≤ scaleQ68·N` keeps the quotient `≥ 2^124` (comfortably
+clearing the closing stage's `r0 > MARGIN`), and `N < 4·D` with `4·scaleQ68 ≤ 2^130` keeps it
+below `2^130`. -/
 theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 128) (hDlt : D < 2 ^ 128) (hD : D < 2 ^ 256)
     (hDi : int256 D = (D : Int))
     (hNpos : 0 < (N : Int)) (hDpos : 0 < (D : Int))
     (hNlo : 2 ^ 125 ≤ N)
     (hND : (N : Int) < 4 * (D : Int)) :
-    2 ^ 123 ≤ int256 (evmDiv (evmShl 0x7e N) D) ∧ int256 (evmDiv (evmShl 0x7e N) D) < 2 ^ 128 := by
-  -- shl(126, N) = N·2^126 (fits: N < 2^128 ⇒ N·2^126 < 2^254)
-  have hshl : evmShl 0x7e N = N * 2 ^ 0x7e := by
-    refine evmShl_eq (by norm_num) ?_
-    have : N * 2 ^ 0x7e < 2 ^ 128 * 2 ^ 0x7e := by
-      have hp : 0 < 2 ^ 0x7e := Nat.two_pow_pos _
-      exact (Nat.mul_lt_mul_right hp).mpr hN
-    rw [show (2:Nat) ^ 128 * 2 ^ 0x7e = 2 ^ 254 by rw [← Nat.pow_add]] at this
+    2 ^ 124 ≤ int256 (evmDiv (evmMul scaleQ68 N) D) ∧
+      int256 (evmDiv (evmMul scaleQ68 N) D) < 2 ^ 130 := by
+  have hNw : N < 2 ^ 256 := by
+    have : (2:Nat) ^ 128 < 2 ^ 256 := by norm_num
     omega
+  have hsw : scaleQ68 < 2 ^ 256 := by unfold scaleQ68; norm_num
+  have hfit : scaleQ68 * N < 2 ^ 256 := by
+    have h1 : scaleQ68 * N ≤ scaleQ68 * 2 ^ 128 := Nat.mul_le_mul_left _ (le_of_lt hN)
+    have h2 : scaleQ68 * 2 ^ 128 < 2 ^ 256 := by unfold scaleQ68; norm_num
+    omega
+  have hmul : evmMul scaleQ68 N = scaleQ68 * N := evmMul_eq_nat hsw hNw hfit
   have hDnat_pos : 0 < D := by exact_mod_cast hDpos
-  have hNnat_pos : 0 < N := by exact_mod_cast hNpos
-  -- the quotient is a plain Nat floor division
-  have hdiv : evmDiv (evmShl 0x7e N) D = N * 2 ^ 0x7e / D := by
-    rw [evmDiv_eq (evmShl_lt _ _) hD (by omega), hshl]
-  set q := N * 2 ^ 0x7e / D with hq
-  have hq_lt : q < 2 ^ 128 := by
-    rw [hq]
-    rw [Nat.div_lt_iff_lt_mul hDnat_pos]
-    -- N·2^126 < 2^128·D ⟺ N < 4·D
+  have hdiv : evmDiv (evmMul scaleQ68 N) D = scaleQ68 * N / D := by
+    rw [hmul, evmDiv_eq hfit hD (by omega)]
+  set q := scaleQ68 * N / D with hq
+  have hspos : 0 < scaleQ68 := by unfold scaleQ68; norm_num
+  have hq_lt : q < 2 ^ 130 := by
+    rw [hq, Nat.div_lt_iff_lt_mul hDnat_pos]
     have hND' : N < 4 * D := by
-      have : (N : Int) < 4 * (D : Int) := hND
       have h4 : ((4 * D : Nat) : Int) = 4 * (D : Int) := by push_cast; ring
-      rw [← h4] at this; exact_mod_cast this
-    calc N * 2 ^ 0x7e < 4 * D * 2 ^ 0x7e := by
-            have hp : 0 < 2 ^ 0x7e := Nat.two_pow_pos _
-            exact (Nat.mul_lt_mul_right hp).mpr hND'
-      _ = 2 ^ 128 * D := by
-            rw [show (4:Nat) * D * 2 ^ 0x7e = (4 * 2 ^ 0x7e) * D by ring,
-              show (4:Nat) * 2 ^ 0x7e = 2 ^ 128 by norm_num]
-  have hq_ge : 2 ^ 123 ≤ q := by
-    rw [hq, Nat.le_div_iff_mul_le hDnat_pos]
-    -- 2^123·D < 2^123·2^128 = 2^125·2^126 ≤ N·2^126
-    have h1 : (2:Nat) ^ 123 * D ≤ 2 ^ 123 * 2 ^ 128 := Nat.mul_le_mul_left _ (le_of_lt hDlt)
-    have h2 : (2:Nat) ^ 123 * 2 ^ 128 = 2 ^ 125 * 2 ^ 0x7e := by norm_num
-    have h3 : (2:Nat) ^ 125 * 2 ^ 0x7e ≤ N * 2 ^ 0x7e := Nat.mul_le_mul_right _ hNlo
+      rw [← h4] at hND; exact_mod_cast hND
+    have h1 : scaleQ68 * N < scaleQ68 * (4 * D) := (Nat.mul_lt_mul_left hspos).mpr hND'
+    have h2 : scaleQ68 * (4 * D) = (4 * scaleQ68) * D := by ring
+    have h3 : (4 * scaleQ68) * D ≤ 2 ^ 130 * D :=
+      Nat.mul_le_mul_right _ (by unfold scaleQ68; norm_num)
     omega
-  have hqi : int256 (evmDiv (evmShl 0x7e N) D) = (q : Int) := by
+  have hq_ge : 2 ^ 124 ≤ q := by
+    rw [hq, Nat.le_div_iff_mul_le hDnat_pos]
+    have h1 : (2:Nat) ^ 124 * D ≤ 2 ^ 124 * 2 ^ 128 := Nat.mul_le_mul_left _ (le_of_lt hDlt)
+    have h2 : (2:Nat) ^ 124 * 2 ^ 128 ≤ scaleQ68 * 2 ^ 125 := by unfold scaleQ68; norm_num
+    have h3 : scaleQ68 * 2 ^ 125 ≤ scaleQ68 * N := Nat.mul_le_mul_left _ hNlo
+    omega
+  have hqi : int256 (evmDiv (evmMul scaleQ68 N) D) = (q : Int) := by
     rw [hdiv]
     exact int256_of_lt (by
-      have : (2:Nat) ^ 128 < 2 ^ 255 := by norm_num
+      have : (2:Nat) ^ 130 < 2 ^ 255 := by norm_num
       omega)
   rw [hqi]
   exact ⟨by exact_mod_cast hq_ge, by exact_mod_cast hq_lt⟩
 
-/-- For a canonical word with nonnegative signed value, the signed value is the Nat value (and the
-word lies in the lower half). -/
-theorem int256_eq_of_nonneg {w : Nat} (hw : w < 2 ^ 256) (hnn : 0 ≤ int256 w) :
-    int256 w = (w : Int) ∧ w < 2 ^ 255 := by
-  unfold int256 at hnn ⊢
-  split at hnn
-  · rename_i h; exact ⟨if_pos h, h⟩
-  · rename_i h; exfalso; simp only [ipow256] at hnn; have : (w : Int) < 2 ^ 256 := by exact_mod_cast hw
-    simp only [ipow256] at this; omega
-
-/-- Abstract `r0` bounds: `2^123 ≤ r0 < 2^128` over opaque even/odd words `E`, `TD` with their
-bounds. `r0 = div(2^126·(E+TD), E−TD)`; the numerator and denominator are positive and the
-quotient lands in `[2^123, 2^128)` (the reduced argument keeps `exp(t) ∈ [1/√2, √2)`). -/
+/-- Abstract runtime `r0` bounds over opaque even/odd words: `2^124 ≤ r0 < 2^130` with
+`r0 = div(scaleQ68·(E+TD), E−TD)`. -/
 theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
     (hev_lo : (207573926795459379279817565122117813128 : Int) ≤ (E : Int))
     (hev_hi : (E : Int) < 3 * 2 ^ 126)
     (htod_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD)
     (htod_hi : int256 TD < 85070591730234615865843651857942052864) :
-    2 ^ 123 ≤ int256 (evmDiv (evmShl 0x7e (evmAdd E TD)) (evmSub E TD)) ∧
-      int256 (evmDiv (evmShl 0x7e (evmAdd E TD)) (evmSub E TD)) < 2 ^ 128 := by
+    2 ^ 124 ≤ int256 (evmDiv (evmMul scaleQ68 (evmAdd E TD)) (evmSub E TD)) ∧
+      int256 (evmDiv (evmMul scaleQ68 (evmAdd E TD)) (evmSub E TD)) < 2 ^ 130 := by
   obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_of hevw htodw hev_lo hev_hi htod_lo htod_hi
   have hNwlt : evmAdd E TD < 2 ^ 256 := evmAdd_lt _ _
   have hDwlt : evmSub E TD < 2 ^ 256 := evmSub_lt _ _
-  -- numeric forms
   have h128 : (2:Int)^128 = 340282366920938463463374607431768211456 := by norm_num
   have h127 : (3:Int) * 2 ^ 126 = 255211775190703847597530955573826158592 := by norm_num
   rw [h127] at hev_hi
-  -- canonical Nat values for num and den
   obtain ⟨hNi, hNlt255⟩ := int256_eq_of_nonneg hNwlt (by rw [hadd]; omega)
   obtain ⟨hDi, hDlt255⟩ := int256_eq_of_nonneg hDwlt (by rw [hsub]; omega)
-  -- numerator and denominator Nat bounds
   have hNlt128 : evmAdd E TD < 2 ^ 128 := by
     have : ((evmAdd E TD : Nat) : Int) < 2 ^ 128 := by rw [← hNi, hadd, h128]; omega
     exact_mod_cast this
@@ -234,15 +228,15 @@ theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 
   have hDpos : 0 < ((evmSub E TD : Nat) : Int) := by rw [← hDi, hsub]; omega
   exact r0Tree_bounds_of hNlt128 hDlt128 hDwlt hDi hNpos hDpos hNlo hND
 
-/-- `2^123 ≤ r0Tree x < 2^128` on the meaningful region. -/
+/-- `2^124 ≤ r0Tree x < 2^130` on the meaningful region. -/
 theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    2 ^ 123 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 128 := by
+    2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 130 := by
   obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
   obtain ⟨hev_lo, hev_hi⟩ := evTree_facts hvlt
   obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound hx hC hC0
   have hr0 : r0Tree x =
-      evmDiv (evmShl 0x7e (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x)) := rfl
+      evmDiv (evmMul scaleQ68 (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x)) := rfl
   rw [hr0]
   have hevw : evTree x < 2 ^ 256 := by unfold evTree; exact evmAdd_lt _ _
   have htodw : todTree x < 2 ^ 256 := by unfold todTree; exact evmSar_lt _ _
