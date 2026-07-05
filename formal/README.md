@@ -121,6 +121,55 @@ refit), attribution before rebalancing (step 2 finds the bit that buys 2.5× rat
 that buys nothing), and rebalancing before certification (step 4's piecewise machinery is
 only worth building once the true envelope actually fits under the target).
 
+## Settling the negative: the same instruments prove a kernel optimal
+
+The procedure pays off equally when the answer is "leave it alone" — but only if the
+negative is driven to an exact floor, so it stays settled. `lnWadToRay` is the worked
+example: approximation-dominated on both budget sides, no amplified truncation site, and
+already certified per exponent. Five instruments close it:
+
+1. **Fit the constrained ideal, not the unconstrained one.** The minimax floor must carry
+   every structural pin the bytecode does. `Ln.sol`'s (4,5) rational shares its constant
+   term between numerator and denominator (one 13-byte literal serves both, `p(0) = −q(0)`);
+   the unconstrained minimax on its domain and weight is 0.2735 ulp, but with the shared
+   constant pinned it is 0.32346 — and the deployed integer staircase measures 0.32366,
+   0.0002 above the floor with its over-side peak on it. A deployed-vs-unconstrained gap
+   read as "harvestable quantization" can be, as here, the deliberate bytecode price of the
+   structure.
+
+2. **Price shorter forms by the decay law.** Adjacent coefficient counts fit on a geometric
+   decay (~534× per coefficient for this family: 0.2735 → 146 → 7.8·10⁴ for (4,5) → (4,4) →
+   (3,4)), so measuring two types prices every type — "would a shorter rational fit?"
+   becomes arithmetic against the freeable budget instead of a fitting project.
+
+3. **Search the lattice under the deliverable's objective.** Two-sided fit width is the
+   wrong objective for a floored, margined kernel: what the documented bound consumes is
+   over-side need plus under-side need at a fixed margin word, and octave-dependent terms
+   (the mantissa-truncation gap, k > 0 only) attach to wherever the under-peak sits. A
+   width-optimal coefficient neighbor can worsen the real bound by migrating the under-peak
+   into the worst octave. Joint optimality is established when multi-start coordinate
+   descent under the correct objective returns the deployed lattice point exactly.
+
+4. **Solve the certificate floor where the constant enters linearly.** An envelope constant
+   that appears linearly in the cover-cell certificates has an exactly computable per-cell
+   feasibility minimum. In `LnProof`, the floor-side envelope constant sits at that minimum
+   to the unit — one unit lower and the certificate polynomial goes negative on a plateau
+   spanning the whole [2⁹⁵, 2⁹⁵ + 2⁶⁰] edge of the mantissa domain — so the margin word is
+   pinned to the band it occupies, and no cover refinement can move it: the polynomial
+   fails, not the cover.
+
+5. **Treat sweep suprema as lower bounds.** Over a plateau of 2⁶⁰ mantissas no sweep is
+   exhaustive; the true supremum creeps toward the certificate's worst-case truncation
+   model. The ~0.010-ulp gap between the sampled over-side peak (0.32797) and the
+   certificate floor (0.3382) is the price of the global truncation model, not padding —
+   the mirror of step 1's alignment argument: with astronomically many reachable arguments,
+   near-worst residual alignment exists.
+
+When the binding constraint is architectural — here, the global per-stage slop model, whose
+replacement by per-stage truncation windows would buy a few thousandths of a ulp for a full
+re-derivation of the floor proof's bracket and assembly layers — the deliverable is the
+recorded reopening condition, not the change.
+
 ## Build
 
 Generated EVMYulLean artifacts (`*YulRuntime.lean`, `*YulProof.lean`) are `.gitignore`d and regenerated in CI. See `.github/workflows/*-formal.yml` for the canonical build steps.
