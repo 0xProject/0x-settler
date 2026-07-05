@@ -7,7 +7,7 @@ Telescoping `stage_lip` through the five even / four odd Horner stages, with the
 gap `|v2 − v1| ≤ W` from `vTree_step`, bounds the change of the accumulators:
 
 ```
-|evTree x2 − evTree x1| ≤ DEv = 85236826369,
+|evTree x2 − evTree x1| ≤ DEv = 170473652738,
 |odTree x2 − odTree x1| ≤ DOd = 21288422193.
 ```
 
@@ -60,7 +60,7 @@ def evS2 (x : Nat) : Nat := evmAdd 0x9064d9657e9a21fc16bb69331b81ae1e (evmShr 0x
 def evS3 (x : Nat) : Nat := evmAdd 0x93f11e650dd6c64b96ce79065cdf80f4 (evmShr 0x81 (evmMul (evS2 x) (vTree x)))
 
 theorem evTree_layers (x : Nat) :
-    evTree x = evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c388 (evmShr 0x7e (evmMul (evS3 x) (vTree x))) :=
+    evTree x = evmAdd 0x1385291795942d41ba5fd317688e18710 (evmShr 0x7d (evmMul (evS3 x) (vTree x))) :=
   rfl
 
 theorem evS0_lt {x : Nat} (hv : vTree x < 2 ^ 120) :
@@ -118,10 +118,10 @@ theorem odS2_lt {x : Nat} (hv : vTree x < 2 ^ 120) : odS2 x < 2 ^ 129 := by
 /-! ## Composed Lipschitz bounds -/
 
 /-- **Even accumulator near-constancy.** Under a squared-argument gap `|v2 − v1| ≤ W` the even
-accumulator changes by at most `DEv = 85236826369`. -/
+accumulator changes by at most `DEv = 170473652738`. -/
 theorem evTree_lip {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 ^ 120)
     (hg1 : vTree x1 ≤ vTree x2 + Wstep) (hg2 : vTree x2 ≤ vTree x1 + Wstep) :
-    dist_le (evTree x1) (evTree x2) 85236826369 := by
+    dist_le (evTree x1) (evTree x2) 170473652738 := by
   -- monic leading stage: distance exactly the argument gap
   have d0 : dist_le (evS0 x1) (evS0 x2) Wstep :=
     evLead_lip (c := 0xb9aacfacf3c10b378435f8e22adf48500e) (W := Wstep) (by norm_num) hv1 hv2 hg1 hg2
@@ -153,11 +153,11 @@ theorem evTree_lip {x1 x2 : Nat} (hv1 : vTree x1 < 2 ^ 120) (hv2 : vTree x2 < 2 
       unfold Wstep; decide
     rw [he] at h; exact h
   -- final stage
-  have hfin := stage_lip_dist (c := 0x9c2948bcaca16a0dd2fe98bb4470c388) (P := 2 ^ 129) (V := 2 ^ 120)
-    (sh := 0x7e) (W := Wstep)
+  have hfin := stage_lip_dist (c := 0x1385291795942d41ba5fd317688e18710) (P := 2 ^ 129) (V := 2 ^ 120)
+    (sh := 0x7d) (W := Wstep)
     (Dprev := 10639016494) (le_of_lt (evS3_lt hv1)) (le_of_lt (evS3_lt hv2)) hv1 hv2 hg1 hg2 d3
     (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-  have he : (2 ^ 129 * Wstep + 2 ^ 120 * 10639016494) / 2 ^ 0x7e + 1 = 85236826369 := by
+  have he : (2 ^ 129 * Wstep + 2 ^ 120 * 10639016494) / 2 ^ 0x7d + 1 = 170473652738 := by
     unfold Wstep; decide
   rw [he] at hfin
   rw [evTree_layers, evTree_layers]; exact hfin

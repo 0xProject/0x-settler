@@ -22,7 +22,7 @@ open FormalYul.Preservation
 set_option maxRecDepth 100000
 
 /-- The per-step reduced-argument gap `G = ⌊K27 / 2^107⌋`. -/
-def Gstep : Nat := 340282366920
+def Gstep : Nat := 680564733841
 
 /-- Floored sum bound: `⌊(b + n)/d⌋ ≤ ⌊b/d⌋ + ⌊n/d⌋ + 1`. The two truncations of the split lose at
 most one unit jointly. -/

@@ -26,14 +26,14 @@ open FormalYul.Preservation
 
 set_option maxRecDepth 100000
 
-/-! ## The reduced-argument bound `|t| < 2^127` -/
+/-! ## The reduced-argument bound `|t| < 2^128` -/
 
-/-- On the meaningful region the reduced argument is bounded: `-2^127 < int256 (tTree x) < 2^127`.
+/-- On the meaningful region the reduced argument is bounded: `-2^128 < int256 (tTree x) < 2^128`.
 The octave reduction couples `k` to `x` (`2^192·k ≈ CINV·x`), so the residual `K27·x − LN2·k`
-stays inside `±ln2/2·2^235`, leaving `|t| < ln2/2·2^128 < 2^127`. -/
+stays inside `±ln2/2·2^235`, leaving `|t| < ln2/2·2^129 < 2^128`. -/
 theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    -(2 ^ 127 : Int) < int256 (tTree x) ∧ int256 (tTree x) < 2 ^ 127 := by
+    -(2 ^ 128 : Int) < int256 (tTree x) ∧ int256 (tTree x) < 2 ^ 128 := by
   obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
   obtain ⟨hklo, hkhi⟩ := kTree_sandwich hx hC hC0
   obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
@@ -53,8 +53,8 @@ theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
   set k := int256 (kTree x)
   set X := int256 x
   -- powers of two as decimals
-  have p107 : (2 : Int) ^ 107 = 162259276829213363391578010288128 := by norm_num
-  have p127 : (2 : Int) ^ 127 = 170141183460469231731687303715884105728 := by norm_num
+  have p107 : (2 : Int) ^ 106 = 81129638414606681695789005144064 := by norm_num
+  have p127 : (2 : Int) ^ 128 = 340282366920938463463374607431768211456 := by norm_num
   have p199 : (2 : Int) ^ 191 =
       3138550867693340381917894711603833208051177722232017256448 := by norm_num
   have p200 : (2 : Int) ^ 192 =
@@ -88,7 +88,7 @@ theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
   have hp200pos : (0 : Int) < 6277101735386680763835789423207666416102355444464034512896 := by
     norm_num
   have htlo' : 6277101735386680763835789423207666416102355444464034512896 *
-      (162259276829213363391578010288128 * t) ≤
+      (81129638414606681695789005144064 * t) ≤
       6277101735386680763835789423207666416102355444464034512896 *
       (55213970774324510299478046898216203619608872 * X -
         38271408169742254668347313025622401492114385419650052359639581444463709 * k) :=
@@ -97,7 +97,7 @@ theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
       (55213970774324510299478046898216203619608872 * X -
         38271408169742254668347313025622401492114385419650052359639581444463709 * k) <
       6277101735386680763835789423207666416102355444464034512896 *
-      (162259276829213363391578010288128 * t + 162259276829213363391578010288128) :=
+      (81129638414606681695789005144064 * t + 81129638414606681695789005144064) :=
     by
       have := mul_le_mul_left_nonneg (le_of_lt hthi) (le_of_lt hp200pos)
       rcases lt_or_eq_of_le this with h | h
@@ -114,8 +114,8 @@ Q123 square and the monic-stage multiply safety need. Same sandwich elimination 
 closed against the sharper literal. -/
 theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    -(120000000000000000000000000000000000000 : Int) < int256 (tTree x) ∧
-      int256 (tTree x) < 120000000000000000000000000000000000000 := by
+    -(240000000000000000000000000000000000000 : Int) < int256 (tTree x) ∧
+      int256 (tTree x) < 240000000000000000000000000000000000000 := by
   obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
   obtain ⟨hklo, hkhi⟩ := kTree_sandwich hx hC hC0
   obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
@@ -132,7 +132,7 @@ theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
   set t := int256 (tTree x)
   set k := int256 (kTree x)
   set X := int256 x
-  have p107 : (2 : Int) ^ 107 = 162259276829213363391578010288128 := by norm_num
+  have p107 : (2 : Int) ^ 106 = 81129638414606681695789005144064 := by norm_num
   have p199 : (2 : Int) ^ 191 =
       3138550867693340381917894711603833208051177722232017256448 := by norm_num
   have p200 : (2 : Int) ^ 192 =
@@ -162,7 +162,7 @@ theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
   have hp200pos : (0 : Int) < 6277101735386680763835789423207666416102355444464034512896 := by
     norm_num
   have htlo' : 6277101735386680763835789423207666416102355444464034512896 *
-      (162259276829213363391578010288128 * t) ≤
+      (81129638414606681695789005144064 * t) ≤
       6277101735386680763835789423207666416102355444464034512896 *
       (55213970774324510299478046898216203619608872 * X -
         38271408169742254668347313025622401492114385419650052359639581444463709 * k) :=
@@ -171,7 +171,7 @@ theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
       (55213970774324510299478046898216203619608872 * X -
         38271408169742254668347313025622401492114385419650052359639581444463709 * k) <
       6277101735386680763835789423207666416102355444464034512896 *
-      (162259276829213363391578010288128 * t + 162259276829213363391578010288128) :=
+      (81129638414606681695789005144064 * t + 81129638414606681695789005144064) :=
     by
       have := mul_le_mul_left_nonneg (le_of_lt hthi) (le_of_lt hp200pos)
       rcases lt_or_eq_of_le this with h | h
@@ -184,18 +184,18 @@ theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
 
 /-! ## `v = t²` in Q123 -/
 
-/-- The Q123 square `v = ⌊t²/2^133⌋` as a `Nat`: nonnegative, and `< 2^120`. The shift argument
-`t·t` fits in a word because `|t| < 1.2·10^38` gives `t² < 2^253`. -/
+/-- The Q123 square `v = ⌊t²/2^135⌋` as a `Nat`: nonnegative, and `< 2^120`. The shift argument
+`t·t` fits in a word because `|t| < 2.4·10^38` gives `t² < 2^255`. -/
 theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    (vTree x : Int) = (int256 (tTree x))^2 / 2 ^ 133 ∧ vTree x < 2 ^ 120 := by
+    (vTree x : Int) = (int256 (tTree x))^2 / 2 ^ 135 ∧ vTree x < 2 ^ 120 := by
   obtain ⟨htlo, hthi⟩ := tTree_bound_sharp hx hC hC0
   have htw : tTree x < 2 ^ 256 := by unfold tTree; exact evmSar_lt _ _
   -- the signed square equals the unsigned product of the canonical word with itself
   set t := int256 (tTree x) with htdef
-  have hsq_lt : t ^ 2 < 2 ^ 253 := by
-    have hp253 : (2:Int)^253 = 14474011154664524427946373126085988481658748083205070504932198000989141204992 := by norm_num
-    rw [hp253, sq]
+  have hsq_lt : t ^ 2 < 2 ^ 255 := by
+    have hp255 : (2:Int)^255 = 57896044618658097711785492504343953926634992332820282019728792003956564819968 := by norm_num
+    rw [hp255, sq]
     nlinarith [htlo, hthi]
   have hsq_nn : 0 ≤ t ^ 2 := by positivity
   -- `tTree x · tTree x` as a word equals `t²` (transport), nonneg, `< 2^253`.
@@ -211,22 +211,22 @@ theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
     split at h <;> simp only [ipow256] at * <;> nlinarith [hsq_nn, hsq_lt]
   have hmul_nat : (evmMul (tTree x) (tTree x) : Int) = t * t := by
     rw [← hmul]; exact (int256_of_lt hmul_small).symm
-  have hmul_nat_lt : evmMul (tTree x) (tTree x) < 2 ^ 253 := by
-    have : ((evmMul (tTree x) (tTree x) : Nat) : Int) < 2 ^ 253 := by
+  have hmul_nat_lt : evmMul (tTree x) (tTree x) < 2 ^ 255 := by
+    have : ((evmMul (tTree x) (tTree x) : Nat) : Int) < 2 ^ 255 := by
       rw [hmul_nat, ← sq]; exact hsq_lt
     exact_mod_cast this
   refine ⟨?_, ?_⟩
   · unfold vTree
     rw [evmShr_eq_div (by norm_num) hmul_lt]
-    have he : ((evmMul (tTree x) (tTree x) / 2 ^ 133 : Nat) : Int) =
-        (evmMul (tTree x) (tTree x) : Int) / 2 ^ 133 := by
+    have he : ((evmMul (tTree x) (tTree x) / 2 ^ 135 : Nat) : Int) =
+        (evmMul (tTree x) (tTree x) : Int) / 2 ^ 135 := by
       rw [Int.natCast_ediv]; norm_num
     rw [he, hmul_nat, ← sq]
   · unfold vTree
     rw [evmShr_eq_div (by norm_num) hmul_lt]
-    have : evmMul (tTree x) (tTree x) / 2 ^ 133 < 2 ^ 253 / 2 ^ 133 :=
+    have : evmMul (tTree x) (tTree x) / 2 ^ 135 < 2 ^ 255 / 2 ^ 135 :=
       Nat.div_lt_div_of_lt_of_dvd (by norm_num) hmul_nat_lt
-    have he : (2:Nat) ^ 253 / 2 ^ 133 = 2 ^ 120 := by
+    have he : (2:Nat) ^ 255 / 2 ^ 135 = 2 ^ 120 := by
       rw [Nat.pow_div (by norm_num) (by norm_num)]
     omega
 
@@ -330,9 +330,9 @@ theorem pvd (pe ve sh e : Nat) (hpe : pe + ve = sh + e) :
 `(ev0 + v)·v` is capped by the exact literal sum `(ev0 + 2^120)·2^120 < 2^256` — it has no
 power-of-two headroom. -/
 theorem evTree_facts {x : Nat} (hv : vTree x < 2 ^ 120) :
-    0x9c2948bcaca16a0dd2fe98bb4470c388 ≤ evTree x ∧ evTree x < 3 * 2 ^ 126 := by
+    0x1385291795942d41ba5fd317688e18710 ≤ evTree x ∧ evTree x < 3 * 2 ^ 127 := by
   have hev : evTree x =
-      evmAdd 0x9c2948bcaca16a0dd2fe98bb4470c388 (evmShr 0x7e (evmMul
+      evmAdd 0x1385291795942d41ba5fd317688e18710 (evmShr 0x7d (evmMul
       (evmAdd 0x93f11e650dd6c64b96ce79065cdf80f4 (evmShr 0x81 (evmMul
       (evmAdd 0x9064d9657e9a21fc16bb69331b81ae1e (evmShr 0x7b (evmMul
       (evmAdd 0x9a036222841f47c6ed6fc3f7599445 (evmShr 0x95 (evmMul
@@ -362,18 +362,18 @@ theorem evTree_facts {x : Nat} (hv : vTree x < 2 ^ 120) :
       (by rw [pvd 129 120 129 120 (by norm_num)]; norm_num)).2
     rw [pvd 129 120 129 120 (by norm_num)] at this; omega
   set ev3 := evmAdd 0x93f11e650dd6c64b96ce79065cdf80f4 (evmShr 0x81 (evmMul ev2 v)) with hev3
-  have hfin := stage_bounds (c := 0x9c2948bcaca16a0dd2fe98bb4470c388) (prev := ev3) (v := v)
-    (P := 2 ^ 129) (V := 2 ^ 120) (sh := 0x7e) h3 hv (by norm_num) (by norm_num)
-    (by rw [pvd 129 120 126 123 (by norm_num)]; norm_num)
-  rw [pvd 129 120 126 123 (by norm_num)] at hfin
+  have hfin := stage_bounds (c := 0x1385291795942d41ba5fd317688e18710) (prev := ev3) (v := v)
+    (P := 2 ^ 129) (V := 2 ^ 120) (sh := 0x7d) h3 hv (by norm_num) (by norm_num)
+    (by rw [pvd 129 120 125 124 (by norm_num)]; norm_num)
+  rw [pvd 129 120 125 124 (by norm_num)] at hfin
   refine ⟨hfin.1, ?_⟩
-  have : (0x9c2948bcaca16a0dd2fe98bb4470c388 : Nat) + 2 ^ 123 < 3 * 2 ^ 126 := by norm_num
+  have : (0x1385291795942d41ba5fd317688e18710 : Nat) + 2 ^ 124 < 3 * 2 ^ 127 := by norm_num
   omega
 
-theorem evTree_lt {x : Nat} (hv : vTree x < 2 ^ 120) : evTree x < 3 * 2 ^ 126 :=
+theorem evTree_lt {x : Nat} (hv : vTree x < 2 ^ 120) : evTree x < 3 * 2 ^ 127 :=
   (evTree_facts hv).2
 theorem evTree_ge {x : Nat} (hv : vTree x < 2 ^ 120) :
-    0x9c2948bcaca16a0dd2fe98bb4470c388 ≤ evTree x := (evTree_facts hv).1
+    0x1385291795942d41ba5fd317688e18710 ≤ evTree x := (evTree_facts hv).1
 
 /-- Two-sided bound on the odd Horner accumulator: `0x9c29… ≤ od < 5·2^125`. -/
 theorem odTree_facts {x : Nat} (hv : vTree x < 2 ^ 120) :

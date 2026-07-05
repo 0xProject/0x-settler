@@ -25,7 +25,7 @@ theorem region_x_bound {x : Nat} (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
     -(2 ^ 96 : Int) < int256 x ∧ int256 x < 2 ^ 96 := by
   rw [int256_Cmask] at hC
-  have hC0' : int256 x < 44707993146116472457411471835 := by
+  have hC0' : int256 x < 45401140326676417766828703956 := by
     rw [int256_C0thresh] at hC0
     exact hC0
   constructor <;> [skip; skip] <;> simp only [show (2:Int)^96 = 79228162514264337593543950336 from by norm_num] <;> omega
@@ -123,13 +123,13 @@ theorem kTree_mono {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hpow : (0 : Int) < 2 ^ 192 := by norm_num
   nlinarith [hlo1, hhi2, hargle, hpow]
 
-/-- On the meaningful region the octave index is bounded: `-61 ≤ k ≤ 64`. -/
+/-- On the meaningful region the octave index is bounded: `-61 ≤ k ≤ 65`. -/
 theorem kTree_bound {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    -61 ≤ int256 (kTree x) ∧ int256 (kTree x) ≤ 64 := by
+    -61 ≤ int256 (kTree x) ∧ int256 (kTree x) ≤ 65 := by
   obtain ⟨hlo, hhi⟩ := kTree_sandwich hx hC hC0
   have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
+  have hC0i : int256 C0thresh = 45401140326676417766828703956 := int256_C0thresh
   rw [hCi] at hC
   rw [hC0i] at hC0
   have hcinv : (0x724d54edbacbebbb95c52a0f60 : Int) = 9055943544797870567083544809312 := by
@@ -139,7 +139,7 @@ theorem kTree_bound {x : Nat} (hx : x < 2 ^ 256)
       0x724d54edbacbebbb95c52a0f60 * (-41446531673892822312323846185) := by
     rw [hcinv]; nlinarith [hC]
   have hprod_hi : (0x724d54edbacbebbb95c52a0f60 : Int) * int256 x <
-      0x724d54edbacbebbb95c52a0f60 * 44707993146116472457411471835 := by
+      0x724d54edbacbebbb95c52a0f60 * 45401140326676417766828703956 := by
     rw [hcinv]; nlinarith [hC0]
   constructor
   · nlinarith [hhi, hprod_lo]
@@ -156,7 +156,7 @@ theorem int256_tArg {x : Nat} (hx : x < 2 ^ 256)
       0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
         0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) := by
   have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
+  have hC0i : int256 C0thresh = 45401140326676417766828703956 := int256_C0thresh
   have hxr := hC; rw [hCi] at hxr
   have hxr0 := hC0; rw [hC0i] at hxr0
   obtain ⟨hklo, hkhi⟩ := kTree_bound hx hC hC0
@@ -183,17 +183,17 @@ theorem tArg_lt {x : Nat} :
         (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d (kTree x))
       < 2 ^ 256 := evmSub_lt _ _
 
-/-- `t = sar(107, tArg)` floor sandwich: `2^107·t ≤ K27·x − LN2·k < 2^107·t + 2^107`. -/
+/-- `t = sar(106, tArg)` floor sandwich: `2^106·t ≤ K27·x − LN2·k < 2^106·t + 2^106`. -/
 theorem tTree_sandwich {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    (2 ^ 107 : Int) * int256 (tTree x) ≤
+    (2 ^ 106 : Int) * int256 (tTree x) ≤
         0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
           0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) ∧
       0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
           0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) <
-        (2 ^ 107 : Int) * int256 (tTree x) + 2 ^ 107 := by
+        (2 ^ 106 : Int) * int256 (tTree x) + 2 ^ 106 := by
   unfold tTree
-  obtain ⟨_, hlo, hhi⟩ := evmSar_sandwich (s := 0x6b) (by norm_num) (tArg_lt (x := x))
+  obtain ⟨_, hlo, hhi⟩ := evmSar_sandwich (s := 0x6a) (by norm_num) (tArg_lt (x := x))
   rw [int256_tArg hx hC hC0] at hlo hhi
   exact ⟨by simpa using hlo, by simpa using hhi⟩
 
@@ -214,7 +214,7 @@ theorem tTree_mono_sameOctave {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^
         0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x2) := by
     have := mul_le_mul_left_nonneg hle (le_of_lt hk27)
     omega
-  have hpow : (0 : Int) < 2 ^ 107 := by norm_num
+  have hpow : (0 : Int) < 2 ^ 106 := by norm_num
   nlinarith [hlo1, hhi2, hargle, hpow]
 
 end ExpYul

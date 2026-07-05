@@ -12,7 +12,7 @@ import ExpProof.Cert.ExpVDenM1
 # From cell certificates to the **v-form** reduced-argument Taylor caps
 
 The v-form cell covers (`Cert/ExpVUp`, `Cert/ExpVLo`, `Cert/ExpVNum`, `Cert/ExpVDenM1`) certify the
-four v-form certificate polynomials nonnegative over `t ∈ [0, H128]`. This module converts that
+four v-form certificate polynomials nonnegative over `t ∈ [0, H129]`. This module converts that
 nonnegativity into the two bare-argument Taylor caps the floor layer folds with `2^k`, targeting the
 implementation's exact **v-form** rational `ê_v(t) = NUM(t)/DEN(t)` (built from the even/odd Horner
 polynomials in `v = t²`) nudged by the dyadic margin, with `Qexp = 2^128`:
@@ -103,7 +103,7 @@ theorem evalCertExpLo (t : Int) :
 /-! ## Positivity of the rational over the domain -/
 
 /-- `1 ≤ DEN(t)` over the domain. -/
-theorem denExpV_ge_one {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
+theorem denExpV_ge_one {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H129 : Int)) :
     1 ≤ evalPoly denExpV t := by
   have h := denM1V_nonneg h1 h2
   unfold certDenM1 at h
@@ -112,18 +112,18 @@ theorem denExpV_ge_one {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
   omega
 
 /-- `0 ≤ NUM(t)` over the domain. -/
-theorem numExpV_nonneg' {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
+theorem numExpV_nonneg' {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H129 : Int)) :
     0 ≤ evalPoly numExpV t := numExpV_nonneg h1 h2
 
 /-! ## The bare-argument Taylor caps -/
 
-theorem Qexp_eq : (Qexp : Int) = 2 ^ 128 := by unfold Qexp; norm_num
+theorem Qexp_eq : (Qexp : Int) = 2 ^ 129 := by unfold Qexp; norm_num
 
 theorem Qexp_pos : 0 < Qexp := by unfold Qexp; norm_num
 
 /-- **Never-over cap** at the v-form rational `yUB/wUB = ê_v·(1 + 2⁻¹³²)`: for every reduced argument
-`t ∈ [0, H128]`, `exp(t/Qexp) ≤ yUB(t)/wUB(t)`. -/
-theorem capExpUp {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
+`t ∈ [0, H129]`, `exp(t/Qexp) ≤ yUB(t)/wUB(t)`. -/
+theorem capExpUp {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H129 : Int)) :
     capUB t.toNat Qexp (evalPoly yUB t).toNat (evalPoly wUB t).toNat := by
   have hnum : 0 ≤ evalPoly numExpV t := numExpV_nonneg h1 h2
   have hden : 1 ≤ evalPoly denExpV t := denExpV_ge_one h1 h2
@@ -138,26 +138,26 @@ theorem capExpUp {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
   have hyn : ((evalPoly yUB t).toNat : Int) = evalPoly yUB t := Int.toNat_of_nonneg hyub
   have hwn : ((evalPoly wUB t).toNat : Int) = evalPoly wUB t := Int.toNat_of_nonneg hwub
   refine capUB27_of_int Qexp_pos ?_ ?_
-  · have htle : t.toNat ≤ H128 := by
-      have : (t.toNat : Int) ≤ (H128 : Int) := by rw [htn]; exact h2
+  · have htle : t.toNat ≤ H129 := by
+      have : (t.toNat : Int) ≤ (H129 : Int) := by rw [htn]; exact h2
       exact_mod_cast this
-    have hHQ : 2 * H128 < 29 * Qexp := by unfold H128 Qexp; norm_num
+    have hHQ : 2 * H129 < 29 * Qexp := by unfold H129 Qexp; norm_num
     omega
   · rw [htn, hyn, hwn, Qexp_eq]
     have h := expVUp_nonneg h1 h2
     rw [evalCertExpUp] at h
     unfold fact28Q28 at h
     rw [Qexp_eq] at h
-    have key : (28 * (2 : Int) ^ 128 * expNumI 27 t (2 ^ 128) + 2 * t ^ 28) * evalPoly wUB t ≤
-        304888344611713860501504000000 * ((2 : Int) ^ 128) ^ 28 * evalPoly yUB t := by omega
-    calc (expNumI 27 t (2 ^ 128) * (28 * (2 : Int) ^ 128) + 2 * t ^ 28) * evalPoly wUB t
-        = (28 * (2 : Int) ^ 128 * expNumI 27 t (2 ^ 128) + 2 * t ^ 28) * evalPoly wUB t := by ring
-      _ ≤ 304888344611713860501504000000 * ((2 : Int) ^ 128) ^ 28 * evalPoly yUB t := key
-      _ = evalPoly yUB t * (304888344611713860501504000000 * ((2 : Int) ^ 128) ^ 28) := by ring
+    have key : (28 * (2 : Int) ^ 129 * expNumI 27 t (2 ^ 129) + 2 * t ^ 28) * evalPoly wUB t ≤
+        304888344611713860501504000000 * ((2 : Int) ^ 129) ^ 28 * evalPoly yUB t := by omega
+    calc (expNumI 27 t (2 ^ 129) * (28 * (2 : Int) ^ 129) + 2 * t ^ 28) * evalPoly wUB t
+        = (28 * (2 : Int) ^ 129 * expNumI 27 t (2 ^ 129) + 2 * t ^ 28) * evalPoly wUB t := by ring
+      _ ≤ 304888344611713860501504000000 * ((2 : Int) ^ 129) ^ 28 * evalPoly yUB t := key
+      _ = evalPoly yUB t * (304888344611713860501504000000 * ((2 : Int) ^ 129) ^ 28) := by ring
 
 /-- **Not-two-below cap** at the v-form rational `yLB/wLB = ê_v·(1 − 2⁻¹³²)`: for every reduced
-argument `t ∈ [0, H128]`, `yLB(t)/wLB(t) ≤ exp(t/Qexp)`. -/
-theorem capExpLo {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
+argument `t ∈ [0, H129]`, `yLB(t)/wLB(t) ≤ exp(t/Qexp)`. -/
+theorem capExpLo {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H129 : Int)) :
     capLB t.toNat Qexp (evalPoly yLB t).toNat (evalPoly wLB t).toNat := by
   have hnum : 0 ≤ evalPoly numExpV t := numExpV_nonneg h1 h2
   have hden : 1 ≤ evalPoly denExpV t := denExpV_ge_one h1 h2
@@ -177,9 +177,9 @@ theorem capExpLo {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
   rw [evalCertExpLo] at h
   unfold fact27Q27 at h
   rw [Qexp_eq] at h
-  calc evalPoly yLB t * (10888869450418352160768000000 * ((2 : Int) ^ 128) ^ 27)
-      = 10888869450418352160768000000 * ((2 : Int) ^ 128) ^ 27 * evalPoly yLB t := by ring
-    _ ≤ expNumI 27 t (2 ^ 128) * evalPoly wLB t := by omega
+  calc evalPoly yLB t * (10888869450418352160768000000 * ((2 : Int) ^ 129) ^ 27)
+      = 10888869450418352160768000000 * ((2 : Int) ^ 129) ^ 27 * evalPoly yLB t := by ring
+    _ ≤ expNumI 27 t (2 ^ 129) * evalPoly wLB t := by omega
 
 /-- info: 'ExpCertV.capExpUp' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

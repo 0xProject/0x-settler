@@ -88,14 +88,14 @@ theorem call_cleanup_t_rational_44_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v]
-      (.some "cleanup_t_rational_44707993146116472457411471835_by_1")
+      (.some "cleanup_t_rational_45401140326676417766828703956_by_1")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
   rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions,
-    lookup_cleanup_t_rational_44707993146116472457411471835_by_1]
-  simp only [yulFunction_cleanup_t_rational_44707993146116472457411471835_by_1,
+    lookup_cleanup_t_rational_45401140326676417766828703956_by_1]
+  simp only [yulFunction_cleanup_t_rational_45401140326676417766828703956_by_1,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -154,14 +154,14 @@ theorem call_convert_44_to_int256_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + (extra + 120)) [FormalYul.word v]
-      (.some "convert_t_rational_44707993146116472457411471835_by_1_to_t_int256")
+      (.some "convert_t_rational_45401140326676417766828703956_by_1_to_t_int256")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
   rw [show fuel + (extra + 120) = (fuel + extra) + 120 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions,
-    lookup_convert_t_rational_44707993146116472457411471835_by_1_to_t_int256]
-  simp only [yulFunction_convert_t_rational_44707993146116472457411471835_by_1_to_t_int256,
+    lookup_convert_t_rational_45401140326676417766828703956_by_1_to_t_int256]
+  simp only [yulFunction_convert_t_rational_45401140326676417766828703956_by_1_to_t_int256,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,

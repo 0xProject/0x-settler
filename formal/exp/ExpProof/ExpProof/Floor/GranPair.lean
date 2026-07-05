@@ -46,9 +46,9 @@ theorem gran_over_pair {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  have htdom : t ≤ (ExpCertV.H128 : Int) := by
-    rw [show ((ExpCertV.H128 : Nat) : Int) = 117932881612756647068972071382077242199 from by
-      unfold ExpCertV.H128; norm_num]
+  have htdom : t ≤ (ExpCertV.H129 : Int) := by
+    rw [show ((ExpCertV.H129 : Nat) : Int) = 235865763225513294137944142764154484399 from by
+      unfold ExpCertV.H129; norm_num]
     exact hthi
   -- the piece cap dominates on this half: t ≤ T
   have htT : t ≤ T := by
@@ -85,15 +85,15 @@ theorem gran_over_pair {x : Nat} (hx : x < 2 ^ 256)
     exact_mod_cast htie2
   have hstep_eq : (NUMv v t : Real) / (DENv v t : Real) -
       (NUMv (v + 1) t : Real) / (DENv (v + 1) t : Real) =
-      ((2 * t * 2 ^ 110 * KpM v : Int) : Real) /
+      ((2 * t * 2 ^ 111 * KpM v : Int) : Real) /
         ((DENv v t : Real) * (DENv (v + 1) t : Real)) := by
     rw [div_sub_div _ _ (ne_of_gt hDR) (ne_of_gt hD1R)]
     congr 1
     have hid := step_identity v t
     have hcast : ((NUMv v t : Int) : Real) * ((DENv (v + 1) t : Int) : Real) -
         ((DENv v t : Int) : Real) * ((NUMv (v + 1) t : Int) : Real) =
-        ((2 * t * 2 ^ 110 * KpM v : Int) : Real) := by
-      rw [show ((2 * t * 2 ^ 110 * KpM v : Int) : Real) =
+        ((2 * t * 2 ^ 111 * KpM v : Int) : Real) := by
+      rw [show ((2 * t * 2 ^ 111 * KpM v : Int) : Real) =
           ((NUMv v t * DENv (v + 1) t - NUMv (v + 1) t * DENv v t : Int) : Real) from by
         exact_mod_cast (congrArg (fun z : Int => (z : Real)) hid.symm)]
       push_cast
@@ -101,13 +101,13 @@ theorem gran_over_pair {x : Nat} (hx : x < 2 ^ 256)
     exact hcast
   -- numerator and denominator bounds for the K-step
   have hKnn := KpM_nonneg v
-  have hnum_le : 2 * t * 2 ^ 110 * KpM v ≤ 2 * T * 2 ^ 110 * Khi := by
-    have h1 : 2 * t * 2 ^ 110 * KpM v ≤ 2 * T * 2 ^ 110 * KpM v := by
-      have hcoef : 2 * t * 2 ^ 110 ≤ 2 * T * 2 ^ 110 := by nlinarith [htT]
+  have hnum_le : 2 * t * 2 ^ 111 * KpM v ≤ 2 * T * 2 ^ 111 * Khi := by
+    have h1 : 2 * t * 2 ^ 111 * KpM v ≤ 2 * T * 2 ^ 111 * KpM v := by
+      have hcoef : 2 * t * 2 ^ 111 ≤ 2 * T * 2 ^ 111 := by nlinarith [htT]
       exact mul_le_mul_of_nonneg_right hcoef hKnn
-    have hTc : (0:Int) ≤ 2 * T * 2 ^ 110 :=
+    have hTc : (0:Int) ≤ 2 * T * 2 ^ 111 :=
       mul_nonneg (mul_nonneg (by norm_num) hTnn) (by norm_num)
-    have h2 : 2 * T * 2 ^ 110 * KpM v ≤ 2 * T * 2 ^ 110 * Khi :=
+    have h2 : 2 * T * 2 ^ 111 * KpM v ≤ 2 * T * 2 ^ 111 * Khi :=
       mul_le_mul_of_nonneg_left hK hTc
     linarith [h1, h2]
   have hden_ge : ((DO * 2 ^ 725 : Int) : Real) * ((DO * 2 ^ 725 : Int) : Real) ≤
@@ -118,18 +118,18 @@ theorem gran_over_pair {x : Nat} (hx : x < 2 ^ 256)
       exact_mod_cast le_of_lt hDO725
     exact mul_le_mul hDRc hD1Rc hDOR (le_of_lt hDR)
   -- the K-step fraction is inside the piece budget
-  have hfrac : ((2 * t * 2 ^ 110 * KpM v : Int) : Real) /
+  have hfrac : ((2 * t * 2 ^ 111 * KpM v : Int) : Real) /
       ((DENv v t : Real) * (DENv (v + 1) t : Real)) ≤
       3290521163436398582 / 10000000000000000000 / 2 ^ 126 := by
     have hdd : (0:Real) < (DENv v t : Real) * (DENv (v + 1) t : Real) := mul_pos hDR hD1R
     rw [div_le_div_iff₀ hdd (by positivity : (0:Real) < (2:Real) ^ 126)]
-    have hnumR : ((2 * t * 2 ^ 110 * KpM v : Int) : Real) ≤
-        ((2 * T * 2 ^ 110 * Khi : Int) : Real) := by
+    have hnumR : ((2 * t * 2 ^ 111 * KpM v : Int) : Real) ≤
+        ((2 * T * 2 ^ 111 * Khi : Int) : Real) := by
       exact_mod_cast hnum_le
-    have h1 : ((2 * t * 2 ^ 110 * KpM v : Int) : Real) * 2 ^ 126 ≤
-        ((2 * T * 2 ^ 110 * Khi : Int) : Real) * 2 ^ 126 :=
+    have h1 : ((2 * t * 2 ^ 111 * KpM v : Int) : Real) * 2 ^ 126 ≤
+        ((2 * T * 2 ^ 111 * Khi : Int) : Real) * 2 ^ 126 :=
       mul_le_mul_of_nonneg_right hnumR (by positivity)
-    have h2 : ((2 * T * 2 ^ 110 * Khi : Int) : Real) * 2 ^ 126 ≤
+    have h2 : ((2 * T * 2 ^ 111 * Khi : Int) : Real) * 2 ^ 126 ≤
         (3290521163436398582 / 10000000000000000000 : Real) *
           (((DO * 2 ^ 725 : Int) : Real) * ((DO * 2 ^ 725 : Int) : Real)) := by
       rw [div_mul_eq_mul_div, le_div_iff₀ (by norm_num : (0:Real) < 10000000000000000000)]
@@ -175,13 +175,13 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
   have hvle := vTree_le_vmax hx hC hC0
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  have htdom : -t ≤ (ExpCertV.H128 : Int) := by
-    rw [show ((ExpCertV.H128 : Nat) : Int) = 117932881612756647068972071382077242199 from by
-      unfold ExpCertV.H128; norm_num]
+  have htdom : -t ≤ (ExpCertV.H129 : Int) := by
+    rw [show ((ExpCertV.H129 : Nat) : Int) = 235865763225513294137944142764154484399 from by
+      unfold ExpCertV.H129; norm_num]
     linarith [htlo]
   -- denominators (positivity via the global over floor on the nonpositive half)
-  have hD : 554482771859 * 2 ^ 725 ≤ DENv v t := DENv_ge_neg (by omega) htnp
-  have hD1 : 554482771859 * 2 ^ 725 ≤ DENv (v + 1) t := DENv_ge_neg (by omega) htnp
+  have hD : 1108965543718 * 2 ^ 725 ≤ DENv v t := DENv_ge_neg (by omega) htnp
+  have hD1 : 1108965543718 * 2 ^ 725 ≤ DENv (v + 1) t := DENv_ge_neg (by omega) htnp
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hD
   have hD1pos : (0:Int) < DENv (v + 1) t := lt_of_lt_of_le (by positivity) hD1
   have hDEpos : (0:Int) < evalPoly ExpCertV.denExpV t := (certNE_pos_neg_aux htnp htdom).2
@@ -201,14 +201,14 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
     exact_mod_cast htie2
   have hstep_eq : (NUMv (v + 1) t : Real) / (DENv (v + 1) t : Real) -
       (NUMv v t : Real) / (DENv v t : Real) =
-      ((2 * (-t) * 2 ^ 110 * KpM v : Int) : Real) /
+      ((2 * (-t) * 2 ^ 111 * KpM v : Int) : Real) /
         ((DENv (v + 1) t : Real) * (DENv v t : Real)) := by
     rw [div_sub_div _ _ (ne_of_gt hD1R) (ne_of_gt hDR)]
     congr 1
     have hid := step_identity v t
     have hswap : NUMv (v + 1) t * DENv v t - DENv (v + 1) t * NUMv v t =
-        2 * (-t) * 2 ^ 110 * KpM v := by linear_combination -hid
-    rw [show ((2 * (-t) * 2 ^ 110 * KpM v : Int) : Real) =
+        2 * (-t) * 2 ^ 111 * KpM v := by linear_combination -hid
+    rw [show ((2 * (-t) * 2 ^ 111 * KpM v : Int) : Real) =
         ((NUMv (v + 1) t * DENv v t - DENv (v + 1) t * NUMv v t : Int) : Real) from by
       exact_mod_cast (congrArg (fun z : Int => (z : Real)) hswap.symm)]
     push_cast
@@ -221,9 +221,9 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
     push_neg at hgt
     have hu2 : u ^ 2 = t ^ 2 := by rw [hudef]; ring
     nlinarith [hT2, hu0, hTnn, hgt, hu2]
-  set A : Int := (evNumV v : Int) * 2 ^ 110 with hAdef
+  set A : Int := (evNumV v : Int) * 2 ^ 111 with hAdef
   set Bo : Int := (odNumV v : Int) with hBodef
-  set A1 : Int := (evNumV (v + 1) : Int) * 2 ^ 110 with hA1def
+  set A1 : Int := (evNumV (v + 1) : Int) * 2 ^ 111 with hA1def
   set Bo1 : Int := (odNumV (v + 1) : Int) with hBo1def
   have hBo_nn : (0:Int) ≤ Bo := Int.natCast_nonneg _
   have hBo1_nn : (0:Int) ≤ Bo1 := Int.natCast_nonneg _
@@ -261,9 +261,9 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
   have hDH1pos : (0:Int) < A1 + T * Bo1 := lt_of_lt_of_le hDU725 hDH1
   have hKnn := KpM_nonneg v
   -- the fraction chain: u-step ≤ T-step ≤ piece maximum
-  have hfracu : ((2 * u * 2 ^ 110 * KpM v : Int) : Real) /
+  have hfracu : ((2 * u * 2 ^ 111 * KpM v : Int) : Real) /
       ((DENv (v + 1) t : Real) * (DENv v t : Real)) ≤
-      ((2 * T * 2 ^ 110 * KpM v : Int) : Real) /
+      ((2 * T * 2 ^ 111 * KpM v : Int) : Real) /
         (((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real)) := by
     have hdd : (0:Real) < (DENv (v + 1) t : Real) * (DENv v t : Real) := mul_pos hD1R hDR
     have hdH : (0:Real) < ((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real) := by
@@ -272,9 +272,9 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
       exact mul_pos h1 h2
     rw [div_le_div_iff₀ hdd hdH]
     -- cross-multiplied: (2u·2^110·Kp)·(D1(T)·D(T)) ≤ (2T·2^110·Kp)·(D1(u)·D(u))
-    have hint : (2 * u * 2 ^ 110 * KpM v) * ((A1 + T * Bo1) * (A + T * Bo)) ≤
-        (2 * T * 2 ^ 110 * KpM v) * ((A1 + u * Bo1) * (A + u * Bo)) := by
-      have hc : (0:Int) ≤ 2 * 2 ^ 110 * KpM v :=
+    have hint : (2 * u * 2 ^ 111 * KpM v) * ((A1 + T * Bo1) * (A + T * Bo)) ≤
+        (2 * T * 2 ^ 111 * KpM v) * ((A1 + u * Bo1) * (A + u * Bo)) := by
+      have hc : (0:Int) ≤ 2 * 2 ^ 111 * KpM v :=
         mul_nonneg (by norm_num) hKnn
       have hscaled := mul_le_mul_of_nonneg_left hmono hc
       linarith only [hscaled]
@@ -282,18 +282,18 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
         (((A1 + u * Bo1) * (A + u * Bo) : Int) : Real) := by
       rw [hDu, hDu1]; push_cast; ring
     rw [hrw]
-    calc ((2 * u * 2 ^ 110 * KpM v : Int) : Real) *
+    calc ((2 * u * 2 ^ 111 * KpM v : Int) : Real) *
           (((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real))
-        = (((2 * u * 2 ^ 110 * KpM v) *
+        = (((2 * u * 2 ^ 111 * KpM v) *
             ((A1 + T * Bo1) * (A + T * Bo)) : Int) : Real) := by
           push_cast; ring
-      _ ≤ (((2 * T * 2 ^ 110 * KpM v) * ((A1 + u * Bo1) * (A + u * Bo)) : Int) : Real) := by
+      _ ≤ (((2 * T * 2 ^ 111 * KpM v) * ((A1 + u * Bo1) * (A + u * Bo)) : Int) : Real) := by
           exact_mod_cast hint
-      _ = ((2 * T * 2 ^ 110 * KpM v : Int) : Real) *
+      _ = ((2 * T * 2 ^ 111 * KpM v : Int) : Real) *
             (((A1 + u * Bo1) * (A + u * Bo) : Int) : Real) := by push_cast; ring
-  have hfracH : ((2 * T * 2 ^ 110 * KpM v : Int) : Real) /
+  have hfracH : ((2 * T * 2 ^ 111 * KpM v : Int) : Real) /
       (((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real)) ≤
-      ((2 * T * 2 ^ 110 * Khi : Int) : Real) /
+      ((2 * T * 2 ^ 111 * Khi : Int) : Real) /
         (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real)) := by
     have hdH : (0:Real) < ((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real) := by
       have h1 : (0:Real) < ((A1 + T * Bo1 : Int) : Real) := by exact_mod_cast hDH1pos
@@ -301,15 +301,15 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
       exact mul_pos h1 h2
     have hDUR : (0:Real) < ((DU * 2 ^ 725 : Int) : Real) := by exact_mod_cast hDU725
     rw [div_le_div_iff₀ hdH (by positivity)]
-    have hTc : (0:Int) ≤ 2 * T * 2 ^ 110 :=
+    have hTc : (0:Int) ≤ 2 * T * 2 ^ 111 :=
       mul_nonneg (mul_nonneg (by norm_num) hTnn) (by norm_num)
-    have hnum : ((2 * T * 2 ^ 110 * KpM v : Int) : Real) ≤
-        ((2 * T * 2 ^ 110 * Khi : Int) : Real) := by
-      have : (2 * T * 2 ^ 110 * KpM v : Int) ≤ 2 * T * 2 ^ 110 * Khi :=
+    have hnum : ((2 * T * 2 ^ 111 * KpM v : Int) : Real) ≤
+        ((2 * T * 2 ^ 111 * Khi : Int) : Real) := by
+      have : (2 * T * 2 ^ 111 * KpM v : Int) ≤ 2 * T * 2 ^ 111 * Khi :=
         mul_le_mul_of_nonneg_left hK hTc
       exact_mod_cast this
-    have hnum_nn : (0:Real) ≤ ((2 * T * 2 ^ 110 * KpM v : Int) : Real) := by
-      have : (0:Int) ≤ 2 * T * 2 ^ 110 * KpM v := mul_nonneg hTc hKnn
+    have hnum_nn : (0:Real) ≤ ((2 * T * 2 ^ 111 * KpM v : Int) : Real) := by
+      have : (0:Int) ≤ 2 * T * 2 ^ 111 * KpM v := mul_nonneg hTc hKnn
       exact_mod_cast this
     have hden : (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real)) ≤
         ((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real) := by
@@ -318,18 +318,18 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
       have h2 : ((DU * 2 ^ 725 : Int) : Real) ≤ ((A + T * Bo : Int) : Real) := by
         exact_mod_cast hDH
       exact mul_le_mul h1 h2 (le_of_lt hDUR) (by exact_mod_cast le_of_lt hDH1pos)
-    calc ((2 * T * 2 ^ 110 * KpM v : Int) : Real) *
+    calc ((2 * T * 2 ^ 111 * KpM v : Int) : Real) *
           (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real))
-        ≤ ((2 * T * 2 ^ 110 * Khi : Int) : Real) *
+        ≤ ((2 * T * 2 ^ 111 * Khi : Int) : Real) *
           (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real)) :=
           mul_le_mul_of_nonneg_right hnum (by positivity)
-      _ ≤ ((2 * T * 2 ^ 110 * Khi : Int) : Real) *
+      _ ≤ ((2 * T * 2 ^ 111 * Khi : Int) : Real) *
           (((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real)) := by
           apply mul_le_mul_of_nonneg_left hden
           exact le_trans hnum_nn hnum
   -- the piece budget, Mp-factor included
   have hbudget : (2 ^ 126 : Real) * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) *
-      (((2 * T * 2 ^ 110 * Khi : Int) : Real) /
+      (((2 * T * 2 ^ 111 * Khi : Int) : Real) /
         (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real))) ≤
       1644901622230542074 / 10000000000000000000 := by
     have hMp1 : (0:Real) < (2 ^ 131 : Real) - 1 := by norm_num
@@ -340,15 +340,15 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
         (2 ^ 126 * 2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1) from by rw [mul_div_assoc],
       div_mul_div_comm]
     rw [div_le_div_iff₀ (mul_pos hMp1 hDD) (by norm_num : (0:Real) < 10000000000000000000)]
-    have hint : (2 ^ 126 * 2 ^ 131 : Int) * (2 * T * 2 ^ 110 * Khi) * 10000000000000000000 ≤
+    have hint : (2 ^ 126 * 2 ^ 131 : Int) * (2 * T * 2 ^ 111 * Khi) * 10000000000000000000 ≤
         (1644901622230542074 : Int) *
           ((2 ^ 131 - 1) * ((DU * 2 ^ 725) * (DU * 2 ^ 725))) := by
-      calc (2 ^ 126 * 2 ^ 131 : Int) * (2 * T * 2 ^ 110 * Khi) * 10000000000000000000
-          = 2 ^ 126 * 2 ^ 131 * (2 * T * 2 ^ 110 * Khi) * 10000000000000000000 := by ring
+      calc (2 ^ 126 * 2 ^ 131 : Int) * (2 * T * 2 ^ 111 * Khi) * 10000000000000000000
+          = 2 ^ 126 * 2 ^ 131 * (2 * T * 2 ^ 111 * Khi) * 10000000000000000000 := by ring
         _ ≤ _ := hbudU
-    calc (2 ^ 126 * 2 ^ 131 : Real) * ((2 * T * 2 ^ 110 * Khi : Int) : Real) *
+    calc (2 ^ 126 * 2 ^ 131 : Real) * ((2 * T * 2 ^ 111 * Khi : Int) : Real) *
           10000000000000000000
-        = (((2 ^ 126 * 2 ^ 131 : Int) * (2 * T * 2 ^ 110 * Khi) *
+        = (((2 ^ 126 * 2 ^ 131 : Int) * (2 * T * 2 ^ 111 * Khi) *
             10000000000000000000 : Int) : Real) := by push_cast; ring
       _ ≤ (((1644901622230542074 : Int) *
             ((2 ^ 131 - 1) * ((DU * 2 ^ 725) * (DU * 2 ^ 725))) : Int) : Real) := by
@@ -360,21 +360,21 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
   -- assemble part 2
   have hgap_le : (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) -
       (NUMv v t : Real) / (DENv v t : Real) ≤
-      ((2 * T * 2 ^ 110 * Khi : Int) : Real) /
+      ((2 * T * 2 ^ 111 * Khi : Int) : Real) /
         (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real)) := by
-    have hu_eq : ((2 * u * 2 ^ 110 * KpM v : Int) : Real) =
-        ((2 * (-t) * 2 ^ 110 * KpM v : Int) : Real) := by rw [hudef]
+    have hu_eq : ((2 * u * 2 ^ 111 * KpM v : Int) : Real) =
+        ((2 * (-t) * 2 ^ 111 * KpM v : Int) : Real) := by rw [hudef]
     calc (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) -
           (NUMv v t : Real) / (DENv v t : Real)
         ≤ (NUMv (v + 1) t : Real) / (DENv (v + 1) t : Real) -
           (NUMv v t : Real) / (DENv v t : Real) := by linarith [hQw_le_Qv1]
-      _ = ((2 * (-t) * 2 ^ 110 * KpM v : Int) : Real) /
+      _ = ((2 * (-t) * 2 ^ 111 * KpM v : Int) : Real) /
           ((DENv (v + 1) t : Real) * (DENv v t : Real)) := hstep_eq
-      _ = ((2 * u * 2 ^ 110 * KpM v : Int) : Real) /
+      _ = ((2 * u * 2 ^ 111 * KpM v : Int) : Real) /
           ((DENv (v + 1) t : Real) * (DENv v t : Real)) := by rw [hu_eq]
-      _ ≤ ((2 * T * 2 ^ 110 * KpM v : Int) : Real) /
+      _ ≤ ((2 * T * 2 ^ 111 * KpM v : Int) : Real) /
           (((A1 + T * Bo1 : Int) : Real) * ((A + T * Bo : Int) : Real)) := hfracu
-      _ ≤ ((2 * T * 2 ^ 110 * Khi : Int) : Real) /
+      _ ≤ ((2 * T * 2 ^ 111 * Khi : Int) : Real) /
           (((DU * 2 ^ 725 : Int) : Real) * ((DU * 2 ^ 725 : Int) : Real)) := hfracH
   have hMpnn : (0:Real) ≤ (2 ^ 126 : Real) * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) := by
     have : (0:Real) < (2 ^ 131 : Real) - 1 := by norm_num

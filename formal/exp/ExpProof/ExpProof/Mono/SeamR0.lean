@@ -6,7 +6,7 @@ import ExpProof.Floor.R0ExpUnder
 
 `SeamR0Bound` (`r0Tree x1 + 3 ≤ 2·r0Tree x2` across one octave seam) is the single analytic
 obligation that `run_exp_ray_to_wad_evm_mono_of_seamR0` carries. The per-point real bracket
-`r0Tree x ≈ scaleQ68·exp(rt)` (`Floor.R0Exp`/`Floor.R0ExpUnder`, both signs) together with the
+`r0Tree x ≈ scaleQ67·exp(rt)` (`Floor.R0Exp`/`Floor.R0ExpUnder`, both signs) together with the
 seam exp relation
 `rt1 = rt2 + ln2 − 1/RAY` discharges it: `exp(rt1) = 2·exp(rt2)·exp(−1/RAY)`, and the
 `1 − exp(−1/RAY) ≈ 1/RAY` slack (against `r0Tree x2 > 2¹²⁶`, worth `≈ 8.5·10¹⁰` grid units)

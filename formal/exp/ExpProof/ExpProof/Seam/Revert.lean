@@ -64,7 +64,7 @@ theorem call_fun_expRayToWad_68_revert_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
-    (h1 : (0x907595ccd30708cabec8a9db : Nat) ≤ FormalYul.u256 x)
+    (h1 : (0x92b2f16cc66c5a4ae96e80d4 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
     EvmYul.Yul.call (fuel + (extra + 1000)) [FormalYul.word x] (.some "fun_expRayToWad_68")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
@@ -78,7 +78,7 @@ theorem call_fun_expRayToWad_68_revert_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hconv44 :=
-    call_convert_44_to_int256_direct (v := 0x907595ccd30708cabec8a9db) (fuel := fuel + extra) (extra := 867)
+    call_convert_44_to_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4) (fuel := fuel + extra) (extra := 867)
       (shared := shared) (hlookup := hlookup)
   have hcleanup :=
     call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 965)
@@ -111,7 +111,7 @@ theorem call_fun_wrap_expRayToWad_revert_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
-    (h1 : (0x907595ccd30708cabec8a9db : Nat) ≤ FormalYul.u256 x)
+    (h1 : (0x92b2f16cc66c5a4ae96e80d4 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
     EvmYul.Yul.call (fuel + (extra + 1200)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_97")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
@@ -144,7 +144,7 @@ set_option maxHeartbeats 8000000 in
 reverts for out-of-range `x`. -/
 theorem external_fun_wrap_expRayToWad_calldata_revert
     (x : Nat) (store : EvmYul.Yul.VarStore)
-    (h1 : (0x907595ccd30708cabec8a9db : Nat) ≤ FormalYul.u256 x)
+    (h1 : (0x92b2f16cc66c5a4ae96e80d4 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
     EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
         (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) store) =
@@ -187,7 +187,7 @@ set_option maxHeartbeats 8000000 in
 (free-pointer `mstore` baked into a `SharedState.mk`, with the extracted `selector` in the store). -/
 theorem external_fun_wrap_expRayToWad_dispatcher_state_revert
     (x : Nat)
-    (h1 : (0x907595ccd30708cabec8a9db : Nat) ≤ FormalYul.u256 x)
+    (h1 : (0x92b2f16cc66c5a4ae96e80d4 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
     EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
         (EvmYul.Yul.State.Ok
@@ -228,7 +228,7 @@ set_option maxHeartbeats 8000000 in
 `expRayToWad` reverts: the EVM run of the `ExpWrapper` returns `.error "revert"`. -/
 theorem run_exp_ray_to_wad_evm_revert
     (x : Nat)
-    (h1 : (0x907595ccd30708cabec8a9db : Nat) ≤ FormalYul.u256 x)
+    (h1 : (0x92b2f16cc66c5a4ae96e80d4 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
     run_exp_ray_to_wad_evm x = .error "revert" := by
   have hexec :

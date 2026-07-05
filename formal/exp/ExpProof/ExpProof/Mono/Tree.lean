@@ -50,7 +50,7 @@ def todTree (x : Nat) : Nat := evmSar todShift (evmMul (tTree x) (odTree x))
 /-- `10¹⁸·exp(t)` on the `2⁶⁸` output grid: the numerator is pre-scaled by `10¹⁸·2⁶⁸ = 5¹⁸·2⁸⁶`
 before the single `DIV`. -/
 def r0Tree (x : Nat) : Nat :=
-  evmDiv (evmMul scaleQ68 (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
+  evmDiv (evmMul scaleQ67 (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
 
 /-- The floored, octave-scaled, margin-subtracted accumulator on the `2⁶⁸` output grid. -/
 def r1Tree (x : Nat) : Nat :=

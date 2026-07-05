@@ -12,11 +12,11 @@ library Exp {
     ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For "central" inputs 707106781186547525 ≤ w ≤
     ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
-    ///      (x ≥ 0x907595ccd30708cabec8a9db ≈ 44.71 ⋅ 10²⁷, i.e. E ≳ 2.61 ⋅ 10³⁷).
+    ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.22 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 65, where the deficit
+        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 66, where the deficit
         // envelope below exceeds 1ulp.
-        if (x >= 0x907595ccd30708cabec8a9db) {
+        if (x >= 0x92b2f16cc66c5a4ae96e80d4) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         return _expRayToWad(x);
@@ -26,8 +26,8 @@ library Exp {
     function _expRayToWad(int256 x) private pure returns (int256 r) {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     k = round(x / (10²⁷⋅ln(2)));                   // x = (k⋅ln(2) + t)⋅10²⁷, |t| ≤ ln(2)/2
-        //     t = x/10²⁷ - k⋅ln(2);                          // range-reduced argument (Q128)
-        //     e = 10¹⁸⋅(Ev(t²) + t⋅Od(t²)) / (Ev(t²) - t⋅Od(t²)); // ≈ 10¹⁸⋅exp(t) in Q68
+        //     t = x/10²⁷ - k⋅ln(2);                          // range-reduced argument (Q129)
+        //     e = 10¹⁸⋅(Ev(t²) + t⋅Od(t²)) / (Ev(t²) - t⋅Od(t²)); // ≈ 10¹⁸⋅exp(t) in Q67
         //     r = ⌊(e - margin)⋅2ᵏ⌋;                         // wad
         //     r = r ⋅ (x > C);                               // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
         //     return r + (x == 0);                           // pin exp(0) = 10¹⁸ exactly
@@ -44,17 +44,17 @@ library Exp {
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
         // its chosen byte width. A coefficient followed by more multiplies by v tolerates a shorter
         // basis. Each renormalizing shift lands a value directly at the basis its consumer needs.
-        //     t: Q128 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2)
+        //     t: Q129 (from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln(2)/2, so t² fits 256 bits)
         //     v = t²: Q123 the widest basis whose monic-stage product stays inside 256 bits, so
         //         Ev(v)'s leading stage consumes v with no renormalizing shift
-        //     Ev(v) Horner down the staircase Q123 → Q97 → Q97 → Q91 → Q88 (monic)
+        //     Ev(v) Horner down the staircase Q123 → Q97 → Q97 → Q91 → Q89 (monic)
         //     Od(v) Horner down the staircase Q105 → Q102 → Q93 → Q94 → Q89
-        //     t⋅Od and the numerator/denominator: Q88. The closing bases are the widest at which
-        //         the t⋅Od intermediate product stays inside 256 bits
-        //     quotient: one `DIV` placing 10¹⁸⋅exp(t) at Q68. The numerator is pre-scaled by
-        //         10¹⁸⋅2⁶⁸ = 5¹⁸⋅2⁸⁶, the widest such scale at which the dividend stays inside 256
-        //         bits, and the `DIV` floor is the pipeline's only truncation of the quotient
-        //     output: the closing `shr(68 - k, …)` is the single output-rounding floor, with the 2ᵏ
+        //     t⋅Od and the numerator/denominator: Q89. The t and closing bases are the widest at
+        //         which the t⋅Od intermediate product stays inside 256 bits
+        //     quotient: one `DIV` placing 10¹⁸⋅exp(t) at Q67. The numerator stays below 2¹²⁹ and
+        //         the pre-scale 10¹⁸⋅2⁶⁷ < 2¹²⁷, so the dividend stays inside 256 bits, and the
+        //         `DIV` floor is the pipeline's only truncation of the quotient
+        //     output: the closing `shr(67 - k, …)` is the single output-rounding floor, with the 2ᵏ
         //         octave scaling folded in
         //
         // Error budget. Let ê = N/D be the exact value of the integer rational (N = Ev + t⋅Od, D =
@@ -78,28 +78,31 @@ library Exp {
         //         budgeted on the under side); the over side is the K27/LN2 constant-grid residue
         //         (the k⋅ln(2) grid error stays below 2⁻²²⁹), enveloped one-sidedly at 2⁻¹³³ of
         //         reduced argument, lifting ê by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) = √2/128).
-        // The quotient carries 10¹⁸⋅ê on the 2⁶⁸ output grid, where one grid unit is worth 2ᵏ⁻⁶⁸
-        // ulp (1 ulp = 10⁻¹⁸ of the result) and Δ's image is 5¹⁸⋅Δ/2⁴⁰ < 2.0097 grid units. The
-        // margin is the least integer strictly above that image: 0x03 (the excess over Δ's image
-        // meets the strict never-overestimate requirement), worth 3/2⁴ = 0.1875 ulp at the
-        // supported edge k = 64. The `DIV` floor only lowers the quotient, so the pre-floor
-        // accumulator A = q - margin satisfies A⋅2ᵏ⁻⁶⁸ ≤ E. The under side is certified directly on
-        // the output grid: q ≥ 10¹⁸⋅2⁶⁸⋅exp(t) - 33/4, where 33/4 bounds the sum of the
-        // integer-rational deficit together with the `DIV` floor (≤ 6210/1000; the Horner deficit
-        // is 3/2 in Q126 units and the floor is one grid unit), the `Mp` factor (≤ 2/25, via ê ≤
-        // 1.45), the under-direction reduced-argument gap (≤ 1267/1000, via exp(t) ≤ √2), and the
-        // under-direction argument granularity (≤ 571/1000: the one-grain envelope with the
-        // negative-half denominator floor; free on the t > 0 half). Hence the maximum
-        // underestimation is E - A⋅2ᵏ⁻⁶⁸ ≤ (33/4 + margin)⋅2ᵏ⁻⁶⁸ = (45/4)⋅2ᵏ⁻⁶⁸ ≈ 0.7031 ulp at
-        // k = 64 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
-        // deficit envelope doubles each octave and can exceed 1ulp at k ≥ 65. On the central octave
-        // k = 0 the margin is 3⋅2⁻⁶⁸ ≈ 1.0⋅10⁻²⁰ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay`
-        // leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
-        // ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
+        // The quotient carries 10¹⁸⋅ê on the 2⁶⁷ output grid, where one grid unit is worth 2ᵏ⁻⁶⁷
+        // ulp (1 ulp = 10⁻¹⁸ of the result) and Δ's image is below one grid unit: the Q89 closing
+        // bases confine the over-side jitter so that 5¹⁸⋅Δ/2⁴¹ < 1. The margin is the least
+        // integer strictly above that image: 0x01 (the excess over Δ's image meets the strict
+        // never-overestimate requirement), worth 1/2² = 0.25 ulp at the supported edge k = 65. The
+        // `DIV` floor only lowers the quotient, so the pre-floor accumulator A = q - margin
+        // satisfies A⋅2ᵏ⁻⁶⁷ ≤ E. The under side is certified directly on the output grid, piecewise
+        // over the 32 domain pieces (the per-piece denominator floors confine the truncation
+        // amplification): q ≥ 10¹⁸⋅2⁶⁷⋅exp(t) - 2993/1000, where 2993/1000 bounds, on each sign
+        // half, the sum of the integer-rational deficit together with the `DIV` floor (≤
+        // 2378/1000, certified piecewise), the `Mp` factor (≤ 2/25, via ê ≤ 1.45), the
+        // under-direction reduced-argument gap (≤ 307/1000 on the t > 0 half via exp(t) ≤ √2; ≤
+        // 218/1000 on the other, where exp(t) ≤ 1 + ε), and the under-direction argument
+        // granularity (≤ 143/500: the one-grain envelope with the negative-half denominator floor;
+        // free on the t > 0 half). Hence the maximum
+        // underestimation is E - A⋅2ᵏ⁻⁶⁷ ≤ (2993/1000 + margin)⋅2ᵏ⁻⁶⁷ = (3993/4000)⋅2ᵏ⁻⁶⁵ ulp at
+        // k = 65 < 1, so
+        // the floor returns ⌊E⌋ or ⌊E⌋ - 1. The deficit envelope doubles each octave and exceeds
+        // 1ulp at k ≥ 66. On the central octave k = 0 the margin is 2⁻⁶⁷ ≈ 6.8⋅10⁻²¹ ulp, far below
+        // the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. The k = 0 band is
+        // exactly [-H, H] with H = ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
-        // pre-floor accumulator by at least 10¹⁸⋅2⁶⁸⋅10⁻²⁷/√2 ≈ 2.1⋅10¹¹ grid units. The error
-        // terms above confine the accumulator to a band of width 5¹⁸⋅Δ/2⁴⁰ + 33/4 ≈ 10.3
+        // pre-floor accumulator by at least 10¹⁸⋅2⁶⁷⋅10⁻²⁷/√2 ≈ 1.0⋅10¹¹ grid units. The error
+        // terms above confine the accumulator to a band of width 5¹⁸⋅Δ/2⁴¹ + 2993/1000 ≈ 4.0
         // grid units just below E's grid image at every octave (in grid units the band is
         // k-independent; an octave seam rescales E and the band together), so the per-step gain
         // exceeds any adverse swing within the band by more than 9 orders of magnitude, and the
@@ -112,13 +115,13 @@ library Exp {
             // and `sar(192, …)` round to nearest with ties resolved toward +∞.
             let k := sar(0xc0, add(shl(0xbf, 0x01), mul(0x724d54edbacbebbb95c52a0f60, x)))
 
-            // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k ⋅
+            // t in Q129. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k ⋅
             // LN2 from K27 ⋅ x at the Q235 product basis (so the k ⋅ ln(2) rounding error is
-            // ~2⁻²³⁵, far below an output ulp) then one `sar(107, …)` leaves the reduced argument
-            // at Q128.
+            // ~2⁻²³⁵, far below an output ulp) then one `sar(106, …)` leaves the reduced argument
+            // at Q129.
             let t :=
                 sar(
-                    0x6b,
+                    0x6a,
                     sub(
                         mul(0x279d346de4781f921dd7a89933d54d1f72928, x),
                         mul(0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d, k)
@@ -127,11 +130,10 @@ library Exp {
 
             // v = t² in Q123 (nonnegative; logical shift): the widest basis at which the
             // monic-stage product below stays inside 256 bits.
-            let v := shr(0x85, mul(t, t))
+            let v := shr(0x87, mul(t, t))
 
-            // Ev(0) = 2⋅Od(0) by construction, so at closing bases one bit apart (Q88/Q89) the
-            // constant terms are the same.
-            let c0 := 0x9c2948bcaca16a0dd2fe98bb4470c388
+            // Ev(0) = 2⋅Od(0) by construction; with both chains closing at Q89 the even chain's
+            // constant term is exactly twice the odd chain's.
 
             // Ev(v), monic, Horner down the staircase. The leading v⁵ coefficient is 1, so the
             // first stage is just an add.
@@ -139,27 +141,27 @@ library Exp {
             ev := add(0x9a036222841f47c6ed6fc3f7599445, shr(0x95, mul(ev, v)))
             ev := add(0x9064d9657e9a21fc16bb69331b81ae1e, shr(0x7b, mul(ev, v)))
             ev := add(0x93f11e650dd6c64b96ce79065cdf80f4, shr(0x81, mul(ev, v)))
-            ev := add(c0, shr(0x7e, mul(ev, v)))
+            ev := add(0x1385291795942d41ba5fd317688e18710, shr(0x7d, mul(ev, v)))
 
             // Od(v), Horner down the staircase.
             let od := 0xdc07aff8276bde9a361278df6a10
             od := add(0xc926ddbecdeeb42e68cd16db7ed378, shr(0x7e, mul(od, v)))
             od := add(0xad4506af99be27419341e181693281, shr(0x84, mul(od, v)))
             od := add(0xaf566247c05753b42892f77b67a6b7c7, shr(0x7a, mul(od, v)))
-            od := add(c0, shr(0x80, mul(od, v)))
+            od := add(0x9c2948bcaca16a0dd2fe98bb4470c388, shr(0x80, mul(od, v)))
 
-            // t⋅Od in Q88 (signed via t); the numerator Ev + t⋅Od and denominator Ev - t⋅Od are
+            // t⋅Od in Q89 (signed via t); the numerator Ev + t⋅Od and denominator Ev - t⋅Od are
             // both positive.
             let tod := sar(0x81, mul(t, od))
 
-            // 10¹⁸⋅exp(t) in Q68: the constant is 10¹⁸⋅2⁶⁸ = 5¹⁸⋅2⁸⁶, so one `DIV` scales, widens,
-            // and floors at once. The numerator stays below 2¹²⁸ and 10¹⁸⋅2⁶⁸ < 2¹²⁸, so the
+            // 10¹⁸⋅exp(t) in Q67: the constant is 10¹⁸⋅2⁶⁷ = 5¹⁸⋅2⁸⁵, so one `DIV` scales, widens,
+            // and floors at once. The numerator stays below 2¹²⁹ and 10¹⁸⋅2⁶⁷ < 2¹²⁷, so the
             // dividend stays inside 256 bits; the denominator > 0.
-            r := div(mul(0xde0b6b3a764000000000000000000000, add(ev, tod)), sub(ev, tod))
+            r := div(mul(0x6f05b59d3b2000000000000000000000, add(ev, tod)), sub(ev, tod))
 
-            // Less the one-sided margin (0x03; see the budget above), then floored by
-            // `shr(68 - k, …)` which folds in the 2ᵏ octave scaling (68 - k ∈ [4, 128]).
-            r := shr(sub(0x44, k), sub(r, 0x03))
+            // Less the one-sided margin (0x01; see the budget above), then floored by
+            // `shr(67 - k, …)` which folds in the 2ᵏ octave scaling (67 - k ∈ [3, 127]).
+            r := shr(sub(0x43, k), sub(r, 0x01))
 
             // Zero the result at and below C = ⌊-18⋅ln(10)⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs

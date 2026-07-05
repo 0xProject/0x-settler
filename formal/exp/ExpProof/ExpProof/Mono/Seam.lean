@@ -3,7 +3,7 @@ import ExpProof.Mono.RegionMono
 /-!
 # The octave-seam step from the `r0` doubling bound
 
-Across a seam (`k` advances by one, `int256 x2 = int256 x1 + 1`) the closing shift `68 − k` drops
+Across a seam (`k` advances by one, `int256 x2 = int256 x1 + 1`) the closing shift `67 − k` drops
 exactly one bit, so with the same shift argument `arg = r0 − MARGIN` the floor identity
 
 ```
@@ -27,8 +27,8 @@ set_option maxRecDepth 100000
 /-- **The `r0` doubling bound across a seam.** For adjacent inputs crossing one octave
 (`int256 (kTree x2) = int256 (kTree x1) + 1`, `int256 x2 = int256 x1 + 1`), the scaled quotient at
 most doubles, three units short: `r0Tree x1 + 3 ≤ 2·r0Tree x2`. (Across the seam the reduced
-argument flips sign `t_b ≈ −t_a`, so `r0_a ≈ exp(t_a)·scaleQ68 ≈ √2·scaleQ68` and
-`r0_b ≈ exp(−t_a)·scaleQ68 ≈ scaleQ68/√2`, hence `r0_a/r0_b ≈ 2·exp(−1/RAY)`, short of doubling by
+argument flips sign `t_b ≈ −t_a`, so `r0_a ≈ exp(t_a)·scaleQ67 ≈ √2·scaleQ67` and
+`r0_b ≈ exp(−t_a)·scaleQ67 ≈ scaleQ67/√2`, hence `r0_a/r0_b ≈ 2·exp(−1/RAY)`, short of doubling by
 `≈ 2·r0_b/RAY ≈ 4·10^11` grid units — far more than the three units consumed by the seam-floor
 comparison below.) -/
 def SeamR0Bound : Prop :=
@@ -75,7 +75,7 @@ theorem seam_closing_shifts {x1 x2 : Nat}
     (hx1 : x1 < 2 ^ 256) (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hx2 : x2 < 2 ^ 256) (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
     (hk : int256 (kTree x2) = int256 (kTree x1) + 1) :
-    ∃ s1 s2 : Nat, evmSub 0x44 (kTree x1) = s1 ∧ evmSub 0x44 (kTree x2) = s2 ∧
+    ∃ s1 s2 : Nat, evmSub 0x43 (kTree x1) = s1 ∧ evmSub 0x43 (kTree x2) = s2 ∧
       s1 < 256 ∧ s2 < 256 ∧ s2 + 1 = s1 := by
   obtain ⟨s1, hs1eq, _, hs1hi, hs1int⟩ := closing_shift hx1 hC1 hC01
   obtain ⟨s2, hs2eq, hs2lo, _, hs2int⟩ := closing_shift hx2 hC2 hC02
@@ -100,15 +100,15 @@ theorem seamStep_of_r0 (hr0 : SeamR0Bound) {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (h
   obtain ⟨harg1eq, harg1nn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x1) (r0Tree_lt x1) hr0lo1 hr0hi1
   obtain ⟨harg2eq, harg2nn, _⟩ := shiftArg_bounds_of (r0 := r0Tree x2) (r0Tree_lt x2) hr0lo2 hr0hi2
   have hr1eq1 : r1Tree x1 =
-      evmShr s1 (evmSub (r0Tree x1) 0x3) := by
+      evmShr s1 (evmSub (r0Tree x1) 0x1) := by
     unfold r1Tree; rw [hs1eq]
   have hr1eq2 : r1Tree x2 =
-      evmShr s2 (evmSub (r0Tree x2) 0x3) := by
+      evmShr s2 (evmSub (r0Tree x2) 0x1) := by
     unfold r1Tree; rw [hs2eq]
   rw [hr1eq1, hr1eq2]
   -- name the deep shift arguments opaquely before feeding the floor lemma
-  set arg1 := evmSub (r0Tree x1) 0x3 with harg1def
-  set arg2 := evmSub (r0Tree x2) 0x3 with harg2def
+  set arg1 := evmSub (r0Tree x1) 0x1 with harg1def
+  set arg2 := evmSub (r0Tree x2) 0x1 with harg2def
   have ha1lt : arg1 < 2 ^ 256 := by rw [harg1def]; exact evmSub_lt _ _
   have ha2lt : arg2 < 2 ^ 256 := by rw [harg2def]; exact evmSub_lt _ _
   clear_value arg1 arg2

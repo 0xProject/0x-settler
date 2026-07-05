@@ -72,6 +72,55 @@ Every step is re-verified against the exact target at ≥60 digits on a dense gr
 the resulting envelope must clear the proof's cut-certificate nudge with slack before
 the margin constant is derived from the error budget.
 
+## Widening the certified range: measure, attribute, rebalance
+
+The supported range of a fixed-point kernel ends at the octave where the deficit envelope
+(the certified worst-case underestimation of the pre-floor accumulator, doubling per octave)
+reaches one output ulp. When a target octave misses by a few tens of percent, the
+coefficients are usually not the lever. The procedure that closes the gap, in order:
+
+1. **Measure the true envelope.** Run the integer kernel beside its exact-rational shadow
+   (the same Horner evaluation with every renormalizing floor replaced by exact rational
+   arithmetic) over adversarial sweeps — every octave seam ±2 plus large random samples —
+   and compare the supremum against the certified bound. This splits the certified envelope
+   into real error versus derivational padding. For `expRayToWad` the split is 5.18 true
+   against 6.21 certified (2⁶⁸-grid units): the bound is nearly tight, so no re-derivation
+   alone closes a 30% gap — and neither does a coefficient refit, because with ~2¹²¹
+   reachable grid arguments, near-worst alignment of the per-stage floor residuals exists
+   for essentially any choice of coefficient low bits, and re-centering the residuals only
+   trades under-side deficit for over-side margin one-for-one against an integer-quantized
+   margin.
+
+2. **Attribute per truncation site.** Re-run the shadow with each floor exactified one at a
+   time. The deficit is rarely uniform: in `expRayToWad`, the odd chain's closing stage and
+   the `t·Od` shift own nearly the whole supremum (5.0 and 4.0 of the 5.18) because odd-side
+   errors enter the numerator and denominator antisymmetrically and are amplified by
+   ~2t/den, while the even chain contributes ≤ 1 unit per site and every early stage is
+   negligible — the staircase already carries more precision there than the closing stages
+   consume.
+
+3. **Rebalance bases toward the dominant sites.** The 256-bit fits (the dividend, `t·Od`,
+   `t²`, and the monic leading stage) form a closed budget of bits; move them from where the
+   attribution says they are cheap to where they are dear. For `expRayToWad`, one bit moves
+   from the output grid into the closing bases — numerator at Q89, scale 10¹⁸·2⁶⁷, `t` at
+   Q129 in the freed `t·Od` headroom — with every coefficient unchanged except the even
+   closing constant doubling exactly (preserving `Ev(0) = 2·Od(0)`). The true envelope drops
+   2.5× and the margin requantizes from 3/16 to 1/4 ulp at the edge octave, at identical
+   runtime gas: this is what extends the supported range through k = 65.
+
+4. **Certify piecewise where global worst-cases refuse.** The residual derivational padding
+   lives in co-occurrence assumptions — the worst floor fraction, the largest |t|, and the
+   smallest denominator cannot coincide, but a domain-global bound must pretend they do. The
+   certificate machinery that already bounds the granularity piecewise (`Common.GenCover`
+   walks over the 32-piece `v` table) extends to the truncation envelope: add per-piece caps
+   for the amplification factors (|t|, the denominator floor, the even accumulator) and
+   aggregate the per-stage residuals with per-piece weights.
+
+The order matters: measurement before design (step 1 rules out the tempting-but-useless
+refit), attribution before rebalancing (step 2 finds the bit that buys 2.5× rather than one
+that buys nothing), and rebalancing before certification (step 4's piecewise machinery is
+only worth building once the true envelope actually fits under the target).
+
 ## Build
 
 Generated EVMYulLean artifacts (`*YulRuntime.lean`, `*YulProof.lean`) are `.gitignore`d and regenerated in CI. See `.github/workflows/*-formal.yml` for the canonical build steps.

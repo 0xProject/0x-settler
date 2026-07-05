@@ -69,7 +69,7 @@ theorem r1_step (hseamstep : SeamStep) {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 :
 /-- A signed value strictly inside the region is a canonical word with that signed value. -/
 theorem region_word {v : Int} (hlo : int256 Cmask < v) (hhi : v < int256 C0thresh) :
     uint256OfInt v < 2 ^ 256 ∧ int256 (uint256OfInt v) = v := by
-  have hC0 : int256 C0thresh = 44707993146116472457411471835 := int256_C0thresh
+  have hC0 : int256 C0thresh = 45401140326676417766828703956 := int256_C0thresh
   have hCm : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
   rw [hCm] at hlo; rw [hC0] at hhi
   refine ⟨uint256OfInt_lt v, ?_⟩

@@ -112,13 +112,13 @@ def dUnderPEqTac : String :=
   IO.FS.writeFile "ExpProof/Cert/ExpVCertLit.lean" (lits ++ "end ExpCertV\n")
   IO.println "v-form literals written"
   emit "certExpUpLit" "ExpVUp" "ExpVUpC" "expVUp_cell" "certExpUp_eq" "expVUpLit_nonneg"
-    "expVUp_nonneg" "certExpUp" upEqTac cUp 0 (H128 : Int)
+    "expVUp_nonneg" "certExpUp" upEqTac cUp 0 (H129 : Int)
   emit "certExpLoLit" "ExpVLo" "ExpVLoC" "expVLo_cell" "certExpLo_eq" "expVLoLit_nonneg"
-    "expVLo_nonneg" "certExpLo" loEqTac cLo 0 (H128 : Int)
+    "expVLo_nonneg" "certExpLo" loEqTac cLo 0 (H129 : Int)
   emit "numExpVLit" "ExpVNum" "ExpVNumC" "expVNum_cell" "numExpV_eq" "numExpVLit_nonneg"
-    "numExpV_nonneg" "numExpV" numEqTac (ptrim numExpV) 0 (H128 : Int)
+    "numExpV_nonneg" "numExpV" numEqTac (ptrim numExpV) 0 (H129 : Int)
   emit "certDenM1Lit" "ExpVDenM1" "ExpVDenM1C" "expVDenM1_cell" "certDenM1_eq" "denM1VLit_nonneg"
-    "denM1V_nonneg" "certDenM1" denM1EqTac (ptrim certDenM1) 0 (H128 : Int)
+    "denM1V_nonneg" "certDenM1" denM1EqTac (ptrim certDenM1) 0 (H129 : Int)
   emit "certDOverLit" "ExpVDOver" "ExpVDOverC" "expVDOver_cell" "certDOver_eq" "dOverVLit_nonneg"
     "dOverV_nonneg" "certDOver" dOverEqTac (ptrim certDOver) 0 ((vmaxV : Int) + 1)
   for (p, i) in granPieces.zipIdx do
