@@ -87,6 +87,30 @@ contract SelectUnitTest is Test {
         );
     }
 
+    function _runWithGasCap(
+        uint256 shareBps,
+        uint256 gasCap,
+        address token,
+        uint256[] memory targets,
+        bytes[][] memory candidates,
+        uint256 minOut,
+        uint256 txGas
+    ) internal {
+        uint256[] memory hurdles = new uint256[](candidates.length);
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeWithSelector(
+            ISettlerActions.SELECT.selector, shareBps, gasCap, token, targets, hurdles, candidates
+        );
+        vm.prank(taker, taker);
+        settler.execute{gas: txGas}(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: minOut
+            }),
+            actions,
+            bytes32(0)
+        );
+    }
+
     /// @dev ROUTE_OR_FALLBACK personality: token = 0 and zero targets —
     ///      the failing primary is discarded wholesale, the alternate commits.
     function test_fallback_primaryRevert_commitsAlternate() public {
@@ -275,6 +299,40 @@ contract SelectUnitTest is Test {
         );
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed despite the staller");
     }
+
+    function test_fallback_gasCap_lastCandidateRunsUncapped() public {
+        GasHeavyPool finisher = new GasHeavyPool(buy);
+        finisher.set(7 ether, 9_000);
+        buy.mint(address(finisher), 7 ether);
+        bytes[][] memory candidates = new bytes[][](3);
+        candidates[0] = _candidate(address(new GasBurnerPool()));
+        candidates[1] = _candidate(address(new GasBurnerPool()));
+        candidates[2] = _candidate(address(finisher));
+        uint256[] memory targets = new uint256[](3);
+        _runWithGasCap(0, 300_000, address(0), targets, candidates, 7 ether, 1_200_000);
+        assertEq(buy.balanceOf(recipient), 7 ether, "final fallback candidate committed");
+        assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
+    }
+
+    function test_measured_gasGuard_commitsBestSoFar_skippedCandidateExcluded() public {
+        p0.set(8 ether, false);
+        p2.set(9 ether, false);
+        bytes[][] memory candidates = new bytes[][](4);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(new GasBurnerPool()));
+        candidates[2] = _candidate(address(new GasBurnerPool()));
+        candidates[3] = _candidate(address(p2));
+        uint256[] memory targets = new uint256[](4);
+        targets[0] = type(uint256).max;
+        targets[1] = type(uint256).max;
+        targets[2] = type(uint256).max;
+        targets[3] = type(uint256).max;
+        _runWithGasCap(0, 300_000, address(buy), targets, candidates, 8 ether, 1_150_000);
+        assertEq(buy.balanceOf(recipient), 8 ether, "best measured-so-far committed");
+        assertEq(p0.callCount(), 1, "measured best committed once");
+        assertEq(p2.callCount(), 0, "unmeasured 9-token candidate skipped and excluded");
+        assertEq(buy.balanceOf(FEE_RECEIVER), 0, "no fee with zero share");
+    }
 }
 
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
@@ -371,5 +429,33 @@ contract GasBurnerPool {
                 pop(keccak256(0x00, 0x20))
             }
         }
+    }
+}
+
+/// @notice A finisher that needs more than the per-candidate cap, but less than the uncapped
+///         final-attempt budget after earlier capped stalls.
+contract GasHeavyPool {
+    IERC20 internal immutable t;
+    uint256 internal amt;
+    uint256 internal burnIterations;
+    uint256 public callCount;
+
+    constructor(IERC20 _t) {
+        t = _t;
+    }
+
+    function set(uint256 _amt, uint256 _burnIterations) external {
+        amt = _amt;
+        burnIterations = _burnIterations;
+    }
+
+    function swap() external {
+        callCount++;
+        for (uint256 i; i < burnIterations; i++) {
+            assembly ("memory-safe") {
+                pop(keccak256(0x00, 0x20))
+            }
+        }
+        t.transfer(msg.sender, amt);
     }
 }

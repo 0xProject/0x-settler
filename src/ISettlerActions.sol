@@ -230,7 +230,9 @@ interface ISettlerActions {
     ///      measurements that fail to commit and trying the runner-up. A commit-phase fee takes
     ///      `shareBps` of the committed candidate's edge over the runner-up. `token = 0` and zero
     ///      targets is pure fallback; descending targets form a ladder; `targets[0] = belief` and
-    ///      `targets[1..] = type(uint256).max` is best-of-N. `candidateGasLimit` 0 is uncapped.
+    ///      `targets[1..] = type(uint256).max` is best-of-N. `candidateGasLimit` 0 is uncapped;
+    ///      when capped, measurement can stop early after a positive score to preserve a heuristic
+    ///      commit reserve, while an all-zero final attempt runs uncapped so it can finish.
     // Pre-req: Funded
     function SELECT(
         uint256 shareBps,
