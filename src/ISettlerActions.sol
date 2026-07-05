@@ -7,7 +7,6 @@ interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
     /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
-
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -226,13 +225,14 @@ interface ISettlerActions {
 
     /// @dev SELECT: run candidate sub-programs and commit one. Candidates are non-VIP action lists
     ///      over held balance, scored by `token`'s balance delta (zero `token` scores bare success).
-    ///      `fold` 0 is CASCADE: commit the first candidate meeting its target. `fold` 1 is BEST:
-    ///      commit candidate 0 at `targets[0]`, else measure all and commit the best net of
-    ///      `hurdles`, taking `shareBps` of its edge over the runner-up. `candidateGasLimit` 0 is
-    ///      uncapped.
+    ///      The first candidate meeting its target commits with no fee. If every target is missed,
+    ///      commit the highest measured score net of `hurdles` at its measured score, dropping false
+    ///      measurements that fail to commit and trying the runner-up. A commit-phase fee takes
+    ///      `shareBps` of the committed candidate's edge over the runner-up. `token = 0` and zero
+    ///      targets is pure fallback; descending targets form a ladder; `targets[0] = belief` and
+    ///      `targets[1..] = type(uint256).max` is best-of-N. `candidateGasLimit` 0 is uncapped.
     // Pre-req: Funded
     function SELECT(
-        uint256 fold,
         uint256 shareBps,
         uint256 candidateGasLimit,
         address token,

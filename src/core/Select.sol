@@ -10,9 +10,11 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
 /// @notice Runs candidate routes in revertable self-calls and commits one, scored by `token`'s
-///         balance delta. CASCADE commits the first candidate meeting its own target. BEST measures
-///         every candidate and re-runs the best net of hurdles at its measured score, so a faked
-///         measurement cannot profit.
+///         balance delta. The first candidate meeting its own target commits directly with no fee.
+///         If no candidate clears its target, SELECT commits the highest measured score net of
+///         hurdles at its measured score, degrading to the next-best candidate if a measurement was
+///         false. `token = 0` and zero targets is pure fallback; descending targets form a ladder;
+///         `targets[0] = belief` and `targets[1..] = type(uint256).max` is best-of-N.
 abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
@@ -32,19 +34,22 @@ abstract contract Select is SettlerSwapAbstract {
         if (score < minOut) revert Measured(score, tag);
     }
 
-    /// @dev `SELECT` body. `data` is abi.encode(uint256 fold, uint256 shareBps, uint256
-    ///      candidateGasLimit, address token, uint256[] targets, uint256[] hurdles, bytes[][]
-    ///      candidates). Candidate sub-encodings forward straight from calldata into
-    ///      `executeSelected` self-calls. `candidateGasLimit` (0 = uncapped) bounds every attempt
-    ///      except the one that must finish, CASCADE's last and BEST's commit.
+    /// @dev `SELECT` body. `data` is abi.encode(uint256 shareBps, uint256 candidateGasLimit,
+    ///      address token, uint256[] targets, uint256[] hurdles, bytes[][] candidates). Candidate
+    ///      sub-encodings forward straight from calldata into `executeSelected` self-calls.
+    ///      `candidateGasLimit` (0 = uncapped) bounds every attempt; commit-phase calls are uncapped.
     function _select(bytes calldata data) internal {
         bytes4 selector = this.executeSelected.selector;
         uint256 measuredSelector = uint32(Measured.selector);
         IERC20 token;
         uint256 shareBps;
-        int256 bestNet;
-        int256 secondNet = type(int256).min; // stays min, and the fee unreachable, unless BEST finds a runner-up
-        uint256 bestScore;
+        int256 committedNet;
+        int256 runnerUpNet = type(int256).min; // stays min, and the fee unreachable, unless a runner-up remains
+        uint256 committedScore;
+        // Hand-build executeSelected calls from candidate sub-encodings in calldata and retain each
+        // failed attempt's measured score/net. Solidity pseudocode:
+        // for each candidate: if selfCall(targets[i], cappedGas) succeeds return; else save score/net.
+        // while no commit: try the highest non-dropped net uncapped at its score; drop false measurements.
         assembly ("memory-safe") {
             // reads the last self-call's Measured(score, tag) revert. Returns 0 unless selector and tag match
             function measured(ret_, tag_, sel_) -> s_ {
@@ -64,13 +69,12 @@ abstract contract Select is SettlerSwapAbstract {
                 len_ := sub(e_, start_)
             }
 
-            let fold := calldataload(data.offset)
-            shareBps := calldataload(add(0x20, data.offset))
-            let gasCap := calldataload(add(0x40, data.offset))
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x60, data.offset)))
-            let targetsData := add(0x20, add(data.offset, calldataload(add(0x80, data.offset))))
-            let hurdlesData := add(0x20, add(data.offset, calldataload(add(0xa0, data.offset))))
-            let base := add(data.offset, calldataload(add(0xc0, data.offset)))
+            shareBps := calldataload(data.offset)
+            let gasCap := calldataload(add(0x20, data.offset))
+            token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x40, data.offset)))
+            let targetsData := add(0x20, add(data.offset, calldataload(add(0x60, data.offset))))
+            let hurdlesData := add(0x20, add(data.offset, calldataload(add(0x80, data.offset))))
+            let base := add(data.offset, calldataload(add(0xa0, data.offset)))
             let n := calldataload(base)
             let candsData := add(0x20, base)
             let dataEnd := add(data.offset, data.length)
@@ -82,86 +86,86 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x00, 0x00)
             }
 
-            let ret := mload(0x40) // 0x44-byte returndata scratch
+            let scores := mload(0x40)
+            let nets := add(scores, shl(0x05, n))
+            let dropped := add(nets, shl(0x05, n))
+            let ret := add(dropped, shl(0x05, n)) // 0x44-byte returndata scratch
             let cd := add(0x60, ret) // call scratch: selector, head (0x80), token, minOut, tag, candidate tail
             mstore(cd, selector)
             mstore(add(0x04, cd), 0x80)
             mstore(add(0x24, cd), token)
             let dst := add(0x84, cd)
 
-            switch fold
-            case 0 {
-                // CASCADE: commit the first candidate clearing its own target
-                let last := sub(n, 0x01)
-                for { let i := 0x00 } iszero(gt(i, last)) { i := add(0x01, i) } {
-                    let start, len := blob(candsData, n, dataEnd, i)
-                    calldatacopy(dst, start, len)
-                    mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, i))))
-                    mstore(add(0x64, cd), keccak256(dst, len))
-                    let g := gasCap
-                    if or(iszero(g), eq(i, last)) { g := gas() } // last must be able to finish
-                    if call(g, address(), 0x00, cd, add(0x84, len), 0x00, 0x00) { break }
-                    if eq(i, last) {
-                        returndatacopy(ret, 0x00, returndatasize())
-                        revert(ret, returndatasize())
-                    }
-                }
-            }
-            default {
-                // BEST: candidate 0's target attempt doubles as its measurement
-                let start, len := blob(candsData, n, dataEnd, 0x00)
+            let attemptedCommit
+            for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
+                let start, len := blob(candsData, n, dataEnd, i)
                 calldatacopy(dst, start, len)
                 let tag := keccak256(dst, len)
-                mstore(add(0x44, cd), calldataload(targetsData))
+                mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, i))))
                 mstore(add(0x64, cd), tag)
-                let g0 := gasCap
-                if iszero(g0) { g0 := gas() }
-                if iszero(call(g0, address(), 0x00, cd, add(0x84, len), 0x00, 0x00)) {
-                    let bs := measured(ret, tag, measuredSelector)
-                    let bn := sub(bs, calldataload(hurdlesData)) // wrapping sub == int256 net. Absurd scores or hurdles revert in the checked fee math below (fail closed)
-                    let sn := shl(0xff, 0x01) // int256 min
-                    let best := 0x00
-                    mstore(add(0x44, cd), not(0x00)) // minOut of MAX makes every attempt a pure measurement
-                    for { let i := 0x01 } lt(i, n) { i := add(0x01, i) } {
-                        start, len := blob(candsData, n, dataEnd, i)
-                        calldatacopy(dst, start, len)
-                        tag := keccak256(dst, len)
-                        mstore(add(0x64, cd), tag)
-                        let gi := gasCap
-                        if iszero(gi) { gi := gas() }
-                        pop(call(gi, address(), 0x00, cd, add(0x84, len), 0x00, 0x00))
-                        let s := measured(ret, tag, measuredSelector)
-                        let net := sub(s, calldataload(add(hurdlesData, shl(0x05, i))))
-                        switch sgt(net, bn)
-                        case 1 {
-                            sn := bn
-                            bn := net
-                            best := i
-                            bs := s
+                let g := gasCap
+                if iszero(g) { g := gas() }
+                if call(g, address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
+                    attemptedCommit := 0x01
+                    break
+                }
+                let score := measured(ret, tag, measuredSelector)
+                mstore(add(scores, shl(0x05, i)), score)
+                // wrapping sub == int256 net. Absurd scores or hurdles revert in the checked fee
+                // math below (fail closed)
+                mstore(add(nets, shl(0x05, i)), sub(score, calldataload(add(hurdlesData, shl(0x05, i)))))
+                mstore(add(dropped, shl(0x05, i)), 0x00)
+            }
+
+            if iszero(attemptedCommit) {
+                let failedCommits
+                for {} 0x01 {} {
+                    let best := n
+                    let bestNet := shl(0xff, 0x01) // int256 min
+                    for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
+                        if iszero(mload(add(dropped, shl(0x05, i)))) {
+                            let net := mload(add(nets, shl(0x05, i)))
+                            if or(eq(best, n), sgt(net, bestNet)) {
+                                best := i
+                                bestNet := net
+                            }
                         }
-                        default { if sgt(net, sn) { sn := net } }
                     }
-                    // commit the winner at its measured score, bubbling any divergence (fail closed)
-                    start, len := blob(candsData, n, dataEnd, best)
+
+                    // commit the current highest-net candidate at its measured score
+                    let start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
-                    mstore(add(0x44, cd), bs)
+                    mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
                     mstore(add(0x64, cd), keccak256(dst, len))
-                    if iszero(call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00)) {
+                    if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
+                        committedNet := bestNet
+                        committedScore := mload(add(scores, shl(0x05, best)))
+                        let second := shl(0xff, 0x01) // int256 min
+                        for { let j := 0x00 } lt(j, n) { j := add(0x01, j) } {
+                            if and(iszero(eq(j, best)), iszero(mload(add(dropped, shl(0x05, j))))) {
+                                let net := mload(add(nets, shl(0x05, j)))
+                                if sgt(net, second) { second := net }
+                            }
+                        }
+                        runnerUpNet := second
+                        break
+                    }
+
+                    failedCommits := add(failedCommits, 0x01)
+                    mstore(add(dropped, shl(0x05, best)), 0x01)
+                    if eq(failedCommits, n) {
                         returndatacopy(ret, 0x00, returndatasize())
                         revert(ret, returndatasize())
                     }
-                    bestNet := bn
-                    secondNet := sn
-                    bestScore := bs
                 }
             }
         }
-        // fee on the winner's measured edge over the runner-up, clamped to its score and to held
-        // balance. Only reachable on a BEST degraded commit with a runner-up.
-        if (secondNet != type(int256).min && bestNet > secondNet && address(token) != address(0)) {
+        // fee on the committed candidate's measured edge over the runner-up, clamped to its score
+        // and to held balance. Only reachable when the commit phase finds a real runner-up.
+        if (runnerUpNet != type(int256).min && committedNet > runnerUpNet && address(token) != address(0)) {
             if (shareBps > BASIS) shareBps = BASIS;
-            uint256 improvement = uint256(bestNet - secondNet);
-            if (improvement > bestScore) improvement = bestScore;
+            uint256 improvement = uint256(committedNet - runnerUpNet);
+            if (improvement > committedScore) improvement = committedScore;
             uint256 fee = improvement * shareBps / BASIS;
             uint256 held = token.fastBalanceOf(address(this));
             if (fee > held) fee = held;
