@@ -132,8 +132,9 @@ library Exp {
             // monic-stage product below stays inside 256 bits.
             let v := shr(0x87, mul(t, t))
 
-            // Ev(0) = 2⋅Od(0) by construction; with both chains closing at Q89 the even chain's
-            // constant term is exactly twice the odd chain's.
+            // Ev(0) = 2⋅Od(0) by construction; both chains close at Q89, the odd on c0 and the
+            // even on c0 doubled in place.
+            let c0 := 0x9c2948bcaca16a0dd2fe98bb4470c388
 
             // Ev(v), monic, Horner down the staircase. The leading v⁵ coefficient is 1, so the
             // first stage is just an add.
@@ -141,14 +142,14 @@ library Exp {
             ev := add(0x9a036222841f47c6ed6fc3f7599445, shr(0x95, mul(ev, v)))
             ev := add(0x9064d9657e9a21fc16bb69331b81ae1e, shr(0x7b, mul(ev, v)))
             ev := add(0x93f11e650dd6c64b96ce79065cdf80f4, shr(0x81, mul(ev, v)))
-            ev := add(0x1385291795942d41ba5fd317688e18710, shr(0x7d, mul(ev, v)))
+            ev := add(shl(0x01, c0), shr(0x7d, mul(ev, v)))
 
             // Od(v), Horner down the staircase.
             let od := 0xdc07aff8276bde9a361278df6a10
             od := add(0xc926ddbecdeeb42e68cd16db7ed378, shr(0x7e, mul(od, v)))
             od := add(0xad4506af99be27419341e181693281, shr(0x84, mul(od, v)))
             od := add(0xaf566247c05753b42892f77b67a6b7c7, shr(0x7a, mul(od, v)))
-            od := add(0x9c2948bcaca16a0dd2fe98bb4470c388, shr(0x80, mul(od, v)))
+            od := add(c0, shr(0x80, mul(od, v)))
 
             // t⋅Od in Q89 (signed via t); the numerator Ev + t⋅Od and denominator Ev - t⋅Od are
             // both positive.
