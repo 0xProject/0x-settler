@@ -40,7 +40,6 @@ contract SelectUnitTest is Test, SelectShared {
     Pool internal p2;
     address internal recipient = makeAddr("recipient");
     address internal taker = makeAddr("taker");
-    address internal constant FEE_RECEIVER = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
 
     function setUp() public {
         settler = new BaseSettler(bytes20(0));
@@ -67,18 +66,11 @@ contract SelectUnitTest is Test, SelectShared {
         targets[2] = type(uint256).max;
     }
 
-    function _run(
-        uint256 shareBps,
-        address token,
-        uint256[] memory targets,
-        bytes[][] memory candidates,
-        uint256 minOut
-    ) internal {
+    function _run(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         uint256[] memory hurdles = new uint256[](candidates.length);
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, shareBps, uint256(0), token, targets, hurdles, candidates
-        );
+        actions[0] =
+            abi.encodeWithSelector(ISettlerActions.SELECT.selector, uint256(0), token, targets, hurdles, candidates);
         vm.prank(taker, taker);
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -90,7 +82,6 @@ contract SelectUnitTest is Test, SelectShared {
     }
 
     function _runWithGasCap(
-        uint256 shareBps,
         uint256 gasCap,
         address token,
         uint256[] memory targets,
@@ -100,9 +91,8 @@ contract SelectUnitTest is Test, SelectShared {
     ) internal {
         uint256[] memory hurdles = new uint256[](candidates.length);
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, shareBps, gasCap, token, targets, hurdles, candidates
-        );
+        actions[0] =
+            abi.encodeWithSelector(ISettlerActions.SELECT.selector, gasCap, token, targets, hurdles, candidates);
         vm.prank(taker, taker);
         settler.execute{gas: txGas}(
             ISettlerBase.AllowedSlippage({
@@ -113,17 +103,17 @@ contract SelectUnitTest is Test, SelectShared {
         );
     }
 
-    /// @dev Fallback mode discards a reverting primary and commits the alternate.
+    /// @dev Zero targets discard a reverting primary and commit the alternate.
     function test_fallback_primaryRevert_commitsAlternate() public {
         p0.set(10 ether, true);
         p1.set(7 ether, false);
-        _run(0, address(0), new uint256[](3), _candidates3(), 7 ether);
+        _run(address(0), new uint256[](3), _candidates3(), 7 ether);
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate's output only (primary rolled back)");
         assertEq(p1.callCount(), 1, "alternate committed");
         assertEq(p2.callCount(), 0, "third candidate never reached");
     }
 
-    /// @dev Ladder mode commits the first candidate that clears its floor.
+    /// @dev Descending targets commit the first candidate that clears its floor.
     function test_ladder_firstReachableTargetCommits() public {
         p0.set(8 ether, false);
         p1.set(7 ether, false);
@@ -132,7 +122,7 @@ contract SelectUnitTest is Test, SelectShared {
         targets[0] = 10 ether;
         targets[1] = 6 ether;
         targets[2] = 1;
-        _run(0, address(buy), targets, _candidates3(), 7 ether);
+        _run(address(buy), targets, _candidates3(), 7 ether);
         assertEq(buy.balanceOf(recipient), 7 ether, "rung 1 committed");
         assertEq(p2.callCount(), 0, "rung 2 never attempted");
     }
@@ -143,30 +133,18 @@ contract SelectUnitTest is Test, SelectShared {
         p1.set(7 ether, false);
         p2.set(9 ether, false);
         uint256[] memory targets = _bestOfTargets(10 ether);
-        _run(0, address(buy), targets, _candidates3(), 9 ether);
+        _run(address(buy), targets, _candidates3(), 9 ether);
         assertEq(buy.balanceOf(recipient), 9 ether, "best (p2) committed");
         assertEq(p0.callCount() + p1.callCount(), 0, "losing measurements rolled back");
     }
 
-    /// @dev The improvement fee is shareBps of the winner minus runner-up edge.
-    function test_measured_fee() public {
-        p0.set(5 ether, false);
-        p1.set(7 ether, false);
-        p2.set(9 ether, false);
-        uint256[] memory targets = _bestOfTargets(10 ether);
-        _run(5_000, address(buy), targets, _candidates3(), 8 ether);
-        assertEq(buy.balanceOf(FEE_RECEIVER), 1 ether, "half the measured edge");
-        assertEq(buy.balanceOf(recipient), 8 ether, "winner's output minus fee");
-    }
-
-    /// @dev An outright target hit commits once, skips later candidates, and pays no fee.
-    function test_measured_winsOutright_noFee() public {
+    /// @dev An outright target hit commits once and skips later candidates.
+    function test_measured_winsOutright_skipsMeasurements() public {
         p0.set(10 ether, false);
         uint256[] memory targets = _bestOfTargets(10 ether);
-        _run(5_000, address(buy), targets, _candidates3(), 10 ether);
+        _run(address(buy), targets, _candidates3(), 10 ether);
         assertEq(buy.balanceOf(recipient), 10 ether);
         assertEq(p1.callCount() + p2.callCount(), 0, "nothing else measured");
-        assertEq(buy.balanceOf(FEE_RECEIVER), 0, "no fee on the outright win");
     }
 
     /// @dev Spoofed measurements can forge public tags, but rollback hides measure/commit state.
@@ -187,7 +165,7 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[2] = _candidate(address(p2));
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, uint256(0), uint256(0), address(buy), targets, new uint256[](3), candidates
+            ISettlerActions.SELECT.selector, uint256(0), address(buy), targets, new uint256[](3), candidates
         );
         vm.prank(taker, taker);
         settler.execute(
@@ -222,7 +200,7 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[1] = evilCandidate1;
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, uint256(0), uint256(0), address(buy), targets, new uint256[](2), candidates
+            ISettlerActions.SELECT.selector, uint256(0), address(buy), targets, new uint256[](2), candidates
         );
         vm.prank(taker, taker);
         vm.expectRevert(abi.encodeWithSelector(Measured.selector, uint256(0), tag1));
@@ -233,24 +211,6 @@ contract SelectUnitTest is Test, SelectShared {
             actions,
             bytes32(0)
         );
-    }
-
-    /// @dev Dropped spoofers are excluded from the runner-up edge used for fee payment.
-    function test_measured_degradedFee_excludesDroppedSpoofer() public {
-        vm.setEnv("SELECT_SPOOF_SEEN", "false");
-        p0.set(8 ether, false);
-        p2.set(7 ether, false);
-        DiscriminatingSpoofPool evil = new DiscriminatingSpoofPool();
-        bytes[] memory evilCandidate = _candidate(address(evil));
-        evil.setTag(_tag(evilCandidate, false));
-        uint256[] memory targets = _bestOfTargets(type(uint256).max);
-        bytes[][] memory candidates = new bytes[][](3);
-        candidates[0] = _candidate(address(p0));
-        candidates[1] = evilCandidate;
-        candidates[2] = _candidate(address(p2));
-        _run(5_000, address(buy), targets, candidates, 7.5 ether);
-        assertEq(buy.balanceOf(FEE_RECEIVER), 0.5 ether, "half the real 1-token edge");
-        assertEq(buy.balanceOf(recipient), 7.5 ether, "degraded winner minus fee");
     }
 
     /// @dev A nested action encoded with length 0..3 underflows `args.length` in
@@ -274,13 +234,7 @@ contract SelectUnitTest is Test, SelectShared {
         uint256[] memory targets = new uint256[](2);
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector,
-            uint256(0),
-            uint256(300_000),
-            address(0),
-            targets,
-            new uint256[](2),
-            candidates
+            ISettlerActions.SELECT.selector, uint256(300_000), address(0), targets, new uint256[](2), candidates
         );
         vm.prank(taker, taker);
         settler.execute{gas: 1_500_000}(
@@ -303,7 +257,7 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[1] = _candidate(address(new GasBurnerPool()));
         candidates[2] = _candidate(address(finisher));
         uint256[] memory targets = new uint256[](3);
-        _runWithGasCap(0, 300_000, address(0), targets, candidates, 7 ether, 1_200_000);
+        _runWithGasCap(300_000, address(0), targets, candidates, 7 ether, 1_200_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "final fallback candidate committed");
         assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
     }
@@ -322,11 +276,10 @@ contract SelectUnitTest is Test, SelectShared {
         targets[1] = type(uint256).max;
         targets[2] = type(uint256).max;
         targets[3] = type(uint256).max;
-        _runWithGasCap(0, 300_000, address(buy), targets, candidates, 8 ether, 1_150_000);
+        _runWithGasCap(300_000, address(buy), targets, candidates, 8 ether, 1_150_000);
         assertEq(buy.balanceOf(recipient), 8 ether, "best measured-so-far committed");
         assertEq(p0.callCount(), 1, "measured best committed once");
         assertEq(p2.callCount(), 0, "unmeasured 9-token candidate skipped and excluded");
-        assertEq(buy.balanceOf(FEE_RECEIVER), 0, "no fee with zero share");
     }
 }
 
@@ -397,7 +350,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeWithSelector(
             ISettlerActions.SELECT_VIP.selector,
-            uint256(0),
             uint256(0),
             token,
             targets,
@@ -480,13 +432,7 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         vm.prank(taker, taker);
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT_VIP.selector,
-            uint256(0),
-            uint256(0),
-            address(0),
-            targets,
-            new uint256[](1),
-            candidates
+            ISettlerActions.SELECT_VIP.selector, uint256(0), address(0), targets, new uint256[](1), candidates
         );
         vm.expectRevert(bytes4(keccak256("InvalidNonce()")));
         settler.execute(

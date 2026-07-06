@@ -65,7 +65,7 @@ contract SelectBase is Test, Permit2Signature {
         vm.label(address(settler), "BaseSettler");
     }
 
-    /// @dev Fallback mode discards a reverting primary route and commits alternate Base liquidity.
+    /// @dev Zero targets discard a reverting primary route and commit alternate Base liquidity.
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
         bytes[][] memory candidates = _twoCandidates(type(uint256).max, 0);
         uint256[] memory targets = new uint256[](2);
@@ -98,7 +98,7 @@ contract SelectBase is Test, Permit2Signature {
         assertEq(received, expected, "SELECT committed measured argmax");
     }
 
-    /// @dev Ladder mode skips an unreachable first target and commits a reachable second target.
+    /// @dev Descending targets skip an unreachable first candidate and commit a reachable second.
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
@@ -119,7 +119,6 @@ contract SelectBase is Test, Permit2Signature {
             _permit2FundingAction(),
             abi.encodeWithSelector(
                 ISettlerActions.SELECT.selector,
-                uint256(0),
                 uint256(0),
                 token,
                 targets,

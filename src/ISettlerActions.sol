@@ -225,17 +225,15 @@ interface ISettlerActions {
 
     /// @dev SELECT: run candidate sub-programs and commit one. Candidates are non-VIP action lists
     ///      over held balance, scored by `token`'s balance delta (zero `token` scores bare success).
-    ///      The first candidate meeting its target commits with no fee. If every target is missed,
+    ///      The first candidate meeting its target commits immediately. If every target is missed,
     ///      commit the highest measured score net of `hurdles` at its measured score, dropping false
-    ///      measurements that fail to commit and trying the runner-up. A commit-phase fee takes
-    ///      `shareBps` of the committed candidate's edge over the runner-up. `token = 0` and zero
-    ///      targets is pure fallback; descending targets form a ladder; `targets[0] = belief` and
-    ///      `targets[1..] = type(uint256).max` is best-of-N. `candidateGasLimit` 0 is uncapped;
-    ///      when capped, measurement can stop early after a positive score to preserve a heuristic
-    ///      commit reserve, while an all-zero final attempt runs uncapped so it can finish.
+    ///      measurements that fail to commit and trying the runner-up. `token = 0` and zero targets
+    ///      is pure fallback; descending targets form a ladder; `targets[0] = belief` and
+    ///      `targets[1..] = type(uint256).max` is best-of-N. `candidateGasLimit` 0 is uncapped; when
+    ///      capped, measurement can stop early after a positive score to preserve a heuristic commit
+    ///      reserve, while an all-zero final attempt runs uncapped so it can finish.
     // Pre-req: Funded
     function SELECT(
-        uint256 shareBps,
         uint256 candidateGasLimit,
         address token,
         uint256[] calldata targets,
@@ -246,7 +244,6 @@ interface ISettlerActions {
     /// @dev As `SELECT`, but each candidate's first action is VIP and must deliver the candidate's
     ///      input funds to Settler, whose held-balance delta is still what scores the candidate.
     function SELECT_VIP(
-        uint256 shareBps,
         uint256 candidateGasLimit,
         address token,
         uint256[] calldata targets,

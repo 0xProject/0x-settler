@@ -7,8 +7,6 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {FastLogic} from "../utils/FastLogic.sol";
-import {Ternary} from "../utils/Ternary.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
 /// @notice Runs candidate routes in revertable self-calls and commits one, scored by `token`'s
@@ -19,11 +17,6 @@ abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
-    using FastLogic for bool;
-    using Ternary for bool;
-
-    /// todo: set proper address. Hard-coded so a calldata receiver cannot strip the fee.
-    address internal constant _IMPROVEMENT_FEE_RECEIVER = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
 
     function _dispatchVIP(uint256, bytes calldata) internal virtual returns (bool) {
         return false;
@@ -49,11 +42,6 @@ abstract contract Select is SettlerSwapAbstract {
             tagFlag := shl(0xff, vip)
         }
         bytes4 selector = this.executeSelected.selector;
-        IERC20 token;
-        uint256 shareBps;
-        int256 committedNet;
-        int256 runnerUpNet = type(int256).min; // stays min, and the fee unreachable, unless a runner-up remains
-        uint256 committedScore;
         // Hand-built executeSelected self-calls, forwarded from calldata. Pseudocode:
         // for each candidate: if selfCall(targets[i], cappedGas) succeeds return; else save score/net
         //   (breaking early once a score exists and gas nears the commit reserve);
@@ -77,12 +65,11 @@ abstract contract Select is SettlerSwapAbstract {
                 len_ := sub(e_, start_)
             }
 
-            shareBps := calldataload(data.offset)
-            let gasCap := calldataload(add(0x20, data.offset))
-            token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x40, data.offset)))
-            let targetsData := add(0x20, add(data.offset, calldataload(add(0x60, data.offset))))
-            let hurdlesData := add(0x20, add(data.offset, calldataload(add(0x80, data.offset))))
-            let base := add(data.offset, calldataload(add(0xa0, data.offset)))
+            let gasCap := calldataload(data.offset)
+            let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x20, data.offset)))
+            let targetsData := add(0x20, add(data.offset, calldataload(add(0x40, data.offset))))
+            let hurdlesData := add(0x20, add(data.offset, calldataload(add(0x60, data.offset))))
+            let base := add(data.offset, calldataload(add(0x80, data.offset)))
             let n := calldataload(base)
             let candsData := add(0x20, base)
             let dataEnd := add(data.offset, data.length)
@@ -130,7 +117,7 @@ abstract contract Select is SettlerSwapAbstract {
                 let score := measured(ret, tag, measuredSelector)
                 anyScore := or(anyScore, gt(score, 0x00))
                 mstore(add(scores, shl(0x05, i)), score)
-                // wrapping sub == int256 net; absurd values revert in the checked fee math (fail closed)
+                // wrapping sub == int256 net; the solver keeps hurdles inside sane int256 bounds
                 mstore(add(nets, shl(0x05, i)), sub(score, calldataload(add(hurdlesData, shl(0x05, i)))))
                 mstore(add(alive, shl(0x05, i)), 0x01)
             }
@@ -159,33 +146,12 @@ abstract contract Select is SettlerSwapAbstract {
                     mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
                     mstore(add(0x64, cd), or(and(keccak256(dst, len), not(tagMask)), tagFlag))
                     if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
-                        committedNet := bestNet
-                        committedScore := mload(add(scores, shl(0x05, best)))
-                        let second := shl(0xff, 0x01) // int256 min
-                        for { let j := 0x00 } lt(j, n) { j := add(0x01, j) } {
-                            if and(iszero(eq(j, best)), mload(add(alive, shl(0x05, j)))) {
-                                let net := mload(add(nets, shl(0x05, j)))
-                                if sgt(net, second) { second := net }
-                            }
-                        }
-                        runnerUpNet := second
                         break
                     }
 
                     mstore(add(alive, shl(0x05, best)), 0x00)
                 }
             }
-        }
-        // fee on the committed candidate's measured edge over the runner-up, clamped to its score
-        // and to held balance. Only reachable when the commit phase finds a real runner-up.
-        if ((runnerUpNet != type(int256).min).and(committedNet > runnerUpNet).and(address(token) != address(0))) {
-            shareBps = (shareBps > BASIS).ternary(BASIS, shareBps);
-            uint256 improvement = uint256(committedNet - runnerUpNet);
-            improvement = (improvement > committedScore).ternary(committedScore, improvement);
-            uint256 fee = improvement * shareBps / BASIS;
-            uint256 held = token.fastBalanceOf(address(this));
-            fee = (fee > held).ternary(held, fee);
-            if (fee != 0) token.safeTransfer(_IMPROVEMENT_FEE_RECEIVER, fee);
         }
     }
 
