@@ -7,47 +7,38 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
-/// @notice Runs candidate routes in revertable self-calls and commits one, scored by `token`'s
-///         balance delta: the first candidate meeting its own target, else the best measurement
-///         re-run at its measured score (fail closed), degrading to the runner-up on divergence.
-///         Full semantics on `ISettlerActions.SELECT`.
+/// @notice Candidate-route selection by revertable self-call measurement.
 abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
+    using FastLogic for bool;
 
     function _dispatchVIP(uint256, bytes calldata) internal virtual returns (bool) {
         return false;
     }
 
-    /// @notice Runs one candidate, which must deliver `token` here (zero `token` scores 0, native
-    ///         ETH must route into WETH). Commits if the score meets `minOut`, else reverts
-    ///         `Measured(score, tag)`. `tag`'s high bit dispatches action 0 VIP. Self-call only.
+    function _balanceOfOrZero(IERC20 token) private view returns (uint256) {
+        return address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
+    }
+
+    /// @notice Self-call entrypoint for one candidate. `tag`'s high bit dispatches action 0 VIP.
     function executeSelected(bytes[] calldata actions, IERC20 token, uint256 minOut, bytes32 tag) external {
         require(msg.sender == address(this));
-        uint256 balBefore = address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
+        uint256 balBefore = _balanceOfOrZero(token);
         _runActions(actions, uint256(tag) >> 255 != 0);
-        uint256 score = address(token) == address(0) ? 0 : token.fastBalanceOf(address(this)) - balBefore;
+        uint256 score = _balanceOfOrZero(token) - balBefore;
         if (score < minOut) revert Measured(score, tag);
     }
 
-    /// @dev `SELECT`/`SELECT_VIP` body. `data` is the action's arguments, abi.encoded. Candidate
-    ///      sub-encodings forward straight from calldata into `executeSelected` self-calls.
     function _select(bytes calldata data, bool vip) internal {
         uint256 measuredSelector = uint32(Measured.selector);
-        uint256 tagFlag;
-        assembly ("memory-safe") {
-            tagFlag := shl(0xff, vip)
-        }
+        uint256 tagFlag = vip.toUint() << 255;
         bytes4 selector = this.executeSelected.selector;
-        // Hand-built executeSelected self-calls, forwarded from calldata. Pseudocode:
-        // for each candidate: if selfCall(targets[i], cappedGas) succeeds return; else save score/net
-        //   (breaking early once a score exists and gas nears the commit reserve);
-        // while no commit: try the highest live net uncapped at its score; drop false measurements.
         assembly ("memory-safe") {
-            // reads the last self-call's Measured(score, tag) revert. Returns 0 unless selector and tag match
             function measured(ret_, tag_, sel_) -> s_ {
                 if eq(returndatasize(), 0x44) {
                     returndatacopy(ret_, 0x00, 0x44)
@@ -56,7 +47,6 @@ abstract contract Select is SettlerSwapAbstract {
                     }
                 }
             }
-            // candidate i's `bytes[]` sub-encoding within calldata: [start, start+len)
             function blob(base_, n_, end_, i_) -> start_, len_ {
                 start_ := add(base_, calldataload(add(base_, shl(0x05, i_))))
                 let e_ := end_
@@ -73,7 +63,6 @@ abstract contract Select is SettlerSwapAbstract {
             let n := calldataload(base)
             let candsData := add(0x20, base)
             let dataEnd := add(data.offset, data.length)
-            // input guards: at least one candidate, and per-candidate targets/hurdles present
             if or(
                 iszero(n),
                 or(lt(calldataload(sub(targetsData, 0x20)), n), lt(calldataload(sub(hurdlesData, 0x20)), n))
@@ -84,11 +73,10 @@ abstract contract Select is SettlerSwapAbstract {
             let scores := mload(0x40)
             let nets := add(scores, shl(0x05, n))
             let alive := add(nets, shl(0x05, n))
-            // the gas guard can skip candidates, and memory above the free pointer is not
-            // necessarily zero (`DANGEROUS_freeMemory`), so `alive` must be zeroed explicitly
+            // `alive` is above the free pointer under `DANGEROUS_freeMemory`.
             calldatacopy(alive, calldatasize(), shl(0x05, n))
-            let ret := add(alive, shl(0x05, n)) // 0x44-byte returndata scratch
-            let cd := add(0x60, ret) // call scratch: selector, head (0x80), token, minOut, tag, candidate tail
+            let ret := add(alive, shl(0x05, n))
+            let cd := add(0x60, ret)
             mstore(cd, selector)
             mstore(add(0x04, cd), 0x80)
             mstore(add(0x24, cd), token)
@@ -98,8 +86,7 @@ abstract contract Select is SettlerSwapAbstract {
             let attemptedCommit
             let anyScore
             for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
-                // once a real score exists, stop measuring when gas nears the reserve for one
-                // capped commit run plus post-processing (heuristic; the cap must be sane)
+                // Preserve a commit reserve once at least one candidate has measured positive.
                 if and(and(iszero(iszero(gasCap)), anyScore), lt(gas(), add(add(gasCap, gasCap), 0x10000))) {
                     break
                 }
@@ -117,7 +104,6 @@ abstract contract Select is SettlerSwapAbstract {
                 let score := measured(ret, tag, measuredSelector)
                 anyScore := or(anyScore, gt(score, 0x00))
                 mstore(add(scores, shl(0x05, i)), score)
-                // wrapping sub == int256 net; the solver keeps hurdles inside sane int256 bounds
                 mstore(add(nets, shl(0x05, i)), sub(score, calldataload(add(hurdlesData, shl(0x05, i)))))
                 mstore(add(alive, shl(0x05, i)), 0x01)
             }
@@ -125,7 +111,7 @@ abstract contract Select is SettlerSwapAbstract {
             if iszero(attemptedCommit) {
                 for {} 0x01 {} {
                     let best := n
-                    let bestNet := shl(0xff, 0x01) // int256 min
+                    let bestNet := shl(0xff, 0x01)
                     for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
                         if mload(add(alive, shl(0x05, i))) {
                             let net := mload(add(nets, shl(0x05, i)))
@@ -140,7 +126,6 @@ abstract contract Select is SettlerSwapAbstract {
                         revert(ret, returndatasize())
                     }
 
-                    // commit the current highest-net candidate at its measured score
                     let start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
                     mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
@@ -155,7 +140,6 @@ abstract contract Select is SettlerSwapAbstract {
         }
     }
 
-    /// @dev The shared candidate-execution loop. When `vip`, action 0 must be VIP.
     function _runActions(bytes[] calldata actions, bool vip) internal {
         AllowedSlippage memory noSlippage;
         uint256 it;
@@ -164,20 +148,19 @@ abstract contract Select is SettlerSwapAbstract {
         }
         for (uint256 i; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
-            // `decodeCall` strips 4 selector bytes unchecked, so a shorter action underflows
-            // `data.length` and `revertActionInvalid` would OOG. Catch it here.
+            // `decodeCall` underflows short actions.
             assembly ("memory-safe") {
                 if gt(data.length, not(0x04)) {
                     let ptr := mload(0x40)
-                    mstore(ptr, 0x3c74eed6) // selector for `ActionInvalid(uint256,bytes4,bytes)`
+                    mstore(ptr, 0x3c74eed6)
                     mstore(add(0x20, ptr), i)
-                    mstore(add(0x40, ptr), shl(0xe0, action)) // align as `bytes4`
-                    mstore(add(0x60, ptr), 0x60) // offset to the length slot of `data`
-                    mstore(add(0x80, ptr), 0x00) // report `data` as empty, its true length underflowed
+                    mstore(add(0x40, ptr), shl(0xe0, action))
+                    mstore(add(0x60, ptr), 0x60)
+                    mstore(add(0x80, ptr), 0x00)
                     revert(add(0x1c, ptr), 0x84)
                 }
             }
-            if (vip && i == 0 ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage)) {
+            if (vip.and(i == 0) ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }
         }

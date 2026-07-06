@@ -103,7 +103,6 @@ contract SelectUnitTest is Test, SelectShared {
         );
     }
 
-    /// @dev Zero targets discard a reverting primary and commit the alternate.
     function test_fallback_primaryRevert_commitsAlternate() public {
         p0.set(10 ether, true);
         p1.set(7 ether, false);
@@ -113,7 +112,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p2.callCount(), 0, "third candidate never reached");
     }
 
-    /// @dev Descending targets commit the first candidate that clears its floor.
     function test_ladder_firstReachableTargetCommits() public {
         p0.set(8 ether, false);
         p1.set(7 ether, false);
@@ -127,7 +125,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p2.callCount(), 0, "rung 2 never attempted");
     }
 
-    /// @dev Best-of-N measures all candidates and commits the measured argmax.
     function test_measured_bestOfN_commitsArgmax() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
@@ -138,7 +135,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p0.callCount() + p1.callCount(), 0, "losing measurements rolled back");
     }
 
-    /// @dev An outright target hit commits once and skips later candidates.
     function test_measured_winsOutright_skipsMeasurements() public {
         p0.set(10 ether, false);
         uint256[] memory targets = _bestOfTargets(10 ether);
@@ -147,9 +143,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p1.callCount() + p2.callCount(), 0, "nothing else measured");
     }
 
-    /// @dev Spoofed measurements can forge public tags, but rollback hides measure/commit state.
-    ///      This harness uses env-var persistence where production can only use gas introspection.
-    ///      A false commit is dropped and SELECT degrades to the real runner-up.
     function test_measured_spoofCorrectTag_degradesToRunnerUp() public {
         vm.setEnv("SELECT_SPOOF_SEEN", "false");
         p0.set(8 ether, false);
@@ -179,7 +172,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(buy.balanceOf(address(evil)), 0, "spoofer delivered nothing");
     }
 
-    /// @dev If every measured candidate diverges during commit, the last revert bubbles.
     function test_measured_allCommitPhaseCommitsFail_bubblesLastRevert() public {
         vm.setEnv("SELECT_SPOOF_SEEN_0", "false");
         vm.setEnv("SELECT_SPOOF_SEEN_1", "false");
@@ -213,9 +205,6 @@ contract SelectUnitTest is Test, SelectShared {
         );
     }
 
-    /// @dev A nested action encoded with length 0..3 underflows `args.length` in
-    ///      `CalldataDecoder.decodeCall`; the guard must catch it and revert `ActionInvalid`
-    ///      instead of an OOG/garbage read.
     function testFuzz_shortNestedAction_revertsCleanly(uint256 len) public {
         len = bound(len, 0, 3);
         bytes[] memory actions = new bytes[](1);
@@ -225,7 +214,6 @@ contract SelectUnitTest is Test, SelectShared {
         Select(address(settler)).executeSelected(actions, IERC20(address(0)), 0, bytes32(0));
     }
 
-    /// @dev A stalling capped candidate cannot starve the fallback cascade.
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
         p1.set(7 ether, false);
         bytes[][] memory candidates = new bytes[][](2);
@@ -247,7 +235,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed despite the staller");
     }
 
-    /// @dev The last fallback candidate runs uncapped after earlier capped stalls.
     function test_fallback_gasCap_lastCandidateRunsUncapped() public {
         GasHeavyPool finisher = new GasHeavyPool(buy);
         finisher.set(7 ether, 9_000);
@@ -262,7 +249,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
     }
 
-    /// @dev The gas guard commits the best measured-so-far and excludes unmeasured candidates.
     function test_measured_gasGuard_commitsBestSoFar_skippedCandidateExcluded() public {
         p0.set(8 ether, false);
         p2.set(9 ether, false);
@@ -376,7 +362,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         assertEq(PERMIT2.nonceBitmap(taker, wordPos), mask, "Permit2 nonce bit");
     }
 
-    /// @dev SELECT_VIP rolls back a reverting candidate's Permit2 nonce and commits the alternate.
     function test_selectVIP_revertedCandidateRollsBackPermitNonce_commitsAlternate() public {
         vm.setEnv("SELECT_VIP_P0_SAW_PULL", "false");
         p0.set(5 ether, true);
@@ -397,7 +382,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed");
     }
 
-    /// @dev SELECT_VIP measurement rollback unspends losing Permit2 pulls before winner commit.
     function test_selectVIP_measurementRollbackUnspendsNonce_onlyWinnerSurvives() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
@@ -418,7 +402,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         assertEq(buy.balanceOf(recipient), 7 ether, "winner output paid");
     }
 
-    /// @dev Replaying a committed SELECT_VIP route fails the Permit2 nonce invariant.
     function test_selectVIP_replayAfterCommitFailsNonceInvariant() public {
         p0.set(7 ether, false);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
@@ -445,7 +428,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         assertEq(sell.balanceOf(taker), 99 ether, "failed replay did not spend again");
     }
 
-    /// @dev A spoofed SELECT_VIP measurement forfeits to the runner-up with one shared permit spend.
     function test_selectVIP_spoofedMeasurementForfeits_runnerUpCommitsSharedPermitOnce() public {
         vm.setEnv("SELECT_VIP_SPOOF_SEEN", "false");
         p0.set(8 ether, false);
@@ -468,7 +450,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         assertEq(buy.balanceOf(recipient), 8 ether, "spoof forfeited to runner-up");
     }
 
-    /// @dev Gas snapshot for one measured SELECT_VIP candidate.
     function testGas_selectVIP_oneMeasuredCandidate() public {
         p0.set(7 ether, false);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
@@ -479,7 +460,6 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         _runVIP(address(buy), targets, candidates, 7 ether);
     }
 
-    /// @dev Gas snapshot for two measured SELECT_VIP candidates.
     function testGas_selectVIP_twoMeasuredCandidates() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);

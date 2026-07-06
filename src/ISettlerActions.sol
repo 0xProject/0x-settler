@@ -224,15 +224,8 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev SELECT: run candidate sub-programs and commit one. Candidates are non-VIP action lists
-    ///      over held balance, scored by `token`'s balance delta (zero `token` scores bare success).
-    ///      The first candidate meeting its target commits immediately. If every target is missed,
-    ///      commit the highest measured score net of `hurdles` at its measured score, dropping false
-    ///      measurements that fail to commit and trying the runner-up. `token = 0` and zero targets
-    ///      is pure fallback; descending targets form a ladder; `targets[0] = belief` and
-    ///      `targets[1..] = type(uint256).max` is best-of-N. `candidateGasLimit` 0 is uncapped; when
-    ///      capped, measurement can stop early after a positive score to preserve a heuristic commit
-    ///      reserve, while an all-zero final attempt runs uncapped so it can finish.
+    /// @dev Commits the first candidate that clears its target, else the highest measured score net
+    ///      of hurdle. `token = 0` scores bare success. Zero targets are fallback.
     // Pre-req: Funded
     function SELECT(
         uint256 candidateGasLimit,
@@ -242,8 +235,7 @@ interface ISettlerActions {
         bytes[][] calldata candidates
     ) external;
 
-    /// @dev As `SELECT`, but each candidate's first action is VIP and must deliver the candidate's
-    ///      input funds to Settler, whose held-balance delta is still what scores the candidate.
+    /// @dev As `SELECT`, but each candidate's first action is VIP.
     function SELECT_VIP(
         uint256 candidateGasLimit,
         address token,

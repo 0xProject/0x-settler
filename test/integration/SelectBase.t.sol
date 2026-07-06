@@ -65,7 +65,6 @@ contract SelectBase is Test, Permit2Signature {
         vm.label(address(settler), "BaseSettler");
     }
 
-    /// @dev Zero targets discard a reverting primary route and commit alternate Base liquidity.
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
         bytes[][] memory candidates = _twoCandidates(type(uint256).max, 0);
         uint256[] memory targets = new uint256[](2);
@@ -79,7 +78,6 @@ contract SelectBase is Test, Permit2Signature {
         assertEq(USDC.balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
     }
 
-    /// @dev Best-of-N measures both real routes and commits the larger standalone output.
     function testMeasuredBestOf_measuresBothAndCommitsLargerStandaloneOutput() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
 
@@ -98,7 +96,6 @@ contract SelectBase is Test, Permit2Signature {
         assertEq(received, expected, "SELECT committed measured argmax");
     }
 
-    /// @dev Descending targets skip an unreachable first candidate and commit a reachable second.
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
