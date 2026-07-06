@@ -16,16 +16,11 @@ import {Permit2Payment} from "../../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BaseSettler is BaseMixin, Settler {
+contract BaseSettler is Settler, BaseMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data)
-        internal
-        override(Settler, Select)
-        DANGEROUS_freeMemory
-        returns (bool)
-    {
-        if (super._dispatchVIP(action, data)) {
+    function _dispatchVIP(uint256 action, bytes calldata data) internal override(Settler, Select) DANGEROUS_freeMemory returns (bool) {
+        if (Settler._dispatchVIP(action, data)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
