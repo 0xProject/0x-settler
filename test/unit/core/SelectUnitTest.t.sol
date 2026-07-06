@@ -13,12 +13,26 @@ import {Select} from "src/core/Select.sol";
 import {Measured} from "src/core/SettlerErrors.sol";
 import {Permit2Signature} from "test/utils/Permit2Signature.sol";
 
-/// @notice Exercises the real `BaseSettler` `SELECT` action: pure fallback, descending ladder,
-///         best-of-N with fail-closed measured commits, measurement-spoof degradation, the
-///         improvement fee, the win-outright 1x path, and the candidate gas cap (a stalling
-///         candidate must not starve the rest). Only the AMM legs are mocked (allowed for unit
-///         tests); the contract under test is the production Settler.
-contract SelectUnitTest is Test {
+abstract contract SelectShared {
+    function _candidate(address p) internal pure returns (bytes[] memory c) {
+        c = new bytes[](1);
+        c[0] = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, p, 0, abi.encodeCall(Pool.swap, ())));
+    }
+
+    function _tag(bytes[] memory c, bool vip) internal pure returns (bytes32 t) {
+        bytes memory e = abi.encode(c);
+        // Hash abi.encode(c)[0x20:] and set the high-bit selector namespace: vip ? h | HIGH_BIT : h & ~HIGH_BIT.
+        assembly ("memory-safe") {
+            let h := keccak256(add(e, 0x40), sub(mload(e), 0x20))
+            t := xor(
+                and(xor(and(h, not(shl(0xff, 0x01))), or(h, shl(0xff, 0x01))), sub(0x00, vip)),
+                and(h, not(shl(0xff, 0x01)))
+            )
+        }
+    }
+}
+
+contract SelectUnitTest is Test, SelectShared {
     BaseSettler internal settler;
     TestToken internal buy;
     Pool internal p0;
@@ -37,20 +51,6 @@ contract SelectUnitTest is Test {
         buy.mint(address(p0), 1_000 ether);
         buy.mint(address(p1), 1_000 ether);
         buy.mint(address(p2), 1_000 ether);
-    }
-
-    function _candidate(address p) internal pure returns (bytes[] memory c) {
-        c = new bytes[](1);
-        c[0] = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, p, 0, abi.encodeCall(Pool.swap, ())));
-    }
-
-    /// @dev The tag `_select` computes for a candidate: keccak of its `bytes[]` sub-encoding
-    ///      (abi.encode(c) minus the leading 0x20 offset word), i.e. what the golf forwards + hashes.
-    function _tag(bytes[] memory c) internal pure returns (bytes32 t) {
-        bytes memory e = abi.encode(c);
-        assembly ("memory-safe") {
-            t := and(keccak256(add(e, 0x40), sub(mload(e), 0x20)), not(shl(0xff, 0x01)))
-        }
     }
 
     function _candidates3() internal view returns (bytes[][] memory c) {
@@ -113,10 +113,9 @@ contract SelectUnitTest is Test {
         );
     }
 
-    /// @dev ROUTE_OR_FALLBACK personality: token = 0 and zero targets —
-    ///      the failing primary is discarded wholesale, the alternate commits.
+    /// @dev Fallback mode discards a reverting primary and commits the alternate.
     function test_fallback_primaryRevert_commitsAlternate() public {
-        p0.set(10 ether, true); // delivers, then reverts
+        p0.set(10 ether, true);
         p1.set(7 ether, false);
         _run(0, address(0), new uint256[](3), _candidates3(), 7 ether);
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate's output only (primary rolled back)");
@@ -124,23 +123,21 @@ contract SelectUnitTest is Test {
         assertEq(p2.callCount(), 0, "third candidate never reached");
     }
 
-    /// @dev Descending-floor LADDER personality: rung 0 misses its high floor, rung 1 clears its
-    ///      lower floor and commits; rung 2 never runs.
+    /// @dev Ladder mode commits the first candidate that clears its floor.
     function test_ladder_firstReachableTargetCommits() public {
         p0.set(8 ether, false);
         p1.set(7 ether, false);
         p2.set(9 ether, false);
         uint256[] memory targets = new uint256[](3);
-        targets[0] = 10 ether; // 8 < 10 -> Measured, walk down
-        targets[1] = 6 ether; // 7 >= 6 -> commits
+        targets[0] = 10 ether;
+        targets[1] = 6 ether;
         targets[2] = 1;
         _run(0, address(buy), targets, _candidates3(), 7 ether);
         assertEq(buy.balanceOf(recipient), 7 ether, "rung 1 committed");
         assertEq(p2.callCount(), 0, "rung 2 never attempted");
     }
 
-    /// @dev Best-of-N: target missed, all candidates measured and rolled back, argmax committed at
-    ///      its measured score (fail-closed).
+    /// @dev Best-of-N measures all candidates and commits the measured argmax.
     function test_measured_bestOfN_commitsArgmax() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
@@ -151,8 +148,7 @@ contract SelectUnitTest is Test {
         assertEq(p0.callCount() + p1.callCount(), 0, "losing measurements rolled back");
     }
 
-    /// @dev The improvement fee: shareBps of (winner − runner-up), in the measured token. Winner 9,
-    ///      runner-up 7 -> edge 2 -> 50% = 1 to the receiver, 8 to the recipient.
+    /// @dev The improvement fee is shareBps of the winner minus runner-up edge.
     function test_measured_fee() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
@@ -163,7 +159,7 @@ contract SelectUnitTest is Test {
         assertEq(buy.balanceOf(recipient), 8 ether, "winner's output minus fee");
     }
 
-    /// @dev Wins outright: 1x, nothing else measured, no fee.
+    /// @dev An outright target hit commits once, skips later candidates, and pays no fee.
     function test_measured_winsOutright_noFee() public {
         p0.set(10 ether, false);
         uint256[] memory targets = _bestOfTargets(10 ether);
@@ -173,20 +169,18 @@ contract SelectUnitTest is Test {
         assertEq(buy.balanceOf(FEE_RECEIVER), 0, "no fee on the outright win");
     }
 
-    /// @dev The tag is computable from public calldata, so an adversarial pool CAN forge
-    ///      `Measured(huge, correctTag)` to win selection, then under-deliver on the commit
-    ///      (measurements roll back all EVM state, so in production only gas introspection
-    ///      distinguishes measure from commit; here a forge env var stands in). The false commit is
-    ///      dropped, and SELECT degrades to the real runner-up instead of settling a bad fill.
+    /// @dev Spoofed measurements can forge public tags, but rollback hides measure/commit state.
+    ///      This harness uses env-var persistence where production can only use gas introspection.
+    ///      A false commit is dropped and SELECT degrades to the real runner-up.
     function test_measured_spoofCorrectTag_degradesToRunnerUp() public {
         vm.setEnv("SELECT_SPOOF_SEEN", "false");
         p0.set(8 ether, false);
         p2.set(0, false);
         DiscriminatingSpoofPool evil = new DiscriminatingSpoofPool();
         bytes[] memory evilCandidate = _candidate(address(evil));
-        bytes32 tag = _tag(evilCandidate);
+        bytes32 tag = _tag(evilCandidate, false);
         evil.setTag(tag);
-        uint256[] memory targets = _bestOfTargets(20 ether); // candidate 0 misses -> full runoff
+        uint256[] memory targets = _bestOfTargets(20 ether);
         bytes[][] memory candidates = new bytes[][](3);
         candidates[0] = _candidate(address(p0));
         candidates[1] = evilCandidate;
@@ -207,19 +201,18 @@ contract SelectUnitTest is Test {
         assertEq(buy.balanceOf(address(evil)), 0, "spoofer delivered nothing");
     }
 
-    /// @dev If every measured candidate diverges during its uncapped commit, the final commit
-    ///      failure bubbles to the caller.
+    /// @dev If every measured candidate diverges during commit, the last revert bubbles.
     function test_measured_allCommitPhaseCommitsFail_bubblesLastRevert() public {
         vm.setEnv("SELECT_SPOOF_SEEN_0", "false");
         vm.setEnv("SELECT_SPOOF_SEEN_1", "false");
         DiscriminatingSpoofPool evil0 = new DiscriminatingSpoofPool();
         evil0.setKey("SELECT_SPOOF_SEEN_0");
         bytes[] memory evilCandidate0 = _candidate(address(evil0));
-        evil0.setTag(_tag(evilCandidate0));
+        evil0.setTag(_tag(evilCandidate0, false));
         DiscriminatingSpoofPool evil1 = new DiscriminatingSpoofPool();
         evil1.setKey("SELECT_SPOOF_SEEN_1");
         bytes[] memory evilCandidate1 = _candidate(address(evil1));
-        bytes32 tag1 = _tag(evilCandidate1);
+        bytes32 tag1 = _tag(evilCandidate1, false);
         evil1.setTag(tag1);
         uint256[] memory targets = new uint256[](2);
         targets[0] = type(uint256).max;
@@ -242,15 +235,14 @@ contract SelectUnitTest is Test {
         );
     }
 
-    /// @dev A dropped spoofer's fake net must not inflate the edge. The committed runner-up p0 (8)
-    ///      pays against the real remaining runner-up p2 (7), not the dropped fake 1e30.
+    /// @dev Dropped spoofers are excluded from the runner-up edge used for fee payment.
     function test_measured_degradedFee_excludesDroppedSpoofer() public {
         vm.setEnv("SELECT_SPOOF_SEEN", "false");
         p0.set(8 ether, false);
         p2.set(7 ether, false);
         DiscriminatingSpoofPool evil = new DiscriminatingSpoofPool();
         bytes[] memory evilCandidate = _candidate(address(evil));
-        evil.setTag(_tag(evilCandidate));
+        evil.setTag(_tag(evilCandidate, false));
         uint256[] memory targets = _bestOfTargets(type(uint256).max);
         bytes[][] memory candidates = new bytes[][](3);
         candidates[0] = _candidate(address(p0));
@@ -262,8 +254,8 @@ contract SelectUnitTest is Test {
     }
 
     /// @dev A nested action encoded with length 0..3 underflows `args.length` in
-    ///      `CalldataDecoder.decodeCall` (`sub(length, 0x04)` wraps to ~2^256); the guard must catch
-    ///      it and revert `ActionInvalid` instead of an OOG/garbage read.
+    ///      `CalldataDecoder.decodeCall`; the guard must catch it and revert `ActionInvalid`
+    ///      instead of an OOG/garbage read.
     function testFuzz_shortNestedAction_revertsCleanly(uint256 len) public {
         len = bound(len, 0, 3);
         bytes[] memory actions = new bytes[](1);
@@ -273,8 +265,7 @@ contract SelectUnitTest is Test {
         Select(address(settler)).executeSelected(actions, IERC20(address(0)), 0, bytes32(0));
     }
 
-    /// @dev The gas cap: a stalling candidate 0 (burns all forwarded gas) must not starve the
-    ///      cascade. With `candidateGasLimit` set, the alternate still commits.
+    /// @dev A stalling capped candidate cannot starve the fallback cascade.
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
         p1.set(7 ether, false);
         bytes[][] memory candidates = new bytes[][](2);
@@ -302,6 +293,7 @@ contract SelectUnitTest is Test {
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed despite the staller");
     }
 
+    /// @dev The last fallback candidate runs uncapped after earlier capped stalls.
     function test_fallback_gasCap_lastCandidateRunsUncapped() public {
         GasHeavyPool finisher = new GasHeavyPool(buy);
         finisher.set(7 ether, 9_000);
@@ -316,6 +308,7 @@ contract SelectUnitTest is Test {
         assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
     }
 
+    /// @dev The gas guard commits the best measured-so-far and excludes unmeasured candidates.
     function test_measured_gasGuard_commitsBestSoFar_skippedCandidateExcluded() public {
         p0.set(8 ether, false);
         p2.set(9 ether, false);
@@ -337,9 +330,7 @@ contract SelectUnitTest is Test {
     }
 }
 
-/// @notice Exercises the `SELECT_VIP` spike path against the real Base settler and real Permit2 at
-///         its canonical address. Pool legs are mocked only for deterministic local routing.
-contract SelectVIPUnitTest is Test, Permit2Signature {
+contract SelectVIPUnitTest is SelectShared, Permit2Signature {
     ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     uint256 internal constant TAKER_PRIVATE_KEY = 0x51e17e;
     uint256 internal constant SELL_AMOUNT = 1 ether;
@@ -402,13 +393,6 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         );
     }
 
-    function _tag(bytes[] memory c) internal pure returns (bytes32 t) {
-        bytes memory e = abi.encode(c);
-        assembly ("memory-safe") {
-            t := or(keccak256(add(e, 0x40), sub(mload(e), 0x20)), shl(0xff, 0x01))
-        }
-    }
-
     function _runVIP(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeWithSelector(
@@ -440,6 +424,7 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         assertEq(PERMIT2.nonceBitmap(taker, wordPos), mask, "Permit2 nonce bit");
     }
 
+    /// @dev SELECT_VIP rolls back a reverting candidate's Permit2 nonce and commits the alternate.
     function test_selectVIP_revertedCandidateRollsBackPermitNonce_commitsAlternate() public {
         vm.setEnv("SELECT_VIP_P0_SAW_PULL", "false");
         p0.set(5 ether, true);
@@ -460,6 +445,7 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed");
     }
 
+    /// @dev SELECT_VIP measurement rollback unspends losing Permit2 pulls before winner commit.
     function test_selectVIP_measurementRollbackUnspendsNonce_onlyWinnerSurvives() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
@@ -480,6 +466,7 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         assertEq(buy.balanceOf(recipient), 7 ether, "winner output paid");
     }
 
+    /// @dev Replaying a committed SELECT_VIP route fails the Permit2 nonce invariant.
     function test_selectVIP_replayAfterCommitFailsNonceInvariant() public {
         p0.set(7 ether, false);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
@@ -512,13 +499,14 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         assertEq(sell.balanceOf(taker), 99 ether, "failed replay did not spend again");
     }
 
+    /// @dev A spoofed SELECT_VIP measurement forfeits to the runner-up with one shared permit spend.
     function test_selectVIP_spoofedMeasurementForfeits_runnerUpCommitsSharedPermitOnce() public {
         vm.setEnv("SELECT_VIP_SPOOF_SEEN", "false");
         p0.set(8 ether, false);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
         bytes[] memory honest = _vipCandidate(address(p0), permit, sig);
         (bytes[] memory evilCandidate, SelectVIPSpoofPool evil) = _vipSpoofCandidate(permit, sig);
-        evil.setTag(_tag(evilCandidate));
+        evil.setTag(_tag(evilCandidate, true));
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = honest;
         candidates[1] = evilCandidate;
@@ -534,6 +522,7 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         assertEq(buy.balanceOf(recipient), 8 ether, "spoof forfeited to runner-up");
     }
 
+    /// @dev Gas snapshot for one measured SELECT_VIP candidate.
     function testGas_selectVIP_oneMeasuredCandidate() public {
         p0.set(7 ether, false);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
@@ -544,6 +533,7 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
         _runVIP(address(buy), targets, candidates, 7 ether);
     }
 
+    /// @dev Gas snapshot for two measured SELECT_VIP candidates.
     function testGas_selectVIP_twoMeasuredCandidates() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
@@ -560,10 +550,6 @@ contract SelectVIPUnitTest is Test, Permit2Signature {
 
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
-/// @notice Adversarial leg that behaves differently when measured vs committed. Measurements roll
-///         back all EVM state, so a real pool can only discriminate via gas introspection; this test
-///         stand-in uses a forge env var (persists across reverts). Measure: forged
-///         `Measured(1e30, tag)` with the correct tag. Commit: succeeds delivering nothing.
 contract DiscriminatingSpoofPool {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     bytes32 internal tag;
@@ -620,8 +606,6 @@ contract TestToken is IERC20 {
     }
 }
 
-/// @notice Controllable leg: delivers `amt` buy token to the caller and bumps `callCount`
-///         (disposable frames roll it back); `doRevert` fails after delivering.
 contract Pool {
     IERC20 internal immutable t;
     uint256 internal amt;
@@ -644,7 +628,6 @@ contract Pool {
     }
 }
 
-/// @notice A pathological leg: burns all gas forwarded to it, then OOG-reverts.
 contract GasBurnerPool {
     function swap() external pure {
         while (true) {
@@ -655,8 +638,6 @@ contract GasBurnerPool {
     }
 }
 
-/// @notice A finisher that needs more than the per-candidate cap, but less than the uncapped
-///         final-attempt budget after earlier capped stalls.
 contract GasHeavyPool {
     IERC20 internal immutable t;
     uint256 internal amt;
@@ -683,8 +664,6 @@ contract GasHeavyPool {
     }
 }
 
-/// @notice SELECT_VIP leg: pulls the VIP-funded sell token from Settler, then sends buy token back
-///         to Settler for balance-delta scoring.
 contract SelectVIPSellPool {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     IERC20 internal immutable sell;
@@ -715,8 +694,6 @@ contract SelectVIPSellPool {
     }
 }
 
-/// @notice Fakes a high measurement once, then under-delivers on commit so SELECT_VIP must drop it
-///         and commit the real runner-up with the same Permit2 nonce.
 contract SelectVIPSpoofPool {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     bytes32 internal tag;

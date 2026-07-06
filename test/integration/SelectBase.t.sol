@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Test, console2} from "@forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
@@ -14,7 +14,6 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Permit2Signature} from "../utils/Permit2Signature.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
-/// @notice Base-mainnet fork coverage for SELECT over real WETH/USDC liquidity.
 contract SelectBase is Test, Permit2Signature {
     uint256 internal constant BASE_BLOCK = 48_241_765;
     address payable internal RECIPIENT = payable(makeAddr("recipient"));
@@ -66,6 +65,7 @@ contract SelectBase is Test, Permit2Signature {
         vm.label(address(settler), "BaseSettler");
     }
 
+    /// @dev Fallback mode discards a reverting primary route and commits alternate Base liquidity.
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
         bytes[][] memory candidates = _twoCandidates(type(uint256).max, 0);
         uint256[] memory targets = new uint256[](2);
@@ -79,16 +79,13 @@ contract SelectBase is Test, Permit2Signature {
         assertEq(USDC.balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
     }
 
+    /// @dev Best-of-N measures both real routes and commits the larger standalone output.
     function testMeasuredBestOf_measuresBothAndCommitsLargerStandaloneOutput() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
 
         uint256 uniswapOutput = _standaloneOutput(candidates[0]);
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
         uint256 expected = uniswapOutput > aerodromeOutput ? uniswapOutput : aerodromeOutput;
-
-        console2.log("scenario2.uniswapCandidateOutput", uniswapOutput);
-        console2.log("scenario2.aerodromeCandidateOutput", aerodromeOutput);
-        console2.log("scenario2.expectedSelectedOutput", expected);
 
         uint256[] memory targets = new uint256[](2);
         targets[0] = type(uint256).max;
@@ -101,6 +98,7 @@ contract SelectBase is Test, Permit2Signature {
         assertEq(received, expected, "SELECT committed measured argmax");
     }
 
+    /// @dev Ladder mode skips an unreachable first target and commits a reachable second target.
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
