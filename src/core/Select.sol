@@ -12,14 +12,9 @@ import {Ternary} from "../utils/Ternary.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
 /// @notice Runs candidate routes in revertable self-calls and commits one, scored by `token`'s
-///         balance delta. The first candidate meeting its own target commits directly with no fee.
-///         If no candidate clears its target, SELECT commits the highest measured score net of
-///         hurdles at its measured score, degrading to the next-best candidate if a measurement was
-///         false. With a gas cap set, measurement stops early once a positive score exists and gas
-///         falls below a heuristic reserve for the commit plus post-processing; if nothing positive
-///         has measured, the final attempt runs uncapped so it can be the finisher. `token = 0` and
-///         zero targets is pure fallback; descending targets form a ladder; `targets[0] = belief`
-///         and `targets[1..] = type(uint256).max` is best-of-N.
+///         balance delta: the first candidate meeting its own target, else the best measurement
+///         re-run at its measured score (fail closed), degrading to the runner-up on divergence.
+///         Full semantics on `ISettlerActions.SELECT`.
 abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
@@ -30,36 +25,39 @@ abstract contract Select is SettlerSwapAbstract {
     /// todo: set proper address. Hard-coded so a calldata receiver cannot strip the fee.
     address internal constant _IMPROVEMENT_FEE_RECEIVER = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
 
+    function _dispatchVIP(uint256, bytes calldata) internal virtual returns (bool) {
+        return false;
+    }
+
     /// @notice Runs one candidate, which must deliver `token` here (zero `token` scores 0, native
     ///         ETH must route into WETH). Commits if the score meets `minOut`, else reverts
-    ///         `Measured(score, tag)`. Self-call only.
+    ///         `Measured(score, tag)`. `tag`'s high bit dispatches action 0 VIP. Self-call only.
     function executeSelected(bytes[] calldata actions, IERC20 token, uint256 minOut, bytes32 tag) external {
         require(msg.sender == address(this));
         uint256 balBefore = address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
-        _runActions(actions);
+        _runActions(actions, uint256(tag) >> 255 != 0);
         uint256 score = address(token) == address(0) ? 0 : token.fastBalanceOf(address(this)) - balBefore;
         if (score < minOut) revert Measured(score, tag);
     }
 
-    /// @dev `SELECT` body. `data` is abi.encode(uint256 shareBps, uint256 candidateGasLimit,
-    ///      address token, uint256[] targets, uint256[] hurdles, bytes[][] candidates). Candidate
+    /// @dev `SELECT`/`SELECT_VIP` body. `data` is the action's arguments, abi.encoded. Candidate
     ///      sub-encodings forward straight from calldata into `executeSelected` self-calls.
-    ///      `candidateGasLimit` (0 = uncapped) bounds attempts, except an all-zero final attempt
-    ///      is uncapped; once a positive score is measured, low remaining gas breaks to the uncapped
-    ///      commit phase with the best live measurements collected so far.
-    function _select(bytes calldata data) internal {
-        bytes4 selector = this.executeSelected.selector;
+    function _select(bytes calldata data, bool vip) internal {
         uint256 measuredSelector = uint32(Measured.selector);
+        uint256 tagFlag;
+        assembly ("memory-safe") {
+            tagFlag := shl(0xff, vip)
+        }
+        bytes4 selector = this.executeSelected.selector;
         IERC20 token;
         uint256 shareBps;
         int256 committedNet;
         int256 runnerUpNet = type(int256).min; // stays min, and the fee unreachable, unless a runner-up remains
         uint256 committedScore;
-        // Hand-build executeSelected calls from candidate sub-encodings in calldata and retain each
-        // failed attempt's measured score/net. Solidity pseudocode:
-        // for each candidate: if a cap, score, and low gas imply the commit reserve is at risk,
-        // break; else if selfCall(targets[i], cappedGas) succeeds return; else save score/net/alive.
-        // while no commit: try the highest live net uncapped at its score; clear false measurements.
+        // Hand-built executeSelected self-calls, forwarded from calldata. Pseudocode:
+        // for each candidate: if selfCall(targets[i], cappedGas) succeeds return; else save score/net
+        //   (breaking early once a score exists and gas nears the commit reserve);
+        // while no commit: try the highest live net uncapped at its score; drop false measurements.
         assembly ("memory-safe") {
             // reads the last self-call's Measured(score, tag) revert. Returns 0 unless selector and tag match
             function measured(ret_, tag_, sel_) -> s_ {
@@ -99,10 +97,8 @@ abstract contract Select is SettlerSwapAbstract {
             let scores := mload(0x40)
             let nets := add(scores, shl(0x05, n))
             let alive := add(nets, shl(0x05, n))
-            // `alive` gates commit-phase selection, and the gas guard can skip candidates without
-            // writing their slot. Memory above the free pointer is not necessarily zero here
-            // (`DANGEROUS_freeMemory` rewinds it elsewhere in dispatch), so zero it explicitly;
-            // copying from beyond `calldatasize()` writes zeroes.
+            // the gas guard can skip candidates, and memory above the free pointer is not
+            // necessarily zero (`DANGEROUS_freeMemory`), so `alive` must be zeroed explicitly
             calldatacopy(alive, calldatasize(), shl(0x05, n))
             let ret := add(alive, shl(0x05, n)) // 0x44-byte returndata scratch
             let cd := add(0x60, ret) // call scratch: selector, head (0x80), token, minOut, tag, candidate tail
@@ -110,19 +106,19 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(add(0x04, cd), 0x80)
             mstore(add(0x24, cd), token)
             let dst := add(0x84, cd)
+            let tagMask := shl(0xff, 0x01)
 
             let attemptedCommit
             let anyScore
             for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
-                // Heuristic reserve: once we have a real score to commit, stop spending capped
-                // measurement gas when less than roughly one capped run plus post-processing slack
-                // would remain after another capped attempt. Solvers must still set a sane cap.
+                // once a real score exists, stop measuring when gas nears the reserve for one
+                // capped commit run plus post-processing (heuristic; the cap must be sane)
                 if and(and(iszero(iszero(gasCap)), anyScore), lt(gas(), add(add(gasCap, gasCap), 0x10000))) {
                     break
                 }
                 let start, len := blob(candsData, n, dataEnd, i)
                 calldatacopy(dst, start, len)
-                let tag := keccak256(dst, len)
+                let tag := or(and(keccak256(dst, len), not(tagMask)), tagFlag)
                 mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, i))))
                 mstore(add(0x64, cd), tag)
                 let g := gasCap
@@ -134,8 +130,7 @@ abstract contract Select is SettlerSwapAbstract {
                 let score := measured(ret, tag, measuredSelector)
                 anyScore := or(anyScore, gt(score, 0x00))
                 mstore(add(scores, shl(0x05, i)), score)
-                // wrapping sub == int256 net. Absurd scores or hurdles revert in the checked fee
-                // math below (fail closed)
+                // wrapping sub == int256 net; absurd values revert in the checked fee math (fail closed)
                 mstore(add(nets, shl(0x05, i)), sub(score, calldataload(add(hurdlesData, shl(0x05, i)))))
                 mstore(add(alive, shl(0x05, i)), 0x01)
             }
@@ -162,7 +157,7 @@ abstract contract Select is SettlerSwapAbstract {
                     let start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
                     mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
-                    mstore(add(0x64, cd), keccak256(dst, len))
+                    mstore(add(0x64, cd), or(and(keccak256(dst, len), not(tagMask)), tagFlag))
                     if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
                         committedNet := bestNet
                         committedScore := mload(add(scores, shl(0x05, best)))
@@ -194,8 +189,8 @@ abstract contract Select is SettlerSwapAbstract {
         }
     }
 
-    /// @dev The shared candidate-execution loop.
-    function _runActions(bytes[] calldata actions) internal {
+    /// @dev The shared candidate-execution loop. When `vip`, action 0 must be VIP.
+    function _runActions(bytes[] calldata actions, bool vip) internal {
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {
@@ -216,7 +211,7 @@ abstract contract Select is SettlerSwapAbstract {
                     revert(add(0x1c, ptr), 0x84)
                 }
             }
-            if (!_dispatch(i, action, data, noSlippage)) {
+            if (vip && i == 0 ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }
         }

@@ -243,6 +243,17 @@ interface ISettlerActions {
         bytes[][] calldata candidates
     ) external;
 
+    /// @dev As `SELECT`, but each candidate's first action is VIP and must deliver the candidate's
+    ///      input funds to Settler, whose held-balance delta is still what scores the candidate.
+    function SELECT_VIP(
+        uint256 shareBps,
+        uint256 candidateGasLimit,
+        address token,
+        uint256[] calldata targets,
+        uint256[] calldata hurdles,
+        bytes[][] calldata candidates
+    ) external;
+
     function EKUBO(
         address recipient,
         address sellToken,

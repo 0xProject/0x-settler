@@ -7,6 +7,7 @@ import {Settler} from "../../Settler.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
+import {Select} from "../../core/Select.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
@@ -15,10 +16,15 @@ import {Permit2Payment} from "../../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BaseSettler is Settler, BaseMixin {
+contract BaseSettler is BaseMixin, Settler {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data)
+        internal
+        override(Settler, Select)
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
