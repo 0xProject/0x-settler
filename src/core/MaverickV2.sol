@@ -214,7 +214,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         }
 
         if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(pool.fastTokenAOrB(tokenAIn), minBuyAmount, buyAmount);
+            revertTooMuchSlippage(pool.fastTokenAOrB(!tokenAIn), minBuyAmount, buyAmount);
         }
     }
 
