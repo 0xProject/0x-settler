@@ -7,6 +7,8 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
+import {Ternary} from "../utils/Ternary.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
 /// @notice Runs candidate routes in revertable self-calls and commits one, scored by `token`'s
@@ -22,6 +24,8 @@ abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
+    using FastLogic for bool;
+    using Ternary for bool;
 
     /// todo: set proper address. Hard-coded so a calldata receiver cannot strip the fee.
     address internal constant _IMPROVEMENT_FEE_RECEIVER = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
@@ -179,13 +183,13 @@ abstract contract Select is SettlerSwapAbstract {
         }
         // fee on the committed candidate's measured edge over the runner-up, clamped to its score
         // and to held balance. Only reachable when the commit phase finds a real runner-up.
-        if (runnerUpNet != type(int256).min && committedNet > runnerUpNet && address(token) != address(0)) {
-            if (shareBps > BASIS) shareBps = BASIS;
+        if ((runnerUpNet != type(int256).min).and(committedNet > runnerUpNet).and(address(token) != address(0))) {
+            shareBps = (shareBps > BASIS).ternary(BASIS, shareBps);
             uint256 improvement = uint256(committedNet - runnerUpNet);
-            if (improvement > committedScore) improvement = committedScore;
+            improvement = (improvement > committedScore).ternary(committedScore, improvement);
             uint256 fee = improvement * shareBps / BASIS;
             uint256 held = token.fastBalanceOf(address(this));
-            if (fee > held) fee = held;
+            fee = (fee > held).ternary(held, fee);
             if (fee != 0) token.safeTransfer(_IMPROVEMENT_FEE_RECEIVER, fee);
         }
     }
