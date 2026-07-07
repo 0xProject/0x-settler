@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.34;
 
+import {Panic} from "../utils/Panic.sol";
+
 library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**27 (ray) basis.
@@ -8,14 +10,20 @@ library Ln {
     ///      returns either ⌊L⌋ or ⌊L⌋ - 1; it never overestimates. `lnWadToRay(10**18) == 0`
     ///      exactly, and the result is negative iff `x < 10**18`. The maximum error is less than
     ///      1.6986ulp. `lnWadToRay` is monotonic; x₁ < x₂ → lnWadToRay(x₁) ≤
-    ///      lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`.
+    ///      lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`. For "central" inputs
+    ///      707106781186547525 ≤ w ≤ 1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`,
+    ///      except at w = 10¹⁸ where it returns w.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
+        if (x <= 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     require(x > 0);
-        //     k = ⌊log₂(x)⌋ - 95;                       // x = m ⋅ 2ᵏ, m ∈ [2⁹⁵, 2⁹⁶)
-        //     m = x / 2ᵏ;                               // Q95 fixnum ∈ [1, 2)
-        //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2⁹⁵; |z| ≤ 3 - 2√2
-        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²);      // ln(m / 2⁹⁵) = 2h + ln(s / 2⁹⁵)
+        //     k = ⌊log₂(x)⌋ - 95;                  // x = m ⋅ 2ᵏ, m ∈ [2⁹⁵, 2⁹⁶)
+        //     m = x / 2ᵏ;                          // Q95 fixnum ∈ [1, 2)
+        //     z = (s - m) / (m + s);               // s = √2 ⋅ 2⁹⁵; |z| ≤ 3 - 2√2
+        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²); // ln(m / 2⁹⁵) = 2h + ln(s / 2⁹⁵)
         //     r = ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋
         //     return r + (r = -1);
         //
@@ -27,7 +35,7 @@ library Ln {
         // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.327ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
-        // at the basis its consumer needs (each quantity is rounded exactly once):
+        // at the basis its consumer needs:
         //     m:      Q95 (truncated from x; error < 2⁻⁹⁵)
         //     z:      Q100 (one sdiv)
         //     u = z²: Q96 (one `shr` by 104, straight from the Q200 product)
@@ -48,7 +56,7 @@ library Ln {
         // approximation and coefficient quantization ≤0.327 combined; mantissa (Q95) truncation
         // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `SDIV` truncations ≤0.005 combined; Horner
         // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by
-        // a margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
+        // a margin of ~1.598⋅10²¹ units (0.3383 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
         // margin plus downward errors total < 0.699 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
         // `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
@@ -61,12 +69,6 @@ library Ln {
         // multi-unit z decrease, and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
         // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
-            if iszero(slt(0x00, x)) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x12)       // panic code for division by zero
-                revert(0x1c, 0x24)
-            }
-
             // Normalize: x := m, a Q95 fixnum, m ∈ [1, 2), truncated from x / 2ᵏ. Truncation
             // underestimates ln(x) by less than 2⁻⁹⁵ (only possible when k > 0).
             let c := clz(x)

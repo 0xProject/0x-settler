@@ -1,4 +1,4 @@
-import LnProof.Foundation.ShiftCert
+import Common.Foundation.ShiftCert
 import LnProof.Model.Body
 
 /-!
@@ -14,7 +14,7 @@ are in the `FloorCert*` files.
 
 namespace LnFloorCert
 
-open LnPoly LnYul
+open Common.Poly LnYul
 
 def WINDOW : Nat := 46
 

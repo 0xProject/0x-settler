@@ -1,5 +1,6 @@
 import LnProof.Floor.Bracket
 import LnProof.Floor.CertAux
+import Common.Foundation.Kronecker
 
 open FormalYul
 open FormalYul.Preservation
@@ -14,13 +15,9 @@ mirrors, with `ε = 42/10^29`, over the common denominator `10^27 · 2^99`.
 -/
 
 namespace LnFloorCert
-open LnYul LnPoly LnExp
+open LnYul Common.Poly Common.Exp
 
 set_option maxRecDepth 100000
-
-theorem eval01 (x : Int) : evalPoly ([0, 1] : List Int) x = x := by
-  show (0 : Int) + x * (1 + x * 0) = x
-  omega
 
 theorem evalCertGeUp (m : Nat) :
     evalPoly certGeUp (m : Int) =
@@ -161,7 +158,7 @@ theorem capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       (23 * evalPoly geTD (m : Int)) =
       23 * (expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
         evalPoly geTD (m : Int)) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [eS]
   have eR : (m : Int) * 10000000000000000000000000003382 *
       (25852016738884976640000 * evalPoly geTD (m : Int) ^ 23) =
@@ -280,7 +277,7 @@ theorem capLtLo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       (23 * evalPoly ltTD (m : Int)) =
       23 * (expNumI 22 (evalPoly ltTN (m : Int)) (evalPoly ltTD (m : Int)) *
         evalPoly ltTD (m : Int)) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [eS]
   have eL : (23 * (expNumI 22 (evalPoly ltTN (m : Int)) (evalPoly ltTD (m : Int)) *
       evalPoly ltTD (m : Int)) + 2 * evalPoly ltTN (m : Int) ^ 23) *

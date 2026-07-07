@@ -75,7 +75,8 @@ src/
 ├── deployer/                # Deployment infrastructure
 ├── multicall/               # ERC-2771 multicall forwarding
 ├── utils/                   # Utilities (512Math, UnsafeMath, etc.)
-└── vendor/                  # Vendored libraries (SafeTransferLib, FullMath)
+├── vendor/                  # Vendored libraries (SafeTransferLib, FullMath)
+└── wrappers/                # Minimal wrapper contracts for math libraries
 
 test/
 ├── integration/             # Fork tests (run with FOUNDRY_PROFILE=integration)
@@ -139,6 +140,7 @@ Chain-specific functionality is composed via mixins. When adding a new DEX:
 | Precede every assembly block with: brief justification + equivalent Solidity pseudocode | Documents intent for reviewers |
 | Mark assembly blocks `memory-safe` when criteria are met | Enables compiler optimizations |
 | Use hex for all numeric constants in assembly (e.g. `0x60` not `96`, `0x20` not `32`) | Codebase convention; keeps assembly style uniform |
+| Put literal operands on the left of commutative ops (`add`, `mul`, `and`, `or`, `xor`, `eq`); when only one variant is commutative, use the operand-flipped opcode to keep the literal left (e.g. `slt(C, x)` for `x > C`, `gt(C, x)` for `x < C`) | A leading literal is `PUSH`ed last, so the variable stays on top of the stack; this avoids `SWAP`/`DUP` shuffling during `via_ir` codegen and saves contract size |
 
 ### Gas Optimization
 
@@ -422,11 +424,41 @@ the current implementation unless historical context is required for present
 correctness. Archaeology is forbidden.
 
 Work product must not reference opaque external planning material. Code,
-comments, docs, commit messages, PR descriptions, and other in-repo literature
-must not include outside task identifiers, plan-document labels, milestone
-names, tracking IDs, TODO placeholders, or similar references unless the
-referenced artifact is committed in this repository and the reference is
-required for current correctness.
+comments, docs, commit messages, PR titles/descriptions/review responses, and
+other project literature must not include outside task identifiers, plan-document
+labels, milestone names, phase names, tracking IDs, TODO placeholders,
+scratchpad/worklog names, agent-conversation breadcrumbs, or similar references.
+Describe the current invariant, proof obligation, implementation fact, or
+operational requirement directly instead.
+
+References to planning artifacts are permitted only when the referenced artifact
+is committed in this repository, is a normative source for current correctness,
+and cannot be replaced by a direct statement of the relevant requirement. A
+committed progress log, scratchpad, milestone note, or plan document is not a
+normative source merely because it is present in the repository.
+
+### Decision-Making Discipline
+
+Agents must not make judgment calls or architectural decisions. Whenever a
+juncture calls for professional judgment, taste, external context, or
+real-world experience — or whenever no option is clearly superior on technical
+merits alone — stop and present every viable option to the user, with the pros
+and cons of each clearly spelled out, and ask the user to decide the correct
+way forward. An agent may choose on its own only when the correct choice is
+obvious and unambiguous from the information available to it.
+
+Do not spend effort cataloging the reasons a task is too daunting, too
+difficult, or too lengthy to complete. Spend that effort instead on determining
+concretely why the task *can* be completed: identify the specific techniques,
+tools, or enhancements that can be brought to bear to make it more tractable.
+When faced with a choice among options where one or more appears substantially
+more difficult for only marginal benefit, do not silently take the easier path;
+present the trade-off to the user and let the user choose.
+
+When reasoning about how difficult or feasible a line of inquiry is, do not
+rely on assumptions drawn from past experience or general priors. Root every
+such judgment in experimentation and quantitative measurement of the actual
+system at hand. Do not assume; run the test and measure.
 
 ### Commenting Discipline
 
@@ -446,13 +478,20 @@ non-idiomatic structure in order to achieve its goal.
 
 - Create documentation files unless explicitly requested
 - Write notes, comments, docs, commit messages, or PR descriptions that describe historical evolution instead of the current system unless the history is required for current correctness
-- Write comments, code, docs, commit messages, PR descriptions, or other in-repo literature that cite opaque outside task identifiers, plan labels, milestones, tracking IDs, TODO placeholders, or issue labels
+- Write comments, code, docs, commit messages, PR titles/descriptions/review responses, or other project literature that cite opaque outside task identifiers, plan-document labels, milestones, phases, tracking IDs, TODO placeholders, issue labels, scratchpads, worklogs, or agent-conversation breadcrumbs
 - Use comments to explain what used to be true, what changed, why something was once necessary, or that a workaround/kludge existed previously
 - Make up performance numbers or generic justifications for changes
 - Add features beyond what was asked (no over-engineering)
 - Modify the `_dispatch` copy/paste pattern without updating all locations
 - Create standalone test files; use the project's test infrastructure
 - Use the `-f` or the `--force` flag to _**ANY**_ tool or utility, _EVER_.
+- Use `pkill` or `killall`. To stop a specific background process, target it by its
+  PID (e.g. `kill "$pid"`); never match processes by name or pattern.
+- Write a Yul `switch` of the form `switch <cond> case 1 { … } default { … }`. When
+  switching on a boolean, put the zero arm first: `switch <cond> case 0 { … } default
+  { … }`, so the `default` arm handles the truthy case (any nonzero), matching EVM
+  truthiness. Prefer a branchless select or an `if` over a two-arm boolean `switch`
+  where it reads more clearly.
 
 ### ALWAYS
 

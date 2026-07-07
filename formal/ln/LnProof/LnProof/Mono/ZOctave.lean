@@ -16,7 +16,7 @@ set_option maxRecDepth 4096
 
 namespace LnYul
 
-open LnPoly
+open Common.Poly
 
 def MLO : Nat := 2 ^ 95
 def MHI : Nat := 2 ^ 96

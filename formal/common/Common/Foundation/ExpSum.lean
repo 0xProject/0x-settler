@@ -17,7 +17,7 @@ bound for all `N`), and the binomial subset-product inequalities standing
 in for `e^(a+b) = e^a * e^b`.
 -/
 
-namespace LnExp
+namespace Common.Exp
 
 def fact : Nat → Nat
   | 0 => 1
@@ -258,7 +258,7 @@ theorem cho_fact : ∀ n i, i ≤ n → cho n i * (fact i * fact (n - i)) = fact
         -- cho k i * ((i+1)! * (k-i)!) = (i+1) * k!
         have e1 : cho k i * (fact (i + 1) * fact (k - i)) = (i + 1) * fact k := by
           rw [hf1, ← h1]
-          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+          simp only [Nat.mul_assoc, Nat.mul_left_comm]
         -- cho k (i+1) * ((i+1)! * (k-i)!) = (k-i) * k!
         have e2 : cho k (i + 1) * (fact (i + 1) * fact (k - i)) = (k - i) * fact k := by
           rw [hs2, show fact ((k - (i + 1)) + 1) = ((k - (i + 1)) + 1) * fact (k - (i + 1))
@@ -478,7 +478,7 @@ theorem sum_le_prod (K p1 p2 q : Nat) :
       rw [← Nat.pow_add, ← Nat.pow_add]
       congr 1
       omega]
-  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.mul_one]
+  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.one_mul]
 
 /-! ## Monotonicity and the tail bound -/
 
@@ -854,4 +854,4 @@ theorem capUB_of_partial {p q K y w : Nat} (hq : 0 < q) (hK : 2 * p ≤ (K + 2) 
   exact div_le_trans (mul_pos' (fact_pos (K + 1)) (Nat.pow_pos hq))
     (tail_bound hq hK M) h
 
-end LnExp
+end Common.Exp

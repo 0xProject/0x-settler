@@ -1,4 +1,4 @@
-import LnProof.Foundation.ShiftCert
+import Common.Foundation.ShiftCert
 
 /-!
 # Polynomial identity testing by Kronecker evaluation
@@ -12,7 +12,7 @@ per-coefficient evaluation overhead — into one closed integer-arithmetic
 comparison plus a symbolic ℓ1 bound.
 -/
 
-namespace LnPoly
+namespace Common.Poly
 
 /-- ℓ1 norm of the coefficient list. -/
 def polyL1 : List Int → Nat
@@ -227,7 +227,7 @@ theorem polyL1_polyPow (p : List Int) : ∀ (k : Nat),
     omega
 
 theorem polyL1_expPolyNum (tn td : List Int) : ∀ (k : Nat),
-    polyL1 (expPolyNum tn td k) ≤ LnExp.expNum k (polyL1 tn) (polyL1 td) := by
+    polyL1 (expPolyNum tn td k) ≤ Common.Exp.expNum k (polyL1 tn) (polyL1 td) := by
   intro k
   induction k with
   | zero =>
@@ -236,7 +236,7 @@ theorem polyL1_expPolyNum (tn td : List Int) : ∀ (k : Nat),
   | succ n ih =>
     show polyL1 (polyAdd (polyScale ((n : Int) + 1) (polyMul td (expPolyNum tn td n)))
       (polyPow tn (n + 1))) ≤
-      (n + 1) * polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td) +
+      (n + 1) * polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td) +
         polyL1 tn ^ (n + 1)
     have h1 := polyL1_polyAdd (polyScale ((n : Int) + 1)
       (polyMul td (expPolyNum tn td n))) (polyPow tn (n + 1))
@@ -249,24 +249,24 @@ theorem polyL1_expPolyNum (tn td : List Int) : ∀ (k : Nat),
         (n + 1) * (polyL1 td * polyL1 (expPolyNum tn td n)) :=
       Nat.mul_le_mul_left _ h3
     have h6 : polyL1 td * polyL1 (expPolyNum tn td n) ≤
-        polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td) :=
+        polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td) :=
       Nat.mul_le_mul_left _ ih
     have h7 : (n + 1) * (polyL1 td * polyL1 (expPolyNum tn td n)) ≤
-        (n + 1) * (polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td)) :=
+        (n + 1) * (polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td)) :=
       Nat.mul_le_mul_left _ h6
-    have h8 : (n + 1) * (polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td)) =
-        (n + 1) * polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td) :=
+    have h8 : (n + 1) * (polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td)) =
+        (n + 1) * polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td) :=
       (Nat.mul_assoc _ _ _).symm
     generalize hg1 : polyL1 (polyScale ((n : Int) + 1)
       (polyMul td (expPolyNum tn td n))) = A at *
     generalize hg2 : (n + 1) * polyL1 (polyMul td (expPolyNum tn td n)) = C at *
     generalize hg3 : (n + 1) * (polyL1 td * polyL1 (expPolyNum tn td n)) = D at *
-    generalize hg4 : (n + 1) * (polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td)) = E at *
-    generalize hg5 : (n + 1) * polyL1 td * LnExp.expNum n (polyL1 tn) (polyL1 td) = F at *
+    generalize hg4 : (n + 1) * (polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td)) = E at *
+    generalize hg5 : (n + 1) * polyL1 td * Common.Exp.expNum n (polyL1 tn) (polyL1 td) = F at *
     generalize hg6 : polyL1 (polyPow tn (n + 1)) = G at *
     generalize hg7 : polyL1 tn ^ (n + 1) = H at *
     generalize hg8 : polyL1 (polyAdd (polyScale ((n : Int) + 1)
       (polyMul td (expPolyNum tn td n))) (polyPow tn (n + 1))) = T at *
     omega
 
-end LnPoly
+end Common.Poly

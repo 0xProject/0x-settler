@@ -1,5 +1,6 @@
 import LnProof.Cert.FloorCertLit
-import LnProof.Foundation.KroneckerShift
+import Common.Foundation.KroneckerShift
+import Common.GenCover
 
 /-!
 # Cover generator
@@ -11,38 +12,12 @@ covers are guaranteed `decide`-acceptable.  Writes one `…C<NN>.lean` cell file
 per sub-cell and prints the `_nonneg` ladder and import block for the cover
 module.
 
-Run with `lake env lean GenCover.lean` (after `lake build LnProof.Cert.FloorCertLit`).
+Run with `lake env lean GenCover.lean` (after `lake build LnProof.Cert.FloorCertLit Common.GenCover`).
 -/
 
-open LnPoly LnFloorCert
+open Common.Poly LnFloorCert Common.GenCover
 
 namespace GenCover
-
-/-- Largest `w ∈ [0, hiW]` with `0 ≤ (hornerIv S 0 w).1` (non-increasing in `w`). -/
-partial def maxW (S : List Int) (hiW : Int) : Int :=
-  let rec bs (lo hi : Int) : Int :=
-    if lo ≥ hi then lo
-    else
-      let mid := (lo + hi + 1) / 2
-      if 0 ≤ (hornerIv S 0 mid).1 then bs mid hi else bs lo (mid - 1)
-  bs 0 hiW
-
-/-- Greedy walk → `(reached?, (anchor, width) list)`. -/
-partial def walk (C : List Int) (lo hi : Int) : Bool × List (Int × Int) :=
-  let rec go (a : Int) (fuel : Nat) (acc : List (Int × Int)) : Bool × List (Int × Int) :=
-    match fuel with
-    | 0 => (false, acc.reverse)
-    | fuel + 1 =>
-      if a > hi then (true, acc.reverse)
-      else
-        let S := kShiftWitness kB C a
-        if 0 ≤ (hornerIv S 0 0).1 then
-          let w := maxW S (hi - a)
-          go (a + w + 1) fuel ((a, w) :: acc)
-        else (false, ((a, -1) :: acc).reverse)
-  go lo 200000 []
-
-def pad2 (i : Nat) : String := (if i < 10 then "0" else "") ++ toString i
 
 /-- Emit cell files `<modPrefix><NN>.lean` and return the ladder text. -/
 def emit (nm litName symName evalEqName modPrefix cellPrefix nonnegName : String)
@@ -56,9 +31,8 @@ def emit (nm litName symName evalEqName modPrefix cellPrefix nonnegName : String
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     let nn := pad2 i
-    let body :=
-      s!"import LnProof.Cert.FloorCertLit\nimport LnProof.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{nn} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
-    IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{nn}.lean" body
+    IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{nn}.lean"
+      (cellText "LnProof.Cert.FloorCertLit" "LnFloorCert" s!"{cellPrefix}{nn}" litName a w)
   -- ladder + imports
   let mut imps := ""
   for (_, i) in cells.zipIdx do
@@ -75,11 +49,7 @@ def emit (nm litName symName evalEqName modPrefix cellPrefix nonnegName : String
   let n := cells.length
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
-    if i + 1 < n then
-      IO.println s!"  rcases Int.lt_or_le m ({a + w} + 1) with h | h"
-      IO.println s!"  · exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) (by omega)"
-    else
-      IO.println s!"  exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) h2"
+    IO.print (ladderStep s!"{cellPrefix}{pad2 i}" "m" a w (i + 1 == n))
 
 end GenCover
 

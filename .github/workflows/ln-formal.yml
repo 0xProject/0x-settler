@@ -8,19 +8,31 @@ on:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
+      - formal/common/**
       - formal/yul/**
       - foundry.toml
       - remappings.txt
+      - .gitmodules
+      - lib/EVMYulLean
+      - .github/actions/setup-formal/**
+      - .github/actions/fetch-lean-cache/**
       - .github/workflows/ln-formal.yml
+      - .github/actions/build-ln-proof/action.yml
   pull_request:
     paths:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
+      - formal/common/**
       - formal/yul/**
       - foundry.toml
       - remappings.txt
+      - .gitmodules
+      - lib/EVMYulLean
+      - .github/actions/setup-formal/**
+      - .github/actions/fetch-lean-cache/**
       - .github/workflows/ln-formal.yml
+      - .github/actions/build-ln-proof/action.yml
 
 jobs:
   ln-formal:
@@ -30,82 +42,21 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install pinned Lean toolchain
-        run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          LEAN_TOOLCHAIN="$(cat formal/ln/LnProof/lean-toolchain)"
-          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
-          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
-
-      - name: Restore Lean build cache
-        uses: actions/cache@v4
+      - name: Set up the formal toolchain
+        uses: ./.github/actions/setup-formal
         with:
-          path: |
-            formal/yul/.lake/build
-            formal/yul/.lake/packages/*/.lake/build
-            lib/EVMYulLean/.lake/build
+          lean-toolchain-files: formal/ln/LnProof/lean-toolchain
+          cache-name: ln-formal
+          cache-paths: |
+            formal/common/.lake/build
             formal/ln/LnProof/.lake/build
-          key: ${{ runner.os }}-ln-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/ln/LnProof/lakefile.toml', 'formal/ln/LnProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/ln/LnProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
-          restore-keys: |
-            ${{ runner.os }}-ln-formal-lean-
-            ${{ runner.os }}-formal-lean-
-
-      - name: Install solc 0.8.34
-        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.34
-
-      - name: Fetch Mathlib cache
-        working-directory: formal/yul
-        run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
-          lake build proofwidgets:release
-          mkdir -p \
-            .lake/packages/proofwidgets/.lake/build/lib \
-            .lake/packages/proofwidgets/.lake/build/ir
-          lake exe cache get
-
-      - name: Build Yul importer
-        working-directory: formal/yul
-        run: lake build FormalYul.Preservation yul_importer
-
-      - name: Generate EVMYulLean artifacts from compiled LnWrapper Yul IR
-        run: |
-          ./formal/yul/generate_from_forge.sh \
-            ln \
-            src/wrappers/LnWrapper.sol:LnWrapper \
-            formal/ln/LnProof/LnProof/LnYul.lean \
-            0.8.34
-
-      - name: Fetch proof dependency cache
-        working-directory: formal/ln/LnProof
-        run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
-          lake build proofwidgets:release
-          mkdir -p \
-            .lake/packages/proofwidgets/.lake/build/lib \
-            .lake/packages/proofwidgets/.lake/build/ir
-          lake exe cache get
-
-      - name: Generate Lean certificate artifacts
-        working-directory: formal/ln/LnProof
-        run: |
-          lake build LnProof.Floor.CertDefs LnProof.Foundation.KroneckerShift LnProof.Floor.Consts
-          lake env lean GenFloorCertLit.lean
-          lake build LnProof.Cert.FloorCertLit
-          lake env lean GenCover.lean
-          lake env lean GenErr1.lean
-          lake build LnProof.Error.Core
-          lake env lean GenErrLit.lean
+          cache-hash-globs: |
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/**/*.lean
+            formal/ln/LnProof/lakefile.toml
+            formal/ln/LnProof/lake-manifest.json
+            formal/ln/LnProof/**/*.lean
 
       - name: Build Ln proof package
-        working-directory: formal/ln/LnProof
-        run: lake build
+        uses: ./.github/actions/build-ln-proof

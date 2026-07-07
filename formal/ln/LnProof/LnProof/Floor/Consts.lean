@@ -1,4 +1,4 @@
-import LnProof.Foundation.ExpSum
+import Common.Foundation.ExpSum
 import LnProof.Model.Body
 import LnProof.Spec.Cut
 
@@ -20,7 +20,7 @@ set_option maxRecDepth 8192
 
 namespace LnFloor
 
-open LnExp LnYul
+open Common.Exp LnYul
 
 /-- `e^(LN2c 2^27 / QS) ≤ 2 (1 + 1e-40)`: the scaled `ln 2` constant. -/
 theorem cap2U : capUB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 + 1)) (10 ^ 40) := by

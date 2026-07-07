@@ -21,15 +21,24 @@ case "$kind" in
   cbrt)    expected="29f2f4f1 56df2b56" ;;
   cbrt512) expected="7c0352fc a83a5c08" ;;
   ln)      expected="31d42abd ef102248" ;;
+  exp)     expected="4187462b" ;;
   *) echo "unknown kind: $kind" >&2; exit 2 ;;
 esac
 
+# Every compile this script triggers must request the Yul IR artifact. `forge
+# inspect ... ir` trusts whatever artifact the compile cache serves for the
+# target; once any compile in the same cache has produced an IR-less artifact
+# for the target (e.g. the methodIdentifiers inspection, or a prior run of
+# this script against another wrapper sharing sources), the ir inspection
+# fails with "IR output missing from artifact" instead of recompiling.
+# Requesting `ir` on every invocation keeps the cache's artifact settings
+# uniform, so that failure mode cannot arise.
 inspect () {
+  local -a fenv=(FOUNDRY_EXTRA_OUTPUT='["ir"]')
   if [[ -n "$solc_version" ]]; then
-    FOUNDRY_SOLC_VERSION="$solc_version" forge inspect "$target" "$@"
-  else
-    forge inspect "$target" "$@"
+    fenv+=(FOUNDRY_SOLC_VERSION="$solc_version")
   fi
+  env "${fenv[@]}" forge inspect "$target" "$@"
 }
 
 actual="$(inspect methodIdentifiers | grep -oiE '\b[0-9a-f]{8}\b' | tr 'A-F' 'a-f' | sort -u | tr '\n' ' ' | sed 's/ $//' || true)"

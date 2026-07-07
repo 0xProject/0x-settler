@@ -28,7 +28,7 @@ as an explicit log-cut specification.
 -/
 
 namespace LnFloorCert
-open LnYul LnPoly LnExp LnFloor
+open LnYul Common.Poly Common.Exp LnFloor
 
 -- The self-corrected body term repeats the accumulator (the `s == -1` test
 -- reads the shifted result), so elaboration-time `whnf` of it is expensive.

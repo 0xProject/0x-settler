@@ -2,6 +2,7 @@ import LnProof.LnYulProof
 import FormalYul.Preservation
 import LnProof.Model.Body
 import LnProof.Foundation.Word
+import Common.Word
 import LnProof.Foundation.WordDiv
 import LnProof.Mono.Top
 
@@ -10,91 +11,26 @@ import LnProof.Mono.Top
 
 This file contains the arithmetic facts used to show that the compiled
 `LnWrapper` runtime computes the hand model `Stages.lnWadToRayBody` /
-`Stages.lnWadBody`. These facts drive the revert guard
-`if iszero(slt(0, x))` in `fun_lnWadToRay_11`: for a positive signed input the
-guard is skipped, for a nonpositive one it is taken.
+`Stages.lnWadBody`. These facts drive the Solidity-level input guard in
+`fun_lnWadToRay_65`, which branches on `iszero(sgt(x, 0))` and calls
+`fun_panic_8` (panic code `0x12`, division-by-zero) before the assembly
+kernel: for a positive signed input the panic branch is skipped, for a
+nonpositive one it is taken.
 -/
 
 namespace LnYul
 
 open FormalYul
 open FormalYul.Preservation
+open Common.Word
 
 set_option maxRecDepth 100000
 
-theorem u256_lt_word (x : Nat) : u256 x < 2 ^ 256 := by
-  unfold u256 WORD_MOD
-  exact Nat.mod_lt _ (Nat.two_pow_pos 256)
-
-theorem u256_idem (x : Nat) : u256 (u256 x) = u256 x := by
-  unfold u256 WORD_MOD
-  exact Nat.mod_mod_of_dvd x (dvd_refl _)
-
-/-- A positive signed input has its low 256 bits in `[1, 2^255)`. -/
-theorem u256_pos_bounds {x : Nat} (h : 0 < int256 (u256 x)) :
-    1 ≤ u256 x ∧ u256 x < 2 ^ 255 := by
-  have hlt : u256 x < 2 ^ 256 := u256_lt_word x
-  unfold int256 at h
-  by_cases hb : u256 x < 2 ^ 255
-  · simp only [hb, if_true] at h
-    have : 0 < u256 x := by exact_mod_cast h
-    exact ⟨this, hb⟩
-  · exfalso
-    simp only [hb, if_false] at h
-    rw [intPow256] at h
-    have : (u256 x : Int) < 115792089237316195423570985008687907853269984665640564039457584007913129639936 := by
-      rw [← intPow256]; exact_mod_cast hlt
-    omega
-
-/-- The revert guard `slt(0, x)` is `1` for a positive signed input, so
-`iszero(slt(0, x))` is `0` and the guard branch is skipped. -/
-theorem evmSlt_zero_pos {x : Nat} (h1 : 1 ≤ u256 x) (h2 : u256 x < 2 ^ 255) :
-    evmSlt 0 (u256 x) = 1 := by
-  unfold evmSlt
-  have h0 : u256 0 = 0 := by unfold u256 WORD_MOD; simp
-  have hidem : u256 (u256 x) = u256 x := u256_idem x
-  rw [h0, hidem]
-  have hmod1 : (0 + 2 ^ 255) % WORD_MOD = 2 ^ 255 := by
-    unfold WORD_MOD; omega
-  have hmod2 : (u256 x + 2 ^ 255) % WORD_MOD = u256 x + 2 ^ 255 := by
-    unfold WORD_MOD; omega
-  rw [hmod1, hmod2]
-  rw [if_pos (by omega)]
-
-/-- The revert guard `slt(0, x)` is `0` for a nonpositive signed input, so
-`iszero(slt(0, x))` is `1` and the guard branch (revert) is taken. -/
-theorem evmSlt_zero_nonpos {x : Nat} (h : int256 (u256 x) ≤ 0) :
-    evmSlt 0 (u256 x) = 0 := by
-  have hlt : u256 x < 2 ^ 256 := u256_lt_word x
-  unfold evmSlt
-  have h0 : u256 0 = 0 := by unfold u256 WORD_MOD; simp
-  have hidem : u256 (u256 x) = u256 x := u256_idem x
-  rw [h0, hidem]
-  have hmod1 : (0 + 2 ^ 255) % WORD_MOD = 2 ^ 255 := by
-    unfold WORD_MOD; omega
-  rw [hmod1]
-  -- nonpositive int256 ⇒ either u256 x = 0, or u256 x ≥ 2^255
-  have hcases : u256 x = 0 ∨ 2 ^ 255 ≤ u256 x := by
-    by_contra hc
-    push_neg at hc
-    obtain ⟨hne, hge⟩ := hc
-    have hpos : 0 < u256 x := Nat.pos_of_ne_zero hne
-    unfold int256 at h
-    simp only [hge, if_true] at h
-    have : (0 : Int) < u256 x := by exact_mod_cast hpos
-    omega
-  rcases hcases with h0x | hge
-  · rw [h0x]; unfold WORD_MOD; simp
-  · have hmod2 : (u256 x + 2 ^ 255) % WORD_MOD = u256 x - 2 ^ 255 := by
-      unfold WORD_MOD; omega
-    rw [hmod2]
-    rw [if_neg (by omega)]
-
-/-- `slt(0, x)` evaluates to the word `1` for a positive signed input, which is
-exactly what the interpreter needs to skip the `if iszero(slt(0, x))` revert
-guard in `fun_lnWadToRay_11`. -/
-theorem slt_zero_pos {x : Nat} (h1 : 1 ≤ u256 x) (h2 : u256 x < 2 ^ 255) :
-    EvmYul.UInt256.slt (EvmYul.UInt256.ofNat 0) (EvmYul.UInt256.ofNat x)
+/-- `sgt(x, 0)` evaluates to the word `1` for a positive signed input, which is
+exactly what the interpreter needs to skip the `if iszero(sgt(x, 0))` panic
+branch in `fun_lnWadToRay_65`. -/
+theorem sgt_zero_pos {x : Nat} (h1 : 1 ≤ u256 x) (h2 : u256 x < 2 ^ 255) :
+    EvmYul.UInt256.sgt (EvmYul.UInt256.ofNat x) (EvmYul.UInt256.ofNat 0)
       = EvmYul.UInt256.ofNat 1 := by
   have hx : (EvmYul.UInt256.ofNat x).toNat = u256 x := by
     have := wordNat_ofNat x; simpa [wordNat] using this
@@ -106,14 +42,14 @@ theorem slt_zero_pos {x : Nat} (h1 : 1 ≤ u256 x) (h2 : u256 x < 2 ^ 255) :
     exact hh
   have c1 : ¬ ((0 : Nat) ≥ 2 ^ 255) := by omega
   have c2 : ¬ (u256 x ≥ 2 ^ 255) := by omega
-  unfold EvmYul.UInt256.slt EvmYul.UInt256.sltBool
-  rw [hx, h0, if_neg c1, if_neg c2]
+  unfold EvmYul.UInt256.sgt EvmYul.UInt256.sgtBool
+  rw [hx, h0, if_neg c2, if_neg c1]
   simp [EvmYul.UInt256.fromBool, hlt]
 
-/-- `slt(0, x)` evaluates to the word `0` for a nonpositive signed input, so the
-interpreter takes the `if iszero(slt(0, x))` revert guard in `fun_lnWadToRay_11`. -/
-theorem slt_zero_nonpos {x : Nat} (hnonpos : int256 (u256 x) ≤ 0) :
-    EvmYul.UInt256.slt (EvmYul.UInt256.ofNat 0) (EvmYul.UInt256.ofNat x)
+/-- `sgt(x, 0)` evaluates to the word `0` for a nonpositive signed input, so the
+interpreter takes the `if iszero(sgt(x, 0))` panic branch in `fun_lnWadToRay_65`. -/
+theorem sgt_zero_nonpos {x : Nat} (hnonpos : int256 (u256 x) ≤ 0) :
+    EvmYul.UInt256.sgt (EvmYul.UInt256.ofNat x) (EvmYul.UInt256.ofNat 0)
       = EvmYul.UInt256.ofNat 0 := by
   have hlt256 : u256 x < 2 ^ 256 := u256_lt_word x
   have hx : (EvmYul.UInt256.ofNat x).toNat = u256 x := by
@@ -129,183 +65,18 @@ theorem slt_zero_nonpos {x : Nat} (hnonpos : int256 (u256 x) ≤ 0) :
     simp only [hge, if_true] at hnonpos
     have : (0 : Int) < u256 x := by exact_mod_cast hpos
     omega
-  unfold EvmYul.UInt256.slt EvmYul.UInt256.sltBool
-  rw [hx, h0, if_neg (by omega : ¬ ((0 : Nat) ≥ 2 ^ 255))]
+  unfold EvmYul.UInt256.sgt EvmYul.UInt256.sgtBool
+  rw [hx, h0]
   rcases hcases with h0x | hge
-  · rw [if_neg (by rw [h0x]; omega : ¬ (u256 x ≥ 2 ^ 255))]
+  · rw [if_neg (by rw [h0x]; omega : ¬ (u256 x ≥ 2 ^ 255)),
+      if_neg (by omega : ¬ ((0 : Nat) ≥ 2 ^ 255))]
     have hnlt : ¬ EvmYul.UInt256.ofNat 0 < EvmYul.UInt256.ofNat x := by
       show ¬ (EvmYul.UInt256.ofNat 0).toNat < (EvmYul.UInt256.ofNat x).toNat
       rw [h0, hx, h0x]; omega
     simp [EvmYul.UInt256.fromBool, hnlt]
-  · rw [if_pos (by omega : u256 x ≥ 2 ^ 255)]
+  · rw [if_pos (by omega : u256 x ≥ 2 ^ 255),
+      if_neg (by omega : ¬ ((0 : Nat) ≥ 2 ^ 255))]
     simp [EvmYul.UInt256.fromBool]
-
-/-- `wordNat` of `UInt256.complement` is `evmNot` (the complement equals the
-two's-complement bitwise-not at the `Nat` level). -/
-theorem wordNat_complement (a : EvmYul.UInt256) :
-    wordNat (EvmYul.UInt256.complement a) = evmNot (wordNat a) := by
-  have hav : a.toNat < 2 ^ 256 := by
-    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size]
-  simp only [wordNat, EvmYul.UInt256.complement, EvmYul.UInt256.toNat, evmNot, u256, WORD_MOD,
-    Fin.sub_def, Fin.add_def, Fin.val_zero, Fin.val_one, EvmYul.UInt256.size]
-  omega
-
-/-- Arithmetic-shift-right bridge: `UInt256.sar` matches `evmSar`. Uses the
-decomposition `sar = complement (complement b >>> a)` (for negative `b`) and
-`b >>> a` (otherwise), composing `wordNat_complement` + `wordNat_shiftRight`. -/
-theorem wordNat_sar (a b : EvmYul.UInt256) :
-    wordNat (EvmYul.UInt256.sar a b) = evmSar (wordNat a) (wordNat b) := by
-  have hb : wordNat b < 2 ^ 256 := by
-    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
-  have ha : wordNat a < 2 ^ 256 := by
-    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
-  have huina : u256 (wordNat a) = wordNat a := by
-    unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt ha
-  have huinb : u256 (wordNat b) = wordNat b := by
-    unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt hb
-  have hbz : ¬ (b < (⟨0⟩ : EvmYul.UInt256)) := by
-    have hz : (⟨0⟩ : EvmYul.UInt256).toNat = 0 := rfl
-    show ¬ (b.toNat < (⟨0⟩ : EvmYul.UInt256).toNat)
-    rw [hz]; omega
-  have hsltz : EvmYul.UInt256.sltBool b ⟨0⟩ = true ↔ 2 ^ 255 ≤ wordNat b := by
-    unfold EvmYul.UInt256.sltBool
-    by_cases hb255 : 2 ^ 255 ≤ wordNat b <;>
-      simp [hbz, wordNat, show (⟨0⟩ : EvmYul.UInt256).toNat = 0 from rfl]
-  unfold EvmYul.UInt256.sar
-  by_cases hneg : EvmYul.UInt256.sltBool b ⟨0⟩ = true
-  · rw [if_pos hneg]
-    have hvneg : 2 ^ 255 ≤ wordNat b := hsltz.mp hneg
-    rw [show (EvmYul.UInt256.complement b) >>> a
-          = EvmYul.UInt256.shiftRight (EvmYul.UInt256.complement b) a from rfl,
-        wordNat_complement, wordNat_shiftRight, wordNat_complement]
-    simp only [evmSar, evmShr, evmNot]
-    rw [huina, huinb, if_pos hvneg]
-    have hnotv : u256 (WORD_MOD - 1 - wordNat b) = WORD_MOD - 1 - wordNat b := by
-      unfold u256 WORD_MOD; apply Nat.mod_eq_of_lt; unfold WORD_MOD at hb; omega
-    rw [hnotv]
-    by_cases hs : wordNat a < 256
-    · rw [if_pos hs, if_neg (by omega : ¬ 256 ≤ wordNat a)]
-      have hdiv : u256 ((WORD_MOD - 1 - wordNat b) / 2 ^ wordNat a)
-          = (WORD_MOD - 1 - wordNat b) / 2 ^ wordNat a := by
-        unfold u256 WORD_MOD; apply Nat.mod_eq_of_lt
-        have hle : (2 ^ 256 - 1 - wordNat b) / 2 ^ wordNat a ≤ 2 ^ 256 - 1 - wordNat b :=
-          Nat.div_le_self _ _
-        unfold WORD_MOD at hb; omega
-      rw [hdiv]
-    · rw [if_neg hs, if_pos (by omega : 256 ≤ wordNat a)]
-      have : u256 0 = 0 := by unfold u256 WORD_MOD; simp
-      rw [this]; omega
-  · rw [if_neg hneg]
-    have hvpos : wordNat b < 2 ^ 255 := by
-      by_contra hc; push_neg at hc; exact hneg (hsltz.mpr hc)
-    rw [show b >>> a = EvmYul.UInt256.shiftRight b a from rfl, wordNat_shiftRight]
-    simp only [evmSar, evmShr]
-    rw [huina, huinb, if_neg (by omega : ¬ 2 ^ 255 ≤ wordNat b)]
-    split_ifs <;> omega
-
-/-- `UInt256.size = 2^256`, kept in `Nat.pow` form (never the 78-digit literal,
-which would force kernel deep-recursion). -/
-theorem size_eq_pow : EvmYul.UInt256.size = 2 ^ 256 := rfl
-
-/-- `toNat` of the Fin negation `⟨x.val * (-1)⟩`. Routed through Fin
-*subtraction* (`0 - x.val`, recursion-free like `complement`) rather than
-Fin `Mul`/`Neg`, whose instances force kernel materialization of `2^256`. -/
-private theorem toNat_neg_one (x : EvmYul.UInt256) :
-    wordNat (⟨x.val * (-1)⟩ : EvmYul.UInt256)
-      = (EvmYul.UInt256.size - wordNat x) % EvmYul.UInt256.size := by
-  have hrw : (x.val * (-1)) = (0 - x.val) := by rw [mul_neg_one, zero_sub]
-  rw [show (⟨x.val * (-1)⟩ : EvmYul.UInt256) = ⟨0 - x.val⟩ from congrArg _ hrw]
-  simp only [wordNat, EvmYul.UInt256.toNat, Fin.sub_def, Fin.val_zero, EvmYul.UInt256.size]
-  omega
-
-/-- `toNat` of `UInt256.abs` (two's-complement absolute value). -/
-private theorem wordNat_abs (a : EvmYul.UInt256) :
-    wordNat (EvmYul.UInt256.abs a)
-      = if 2 ^ 255 ≤ wordNat a then (EvmYul.UInt256.size - wordNat a) % EvmYul.UInt256.size
-        else wordNat a := by
-  show (EvmYul.UInt256.abs a).toNat
-      = if 2 ^ 255 ≤ a.toNat then (EvmYul.UInt256.size - a.toNat) % EvmYul.UInt256.size
-        else a.toNat
-  unfold EvmYul.UInt256.abs
-  by_cases h : 2 ^ 255 ≤ a.toNat
-  · simp only [if_pos h]; exact toNat_neg_one a
-  · simp only [if_neg h]
-
-/-- Signed-division bridge: `UInt256.sdiv` matches `evmSdiv`. Four sign cases
-(`2^255 ≤ a/b.toNat`), using `wordNat_abs`/`toNat_neg_one` for the abs and
-negated arms; all powers kept as `2^n` to avoid kernel literal materialization. -/
-theorem wordNat_sdiv (a b : EvmYul.UInt256) :
-    wordNat (EvmYul.UInt256.sdiv a b) = evmSdiv (wordNat a) (wordNat b) := by
-  have ha : wordNat a < 2 ^ 256 := by
-    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
-  have hb : wordNat b < 2 ^ 256 := by
-    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
-  have hua : u256 (wordNat a) = wordNat a := by unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt ha
-  have hub : u256 (wordNat b) = wordNat b := by unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt hb
-  have hwm : WORD_MOD = 2 ^ 256 := word_mod_eq
-  have hsz : EvmYul.UInt256.size = 2 ^ 256 := size_eq_pow
-  simp only [evmSdiv, hua, hub, hwm]
-  unfold EvmYul.UInt256.sdiv
-  by_cases hna : 2 ^ 255 ≤ wordNat a <;> by_cases hnb : 2 ^ 255 ≤ wordNat b
-  · -- a < 0, b < 0
-    have dna : decide (2 ^ 255 ≤ wordNat a) = true := decide_eq_true_eq.mpr hna
-    have dnb : decide (2 ^ 255 ≤ wordNat b) = true := decide_eq_true_eq.mpr hnb
-    have m1 : (2 ^ 256 - wordNat a) % 2 ^ 256 = 2 ^ 256 - wordNat a := Nat.mod_eq_of_lt (by omega)
-    have m2 : (2 ^ 256 - wordNat b) % 2 ^ 256 = 2 ^ 256 - wordNat b := Nat.mod_eq_of_lt (by omega)
-    rw [if_pos (show 2 ^ 255 ≤ a.toNat from hna), if_pos (show 2 ^ 255 ≤ b.toNat from hnb),
-      wordNat_div, wordNat_abs, wordNat_abs, hsz, if_pos hna, if_pos hnb]
-    simp only [dna, dnb, if_true]
-    simp only [evmDiv, u256, WORD_MOD, m1, m2]
-    have hq : (2 ^ 256 - wordNat a) / (2 ^ 256 - wordNat b) ≤ 2 ^ 256 - wordNat a := Nat.div_le_self _ _
-    revert hq
-    generalize (2 ^ 256 - wordNat a) / (2 ^ 256 - wordNat b) = q
-    intro hq
-    split_ifs <;> omega
-  · -- a < 0, b ≥ 0
-    have dna : decide (2 ^ 255 ≤ wordNat a) = true := decide_eq_true_eq.mpr hna
-    have dnb : decide (2 ^ 255 ≤ wordNat b) = false := decide_eq_false_iff_not.mpr hnb
-    have m1 : (2 ^ 256 - wordNat a) % 2 ^ 256 = 2 ^ 256 - wordNat a := Nat.mod_eq_of_lt (by omega)
-    have hmodb : wordNat b % 2 ^ 256 = wordNat b := Nat.mod_eq_of_lt hb
-    rw [if_pos (show 2 ^ 255 ≤ a.toNat from hna), if_neg (show ¬ 2 ^ 255 ≤ b.toNat from hnb),
-      toNat_neg_one, hsz, wordNat_div, wordNat_abs, hsz, if_pos hna]
-    simp only [dna, dnb, Bool.true_eq_false, Bool.false_eq_true,
-      if_true, if_false]
-    simp only [evmDiv, u256, WORD_MOD, m1, hmodb]
-    have hq : (2 ^ 256 - wordNat a) / wordNat b ≤ 2 ^ 256 - wordNat a := Nat.div_le_self _ _
-    revert hq
-    generalize (2 ^ 256 - wordNat a) / wordNat b = q
-    intro hq
-    split_ifs <;> omega
-  · -- a ≥ 0, b < 0
-    have dna : decide (2 ^ 255 ≤ wordNat a) = false := decide_eq_false_iff_not.mpr hna
-    have dnb : decide (2 ^ 255 ≤ wordNat b) = true := decide_eq_true_eq.mpr hnb
-    have m2 : (2 ^ 256 - wordNat b) % 2 ^ 256 = 2 ^ 256 - wordNat b := Nat.mod_eq_of_lt (by omega)
-    have hmoda : wordNat a % 2 ^ 256 = wordNat a := Nat.mod_eq_of_lt ha
-    rw [if_neg (show ¬ 2 ^ 255 ≤ a.toNat from hna), if_pos (show 2 ^ 255 ≤ b.toNat from hnb),
-      toNat_neg_one, hsz, wordNat_div, wordNat_abs, hsz, if_pos hnb]
-    simp only [dna, dnb, Bool.false_eq_true,
-      if_true, if_false]
-    simp only [evmDiv, u256, WORD_MOD, m2, hmoda]
-    have hq : wordNat a / (2 ^ 256 - wordNat b) ≤ wordNat a := Nat.div_le_self _ _
-    revert hq
-    generalize wordNat a / (2 ^ 256 - wordNat b) = q
-    intro hq
-    split_ifs <;> omega
-  · -- a ≥ 0, b ≥ 0
-    have dna : decide (2 ^ 255 ≤ wordNat a) = false := decide_eq_false_iff_not.mpr hna
-    have dnb : decide (2 ^ 255 ≤ wordNat b) = false := decide_eq_false_iff_not.mpr hnb
-    have hmoda : wordNat a % 2 ^ 256 = wordNat a := Nat.mod_eq_of_lt ha
-    have hmodb : wordNat b % 2 ^ 256 = wordNat b := Nat.mod_eq_of_lt hb
-    rw [if_neg (show ¬ 2 ^ 255 ≤ a.toNat from hna), if_neg (show ¬ 2 ^ 255 ≤ b.toNat from hnb),
-      wordNat_div]
-    simp only [dna, dnb, Bool.false_eq_true,
-      if_true, if_false]
-    simp only [evmDiv, u256, WORD_MOD, hmoda, hmodb]
-    have hq : wordNat a / wordNat b ≤ wordNat a := Nat.div_le_self _ _
-    revert hq
-    generalize wordNat a / wordNat b = q
-    intro hq
-    split_ifs <;> omega
 
 /-- The `zero_value_for_split_t_int256()` helper returns the word `0`. -/
 private theorem call_zero_value_for_split_t_int256_direct
@@ -344,7 +115,7 @@ private theorem evmSgt_u256_right (a b : Nat) : evmSgt a (u256 b) = evmSgt a b :
 
 /-- `wordNat` of `UInt256.sgt 0 r` matches `evmSgt 0 (wordNat r)`. Only the
 zero-left case is needed: the `mul(999999999, sgt(0, r))` rounding term in
-`fun_lnWad_27`. -/
+`fun_lnWad_81`. -/
 theorem wordNat_sgt_zero (r : EvmYul.UInt256) :
     wordNat (EvmYul.UInt256.sgt (EvmYul.UInt256.ofNat 0) r) = evmSgt 0 (wordNat r) := by
   have hr : wordNat r < 2 ^ 256 := by
@@ -406,26 +177,361 @@ theorem lnWadToRayCoreExpr_eq (x : Nat) :
   unfold lnWadToRayBody zWord uWord pS4 pS3 pS2 pS1 qS5 qS4 qS3 qS2 qS1
   rfl
 
+/-- A Yul `revert(a, b)` primitive call halts with `.error .Revert` (the
+`MachineState.evmRevert` op is total, so the `Semantics` dispatch always reaches
+the `.ok ⇒ .error .Revert` branch). Mirror of the `primCall_*` lemmas. -/
+private theorem primCall_revert_yul (fuel : Nat) (s : EvmYul.Yul.State)
+    (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (fuel + 1) s
+        (EvmYul.Operation.System EvmYul.Operation.SOp.REVERT : EvmYul.Operation .Yul) [a, b] =
+      .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.primCall.eq_def]
+  simp only [List.mem_cons, List.not_mem_nil, EvmYul.Operation.System.injEq,
+    Bool.not_eq_true, reduceCtorEq, or_self, and_false, if_false,
+    EvmYul.step.eq_def]
+  rfl
+
+/-- A one-line identity helper `f(value) -> out { out := value }` returns its
+argument. The proof recipe is shared by `identity`, `cleanup_t_int256`,
+`cleanup_t_rational_*`, and `cleanup_t_uint256`. -/
+private theorem call_identity_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v] (.some "identity")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_identity]
+  simp only [yulFunction_identity,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+private theorem call_cleanup_t_int256_word_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v] (.some "cleanup_t_int256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_cleanup_t_int256]
+  simp only [yulFunction_cleanup_t_int256,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+private theorem call_cleanup_t_rational_0_by_1_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v]
+      (.some "cleanup_t_rational_0_by_1")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_cleanup_t_rational_0_by_1]
+  simp only [yulFunction_cleanup_t_rational_0_by_1,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+/-- `convert_t_rational_0_by_1_to_t_int256(value) -> converted` is
+`cleanup_t_int256(identity(cleanup_t_rational_0_by_1(value)))` — three identity
+calls, so it returns its argument. Used to evaluate the input guard
+comparison's right-hand side. -/
+private theorem call_convert_0_to_int256_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 120)) [FormalYul.word v]
+      (.some "convert_t_rational_0_by_1_to_t_int256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
+  rw [show fuel + (extra + 120) = (fuel + extra) + 120 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_convert_t_rational_0_by_1_to_t_int256]
+  simp only [yulFunction_convert_t_rational_0_by_1_to_t_int256,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have h1 :=
+    call_cleanup_t_rational_0_by_1_direct (v := v) (fuel := fuel + extra) (extra := 92)
+      (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h2 :=
+    call_identity_direct (v := v) (fuel := fuel + extra) (extra := 94) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h3 :=
+    call_cleanup_t_int256_word_direct (v := v) (fuel := fuel + extra) (extra := 96)
+      (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  simp [FormalYul.word] at h1 h2 h3
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, h1, h2, h3]
+
+/-- `cleanup_t_uint8(value) -> cleaned { cleaned := and(value, 0xff) }`.
+Specialized to the panic code `0x12`, where `and(0x12, 0xff) = 0x12`. -/
+private theorem call_cleanup_t_uint8_18_direct
+    (fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 20) [FormalYul.word 0x12] (.some "cleanup_t_uint8")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 0x12]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_cleanup_t_uint8]
+  simp only [yulFunction_cleanup_t_uint8,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+private theorem call_cleanup_t_rational_18_by_1_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v]
+      (.some "cleanup_t_rational_18_by_1")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_cleanup_t_rational_18_by_1]
+  simp only [yulFunction_cleanup_t_rational_18_by_1,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+/-- `convert_t_rational_18_by_1_to_t_uint8(0x12) = 0x12`
+(= `cleanup_t_uint8(identity(cleanup_t_rational_18_by_1(0x12)))`). -/
+private theorem call_convert_18_to_uint8_18_direct
+    (fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 120) [FormalYul.word 0x12]
+      (.some "convert_t_rational_18_by_1_to_t_uint8")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 0x12]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_convert_t_rational_18_by_1_to_t_uint8]
+  simp only [yulFunction_convert_t_rational_18_by_1_to_t_uint8,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have h1 :=
+    call_cleanup_t_rational_18_by_1_direct (v := 0x12) (fuel := fuel) (extra := 92)
+      (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h2 :=
+    call_identity_direct (v := 0x12) (fuel := fuel) (extra := 94) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h3 :=
+    call_cleanup_t_uint8_18_direct (fuel := fuel + 96) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  simp [FormalYul.word] at h1 h2 h3
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, h1, h2, h3]
+
+private theorem call_cleanup_t_uint256_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v] (.some "cleanup_t_uint256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word v]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_cleanup_t_uint256]
+  simp only [yulFunction_cleanup_t_uint256,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+/-- `convert_t_uint8_to_t_uint256(0x12) = 0x12`
+(= `cleanup_t_uint256(identity(cleanup_t_uint8(0x12)))`). -/
+private theorem call_convert_uint8_to_uint256_18_direct
+    (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 120)) [FormalYul.word 0x12]
+      (.some "convert_t_uint8_to_t_uint256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 0x12]) := by
+  rw [show fuel + (extra + 120) = (fuel + extra) + 120 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_convert_t_uint8_to_t_uint256]
+  simp only [yulFunction_convert_t_uint8_to_t_uint256,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have h1 :=
+    call_cleanup_t_uint8_18_direct (fuel := fuel + extra + 92) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h2 :=
+    call_identity_direct (v := 0x12) (fuel := fuel + extra) (extra := 94) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h3 :=
+    call_cleanup_t_uint256_direct (v := 0x12) (fuel := fuel + extra) (extra := 96)
+      (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  simp [FormalYul.word] at h1 h2 h3
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, h1, h2, h3]
+
+/-- `constant_DIVISION_BY_ZERO_20() = 0x12` — the solc panic-code accessor for
+division by zero (`0x12`), used by the nonpositive-input guard. -/
+private theorem call_constant_DIVISION_BY_ZERO_20_direct
+    (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 160)) [] (.some "constant_DIVISION_BY_ZERO_20")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 0x12]) := by
+  rw [show fuel + (extra + 160) = (fuel + extra) + 160 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_constant_DIVISION_BY_ZERO_20]
+  simp only [yulFunction_constant_DIVISION_BY_ZERO_20,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hconv :=
+    call_convert_18_to_uint8_18_direct (fuel := fuel + extra + 35) (shared := shared)
+      (store := Finmap.insert "expr_19" (FormalYul.word 0x12) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  simp [FormalYul.word] at hconv
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hconv]
+
 set_option maxHeartbeats 8000000 in
-/-- The compiled `fun_lnWadToRay_11` computes the model `lnWadToRayBody` for a
-positive signed input (the leading `if iszero(slt(0,x))` revert guard is skipped). -/
+/-- `fun_panic_8(code)` reverts: its body is
+`mstore(0,…); mstore(0x20,code); revert(0x1c,0x24)`. -/
+private theorem call_fun_panic_8_revert_direct
+    (code fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 600)) [FormalYul.word code] (.some "fun_panic_8")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .error EvmYul.Yul.Exception.Revert := by
+  rw [show fuel + (extra + 600) = (fuel + extra) + 600 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_panic_8]
+  simp only [yulFunction_fun_panic_8,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [
+    EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word, primCall_revert_yul]
+
+set_option maxHeartbeats 8000000 in
+/-- The compiled `fun_lnWadToRay_65` computes the model `lnWadToRayBody` for a
+positive signed input: the leading `if iszero(sgt(x, 0))` panic branch is
+skipped (via `sgt_zero_pos`), and the assembly kernel result is returned. -/
 theorem call_fun_lnWadToRay_direct
     (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hpos : 1 ≤ FormalYul.u256 x) (hpos2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + 600) [FormalYul.word x] (.some yulName_fun_lnWadToRay)
+    EvmYul.Yul.call (fuel + 900) [FormalYul.word x] (.some yulName_fun_lnWadToRay)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
       [FormalYul.word (lnWadToRayBody (FormalYul.u256 x))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_lnWadToRay]
-  simp only [yulFunction_fun_lnWadToRay, yulFunction_fun_lnWadToRay_11,
+  simp only [yulFunction_fun_lnWadToRay, yulFunction_fun_lnWadToRay_65,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execCall.eq_def,
+  have hconv0 :=
+    call_convert_0_to_int256_direct (v := 0) (fuel := fuel) (extra := 767)
+      (shared := shared) (hlookup := hlookup)
+  have hcleanup :=
+    call_cleanup_t_int256_word_direct (v := x) (fuel := fuel) (extra := 865)
+      (shared := shared) (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at hconv0 hcleanup
+  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
@@ -433,12 +539,10 @@ theorem call_fun_lnWadToRay_direct
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word,
-    slt_zero_pos hpos hpos2,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 576)
-      (shared := shared)
-      (store := Finmap.insert "var_x_4" (EvmYul.UInt256.ofNat x)
-        (Inhabited.default : EvmYul.Yul.VarStore))
-      (hlookup := hlookup)]
+    sgt_zero_pos hpos hpos2,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 876)
+      (shared := shared) (hlookup := hlookup),
+    hcleanup, hconv0]
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp only [FormalYul.Preservation.wordNat_shiftRight, FormalYul.Preservation.wordNat_shiftLeft,
     FormalYul.Preservation.wordNat_add, FormalYul.Preservation.wordNat_sub,
@@ -457,49 +561,50 @@ theorem call_fun_lnWadToRay_direct
     Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc]
     using lnWadToRayCoreExpr_eq (FormalYul.u256 x)
 
-/-- A Yul `revert(a, b)` primitive call halts with `.error .Revert` (the
-`MachineState.evmRevert` op is total, so the `Semantics` dispatch always reaches
-the `.ok ⇒ .error .Revert` branch). Mirror of the `primCall_*` lemmas. -/
-private theorem primCall_revert_yul (fuel : Nat) (s : EvmYul.Yul.State)
-    (a b : EvmYul.UInt256) :
-    EvmYul.Yul.primCall (fuel + 1) s
-        (EvmYul.Operation.System EvmYul.Operation.SOp.REVERT : EvmYul.Operation .Yul) [a, b] =
-      .error EvmYul.Yul.Exception.Revert := by
-  rw [EvmYul.Yul.primCall.eq_def]
-  simp only [List.mem_cons, List.not_mem_nil, EvmYul.Operation.System.injEq,
-    Bool.not_eq_true, reduceCtorEq, or_self, and_false, if_false,
-    EvmYul.step.eq_def]
-  rfl
-
 set_option maxHeartbeats 8000000 in
+/-- For a nonpositive signed input, `fun_lnWadToRay_65` takes the guard branch
+and reverts via `fun_panic_8(DIVISION_BY_ZERO)`. -/
 theorem call_fun_lnWadToRay_revert_direct
     (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
-    EvmYul.Yul.call (fuel + 600) [FormalYul.word x] (.some yulName_fun_lnWadToRay)
+    EvmYul.Yul.call (fuel + 1000) [FormalYul.word x] (.some yulName_fun_lnWadToRay)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_lnWadToRay]
-  simp only [yulFunction_fun_lnWadToRay, yulFunction_fun_lnWadToRay_11,
+  simp only [yulFunction_fun_lnWadToRay, yulFunction_fun_lnWadToRay_65,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  simp +decide [EvmYul.Yul.execCall.eq_def,
+  have hconv0 :=
+    call_convert_0_to_int256_direct (v := 0) (fuel := fuel) (extra := 867)
+      (shared := shared) (hlookup := hlookup)
+  have hcleanup :=
+    call_cleanup_t_int256_word_direct (v := x) (fuel := fuel) (extra := 965)
+      (shared := shared) (hlookup := hlookup)
+  have hconvu :=
+    call_convert_uint8_to_uint256_18_direct (fuel := fuel) (extra := 865)
+      (shared := shared) (hlookup := hlookup)
+  have hpanic :=
+    call_fun_panic_8_revert_direct (code := 0x12) (fuel := fuel) (extra := 384)
+      (shared := shared) (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at hconv0 hcleanup hconvu hpanic
+  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
     FormalYul.word,
-    slt_zero_nonpos hnonpos, primCall_revert_yul,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 576)
-      (shared := shared)
-      (store := Finmap.insert "var_x_4" (EvmYul.UInt256.ofNat x)
-        (Inhabited.default : EvmYul.Yul.VarStore))
-      (hlookup := hlookup)]
+    sgt_zero_nonpos hnonpos,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 976)
+      (shared := shared) (hlookup := hlookup),
+    call_constant_DIVISION_BY_ZERO_20_direct (fuel := fuel) (extra := 826)
+      (shared := shared) (hlookup := hlookup),
+    hcleanup, hconv0, hconvu, hpanic]
 
 set_option maxHeartbeats 8000000 in
 theorem call_fun_wrap_lnWadToRay_direct
@@ -507,25 +612,25 @@ theorem call_fun_wrap_lnWadToRay_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hpos : 1 ≤ FormalYul.u256 x) (hpos2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + 800) [FormalYul.word x] (.some yulName_fun_wrap_lnWadToRay)
+    EvmYul.Yul.call (fuel + 1100) [FormalYul.word x] (.some yulName_fun_wrap_lnWadToRay)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
       [FormalYul.word (lnWadToRayBody (FormalYul.u256 x))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_lnWadToRay]
-  simp only [yulFunction_fun_wrap_lnWadToRay, yulFunction_fun_wrap_lnWadToRay_46,
+  simp only [yulFunction_fun_wrap_lnWadToRay, yulFunction_fun_wrap_lnWadToRay_100,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hfuel : fuel + 791 = (fuel + 191) + 600 := by omega
+  have hfuel : fuel + 1091 = (fuel + 191) + 900 := by omega
   have hCall := call_fun_lnWadToRay_direct (x := x) (fuel := fuel + 191) (shared := shared)
-    (store := Finmap.insert "expr_42" (EvmYul.UInt256.ofNat x)
+    (store := Finmap.insert "expr_96" (EvmYul.UInt256.ofNat x)
       (Finmap.insert "_4" (EvmYul.UInt256.ofNat x)
-        (Finmap.insert "expr_40_address" (EvmYul.UInt256.ofNat 0)
-          (Finmap.insert "var__38" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "expr_94_address" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var__92" (EvmYul.UInt256.ofNat 0)
             (Finmap.insert "zero_t_int256_3" (EvmYul.UInt256.ofNat 0)
-              (Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
+              (Finmap.insert "var_x_89" (EvmYul.UInt256.ofNat x)
                 (Inhabited.default : EvmYul.Yul.VarStore)))))))
     (hlookup := hlookup) hpos hpos2
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
@@ -537,9 +642,9 @@ theorem call_fun_wrap_lnWadToRay_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
     EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 776)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1076)
       (shared := shared)
-      (store := Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
+      (store := Finmap.insert "var_x_89" (EvmYul.UInt256.ofNat x)
         (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)]
 
@@ -549,24 +654,24 @@ theorem call_fun_lnWad_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hpos : 1 ≤ FormalYul.u256 x) (hpos2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + 900) [FormalYul.word x] (.some yulName_fun_lnWad)
+    EvmYul.Yul.call (fuel + 1200) [FormalYul.word x] (.some yulName_fun_lnWad)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
       [FormalYul.word (lnWadBody (FormalYul.u256 x))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_lnWad]
-  simp only [yulFunction_fun_lnWad, yulFunction_fun_lnWad_27,
+  simp only [yulFunction_fun_lnWad, yulFunction_fun_lnWad_81,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hfuel : fuel + 892 = (fuel + 292) + 600 := by omega
+  have hfuel : fuel + 1192 = (fuel + 292) + 900 := by omega
   have hCall := call_fun_lnWadToRay_direct (x := x) (fuel := fuel + 292) (shared := shared)
-    (store := Finmap.insert "expr_21" (EvmYul.UInt256.ofNat x)
+    (store := Finmap.insert "expr_75" (EvmYul.UInt256.ofNat x)
       (Finmap.insert "_6" (EvmYul.UInt256.ofNat x)
-        (Finmap.insert "var_r_17" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "var_r_71" (EvmYul.UInt256.ofNat 0)
           (Finmap.insert "zero_t_int256_5" (EvmYul.UInt256.ofNat 0)
-            (Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
+            (Finmap.insert "var_x_68" (EvmYul.UInt256.ofNat x)
               (Inhabited.default : EvmYul.Yul.VarStore))))))
     (hlookup := hlookup) hpos hpos2
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
@@ -579,9 +684,9 @@ theorem call_fun_lnWad_direct
     EvmYul.Yul.State.reviveJump,
     EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 876)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1176)
       (shared := shared)
-      (store := Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
+      (store := Finmap.insert "var_x_68" (EvmYul.UInt256.ofNat x)
         (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)]
   apply FormalYul.Preservation.eq_of_wordNat_eq
@@ -601,25 +706,25 @@ theorem call_fun_wrap_lnWad_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hpos : 1 ≤ FormalYul.u256 x) (hpos2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + 1100) [FormalYul.word x] (.some yulName_fun_wrap_lnWad)
+    EvmYul.Yul.call (fuel + 1400) [FormalYul.word x] (.some yulName_fun_wrap_lnWad)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
       [FormalYul.word (lnWadBody (FormalYul.u256 x))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_lnWad]
-  simp only [yulFunction_fun_wrap_lnWad, yulFunction_fun_wrap_lnWad_59,
+  simp only [yulFunction_fun_wrap_lnWad, yulFunction_fun_wrap_lnWad_113,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hfuel : fuel + 1091 = (fuel + 191) + 900 := by omega
+  have hfuel : fuel + 1391 = (fuel + 191) + 1200 := by omega
   have hCall := call_fun_lnWad_direct (x := x) (fuel := fuel + 191) (shared := shared)
-    (store := Finmap.insert "expr_55" (EvmYul.UInt256.ofNat x)
+    (store := Finmap.insert "expr_109" (EvmYul.UInt256.ofNat x)
       (Finmap.insert "_2" (EvmYul.UInt256.ofNat x)
-        (Finmap.insert "expr_53_address" (EvmYul.UInt256.ofNat 0)
-          (Finmap.insert "var__51" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "expr_107_address" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var__105" (EvmYul.UInt256.ofNat 0)
             (Finmap.insert "zero_t_int256_1" (EvmYul.UInt256.ofNat 0)
-              (Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
+              (Finmap.insert "var_x_102" (EvmYul.UInt256.ofNat x)
                 (Inhabited.default : EvmYul.Yul.VarStore)))))))
     (hlookup := hlookup) hpos hpos2
   simp only [FormalYul.word, yulName_fun_lnWad] at hCall
@@ -631,9 +736,9 @@ theorem call_fun_wrap_lnWad_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
     EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1076)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1376)
       (shared := shared)
-      (store := Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
+      (store := Finmap.insert "var_x_102" (EvmYul.UInt256.ofNat x)
         (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)]
 
@@ -918,7 +1023,7 @@ private theorem external_fun_wrap_lnWadToRay_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [lnWadToRaySharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_lnWadToRay]
-  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_46,
+  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_100,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -945,7 +1050,7 @@ private theorem external_fun_wrap_lnWadToRay_calldata_result
       (hdata := lnWadToRaySharedAfterFreePtr_calldata x)
   simp [FormalYul.word] at hdecode
   have hwrap :=
-    call_fun_wrap_lnWadToRay_direct (x := x) (fuel := 999183)
+    call_fun_wrap_lnWadToRay_direct (x := x) (fuel := 998883)
       (shared := lnWadToRaySharedAfterFreePtr x)
       (store := Finmap.insert "param_0" (FormalYul.word x)
         (Inhabited.default : EvmYul.Yul.VarStore))
@@ -1004,7 +1109,7 @@ private theorem external_fun_wrap_lnWadToRay_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [lnWadToRaySharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_lnWadToRay]
-  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_46,
+  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_100,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -1031,7 +1136,7 @@ private theorem external_fun_wrap_lnWadToRay_calldata_halts
       (hdata := lnWadToRaySharedAfterFreePtr_calldata x)
   simp [FormalYul.word] at hdecode
   have hwrap :=
-    call_fun_wrap_lnWadToRay_direct (x := x) (fuel := 999183)
+    call_fun_wrap_lnWadToRay_direct (x := x) (fuel := 998883)
       (shared := lnWadToRaySharedAfterFreePtr x)
       (store := Finmap.insert "param_0" (FormalYul.word x)
         (Inhabited.default : EvmYul.Yul.VarStore))
@@ -1159,13 +1264,13 @@ private theorem selectSwitchCase_lnWadToRay_sharedFor_mk (x : Nat) :
         (FormalYul.word 224))
       [(FormalYul.word 835988157,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_59") [])]),
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_113") [])]),
         (FormalYul.word 4010811976,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_46") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_100") [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_46") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_100") [])] := by
   rw [lnWadToRay_selector_sharedFor_mk]
   rfl
 
@@ -1185,13 +1290,13 @@ private theorem selectSwitchCase_lnWadToRay_sharedFor_mk_raw (x : Nat) :
         (EvmYul.UInt256.ofNat 224))
       [(EvmYul.UInt256.ofNat 835988157,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_59") [])]),
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_113") [])]),
         (EvmYul.UInt256.ofNat 4010811976,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_46") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_100") [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_46") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_100") [])] := by
   simpa [FormalYul.word] using selectSwitchCase_lnWadToRay_sharedFor_mk x
 
 set_option maxHeartbeats 8000000 in
@@ -1449,7 +1554,7 @@ private theorem external_fun_wrap_lnWad_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [lnWadSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_lnWad]
-  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_59,
+  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_113,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -1476,7 +1581,7 @@ private theorem external_fun_wrap_lnWad_calldata_result
       (hdata := lnWadSharedAfterFreePtr_calldata x)
   simp [FormalYul.word] at hdecode
   have hwrap :=
-    call_fun_wrap_lnWad_direct (x := x) (fuel := 998883)
+    call_fun_wrap_lnWad_direct (x := x) (fuel := 998583)
       (shared := lnWadSharedAfterFreePtr x)
       (store := Finmap.insert "param_0" (FormalYul.word x)
         (Inhabited.default : EvmYul.Yul.VarStore))
@@ -1535,7 +1640,7 @@ private theorem external_fun_wrap_lnWad_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [lnWadSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_lnWad]
-  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_59,
+  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_113,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -1562,7 +1667,7 @@ private theorem external_fun_wrap_lnWad_calldata_halts
       (hdata := lnWadSharedAfterFreePtr_calldata x)
   simp [FormalYul.word] at hdecode
   have hwrap :=
-    call_fun_wrap_lnWad_direct (x := x) (fuel := 998883)
+    call_fun_wrap_lnWad_direct (x := x) (fuel := 998583)
       (shared := lnWadSharedAfterFreePtr x)
       (store := Finmap.insert "param_0" (FormalYul.word x)
         (Inhabited.default : EvmYul.Yul.VarStore))
@@ -1664,13 +1769,13 @@ private theorem selectSwitchCase_lnWad_sharedFor_mk (x : Nat) :
         (FormalYul.word 224))
       [(FormalYul.word 835988157,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_59") [])]),
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_113") [])]),
         (FormalYul.word 4010811976,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_46") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_100") [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_59") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_113") [])] := by
   rw [lnWad_selector_sharedFor_mk]
   rfl
 
@@ -1690,13 +1795,13 @@ private theorem selectSwitchCase_lnWad_sharedFor_mk_raw (x : Nat) :
         (EvmYul.UInt256.ofNat 224))
       [(EvmYul.UInt256.ofNat 835988157,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_59") [])]),
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_113") [])]),
         (EvmYul.UInt256.ofNat 4010811976,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_46") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWadToRay_100") [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_59") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_lnWad_113") [])] := by
   simpa [FormalYul.word] using selectSwitchCase_lnWad_sharedFor_mk x
 
 set_option maxHeartbeats 8000000 in
@@ -1823,24 +1928,24 @@ theorem call_fun_wrap_lnWadToRay_revert_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
-    EvmYul.Yul.call (fuel + 800) [FormalYul.word x] (.some yulName_fun_wrap_lnWadToRay)
+    EvmYul.Yul.call (fuel + 1200) [FormalYul.word x] (.some yulName_fun_wrap_lnWadToRay)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_lnWadToRay]
-  simp only [yulFunction_fun_wrap_lnWadToRay, yulFunction_fun_wrap_lnWadToRay_46,
+  simp only [yulFunction_fun_wrap_lnWadToRay, yulFunction_fun_wrap_lnWadToRay_100,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hfuel : fuel + 791 = (fuel + 191) + 600 := by omega
+  have hfuel : fuel + 1191 = (fuel + 191) + 1000 := by omega
   have hCall := call_fun_lnWadToRay_revert_direct (x := x) (fuel := fuel + 191) (shared := shared)
-    (store := Finmap.insert "expr_42" (EvmYul.UInt256.ofNat x)
+    (store := Finmap.insert "expr_96" (EvmYul.UInt256.ofNat x)
       (Finmap.insert "_4" (EvmYul.UInt256.ofNat x)
-        (Finmap.insert "expr_40_address" (EvmYul.UInt256.ofNat 0)
-          (Finmap.insert "var__38" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "expr_94_address" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var__92" (EvmYul.UInt256.ofNat 0)
             (Finmap.insert "zero_t_int256_3" (EvmYul.UInt256.ofNat 0)
-              (Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
+              (Finmap.insert "var_x_89" (EvmYul.UInt256.ofNat x)
                 (Inhabited.default : EvmYul.Yul.VarStore)))))))
     (hlookup := hlookup) hnonpos
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
@@ -1850,37 +1955,37 @@ theorem call_fun_wrap_lnWadToRay_revert_direct
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
     FormalYul.word, hfuel, hCall,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 776)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1176)
       (shared := shared)
-      (store := Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
+      (store := Finmap.insert "var_x_89" (EvmYul.UInt256.ofNat x)
         (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)]
 
 -- `call_fun_lnWad_revert_direct`: the wad body reverts (it calls
--- `fun_lnWadToRay_11`, which reverts for nonpositive input before the sdiv tail).
+-- `fun_lnWadToRay_65`, which reverts for nonpositive input before the sdiv tail).
 set_option maxHeartbeats 8000000 in
 theorem call_fun_lnWad_revert_direct
     (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
-    EvmYul.Yul.call (fuel + 900) [FormalYul.word x] (.some yulName_fun_lnWad)
+    EvmYul.Yul.call (fuel + 1300) [FormalYul.word x] (.some yulName_fun_lnWad)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_lnWad]
-  simp only [yulFunction_fun_lnWad, yulFunction_fun_lnWad_27,
+  simp only [yulFunction_fun_lnWad, yulFunction_fun_lnWad_81,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hfuel : fuel + 892 = (fuel + 292) + 600 := by omega
+  have hfuel : fuel + 1292 = (fuel + 292) + 1000 := by omega
   have hCall := call_fun_lnWadToRay_revert_direct (x := x) (fuel := fuel + 292) (shared := shared)
-    (store := Finmap.insert "expr_21" (EvmYul.UInt256.ofNat x)
+    (store := Finmap.insert "expr_75" (EvmYul.UInt256.ofNat x)
       (Finmap.insert "_6" (EvmYul.UInt256.ofNat x)
-        (Finmap.insert "var_r_17" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "var_r_71" (EvmYul.UInt256.ofNat 0)
           (Finmap.insert "zero_t_int256_5" (EvmYul.UInt256.ofNat 0)
-            (Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
+            (Finmap.insert "var_x_68" (EvmYul.UInt256.ofNat x)
               (Inhabited.default : EvmYul.Yul.VarStore))))))
     (hlookup := hlookup) hnonpos
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
@@ -1890,9 +1995,9 @@ theorem call_fun_lnWad_revert_direct
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
     FormalYul.word, hfuel, hCall,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 876)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1276)
       (shared := shared)
-      (store := Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
+      (store := Finmap.insert "var_x_68" (EvmYul.UInt256.ofNat x)
         (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)]
 
@@ -1902,24 +2007,24 @@ theorem call_fun_wrap_lnWad_revert_direct
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
-    EvmYul.Yul.call (fuel + 1100) [FormalYul.word x] (.some yulName_fun_wrap_lnWad)
+    EvmYul.Yul.call (fuel + 1600) [FormalYul.word x] (.some yulName_fun_wrap_lnWad)
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_lnWad]
-  simp only [yulFunction_fun_wrap_lnWad, yulFunction_fun_wrap_lnWad_59,
+  simp only [yulFunction_fun_wrap_lnWad, yulFunction_fun_wrap_lnWad_113,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hfuel : fuel + 1091 = (fuel + 191) + 900 := by omega
-  have hCall := call_fun_lnWad_revert_direct (x := x) (fuel := fuel + 191) (shared := shared)
-    (store := Finmap.insert "expr_55" (EvmYul.UInt256.ofNat x)
+  have hfuel : fuel + 1591 = (fuel + 291) + 1300 := by omega
+  have hCall := call_fun_lnWad_revert_direct (x := x) (fuel := fuel + 291) (shared := shared)
+    (store := Finmap.insert "expr_109" (EvmYul.UInt256.ofNat x)
       (Finmap.insert "_2" (EvmYul.UInt256.ofNat x)
-        (Finmap.insert "expr_53_address" (EvmYul.UInt256.ofNat 0)
-          (Finmap.insert "var__51" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "expr_107_address" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var__105" (EvmYul.UInt256.ofNat 0)
             (Finmap.insert "zero_t_int256_1" (EvmYul.UInt256.ofNat 0)
-              (Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
+              (Finmap.insert "var_x_102" (EvmYul.UInt256.ofNat x)
                 (Inhabited.default : EvmYul.Yul.VarStore)))))))
     (hlookup := hlookup) hnonpos
   simp only [FormalYul.word, yulName_fun_lnWad] at hCall
@@ -1929,9 +2034,9 @@ theorem call_fun_wrap_lnWad_revert_direct
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
     FormalYul.word, hfuel, hCall,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1076)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1576)
       (shared := shared)
-      (store := Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
+      (store := Finmap.insert "var_x_102" (EvmYul.UInt256.ofNat x)
         (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)]
 
@@ -1944,7 +2049,7 @@ theorem external_fun_wrap_lnWadToRay_calldata_revert
   rw [EvmYul.Yul.call.eq_def]
   simp only [lnWadToRaySharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_lnWadToRay]
-  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_46,
+  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_100,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -1957,7 +2062,7 @@ theorem external_fun_wrap_lnWadToRay_calldata_revert
       (hdata := lnWadToRaySharedAfterFreePtr_calldata x)
   simp [FormalYul.word] at hdecode
   have hwrap :=
-    call_fun_wrap_lnWadToRay_revert_direct (x := x) (fuel := 999183)
+    call_fun_wrap_lnWadToRay_revert_direct (x := x) (fuel := 998783)
       (shared := lnWadToRaySharedAfterFreePtr x)
       (store := Finmap.insert "param_0" (FormalYul.word x)
         (Inhabited.default : EvmYul.Yul.VarStore))
@@ -1985,7 +2090,7 @@ theorem external_fun_wrap_lnWad_calldata_revert
   rw [EvmYul.Yul.call.eq_def]
   simp only [lnWadSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_lnWad]
-  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_59,
+  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_113,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -1998,7 +2103,7 @@ theorem external_fun_wrap_lnWad_calldata_revert
       (hdata := lnWadSharedAfterFreePtr_calldata x)
   simp [FormalYul.word] at hdecode
   have hwrap :=
-    call_fun_wrap_lnWad_revert_direct (x := x) (fuel := 998883)
+    call_fun_wrap_lnWad_revert_direct (x := x) (fuel := 998383)
       (shared := lnWadSharedAfterFreePtr x)
       (store := Finmap.insert "param_0" (FormalYul.word x)
         (Inhabited.default : EvmYul.Yul.VarStore))

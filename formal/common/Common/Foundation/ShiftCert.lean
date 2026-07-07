@@ -1,5 +1,5 @@
-import LnProof.Foundation.Poly
-import LnProof.Foundation.ExpSum
+import Common.Foundation.Poly
+import Common.Foundation.ExpSum
 
 /-!
 # Recentered polynomial nonnegativity certificates
@@ -16,10 +16,10 @@ cell `[0, w]` then converges with a few hundred cells.
 
 The file also provides the polynomial-level partial-sum numerator
 (`expPolyNum`) and its evaluation lemma, connecting the certificate
-polynomials to the `expNum` caps of `LnProof.Foundation.ExpSum`.
+polynomials to the `expNum` caps of `Common.Foundation.ExpSum`.
 -/
 
-namespace LnPoly
+namespace Common.Poly
 
 /-- Synthetic division by `(x - a)`: `P(x) = Q(x) (x - a) + r`. -/
 def synthDiv : List Int → Int → List Int × Int
@@ -137,19 +137,19 @@ theorem checkCover_sound (C : List Int) (ws : List Int) :
 
 /-! ## Partial-sum numerators at the polynomial level -/
 
-/-- Int mirror of `LnExp.expNum`. -/
+/-- Int mirror of `Common.Exp.expNum`. -/
 def expNumI : Nat → Int → Int → Int
   | 0, _, _ => 1
   | n + 1, p, q => (n + 1) * q * expNumI n p q + p ^ (n + 1)
 
 theorem expNumI_eq_expNum (k : Nat) (p q : Nat) :
-    expNumI k (p : Int) (q : Int) = (LnExp.expNum k p q : Int) := by
+    expNumI k (p : Int) (q : Int) = (Common.Exp.expNum k p q : Int) := by
   induction k with
   | zero => rfl
   | succ n ih =>
     show ((n : Int) + 1) * q * expNumI n p q + (p : Int) ^ (n + 1) = _
     rw [ih]
-    show _ = ((((n + 1) * q * LnExp.expNum n p q + p ^ (n + 1) : Nat)) : Int)
+    show _ = ((((n + 1) * q * Common.Exp.expNum n p q + p ^ (n + 1) : Nat)) : Int)
     push_cast
     omega
 
@@ -419,4 +419,4 @@ theorem checkCoverM_sound (C : List Int) (ws : List Int) (lo hi : Int)
   rw [← checkCoverM_eq]
   exact h
 
-end LnPoly
+end Common.Poly

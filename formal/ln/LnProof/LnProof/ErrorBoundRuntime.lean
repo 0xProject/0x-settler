@@ -21,6 +21,7 @@ namespace LnYul
 
 open FormalYul
 open FormalYul.Preservation
+open Common.Word
 
 noncomputable section
 

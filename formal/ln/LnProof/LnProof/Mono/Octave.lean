@@ -17,7 +17,7 @@ set_option maxRecDepth 4096
 
 namespace LnYul
 
-open LnPoly
+open Common.Poly
 
 /-- The body tail downstream of `(k, mantissa)`: the floored accumulator
 `s = sar72(X1·K + ln2·k + BIAS)`, self-corrected via `s + (s == -1)`. The

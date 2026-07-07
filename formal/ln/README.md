@@ -35,7 +35,7 @@ facade module (`Foundation.lean`, `Spec.lean`, …) re-exporting its public face
 
 | Directory      | Role |
 |----------------|------|
-| `Foundation/`  | Domain-agnostic primitives: EVM-word transport (`Word`, `WordDiv`), `ExpSum` (Taylor partial sums), polynomial/Kronecker cert machinery (`Poly`, `ShiftCert`, `Kronecker`, `KroneckerShift`). |
+| `Foundation/`  | Domain-agnostic EVM-word transport (`Word`, `WordDiv`). The Taylor partial sums and the polynomial/Kronecker certificate machinery live in the shared `Common` package (`Common.Exp`, `Common.Poly`). |
 | `Spec/`        | What "correct" means: `Real` (the `Real.log` target) and `Cut` (its real-free arithmetization). |
 | `Model/`       | `Body` — the reference implementation (`lnWadToRayBody` / `lnWadBody`). |
 | `Mono/`        | Monotonicity of the model over its domain (`Top` is the entry point). |
@@ -69,7 +69,7 @@ The **generated certificates** under `Cert/` (ignored) come from the in-tree
 generators, run from `formal/ln/LnProof`:
 
 ```bash
-lake build LnProof.Floor.CertDefs LnProof.Foundation.KroneckerShift LnProof.Floor.Consts
+lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts
 lake env lean GenFloorCertLit.lean
 lake build LnProof.Cert.FloorCertLit
 lake env lean GenCover.lean

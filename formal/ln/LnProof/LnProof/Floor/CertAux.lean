@@ -1,7 +1,7 @@
 import LnProof.Floor.CertDefs
 
 namespace LnFloorCert
-open LnPoly
+open Common.Poly
 
 set_option maxRecDepth 100000
 

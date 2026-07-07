@@ -1,0 +1,25 @@
+name: Fetch Lean build cache
+description: >-
+  Run `lake exe cache get` for a Lean package, first materializing the
+  ProofWidgets release layout it requires.
+
+inputs:
+  working-directory:
+    description: Directory containing the Lean package's lakefile.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch Lean build cache
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+        # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+        # the release and ensure those directories exist before it runs.
+        lake build proofwidgets:release
+        mkdir -p \
+          .lake/packages/proofwidgets/.lake/build/lib \
+          .lake/packages/proofwidgets/.lake/build/ir
+        lake exe cache get

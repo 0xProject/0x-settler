@@ -1,4 +1,4 @@
-import LnProof.Foundation.Kronecker
+import Common.Foundation.Kronecker
 
 /-!
 # Packed Taylor shifts for the cell walks
@@ -14,7 +14,7 @@ bound is an ℓ1 bound for true shifts, carried by `aeval`, the
 absolute-value evaluation.
 -/
 
-namespace LnPoly
+namespace Common.Poly
 
 /-- Kronecker digit width shared by the cell-walk `checkCoverK` decides and
 the cert-vs-literal `evalPoly_ext` identities. It must exceed `log2(2·ℓ1)`
@@ -285,4 +285,4 @@ theorem checkCoverK_sound (B : Nat) (C : List Int) (ws : List Int) :
       rw [show lo + (x - lo) = x by omega] at hx
       omega
 
-end LnPoly
+end Common.Poly

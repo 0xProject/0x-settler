@@ -19,7 +19,7 @@ set_option maxRecDepth 4096
 
 namespace LnFloor
 
-open LnYul LnPoly
+open LnYul Common.Poly
 
 /-- Mantissa word of `x`. -/
 def mant (x : Nat) : Nat := evmShr 160 (evmShl (evmClz x) x)

@@ -10,7 +10,7 @@ checker whose `true` result soundly certifies `0 ≤ P(x)` for every integer
 so the analytic components of the monotonicity proof reduce to computation.
 -/
 
-namespace LnPoly
+namespace Common.Poly
 
 /-- Multiplication monotonicity helpers (Init-only, so spelled out). -/
 theorem mul_le_mul_left_nonneg {a b c : Int} (h : a ≤ b) (hc : 0 ≤ c) :
@@ -222,4 +222,4 @@ theorem evalPoly_polyCompAdd1 (p : List Int) (x : Int) :
     rw [Int.add_mul, Int.one_mul]
     omega
 
-end LnPoly
+end Common.Poly

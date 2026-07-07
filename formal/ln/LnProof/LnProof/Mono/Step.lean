@@ -1,4 +1,5 @@
 import LnProof.Mono.Certs
+import Common.Word
 
 open FormalYul
 open FormalYul.Preservation
@@ -15,7 +16,7 @@ through the truncation sandwiches.
 
 namespace LnYul
 
-open LnPoly
+open Common.Poly
 
 def x1W (z : Nat) : Nat := evmSdiv (evmMul (pS4 (uWord z)) z) (qS5 (uWord z))
 
@@ -109,10 +110,7 @@ theorem uVal_step_nonpos (v : Int) (hv : v ≤ 0)
 /-! ## Product helpers -/
 
 theorem toNat_mul_of_nonneg {x y : Int} (hx : 0 ≤ x) (hy : 0 ≤ y) :
-    x.toNat * y.toNat = (x * y).toNat := by
-  obtain ⟨a, rfl⟩ := Int.eq_ofNat_of_zero_le hx
-  obtain ⟨b, rfl⟩ := Int.eq_ofNat_of_zero_le hy
-  rfl
+    x.toNat * y.toNat = (x * y).toNat := Common.Word.toNat_mul_of_nonneg hx hy
 
 theorem triple_mono {a1 b1 c1 a2 b2 c2 : Int} (ha : 0 ≤ a1) (hb : 0 ≤ b1) (hc : 0 ≤ c1)
     (h1 : a1 ≤ a2) (h2 : b1 ≤ b2) (h3 : c1 ≤ c2) : a1 * b1 * c1 ≤ a2 * b2 * c2 := by
@@ -209,11 +207,8 @@ theorem g2_step {um1 : Int} (h0 : 0 ≤ um1) (h1 : um1 ≤ UcI - 1) {m : Int}
 
 theorem cross_to_div {n1 n2 W1 W2 : Int} (hn1 : 0 ≤ n1) (hn2 : 0 ≤ n2)
     (hW1 : 0 < W1) (hW2 : 0 < W2) (hcross : n1 * W2 ≤ n2 * W1) :
-    n1.toNat / W1.toNat ≤ n2.toNat / W2.toNat := by
-  refine nat_div_cross_mono (by omega) (by omega) ?_
-  have e1 := toNat_mul_of_nonneg hn1 (by omega : (0:Int) ≤ W2)
-  have e2 := toNat_mul_of_nonneg hn2 (by omega : (0:Int) ≤ W1)
-  omega
+    n1.toNat / W1.toNat ≤ n2.toNat / W2.toNat :=
+  Common.Word.cross_to_div hn1 hn2 hW1 hW2 hcross
 
 /-- `(P * w * W) * (E1 * E2) = (P * E1) * (W * E2) * w`. -/
 theorem ident1 (P w W E1 E2 : Int) :
