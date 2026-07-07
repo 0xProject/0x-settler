@@ -437,6 +437,29 @@ and cannot be replaced by a direct statement of the relevant requirement. A
 committed progress log, scratchpad, milestone note, or plan document is not a
 normative source merely because it is present in the repository.
 
+### Decision-Making Discipline
+
+Agents must not make judgment calls or architectural decisions. Whenever a
+juncture calls for professional judgment, taste, external context, or
+real-world experience — or whenever no option is clearly superior on technical
+merits alone — stop and present every viable option to the user, with the pros
+and cons of each clearly spelled out, and ask the user to decide the correct
+way forward. An agent may choose on its own only when the correct choice is
+obvious and unambiguous from the information available to it.
+
+Do not spend effort cataloging the reasons a task is too daunting, too
+difficult, or too lengthy to complete. Spend that effort instead on determining
+concretely why the task *can* be completed: identify the specific techniques,
+tools, or enhancements that can be brought to bear to make it more tractable.
+When faced with a choice among options where one or more appears substantially
+more difficult for only marginal benefit, do not silently take the easier path;
+present the trade-off to the user and let the user choose.
+
+When reasoning about how difficult or feasible a line of inquiry is, do not
+rely on assumptions drawn from past experience or general priors. Root every
+such judgment in experimentation and quantitative measurement of the actual
+system at hand. Do not assume; run the test and measure.
+
 ### Commenting Discipline
 
 Comments must be added only where the code cannot speak for itself, and code
