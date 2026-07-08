@@ -12,6 +12,9 @@
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
   * Fix slippage checking for EkuboV2
+* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
+  (contract is not deployed; no funds at risk) after a report in
+  Immunefi bug 78645
 
 ## 2026-06-03
 
