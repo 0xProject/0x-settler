@@ -17,6 +17,15 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 
+## 2026-06-30
+
+### Non-breaking changes
+
+* Add UniswapV3 UniV3 fork on RobinHood chain
+* Add UniswapV4 actions to RobinHood chain
+* Add EkuboV3 actions on RobinHood chain
+* Add PancakeSwapV3 UniV3 fork on RobinHood chain
+
 ## 2026-06-03
 
 ### Breaking changes
@@ -32,6 +41,7 @@
 
 ### Non-breaking changes
 
+* Deploy Settler to RobinHood chain
 * Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
   `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
   through Nucleus Teller
