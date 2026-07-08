@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
 import {IStargateV2, IOFT, ETH} from "src/core/StargateV2.sol";
@@ -81,7 +80,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         uint256 amount = 10000;
 
         deal(address(token), address(this), amount);
-        token.approve(address(ALLOWANCE_HOLDER), amount);
+        token.approve(address(allowanceHolder), amount);
 
         (IOFT.SendParam memory sendParam, IOFT.MessagingFee memory messagingFee, uint256 fee) =
             _prepareSendToken(amount);
@@ -99,7 +98,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         deal(address(this), fee);
         uint256 balanceBefore = token.balanceOf(pool);
         vm.expectCall(pool, fee, abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this))));
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(token),
             amount,

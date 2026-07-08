@@ -9,7 +9,6 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IBebopSettlement} from "src/core/Bebop.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
@@ -368,7 +367,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
 
-        bytes[] memory actions = _buildRestrictedTargetActions(address(ALLOWANCE_HOLDER));
+        bytes[] memory actions = _buildRestrictedTargetActions(address(allowanceHolder));
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0

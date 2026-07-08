@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {PlasmaBridgeSettler} from "src/chains/Plasma/BridgeSettler.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
@@ -25,7 +24,7 @@ contract LayerZeroOFTEthereumTest is BridgeSettlerIntegrationTest {
     function testBridgeERC20() public {
         uint256 amount = 10000000;
         deal(address(USDT), address(this), amount, true);
-        USDT.safeApprove(address(ALLOWANCE_HOLDER), amount);
+        USDT.safeApprove(address(allowanceHolder), amount);
 
         IOFT.SendParam memory sendParam = IOFT.SendParam({
             dstEid: uint32(30110), // ARBITRUM
@@ -56,7 +55,7 @@ contract LayerZeroOFTEthereumTest is BridgeSettlerIntegrationTest {
         deal(address(this), fee);
         uint256 balanceBefore = USDT.balanceOf(oft);
         vm.expectCall(oft, fee, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))));
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(USDT),
             amount,

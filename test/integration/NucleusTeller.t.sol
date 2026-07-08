@@ -5,7 +5,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Vm} from "@forge-std/Vm.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {INucleusTeller} from "src/core/NucleusTeller.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
@@ -76,7 +75,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         uint256 shareAmount = 1e18;
 
         deal(address(WPAXG), address(this), shareAmount, true);
-        WPAXG.safeApprove(address(ALLOWANCE_HOLDER), shareAmount);
+        WPAXG.safeApprove(address(allowanceHolder), shareAmount);
 
         INucleusTeller.BridgeData memory data = _bridgeData();
         uint256 fee = INucleusTeller(TELLER).previewFee(shareAmount, data);
@@ -94,7 +93,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
 
         vm.expectCall(TELLER, fee, abi.encodeCall(INucleusTeller.bridge, (shareAmount, data)));
         vm.recordLogs();
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(WPAXG),
             shareAmount,
@@ -112,7 +111,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         uint256 shareAmount = 1e18;
 
         deal(address(WPAXG), address(this), shareAmount, true);
-        WPAXG.safeApprove(address(ALLOWANCE_HOLDER), shareAmount);
+        WPAXG.safeApprove(address(allowanceHolder), shareAmount);
 
         INucleusTeller.BridgeData memory data = _bridgeData();
         uint256 fee = INucleusTeller(TELLER).previewFee(shareAmount, data);
@@ -128,7 +127,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         uint256 supplyBefore = WPAXG.totalSupply();
 
         vm.recordLogs();
-        ALLOWANCE_HOLDER.exec{value: fee + excess}(
+        allowanceHolder.exec{value: fee + excess}(
             address(bridgeSettler),
             address(WPAXG),
             shareAmount,
@@ -146,7 +145,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         uint256 depositAmount = 1e18;
 
         deal(address(PAXG), address(this), depositAmount, true);
-        PAXG.safeApprove(address(ALLOWANCE_HOLDER), depositAmount);
+        PAXG.safeApprove(address(allowanceHolder), depositAmount);
 
         INucleusTeller.BridgeData memory data = _bridgeData();
         // PAXG → WPAXG is a 1:1 wrap, so the resulting share count equals the deposit amount.
@@ -169,7 +168,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
             TELLER, fee, abi.encodeCall(INucleusTeller.depositAndBridge, (PAXG, depositAmount, expectedShares, data))
         );
         vm.recordLogs();
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(PAXG),
             depositAmount,

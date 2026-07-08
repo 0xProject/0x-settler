@@ -5,7 +5,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
-import {Shim} from "./SettlerBasePairTest.t.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
@@ -34,7 +33,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
     }
 
     modifier setMaverickV2Block() {
-        uint256 blockNumber = (new Shim()).blockNumber();
+        uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(maverickV2BlockNumber());
         vm.setEvmVersion("osaka");
         _;

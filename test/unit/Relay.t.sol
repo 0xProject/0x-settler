@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettlerUnitTest} from "./BridgeSettler.t.sol";
 import {Utils} from "./Utils.sol";
 import {Relay} from "src/core/Relay.sol";
@@ -39,12 +38,12 @@ contract RelayTest is BridgeSettlerUnitTest, Utils {
         );
 
         deal(address(token), address(this), amount);
-        token.approve(address(ALLOWANCE_HOLDER), amount);
+        token.approve(address(allowanceHolder), amount);
 
         vm.expectEmit(true, true, true, true);
         emit Relay.RelayAction(requestId);
         vm.expectCall(address(token), abi.encodePacked(abi.encodeCall(IERC20.transfer, (to, amount)), requestId));
-        ALLOWANCE_HOLDER.exec(
+        allowanceHolder.exec(
             address(bridgeSettler),
             address(token),
             amount,

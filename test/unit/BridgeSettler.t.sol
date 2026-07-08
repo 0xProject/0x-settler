@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettler, BridgeSettlerBase} from "src/bridge/BridgeSettler.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
@@ -17,6 +16,7 @@ import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}
@@ -31,10 +31,10 @@ contract BridgeDummy {
 }
 
 contract BridgeSettlerTestBase is Test {
+    IAllowanceHolder constant allowanceHolder = ALLOWANCE_HOLDER;
     BridgeSettler bridgeSettler;
     ISettlerTakerSubmitted settler;
     IERC20 token;
-    BridgeDummy bridgeDummy;
 
     function _testBridgeSettler() internal virtual {
         bridgeSettler = new BridgeSettlerDummy(bytes20(0));
@@ -43,8 +43,8 @@ contract BridgeSettlerTestBase is Test {
     function setUp() public virtual {
         _testBridgeSettler();
         vm.label(address(bridgeSettler), "BridgeSettler");
-        bridgeDummy = new BridgeDummy();
         token = IERC20(address(new MockERC20("Test Token", "TT", 18)));
+        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
     }
 
     function _getDefaultTransferFrom(address token_, uint256 amount) internal returns (bytes memory) {
@@ -72,10 +72,13 @@ contract BridgeSettlerTestBase is Test {
 }
 
 contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
+    BridgeDummy bridgeDummy;
+
     function setUp() public override {
         super.setUp();
 
-        vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
+        bridgeDummy = new BridgeDummy();
+
         // Mock DAI, USDC, USDT, and USDD for MainnetSettler to be usable
         deployCodeTo("MockERC20", abi.encode("DAI", "DAI", 18), address(DAI));
         deployCodeTo("MockERC20", abi.encode("USDC", "USDC", 6), address(USDC));
@@ -142,7 +145,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         );
 
         vm.prank(user);
-        token.approve(address(ALLOWANCE_HOLDER), type(uint256).max);
+        token.approve(address(allowanceHolder), type(uint256).max);
         deal(address(token), user, amount);
 
         _mockExpectCall(address(DEPLOYER), abi.encodeCall(IERC721View.ownerOf, (2)), abi.encode(address(settler)));
@@ -151,7 +154,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         );
         vm.expectCall(address(token), abi.encodeCall(IERC20.transfer, (address(bridgeSettler), amount)));
         vm.prank(user);
-        ALLOWANCE_HOLDER.exec(
+        allowanceHolder.exec(
             address(bridgeSettler),
             address(token),
             amount,

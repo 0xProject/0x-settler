@@ -11,20 +11,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
-
-contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.chainid;
-    }
-
-    // forgefmt: disable-next-line
-    function blockNumber() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.number;
-    }
-}
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
+import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
+import {Settler} from "src/Settler.sol";
 
 abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
@@ -33,11 +22,11 @@ abstract contract SettlerBasePairTest is BasePairTest {
     uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
+    IAllowanceHolder constant allowanceHolder = ALLOWANCE_HOLDER;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function settlerInitCode() internal virtual returns (bytes memory) {
-        return bytes.concat(type(Settler).creationCode, abi.encode(bytes20(0)));
+        return bytes.concat(type(MainnetSettler).creationCode, abi.encode(bytes20(0)));
     }
 
     function _deploySettler() private returns (Settler r) {
@@ -50,9 +39,8 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
 
-        uint256 forkChainId = (new Shim()).chainId();
+        uint256 forkChainId = vm.getChainId();
         vm.chainId(31337);
         settler = _deploySettler();
         vm.label(address(settler), "Settler");

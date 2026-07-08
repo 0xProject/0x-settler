@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
@@ -47,13 +47,6 @@ contract UniswapV3PoolDummy {
     }
 }
 
-contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.chainid;
-    }
-}
-
 contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -92,9 +85,9 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
         permit2Domain = permit2.DOMAIN_SEPARATOR();
 
         // Deploy AllowanceHolder
-        ah = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
+        ah = ALLOWANCE_HOLDER;
         {
-            uint256 forkChainId = (new Shim()).chainId();
+            uint256 forkChainId = vm.getChainId();
             vm.chainId(31337);
             vm.etch(address(ah), address(new AllowanceHolder()).code);
             vm.chainId(forkChainId);
@@ -102,7 +95,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
 
         // Deploy Settler.
         {
-            uint256 forkChainId = (new Shim()).chainId();
+            uint256 forkChainId = vm.getChainId();
             vm.chainId(31337);
             settler = new Settler(bytes20(0));
             vm.chainId(forkChainId);
