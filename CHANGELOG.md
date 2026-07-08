@@ -6,6 +6,17 @@
 
 ### Non-breaking changes
 
+* Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Base
+* Fix several bugs reported by Nethermind
+  * SettlerMetaTxn now reverts on short actions
+  * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
+  * Fix slippage checking for EkuboV2
+
+## 2026-06-30
+
+### Non-breaking changes
+
 * Add UniswapV3 UniV3 fork on RobinHood chain
 * Add UniswapV4 actions to RobinHood chain
 * Add EkuboV3 actions on RobinHood chain
