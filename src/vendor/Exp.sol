@@ -122,6 +122,21 @@ library Exp {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
 
+            // Monotonicity in y at a fixed accepted x: within one headroom class (fixed s) the
+            // magnitude is a composition of nondecreasing maps of ay. A unit step in ay can
+            // lower s by one in two ways, both order-preserving:
+            //  - at a bit-length boundary (ay reaching 2ᴸ), the scale ay << s does not decrease
+            //    while the closing shift shrinks by one, so both effects raise the result;
+            //  - at a headroom-correction boundary (ay << s crossing _SCALE_MAX), the scale
+            //    halves: scale′ = (scale + 2ˢ)/2. With P = scale⋅n/d, c = 2ˢ⋅n/d > 1 (s ≥ 1 and
+            //    n/d > 1/√2 - ε), b = ⌊P⌋ mod 2, and f = frac(P), the two pre-shift numerators
+            //    compared on the common 2ˢ⁻ᵏ grid satisfy
+            //        (2⋅⌊(P + c)/2⌋ - 2) - (⌊P⌋ - 1) = 2⋅⌊(b + f + c)/2⌋ - b - 1,
+            //    which is ≥ 0 when ⌊P⌋ is odd and ≥ -1 when ⌊P⌋ is even; in the -1 case
+            //    ⌊P⌋ - 1 is odd, so losing one unit cannot cross a multiple of the closing
+            //    modulus 2ˢ⁻ᵏ (even, since the guard keeps k ≤ s - 2), and the floored result
+            //    is unchanged. The x = 0 pin (exact) and the zero clamp (constant) preserve
+            //    order trivially, and the sign reapplication mirrors the argument to y < 0.
             uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), _MUL_EXP_RAY_ZERO_MAX);
             // Reapply y's sign and collapse y = 0 (whose kernel output is unspecified; the scale
             // is zero) in one branchless step:

@@ -300,4 +300,42 @@ contract ExpTest is Test {
         x = bound(x, _X_LO_ZERO + 1, _TOO_BIG - 2);
         assertGe(Exp.mulExpRay(y, x + 1), Exp.mulExpRay(y, x), "adjacent monotonicity");
     }
+
+    /// Monotonicity in y is tightest where a unit step in abs(y) crosses a headroom-correction
+    /// boundary (abs(y) << s crossing _SCALE_MAX): the scale halves against a one-bit-coarser
+    /// output grid, and only the parity of the scaled quotient keeps the floor from slipping
+    /// backward. Sweep every reachable boundary at its deepest accepted octaves.
+    function testMulExpRayMonotoneYHeadroomBoundaries() external pure {
+        for (uint256 s0 = 1; s0 <= 126; ++s0) {
+            int256 q = int256(_SCALE_MAX >> s0);
+            int256 kmax = int256(s0) - 3;
+            for (int256 k = kmax; k >= kmax - 2 && k >= -60; --k) {
+                int256 xb = _octaveStart(k);
+                for (int256 x = xb; x <= xb + 2; ++x) {
+                    assertLe(Exp.mulExpRay(q, x), Exp.mulExpRay(q + 1, x), "y-monotonicity");
+                    assertGe(Exp.mulExpRay(-q, x), Exp.mulExpRay(-(q + 1), x), "negative mirror");
+                }
+            }
+        }
+    }
+
+    /// Fuzz the headroom-correction boundaries across the full accepted exponent range.
+    function testFuzzMulExpRayMonotoneYHeadroom(uint256 us, int256 x) external pure {
+        uint256 s0 = bound(us, 1, 126);
+        int256 q = int256(_SCALE_MAX >> s0);
+        // The deepest x accepted by both magnitudes: octave count at most s0 - 3.
+        x = bound(x, _X_LO_ZERO + 1, _octaveStart(int256(s0) - 2) - 1);
+        assertLe(Exp.mulExpRay(q, x), Exp.mulExpRay(q + 1, x), "y-monotonicity across headroom");
+        assertGe(Exp.mulExpRay(-q, x), Exp.mulExpRay(-(q + 1), x), "negative mirror");
+    }
+
+    /// Adjacent multipliers anywhere in the supported range, with the exponent bounded to the
+    /// octaves both headrooms accept.
+    function testFuzzMulExpRayMonotoneYAdjacent(uint256 uy, int256 x) external pure {
+        int256 y = int256(bound(uy, 1, _SCALE_MAX - 1));
+        uint256 s = Clz.clz(uint256(y) + 1) - 129;
+        if (uint256(y + 1) << s > _SCALE_MAX) --s;
+        x = bound(x, _X_LO_ZERO + 1, _octaveStart(int256(s) - 1) - 1);
+        assertLe(Exp.mulExpRay(y, x), Exp.mulExpRay(y + 1, x), "adjacent y-monotonicity");
+    }
 }
