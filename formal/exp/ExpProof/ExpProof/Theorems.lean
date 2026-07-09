@@ -6,7 +6,7 @@ import ExpProof.Floor.PublicUncond
 import ExpProof.Floor.R0BoundHolds
 import ExpProof.Floor.R0Bound
 import ExpProof.Floor.RoundTrip
-import ExpProof.Mul
+import ExpProof.Mul.Shell
 
 /-!
 # `expRayToWad` and `mulExpRay` — compiled-runtime proof signpost
@@ -98,17 +98,20 @@ example (x1 x2 : Nat)
 The public spec for `mulExpRay` is a signed magnitude bracket plus monotonicity predicates in both
 arguments. Discharged today, axiom-clean:
 
-* the guard-domain partition of canonical calldata into exact value and panic domains;
-* the value path: whenever the guard word is zero, the compiled runtime returns the signed
-  dynamic-scale arithmetic tree (`run_mul_exp_ray_evm_eq_tree_of_guard`) — one reduction for
-  every multiplier, including zero, whose result the `sgn(0)` multiply collapses to zero
-  (`run_mul_exp_ray_evm_zero_of_guard`);
-* the real-target monotonicity facts and the bracket/sign-reapplication glue.
+| Property                                            | Theorem                                 |
+|-----------------------------------------------------|-----------------------------------------|
+| Exact value/panic partition of canonical calldata   | `mulExpRay_value_iff_not_panic`         |
+| Guard word ↔ domain bridge                          | `valueDomain_iff_guard_eq_zero`         |
+| Value path returns the compiled tree                | `run_mul_exp_ray_evm_eq_tree`           |
+| Rejected inputs revert                              | `run_mul_exp_ray_evm_revert`            |
+| Zero multiplier returns zero (and its bracket)      | `run_mul_exp_ray_evm_zero_of_guard`     |
+| Scale point `mulExpRay(y, 0) = y` (and its bracket) | `run_mul_exp_ray_evm_scale_point`       |
+| Zero clamp at deep-negative `x` (and its bracket)   | `run_mul_exp_ray_evm_clamped`           |
 
-Still open, visible below as explicit hypotheses of the facade lemmas: the guard-word ↔ domain
-bridge, the `Panic(17)` revert theorem on the panic domain, and the bracket and monotonicity of
-the tree itself (which need the `Floor` certificates generalized from the fixed wad scale to the
-dynamic scale).
+Still open, visible below as explicit hypotheses of the facade lemmas: the bracket on the live
+region (`x` strictly between the clamp cutoff and the scale point's octave limit) and the runtime
+monotonicity statements, both of which need the `Floor` certificates generalized from the fixed
+wad scale `10¹⁸·2⁶⁷` to the dynamic scale `abs(y)·2ˢ`.
 -/
 
 /-- Canonical `mulExpRay` inputs are partitioned by the implementation value and panic guards. -/
@@ -181,6 +184,45 @@ example (x : Nat) (hguard : mulExpGuardTree 0 x = 0) : run_mul_exp_ray_evm 0 x =
 accepts. -/
 example (x : Nat) (hguard : mulExpGuardTree 0 x = 0) : MulExpRayRunBracket 0 x :=
   mulExpRay_run_bracket_zero x hguard
+
+/-- The guard word is zero exactly on the value domain. -/
+example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
+    MulExpRayValueDomain y x ↔ mulExpGuardTree y x = 0 :=
+  valueDomain_iff_guard_eq_zero hcanon
+
+/-- Accepted inputs return the compiled tree. -/
+example {y x : Nat} (h : MulExpRayValueDomain y x) :
+    run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
+  run_mul_exp_ray_evm_eq_tree h
+
+/-- Rejected inputs revert. -/
+example {y x : Nat} (h : MulExpRayPanicDomain y x) :
+    run_mul_exp_ray_evm y x = .error "revert" :=
+  run_mul_exp_ray_evm_revert h
+
+/-- The scale point returns the multiplier exactly. -/
+example {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleQ67) :
+    run_mul_exp_ray_evm y 0 = .ok y :=
+  run_mul_exp_ray_evm_scale_point hy habs
+
+/-- The scale-point result satisfies the public bracket. -/
+example {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleQ67) :
+    MulExpRayRunBracket y 0 :=
+  mulExpRay_run_bracket_scale_point hy habs
+
+/-- At or below the zero cutoff, every supported magnitude returns zero. -/
+example {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+    (habs : absTree y ≤ scaleQ67)
+    (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
+    run_mul_exp_ray_evm y x = .ok 0 :=
+  run_mul_exp_ray_evm_clamped hy hx habs hclamp
+
+/-- The clamped result satisfies the public bracket. -/
+example {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+    (habs : absTree y ≤ scaleQ67)
+    (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
+    MulExpRayRunBracket y x :=
+  mulExpRay_run_bracket_clamped hy hx habs hclamp
 
 /-- The accumulator floor and target bounds imply the public magnitude bracket. -/
 example {y x m : Int} {A : Real}
@@ -282,6 +324,34 @@ example {y1 y2 x1 x2 : Int}
 /-- info: 'ExpYul.mulExpRay_run_bracket_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms mulExpRay_run_bracket_zero
+
+/-- info: 'ExpYul.valueDomain_iff_guard_eq_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms valueDomain_iff_guard_eq_zero
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_eq_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_eq_tree
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_revert' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_revert
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_scale_point' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_scale_point
+
+/-- info: 'ExpYul.mulExpRay_run_bracket_scale_point' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_bracket_scale_point
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_clamped' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_clamped
+
+/-- info: 'ExpYul.mulExpRay_run_bracket_clamped' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_bracket_clamped
 
 /-- info: 'ExpRealSpec.mulExpRayTarget_signed_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

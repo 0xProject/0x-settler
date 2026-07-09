@@ -2,6 +2,7 @@ import ExpProof.Mono.MulTree
 import ExpProof.ExpYulRuntime
 import ExpProof.Spec.RealExp
 import ExpProof.Seam.MulValue
+import ExpProof.Seam.MulRevert
 import ExpProof.Mul.Domain
 import ExpProof.Mul.Bridge
 
@@ -104,6 +105,16 @@ accepts. -/
 theorem mulExpRay_run_bracket_zero (x : Nat) (hguard : mulExpGuardTree 0 x = 0) :
     MulExpRayRunBracket 0 x :=
   mulExpRay_run_bracket_zero_of_run (run_mul_exp_ray_evm_zero_of_guard x hguard)
+
+/-- **Value path on the domain.** Accepted inputs return the compiled arithmetic tree. -/
+theorem run_mul_exp_ray_evm_eq_tree {y x : Nat} (h : MulExpRayValueDomain y x) :
+    run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
+  run_mul_exp_ray_evm_eq_tree_of_guard y x ((valueDomain_iff_guard_eq_zero h.1).mp h)
+
+/-- **Panic revert.** Rejected inputs revert. -/
+theorem run_mul_exp_ray_evm_revert {y x : Nat} (h : MulExpRayPanicDomain y x) :
+    run_mul_exp_ray_evm y x = .error "revert" :=
+  run_mul_exp_ray_evm_revert_of_guard y x ((panicDomain_iff_guard_eq_one h.1).mp h)
 
 /-- The `y = 10^18` magnitude target is the existing `expRayToWad` target. -/
 theorem mulExpRayMagnitudeTarget_wad (x : Int) :
