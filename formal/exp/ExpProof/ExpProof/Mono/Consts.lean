@@ -43,8 +43,8 @@ abbrev foldShift : Nat := 0x43
 abbrev scaleQ67 : Nat := 0x6f05b59d3b2000000000000000000000
 abbrev scaleMaxClz : Nat := 0x81
 abbrev marginWord : Nat := 0x1
-abbrev xHiMulExpRay : Nat := 0x0116d70f49dec622d4bda70c52
-abbrev xLoZeroMulExpRay : Nat := 0xfffffffffffffffffffffffffffffffffffffffee270ddd64709e8aac2676ec3
+abbrev mulExpRayHi : Nat := 0x119146ae9d22b7454e84ce34c
+abbrev mulExpRayZeroMax : Nat := 0xfffffffffffffffffffffffffffffffffffffffee270ddd64709e8aac2676ec3
 
 theorem scaleQ67_eq : (scaleQ67 : Int) = 3814697265625 * 2 ^ 85 := by
   unfold scaleQ67; norm_num
@@ -63,21 +63,21 @@ theorem int256_C0thresh : int256 C0thresh = 45401140326676417766828703956 := by
   unfold C0thresh int256
   norm_num
 
-theorem int256_xHiMulExpRay : int256 xHiMulExpRay = 86296823979713191022445399122 := by
-  unfold xHiMulExpRay int256
+theorem int256_mulExpRayHi : int256 mulExpRayHi = 86989971160273136331862631244 := by
+  unfold mulExpRayHi int256
   norm_num
 
-theorem int256_xLoZeroMulExpRay :
-    int256 xLoZeroMulExpRay = -88376265521393026950697095485 := by
-  unfold xLoZeroMulExpRay int256
+theorem int256_mulExpRayZeroMax :
+    int256 mulExpRayZeroMax = -88376265521393026950697095485 := by
+  unfold mulExpRayZeroMax int256
   norm_num
 
-theorem xHiMulExpRay_lt : xHiMulExpRay < 2 ^ 256 := by
-  unfold xHiMulExpRay
+theorem mulExpRayHi_lt : mulExpRayHi < 2 ^ 256 := by
+  unfold mulExpRayHi
   norm_num
 
-theorem xLoZeroMulExpRay_lt : xLoZeroMulExpRay < 2 ^ 256 := by
-  unfold xLoZeroMulExpRay
+theorem mulExpRayZeroMax_lt : mulExpRayZeroMax < 2 ^ 256 := by
+  unfold mulExpRayZeroMax
   norm_num
 
 end ExpYul

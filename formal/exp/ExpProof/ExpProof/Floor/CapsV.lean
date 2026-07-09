@@ -15,7 +15,7 @@ The v-form cell covers (`Cert/ExpVUp`, `Cert/ExpVLo`, `Cert/ExpVNum`, `Cert/ExpV
 four v-form certificate polynomials nonnegative over `t ∈ [0, H129]`. This module converts that
 nonnegativity into the two bare-argument Taylor caps the floor layer folds with `2^k`, targeting the
 implementation's exact **v-form** rational `ê_v(t) = NUM(t)/DEN(t)` (built from the even/odd Horner
-polynomials in `v = t²`) nudged by the dyadic margin, with `Qexp = 2^128`:
+polynomials in `v = t²`) nudged by the dyadic margin, with `Qexp = 2^129`:
 
 * `capExpUp` — never-over `exp(t/Qexp) ≤ yUB(t)/wUB(t)` with `yUB/wUB = ê_v·(1 + 2⁻¹³²)`;
 * `capExpLo` — not-two-below `yLB(t)/wLB(t) ≤ exp(t/Qexp)` with `yLB/wLB = ê_v·(1 − 2⁻¹³²)`.

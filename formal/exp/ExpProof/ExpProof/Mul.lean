@@ -92,10 +92,18 @@ theorem mulExpRay_run_bracket_zero_of_run {x : Nat}
     MulExpRayRunBracket 0 x :=
   ⟨0, hrun, mulExpRayBracket_zero_result (int256 x)⟩
 
-/-- The compiled runtime satisfies the public bracket spec unconditionally for zero magnitude. -/
-theorem mulExpRay_run_bracket_zero (x : Nat) :
+/-- The compiled runtime returns zero for a zero multiplier whenever the guard accepts:
+`sgn(0) = 0` collapses the kernel output at the tree level. -/
+theorem run_mul_exp_ray_evm_zero_of_guard (x : Nat)
+    (hguard : mulExpGuardTree 0 x = 0) :
+    run_mul_exp_ray_evm 0 x = .ok 0 := by
+  simpa [mulExpTree_zero] using run_mul_exp_ray_evm_eq_tree_of_guard 0 x hguard
+
+/-- The compiled runtime satisfies the public bracket spec at zero magnitude whenever the guard
+accepts. -/
+theorem mulExpRay_run_bracket_zero (x : Nat) (hguard : mulExpGuardTree 0 x = 0) :
     MulExpRayRunBracket 0 x :=
-  mulExpRay_run_bracket_zero_of_run (run_mul_exp_ray_evm_zero x)
+  mulExpRay_run_bracket_zero_of_run (run_mul_exp_ray_evm_zero_of_guard x hguard)
 
 /-- The `y = 10^18` magnitude target is the existing `expRayToWad` target. -/
 theorem mulExpRayMagnitudeTarget_wad (x : Int) :

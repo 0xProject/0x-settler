@@ -96,10 +96,19 @@ example (x1 x2 : Nat)
 /-! ## `mulExpRay`
 
 The public spec for `mulExpRay` is a signed magnitude bracket plus monotonicity predicates in both
-arguments. Positive multipliers are nondecreasing in `x`; negative multipliers are nonincreasing in
-`x`; for fixed `x`, signed results are nondecreasing in `y`; and joint monotonicity is stated
-piecewise over the two sign regions and the sign-crossing case. The runtime facade below reduces
-successful-run bracket and monotonicity statements to the compiled arithmetic tree `mulExpTree`.
+arguments. Discharged today, axiom-clean:
+
+* the guard-domain partition of canonical calldata into exact value and panic domains;
+* the value path: whenever the guard word is zero, the compiled runtime returns the signed
+  dynamic-scale arithmetic tree (`run_mul_exp_ray_evm_eq_tree_of_guard`) — one reduction for
+  every multiplier, including zero, whose result the `sgn(0)` multiply collapses to zero
+  (`run_mul_exp_ray_evm_zero_of_guard`);
+* the real-target monotonicity facts and the bracket/sign-reapplication glue.
+
+Still open, visible below as explicit hypotheses of the facade lemmas: the guard-word ↔ domain
+bridge, the `Panic(17)` revert theorem on the panic domain, and the bracket and monotonicity of
+the tree itself (which need the `Floor` certificates generalized from the fixed wad scale to the
+dynamic scale).
 -/
 
 /-- Canonical `mulExpRay` inputs are partitioned by the implementation value and panic guards. -/
@@ -159,13 +168,19 @@ example {y1 y2 x1 x2 : Nat}
 example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
   mulExpRayBracket_zero_result x
 
-/-- The compiled runtime returns zero for every exponent when the multiplier is zero. -/
-example (x : Nat) : run_mul_exp_ray_evm 0 x = .ok 0 :=
-  run_mul_exp_ray_evm_zero x
+/-- The value path returns the compiled arithmetic tree whenever the guard word is zero. -/
+example (y x : Nat) (hguard : mulExpGuardTree y x = 0) :
+    run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
+  run_mul_exp_ray_evm_eq_tree_of_guard y x hguard
 
-/-- The compiled runtime satisfies the public bracket spec unconditionally at zero magnitude. -/
-example (x : Nat) : MulExpRayRunBracket 0 x :=
-  mulExpRay_run_bracket_zero x
+/-- The compiled runtime returns zero for a zero multiplier whenever the guard accepts. -/
+example (x : Nat) (hguard : mulExpGuardTree 0 x = 0) : run_mul_exp_ray_evm 0 x = .ok 0 :=
+  run_mul_exp_ray_evm_zero_of_guard x hguard
+
+/-- The compiled runtime satisfies the public bracket spec at zero magnitude whenever the guard
+accepts. -/
+example (x : Nat) (hguard : mulExpGuardTree 0 x = 0) : MulExpRayRunBracket 0 x :=
+  mulExpRay_run_bracket_zero x hguard
 
 /-- The accumulator floor and target bounds imply the public magnitude bracket. -/
 example {y x m : Int} {A : Real}
@@ -256,9 +271,13 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms mulExpRayBracket_zero_result
 
-/-- info: 'ExpYul.run_mul_exp_ray_evm_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.run_mul_exp_ray_evm_eq_tree_of_guard' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms run_mul_exp_ray_evm_zero
+#print axioms run_mul_exp_ray_evm_eq_tree_of_guard
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_zero_of_guard' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_zero_of_guard
 
 /-- info: 'ExpYul.mulExpRay_run_bracket_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

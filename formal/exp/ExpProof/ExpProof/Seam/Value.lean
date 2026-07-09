@@ -47,7 +47,7 @@ theorem call_fun__expRayKernel_zero_direct
   rw [show fuel + (extra + 700) = (fuel + extra) + 700 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayKernel]
-  simp only [yulFunction_fun__expRayKernel, yulFunction_fun__expRayKernel_328,
+  simp only [yulFunctionBody_fun__expRayKernel,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -76,7 +76,7 @@ theorem call_fun_expRayToWad_zero_direct
   rw [show fuel + (extra + 900) = (fuel + extra) + 900 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad]
-  simp only [yulFunction_fun_expRayToWad, yulFunction_fun_expRayToWad_190,
+  simp only [yulFunctionBody_fun_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -143,7 +143,7 @@ theorem call_fun_wrap_expRayToWad_zero_direct
   rw [show fuel + (extra + 1100) = (fuel + extra) + 1100 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -181,7 +181,7 @@ theorem external_fun_wrap_expRayToWad_zero_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_external_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -264,7 +264,7 @@ theorem external_fun_wrap_expRayToWad_zero_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_external_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -477,7 +477,7 @@ theorem call_fun__expRayKernel_direct
   rw [show fuel + (extra + 700) = (fuel + extra) + 700 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayKernel]
-  simp only [yulFunction_fun__expRayKernel, yulFunction_fun__expRayKernel_328,
+  simp only [yulFunctionBody_fun__expRayKernel,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -541,7 +541,7 @@ theorem call_fun_expRayToWad_direct
   rw [show fuel + (extra + 900) = (fuel + extra) + 900 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad]
-  simp only [yulFunction_fun_expRayToWad, yulFunction_fun_expRayToWad_190,
+  simp only [yulFunctionBody_fun_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -654,7 +654,7 @@ theorem call_fun_wrap_expRayToWad_direct
   rw [show fuel + (extra + 1100) = (fuel + extra) + 1100 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -714,7 +714,7 @@ theorem external_fun_wrap_expRayToWad_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_external_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -815,7 +815,7 @@ theorem external_fun_wrap_expRayToWad_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_external_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,

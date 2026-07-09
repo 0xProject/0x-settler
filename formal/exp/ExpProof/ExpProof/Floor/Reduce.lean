@@ -5,7 +5,7 @@ import ExpProof.Spec.RealExp
 /-!
 # The reduced-argument real identity (gap-1)
 
-The runtime forms the reduced argument `t = tTree x` (Q128) and octave index `k = kTree x` so that
+The runtime forms the reduced argument `t = tTree x` (Q129) and octave index `k = kTree x` so that
 `exp(x/RAY) = 2^k · exp(rt)` with `rt = X/RAY − k·ln2` (`X = int256 x`). To fold the cert's
 `exp(t/2¹²⁹)` bound onto the target, the reduced argument `rt` must coincide with `t/2¹²⁹` up to a
 margin the runtime `MARGIN` absorbs:

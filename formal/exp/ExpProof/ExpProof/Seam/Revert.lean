@@ -44,7 +44,7 @@ theorem call_fun_panic_revert_direct
   rw [show fuel + (extra + 600) = (fuel + extra) + 600 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_panic]
-  simp only [yulFunction_fun_panic, yulFunction_fun_panic_53,
+  simp only [yulFunctionBody_fun_panic,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -72,7 +72,7 @@ theorem call_fun_expRayToWad_revert_direct
   rw [show fuel + (extra + 1000) = (fuel + extra) + 1000 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad]
-  simp only [yulFunction_fun_expRayToWad, yulFunction_fun_expRayToWad_190,
+  simp only [yulFunctionBody_fun_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -122,7 +122,7 @@ theorem call_fun_wrap_expRayToWad_revert_direct
   rw [show fuel + (extra + 1200) = (fuel + extra) + 1200 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -155,7 +155,7 @@ theorem external_fun_wrap_expRayToWad_calldata_revert
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_347,
+  simp only [yulFunctionBody_external_fun_wrap_expRayToWad,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,

@@ -4,8 +4,9 @@ import ExpProof.Mono.Tree
 # `mulExpRay` runtime normal form
 
 The dynamic-scale entrypoint shares the exponent kernel with `expRayToWad`. This file names the
-extra word computations around that kernel: absolute-value/sign extraction, scale shift selection,
-dynamic closing shift, and sign reapplication.
+extra word computations around that kernel: absolute-value/sign extraction, scale-headroom
+selection, the dynamic closing shift, the panic-guard word, and the closing `sgn(y)` multiply
+that both reapplies the sign and collapses the zero multiplier.
 -/
 
 namespace ExpYul
@@ -35,19 +36,16 @@ def scaleShiftTree (ay : Nat) : Nat :=
 def mulScaleTree (y : Nat) : Nat :=
   evmShl (scaleShiftTree (absTree y)) (absTree y)
 
-/-- Dynamic closing shift `S - k`. -/
+/-- Dynamic closing shift `S - k`, shared by the guard and the kernel call. -/
 def mulShiftTree (y x : Nat) : Nat :=
   evmSub (scaleShiftTree (absTree y)) (kTree x)
 
 /-- The branch word for the `Panic(17)` guard. -/
 def mulExpGuardTree (y x : Nat) : Nat :=
-  let ay := absTree y
-  let s := scaleShiftTree ay
-  let k := kTree x
-  let outOfRange := evmOr (evmGt ay scaleQ67) (evmIszero (evmSlt x xHiMulExpRay))
+  let outOfRange := evmOr (evmGt (absTree y) scaleQ67) (evmIszero (evmSlt x mulExpRayHi))
   let inaccurate :=
-    evmAnd (evmAnd (evmIszero (evmEq x 0)) (evmSgt x xLoZeroMulExpRay))
-      (evmSgt k (evmSub s 2))
+    evmAnd (evmAnd (evmIszero (evmEq x 0)) (evmSgt x mulExpRayZeroMax))
+      (evmSlt (mulShiftTree y x) 2)
   evmOr outOfRange inaccurate
 
 /-- The dynamic-scaled quotient before the closing shift. -/
@@ -55,16 +53,21 @@ def r0MulTree (y x : Nat) : Nat :=
   evmDiv (evmMul (mulScaleTree y) (evmAdd (evTree x) (todTree x)))
     (evmSub (evTree x) (todTree x))
 
-/-- The nonnegative magnitude returned by the shared kernel before the sign mask is applied. -/
+/-- The nonnegative magnitude returned by the shared kernel before the `sgn(y)` multiply. -/
 def mulMagnitudeTree (y x : Nat) : Nat :=
   evmAdd (evmIszero x)
-    (evmMul (evmSlt xLoZeroMulExpRay x)
+    (evmMul (evmSlt mulExpRayZeroMax x)
       (evmShr (mulShiftTree y x) (evmSub (r0MulTree y x) marginWord)))
 
-/-- Signed result word after applying `y`'s sign mask. -/
+/-- `sgn(y)` as a word: the sign mask (`-1`) for negative inputs, `1` for positive inputs, and
+`0` for a zero multiplier. -/
+def sgnTree (y : Nat) : Nat :=
+  evmOr (signTree y) (evmLt 0 (absTree y))
+
+/-- The result word: the kernel magnitude times `sgn(y)`, which reapplies the sign and zeroes
+the (unspecified) magnitude of a zero multiplier in one step. -/
 def mulExpTree (y x : Nat) : Nat :=
-  let m := mulMagnitudeTree y x
-  evmSub (evmXor m (signTree y)) (signTree y)
+  evmMul (mulMagnitudeTree y x) (sgnTree y)
 
 theorem absTree_lt (y : Nat) : absTree y < 2 ^ 256 := by
   unfold absTree
@@ -96,6 +99,16 @@ theorem mulMagnitudeTree_lt (y x : Nat) : mulMagnitudeTree y x < 2 ^ 256 := by
 
 theorem mulExpTree_lt (y x : Nat) : mulExpTree y x < 2 ^ 256 := by
   unfold mulExpTree
-  exact evmSub_lt _ _
+  exact FormalYul.Preservation.evmMul_lt_pow256 _ _
+
+theorem sgnTree_zero : sgnTree 0 = 0 := by
+  simp [sgnTree, signTree, absTree, Common.Word.evmXor, evmSar, evmSub, evmLt, evmOr,
+    u256, WORD_MOD]
+
+/-- A zero multiplier's result word is zero: `sgn(0) = 0` collapses the kernel output. -/
+theorem mulExpTree_zero (x : Nat) : mulExpTree 0 x = 0 := by
+  unfold mulExpTree
+  rw [sgnTree_zero]
+  simp [evmMul, u256, WORD_MOD]
 
 end ExpYul

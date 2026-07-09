@@ -33,13 +33,13 @@ set_option maxRecDepth 100000
 
 /-! ## Strict never-over: the accumulator stays a positive distance below the target
 
-`accumReal_over` gives `accumReal x ≤ E`. With `B' = (5¹⁸/2⁴⁰)·B ≈ 2.0097` the never-over
-envelope's image on the output grid, `MARGIN = 3` exceeds it strictly — the slack
-`δ = MARGIN − B' ≈ 0.99` (worth `δ/2^s` after the closing shift). The round trip needs this
+`accumReal_over` gives `accumReal x ≤ E`. With `B' = (5¹⁸/2⁴¹)·B ≈ 0.99527` the never-over
+envelope's image on the output grid, `MARGIN = 1` exceeds it strictly — the slack
+`δ = MARGIN − B' ≈ 0.0047` (worth `δ/2^s` after the closing shift). The round trip needs this
 strictness to rule out `accumReal x = w` exactly. -/
 
 /-- **Strict never-over.** On the region the real pre-floor accumulator is strictly below the
-target. The proven over bound `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴⁰)·B` plus `(5¹⁸/2⁴⁰)·B < MARGIN`
+target. The proven over bound `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴¹)·B` plus `(5¹⁸/2⁴¹)·B < MARGIN`
 give a strictly negative residue. -/
 theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :

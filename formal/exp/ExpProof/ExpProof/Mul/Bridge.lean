@@ -17,13 +17,6 @@ open ExpRealSpec
 
 noncomputable section
 
-set_option maxRecDepth 100000
-
-/-- The dynamic real pre-floor accumulator of the shared kernel body. -/
-def mulAccumReal (y x : Nat) : Real :=
-  (int256 (evmSub (r0MulTree y x) marginWord) : Real) /
-    (2 ^ (mulShiftTree y x) : Real)
-
 /-- The public magnitude bracket follows from the floor step, never-over accumulator bound, and
 deficit-under-one accumulator bound. -/
 theorem mulExpRayMagnitudeBracket_of_accum {y x m : Int} {A : Real}

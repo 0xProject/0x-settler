@@ -19,7 +19,7 @@ set_option maxRecDepth 100000
 def kTree (x : Nat) : Nat :=
   evmSar kRoundShift (evmAdd (evmShl kHalfShift 1) (evmMul cInvQ192 x))
 
-/-- Reduced argument `t` in Q128. -/
+/-- Reduced argument `t` in Q129. -/
 def tTree (x : Nat) : Nat :=
   evmSar tArgShift (evmSub (evmMul k27Q235 x) (evmMul ln2Q235 (kTree x)))
 
@@ -44,15 +44,15 @@ def odTree (x : Nat) : Nat :=
     (evmAdd od1 (evmShr odShift1 (evmMul
     od0 v))) v))) v))) v))
 
-/-- `t * Od(v)` in Q88. -/
+/-- `t * Od(v)` in Q89. -/
 def todTree (x : Nat) : Nat := evmSar todShift (evmMul (tTree x) (odTree x))
 
-/-- `10¹⁸·exp(t)` on the `2⁶⁸` output grid: the numerator is pre-scaled by `10¹⁸·2⁶⁸ = 5¹⁸·2⁸⁶`
+/-- `10¹⁸·exp(t)` on the `2⁶⁷` output grid: the numerator is pre-scaled by `10¹⁸·2⁶⁷ = 5¹⁸·2⁸⁵`
 before the single `DIV`. -/
 def r0Tree (x : Nat) : Nat :=
   evmDiv (evmMul scaleQ67 (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
 
-/-- The floored, octave-scaled, margin-subtracted accumulator on the `2⁶⁸` output grid. -/
+/-- The floored, octave-scaled, margin-subtracted accumulator on the `2⁶⁷` output grid. -/
 def r1Tree (x : Nat) : Nat :=
   evmShr (evmSub foldShift (kTree x)) (evmSub (r0Tree x) marginWord)
 

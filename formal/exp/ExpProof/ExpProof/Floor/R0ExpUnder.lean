@@ -12,8 +12,11 @@ This module contains the counterpart to the never-over `r0_real_over_within`: th
 3. the `Mp` factor, `≤ 2/25` (via `r0 ≤ 1.45·scaleQ67`);
 4. the under-direction reduced-argument gap, `≤ 307/1000` (via `exp(rt) ≤ √2·(1+ε)`).
 
-The sum `2378/1000 + 2/25 + (5¹⁸/2⁴¹)·1644901622230542074/10¹⁹ + 307/1000 ≤ 2993/1000` feeds the `k = 64` deficit
-envelope `(2993/1000 + MARGIN)/2² < 1`. The module closes with the octave-seam `r0`-doubling
+Per sign half the links sum inside the budget: `2378/1000 + 2/25 + 307/1000 ≤ 2993/1000` on the
+`t ≥ 0` half (granularity free there) and `2378/1000 + 2/25 +
+(5¹⁸/2⁴¹)·1644901622230542074/10¹⁹ + 218/1000 ≤ 2993/1000` on the `t ≤ 0` half. The budget feeds
+the `k = 65` deficit envelope `(2993/1000 + MARGIN)/2² < 1`. The module closes with the
+octave-seam `r0`-doubling
 bound `r0₁ + 3 ≤ 2·r0₂` (`SeamR0Bound`), where the `1 − exp(−1/RAY)` seam slack (≈ `8.5·10¹⁰` grid
 units against `r0₂ > 2¹²³`) dwarfs both per-point budgets and the three integer units.
 -/

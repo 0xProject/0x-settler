@@ -9,12 +9,12 @@ import ExpProof.Seam.RealExp
 The per-point `r0`-vs-`exp` brackets (`r0_real_over_within`, `r0_real_under_within`) and the
 below-clamp bound (`belowC_target_lt_one`) establish the never-over and deficit-under-one facts
 about the real pre-floor accumulator unconditionally and axiom-clean, via the octave fold
-`E·2^s = WAD·2⁶⁸·exp(rt)` (`WAD·2⁶⁸ = scaleQ67`; `s = 68 − k`, the closing shift; `k ≤ 64` so
-`s ≥ 4`).
+`E·2^s = WAD·2⁶⁷·exp(rt)` (`WAD·2⁶⁷ = scaleQ67`; `s = 67 − k`, the closing shift; `k ≤ 65` so
+`s ≥ 2`).
 
-* `accumReal_over`  ⟸ `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴⁰)·B` and `(5¹⁸/2⁴⁰)·B ≤ MARGIN = 3`;
+* `accumReal_over`  ⟸ `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴¹)·B` and `(5¹⁸/2⁴¹)·B ≤ MARGIN = 1`;
 * `accumReal_under` ⟸ `scaleQ67·exp(rt) ≤ r0 + U` (`U = 2993/1000`) and
-  `U + MARGIN < 2⁴ ≤ 2^s`.
+  `U + MARGIN < 2² ≤ 2^s`.
 
 These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free.
 -/
@@ -44,7 +44,7 @@ theorem accumReal_over (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 
     rw [hfold]
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     rw [hwad]
-    -- (5¹⁸/2⁴⁰)·B ≤ 1 = MARGIN
+    -- (5¹⁸/2⁴¹)·B ≤ 1 = MARGIN
     have hBM : (3814697265625 : Real) * 5737291786393199862 /
         (10000000000000000000 * 2199023255552) ≤ 1 := by norm_num
     linarith [hover, hBM]

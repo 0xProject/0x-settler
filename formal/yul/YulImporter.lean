@@ -576,6 +576,9 @@ def aliasFunctionDefName (stable : String) : String :=
 def aliasFunctionNameName (stable : String) : String :=
   "yulName_" ++ sanitizeIdent stable
 
+def aliasFunctionBodyName (stable : String) : String :=
+  "yulFunctionBody_" ++ sanitizeIdent stable
+
 def findFunction (functions : List FunctionSource) (name : String) : Except String FunctionSource :=
   match functions.find? (fun fn => fn.name = name) with
   | some fn => .ok fn
@@ -624,19 +627,29 @@ def aliasByCallPrefix
   let original ← callWithPrefixFrom functions caller pfx
   .ok { stable, original }
 
-def renderGeneratedAlias (entry : GeneratedAlias) : String :=
-  "\n/-- Stable generated alias for solc-emitted function `" ++ entry.original ++ "`. -/\n" ++
-  "abbrev " ++ aliasFunctionDefName entry.stable ++
-    " : EvmYul.Yul.Ast.FunctionDefinition := " ++ functionDefName entry.original ++ "\n\n" ++
-  "abbrev " ++ aliasFunctionNameName entry.stable ++ " := " ++ reprStr entry.original ++ "\n\n" ++
-  "@[simp]\n" ++
-  "theorem lookup_" ++ sanitizeIdent entry.stable ++ " :\n" ++
-  "    yulFunctions.lookup " ++ aliasFunctionNameName entry.stable ++
-  " = some " ++ aliasFunctionDefName entry.stable ++ " := by\n" ++
-  "  unfold " ++ aliasFunctionNameName entry.stable ++ "\n" ++
-  "  unfold " ++ aliasFunctionDefName entry.stable ++ "\n" ++
-  "  unfold yulFunctions\n" ++
-  "  simp [Finmap.lookup_insert]\n"
+def renderGeneratedAlias (functions : List FunctionSource) (entry : GeneratedAlias) :
+    Except String String := do
+  let fn ← findFunction functions entry.original
+  .ok <|
+    "\n/-- Stable generated alias for solc-emitted function `" ++ entry.original ++ "`. -/\n" ++
+    "abbrev " ++ aliasFunctionDefName entry.stable ++
+      " : EvmYul.Yul.Ast.FunctionDefinition := " ++ functionDefName entry.original ++ "\n\n" ++
+    "abbrev " ++ aliasFunctionNameName entry.stable ++ " := " ++ reprStr entry.original ++ "\n\n" ++
+    "@[simp]\n" ++
+    "theorem lookup_" ++ sanitizeIdent entry.stable ++ " :\n" ++
+    "    yulFunctions.lookup " ++ aliasFunctionNameName entry.stable ++
+    " = some " ++ aliasFunctionDefName entry.stable ++ " := by\n" ++
+    "  unfold " ++ aliasFunctionNameName entry.stable ++ "\n" ++
+    "  unfold " ++ aliasFunctionDefName entry.stable ++ "\n" ++
+    "  unfold yulFunctions\n" ++
+    "  simp [Finmap.lookup_insert]\n\n" ++
+    "/-- Suffix-free unfolding of `" ++ aliasFunctionDefName entry.stable ++ "` to its Yul\n" ++
+    "body, so proofs stepping through it never name the solc-numbered definition. -/\n" ++
+    "theorem " ++ aliasFunctionBodyName entry.stable ++ " :\n" ++
+    "    " ++ aliasFunctionDefName entry.stable ++ " =\n" ++
+    "  <f\n" ++
+    indentBlock "  " fn.source ++ "\n" ++
+    "  > := rfl\n"
 
 def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
     Except String (List GeneratedAlias) := do
@@ -755,7 +768,10 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
         aliasByPrefix functions "fun__expRayKernel" "fun__expRayKernel_",
         aliasByPrefix functions "constant__EXP_RAY_TO_WAD_HI" "constant__EXP_RAY_TO_WAD_HI_",
         aliasByPrefixExcluding functions "constant__SCALE_MAX" "constant__SCALE_MAX_" "constant__SCALE_MAX_CLZ_",
+        aliasByPrefix functions "constant__SCALE_MAX_CLZ" "constant__SCALE_MAX_CLZ_",
         aliasByPrefix functions "constant__WAD_ZERO_MAX" "constant__WAD_ZERO_MAX_",
+        aliasByPrefix functions "constant__MUL_EXP_RAY_HI" "constant__MUL_EXP_RAY_HI_",
+        aliasByPrefix functions "constant__MUL_EXP_RAY_ZERO_MAX" "constant__MUL_EXP_RAY_ZERO_MAX_",
         aliasByPrefix functions "constant_ARITHMETIC_OVERFLOW" "constant_ARITHMETIC_OVERFLOW_",
         aliasByPrefix functions "fun_panic" "fun_panic_",
         aliasByPrefix functions "fun_or" "fun_or_",
@@ -766,6 +782,7 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
 def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String) : Except String String := do
   let functions := contract.functions
   let aliases ← generatedAliases kind functions
+  let renderedAliases ← aliases.mapM (renderGeneratedAlias functions)
   let runtimeModule := moduleNameFromOutput output ++ "Runtime"
   .ok <|
     "import FormalYul.Preservation\n" ++
@@ -778,7 +795,7 @@ def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String)
     "@[simp]\n" ++
     "theorem yulContract_functions : yulContract.functions = yulFunctions := rfl\n" ++
     joinLines (functions.map renderLookupLemma) ++ "\n" ++
-    joinLines (aliases.map renderGeneratedAlias) ++ "\n" ++
+    joinLines renderedAliases ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
 
 def validateSelectorCase (dispatcherStx : Syntax) (selector : String) : Except String Unit :=
