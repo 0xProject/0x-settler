@@ -31,7 +31,7 @@ theorem call_fun_mulExpRay_zero_direct
   rw [show fuel + (extra + 500) = (fuel + extra) + 500 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_mulExpRay]
-  simp only [yulFunction_fun_mulExpRay, yulFunction_fun_mulExpRay_294,
+  simp only [yulFunction_fun_mulExpRay, yulFunction_fun_mulExpRay_301,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -73,7 +73,7 @@ theorem call_fun_wrap_mulExpRay_zero_direct
   rw [show fuel + (extra + 1100) = (fuel + extra) + 1100 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_mulExpRay]
-  simp only [yulFunction_fun_wrap_mulExpRay, yulFunction_fun_wrap_mulExpRay_390,
+  simp only [yulFunction_fun_wrap_mulExpRay, yulFunction_fun_wrap_mulExpRay_363,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -111,7 +111,7 @@ theorem external_fun_wrap_mulExpRay_zero_calldata_result
   rw [EvmYul.Yul.call.eq_def]
   simp only [mulExpSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_mulExpRay]
-  simp only [yulFunction_external_fun_wrap_mulExpRay, yulFunction_external_fun_wrap_mulExpRay_390,
+  simp only [yulFunction_external_fun_wrap_mulExpRay, yulFunction_external_fun_wrap_mulExpRay_363,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -193,7 +193,7 @@ theorem external_fun_wrap_mulExpRay_zero_calldata_halts
   rw [EvmYul.Yul.call.eq_def]
   simp only [mulExpSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_mulExpRay]
-  simp only [yulFunction_external_fun_wrap_mulExpRay, yulFunction_external_fun_wrap_mulExpRay_390,
+  simp only [yulFunction_external_fun_wrap_mulExpRay, yulFunction_external_fun_wrap_mulExpRay_363,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,

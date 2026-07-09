@@ -122,7 +122,7 @@ theorem call_fun_wrap_expRayToWad_revert_direct
   rw [show fuel + (extra + 1200) = (fuel + extra) + 1200 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
-  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_374,
+  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_347,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -155,7 +155,7 @@ theorem external_fun_wrap_expRayToWad_calldata_revert
   rw [EvmYul.Yul.call.eq_def]
   simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
     lookup_external_fun_wrap_expRayToWad]
-  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_374,
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_347,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,

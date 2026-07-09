@@ -71,7 +71,7 @@ def functionPrefixes : ModelKind → List String
        "external_fun_wrap_mulExpRay_",
        "fun_wrap_expRayToWad_", "fun_wrap_mulExpRay_",
        "fun_expRayToWad_", "fun_mulExpRay_",
-       "fun__absSign_", "fun__scaleShift_", "fun__octave_", "fun__expRayKernel_",
+       "fun__octave_", "fun__expRayKernel_",
        "constant__EXP_RAY_TO_WAD_HI_", "constant__WAD_ZERO_MAX_",
        "constant_ARITHMETIC_OVERFLOW_", "fun_panic_",
        "fun_or_", "fun_and_", "fun_clz_"]
@@ -751,8 +751,6 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
         aliasByPrefix functions "fun_wrap_mulExpRay" "fun_wrap_mulExpRay_",
         aliasByPrefix functions "fun_expRayToWad" "fun_expRayToWad_",
         aliasByPrefix functions "fun_mulExpRay" "fun_mulExpRay_",
-        aliasByPrefix functions "fun__absSign" "fun__absSign_",
-        aliasByPrefix functions "fun__scaleShift" "fun__scaleShift_",
         aliasByPrefix functions "fun__octave" "fun__octave_",
         aliasByPrefix functions "fun__expRayKernel" "fun__expRayKernel_",
         aliasByPrefix functions "constant__EXP_RAY_TO_WAD_HI" "constant__EXP_RAY_TO_WAD_HI_",

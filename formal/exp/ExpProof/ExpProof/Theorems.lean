@@ -264,14 +264,6 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms mulExpRay_run_bracket_zero
 
-/-- info: 'ExpYul.call_fun__absSign_direct' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms call_fun__absSign_direct
-
-/-- info: 'ExpYul.call_fun__scaleShift_direct' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms call_fun__scaleShift_direct
-
 /-- info: 'ExpRealSpec.mulExpRayTarget_signed_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms ExpRealSpec.mulExpRayTarget_signed_mono
