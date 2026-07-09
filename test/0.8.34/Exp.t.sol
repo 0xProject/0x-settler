@@ -3,14 +3,18 @@ pragma solidity ^0.8.34;
 
 import {Exp} from "src/vendor/Exp.sol";
 import {Ln} from "src/vendor/Ln.sol";
+import {Clz} from "src/vendor/Clz.sol";
 import {Test, stdError} from "@forge-std/Test.sol";
 
 contract ExpTest is Test {
     uint256 private constant _SCALE_MAX = 0x6f05b59d3b2000000000000000000000;
     // First input whose octave count exceeds the supported range; `expRayToWad` reverts here.
     int256 private constant _TOO_BIG = 0x92b2f16cc66c5a4ae96e80d4;
-    // First input whose octave count reaches 125.
+    // First input whose octave count reaches 125: the accuracy-guard boundary at the deepest
+    // scale headroom reachable with a nonzero multiplier (abs(y) = 1, s = 126).
     int256 private constant _X_HI = 86296823979713191022445399122;
+    // First input whose octave count reaches 126; `mulExpRay` reverts here for every y.
+    int256 private constant _MUL_HI = 86989971160273136331862631244;
     // First input whose octave count reaches -127; all supported magnitudes floor to zero here.
     int256 private constant _X_LO_ZERO = -88376265521393026950697095485;
     // floor(1e27 * ln(1e-18)): the greatest input whose exact result is < 1 and floors to 0.
@@ -211,9 +215,25 @@ contract ExpTest is Test {
         assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), 0), -int256(_SCALE_MAX), "negative scale max");
     }
 
-    function testMulExpRayZeroY() external pure {
+    /// A zero multiplier takes the same guard as every other y: any x below the k = 126 fence is
+    /// accepted (the maximal headroom s = 127 keeps the accuracy guard clear through k = 125) and
+    /// returns zero; at or above the fence it reverts.
+    function testMulExpRayZeroY() external {
+        assertEq(Exp.mulExpRay(0, 0), 0, "zero x");
         assertEq(Exp.mulExpRay(0, type(int256).min), 0, "min x");
-        assertEq(Exp.mulExpRay(0, type(int256).max), 0, "max x");
+        assertEq(Exp.mulExpRay(0, _X_LO_ZERO), 0, "clamp boundary");
+        assertEq(Exp.mulExpRay(0, _X_HI), 0, "octave 125 accepted only at zero magnitude");
+        assertEq(Exp.mulExpRay(0, _MUL_HI - 1), 0, "greatest accepted x");
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(0, _MUL_HI);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(0, type(int256).max);
+    }
+
+    /// `_SCALE_MAX_CLZ` inside the library must track `_SCALE_MAX`.
+    function testScaleMaxClzPairing() external pure {
+        assertEq(_SCALE_MAX, uint256(1e18) << 67, "scale is the wad unit at 67 bits of headroom");
+        assertEq(Clz.clz(_SCALE_MAX), 129, "_SCALE_MAX_CLZ");
     }
 
     function testMulExpRayLowerZero() external pure {
@@ -241,8 +261,12 @@ contract ExpTest is Test {
     }
 
     function testMulExpRayHighGuardReverts() external {
+        // Octave 125 exceeds the headroom of any nonzero magnitude (accuracy guard) ...
         vm.expectRevert(stdError.arithmeticError);
         this.mulExpRayExternal(1, _X_HI);
+        // ... and octave 126 is past the envelope for every y (unconditional fence).
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(1, _MUL_HI);
         vm.expectRevert(stdError.arithmeticError);
         this.mulExpRayExternal(1, type(int256).max);
     }
