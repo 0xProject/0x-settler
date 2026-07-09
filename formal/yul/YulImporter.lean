@@ -40,7 +40,7 @@ def selectorCases : ModelKind → List String
   | .cbrt => ["0x56df2b56", "0x29f2f4f1"]
   | .cbrt512 => ["0xa83a5c08", "0x7c0352fc"]
   | .ln => ["0xef102248", "0x31d42abd"]
-  | .exp => ["0x4187462b"]
+  | .exp => ["0x4187462b", "0x79abc089"]
 
 def functionPrefixes : ModelKind → List String
   | .sqrt =>
@@ -68,7 +68,11 @@ def functionPrefixes : ModelKind → List String
        "fun_wrap_lnWad_", "fun_wrap_lnWadToRay_", "fun_lnWad_", "fun_lnWadToRay_"]
   | .exp =>
       ["external_fun_wrap_expRayToWad_",
-       "fun_wrap_expRayToWad_", "fun_expRayToWad_", "fun__expRayToWad_"]
+       "external_fun_wrap_mulExpRay_",
+       "fun_wrap_expRayToWad_", "fun_wrap_mulExpRay_",
+       "fun_expRayToWad_", "fun_mulExpRay_",
+       "fun__absSign_", "fun__scaleShift_", "fun__octave_", "fun__expRayKernel_",
+       "fun_or_", "fun_and_", "fun_clz_"]
 
 def requiredCalls : ModelKind → List String
   | .sqrt => ["clz"]
@@ -76,7 +80,7 @@ def requiredCalls : ModelKind → List String
   | .cbrt => ["clz"]
   | .cbrt512 => ["clz", "mulmod"]
   | .ln => ["clz", "sdiv"]
-  | .exp => ["div"]
+  | .exp => ["clz", "div"]
 
 end ModelKind
 
@@ -504,8 +508,14 @@ contractDef ++ "
 def selector_expRayToWad : ByteArray :=
   FormalYul.bytes [0x41, 0x87, 0x46, 0x2b]
 
+def selector_mulExpRay : ByteArray :=
+  FormalYul.bytes [0x79, 0xab, 0xc0, 0x89]
+
 def run_exp_ray_to_wad_evm (x : Nat) : Except String Nat :=
   FormalYul.callWord yulContract selector_expRayToWad [x]
+
+def run_mul_exp_ray_evm (y x : Nat) : Except String Nat :=
+  FormalYul.callWord yulContract selector_mulExpRay [y, x]
 "
 
 def runHelpers : ModelKind → String → String
@@ -721,9 +731,18 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
   | .exp =>
       sequence [
         aliasByPrefix functions "external_fun_wrap_expRayToWad" "external_fun_wrap_expRayToWad_",
+        aliasByPrefix functions "external_fun_wrap_mulExpRay" "external_fun_wrap_mulExpRay_",
         aliasByPrefix functions "fun_wrap_expRayToWad" "fun_wrap_expRayToWad_",
+        aliasByPrefix functions "fun_wrap_mulExpRay" "fun_wrap_mulExpRay_",
         aliasByPrefix functions "fun_expRayToWad" "fun_expRayToWad_",
-        aliasByPrefix functions "fun__expRayToWad" "fun__expRayToWad_"
+        aliasByPrefix functions "fun_mulExpRay" "fun_mulExpRay_",
+        aliasByPrefix functions "fun__absSign" "fun__absSign_",
+        aliasByPrefix functions "fun__scaleShift" "fun__scaleShift_",
+        aliasByPrefix functions "fun__octave" "fun__octave_",
+        aliasByPrefix functions "fun__expRayKernel" "fun__expRayKernel_",
+        aliasByPrefix functions "fun_or" "fun_or_",
+        aliasByPrefix functions "fun_and" "fun_and_",
+        aliasByPrefix functions "fun_clz" "fun_clz_"
       ]
 
 def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String) : Except String String := do

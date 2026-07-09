@@ -6,8 +6,13 @@ import {Ln} from "src/vendor/Ln.sol";
 import {Test, stdError} from "@forge-std/Test.sol";
 
 contract ExpTest is Test {
+    uint256 private constant _SCALE_MAX = 0x6f05b59d3b2000000000000000000000;
     // First input whose octave count exceeds the supported range; `expRayToWad` reverts here.
     int256 private constant _TOO_BIG = 0x92b2f16cc66c5a4ae96e80d4;
+    // First input whose octave count reaches 125.
+    int256 private constant _X_HI = 86296823979713191022445399122;
+    // First input whose octave count reaches -127; all supported magnitudes floor to zero here.
+    int256 private constant _X_LO_ZERO = -88376265521393026950697095485;
     // floor(1e27 * ln(1e-18)): the greatest input whose exact result is < 1 and floors to 0.
     int256 private constant _ZERO_MAX = -41446531673892822312323846185;
     // Canonical central wad inputs satisfying 1/sqrt(2) <= w/1e18 < sqrt(2).
@@ -16,6 +21,10 @@ contract ExpTest is Test {
 
     function expRayToWadExternal(int256 x) external pure returns (int256) {
         return Exp.expRayToWad(x);
+    }
+
+    function mulExpRayExternal(int256 y, int256 x) external pure returns (int256) {
+        return Exp.mulExpRay(y, x);
     }
 
     function testExpRayToWadExactZero() external pure {
@@ -173,5 +182,98 @@ contract ExpTest is Test {
         int256 r = Exp.expRayToWad(x);
         assertGe(r, 0, "negative result");
         assertGe(Exp.expRayToWad(x + 1), r, "adjacent monotonicity");
+    }
+
+    function testMulExpRaySpecializesExpRayToWad() external pure {
+        int256[12] memory xs = [
+            int256(_X_LO_ZERO),
+            _X_LO_ZERO + 1,
+            _ZERO_MAX,
+            _ZERO_MAX + 1,
+            -1,
+            0,
+            1,
+            44014845965556527147989858478,
+            44044505178945024895948687544,
+            44707993146116472457411471834,
+            _TOO_BIG - 1,
+            -50e27
+        ];
+        for (uint256 i; i < xs.length; ++i) {
+            assertEq(Exp.mulExpRay(1e18, xs[i]), Exp.expRayToWad(xs[i]), "wad specialization");
+        }
+    }
+
+    function testMulExpRayScalePoint() external pure {
+        assertEq(Exp.mulExpRay(1, 0), 1, "one");
+        assertEq(Exp.mulExpRay(-1, 0), -1, "minus one");
+        assertEq(Exp.mulExpRay(int256(_SCALE_MAX), 0), int256(_SCALE_MAX), "scale max");
+        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), 0), -int256(_SCALE_MAX), "negative scale max");
+    }
+
+    function testMulExpRayZeroY() external pure {
+        assertEq(Exp.mulExpRay(0, type(int256).min), 0, "min x");
+        assertEq(Exp.mulExpRay(0, type(int256).max), 0, "max x");
+    }
+
+    function testMulExpRayLowerZero() external pure {
+        assertEq(Exp.mulExpRay(1, _X_LO_ZERO), 0, "one at boundary");
+        assertEq(Exp.mulExpRay(int256(_SCALE_MAX), _X_LO_ZERO), 0, "scale max at boundary");
+        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), _X_LO_ZERO - 1), 0, "negative below boundary");
+    }
+
+    function testMulExpRayNegativeSignSymmetry() external pure {
+        int256 x = 3e27;
+        int256 y = 123456789012345678901234567;
+        assertEq(Exp.mulExpRay(-y, x), -Exp.mulExpRay(y, x), "positive exponent");
+        assertEq(Exp.mulExpRay(-y, -x), -Exp.mulExpRay(y, -x), "negative exponent");
+    }
+
+    function testMulExpRayOverScaleReverts() external {
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(int256(_SCALE_MAX + 1), 0);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(type(int256).min, 0);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(int256(_SCALE_MAX + 1), _X_LO_ZERO);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(type(int256).min, type(int256).min);
+    }
+
+    function testMulExpRayHighGuardReverts() external {
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(1, _X_HI);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(1, type(int256).max);
+    }
+
+    function testMulExpRayAccuracyGuardReverts() external {
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(1e18, _TOO_BIG);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(int256(_SCALE_MAX), _octaveStart(-1));
+    }
+
+    function testMulExpRaySmallMagnitudeHighOctave() external {
+        assertGt(Exp.mulExpRay(1, _X_HI - 1), 0, "k = 124 accepted");
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(1, _X_HI);
+    }
+
+    function testFuzzMulExpRaySpecializesExpRayToWad(int256 x) external pure {
+        x = bound(x, _X_LO_ZERO - 1e27, _TOO_BIG - 1);
+        assertEq(Exp.mulExpRay(1e18, x), Exp.expRayToWad(x), "wad specialization");
+    }
+
+    function testFuzzMulExpRaySignSymmetry(uint256 uy, int256 x) external pure {
+        int256 y = int256(bound(uy, 1, 1e18));
+        x = bound(x, _X_LO_ZERO + 1, _TOO_BIG - 1);
+        assertEq(Exp.mulExpRay(-y, x), -Exp.mulExpRay(y, x), "sign symmetry");
+    }
+
+    function testFuzzMulExpRayMonotoneMagnitude(uint256 uy, int256 x) external pure {
+        int256 y = int256(bound(uy, 1, 1e18));
+        x = bound(x, _X_LO_ZERO + 1, _TOO_BIG - 2);
+        assertGe(Exp.mulExpRay(y, x + 1), Exp.mulExpRay(y, x), "adjacent monotonicity");
     }
 }

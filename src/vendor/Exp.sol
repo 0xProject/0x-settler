@@ -2,8 +2,19 @@
 pragma solidity ^0.8.34;
 
 import {Panic} from "../utils/Panic.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
+import {Clz} from "./Clz.sol";
 
 library Exp {
+    using FastLogic for bool;
+
+    uint256 private constant _SCALE_MAX = 0x6f05b59d3b2000000000000000000000;
+    uint256 private constant _SCALE_MAX_CLZ = 129;
+    int256 private constant _EXP_RAY_TO_WAD_HI = 0x92b2f16cc66c5a4ae96e80d4;
+    int256 private constant _WAD_ZERO_MAX = -41446531673892822312323846185;
+    int256 private constant _X_HI = 86296823979713191022445399122;
+    int256 private constant _X_LO_ZERO = -88376265521393026950697095485;
+
     /// @notice Compute the natural exponential of a fixnum with 10**27 (ray) basis, returning the
     ///         result as a fixnum with 10**18 (wad) basis.
     /// @dev Let E = 10¹⁸ ⋅ exp(x / 10²⁷) be the exact, infinite-precision result. This function
@@ -16,25 +27,91 @@ library Exp {
     function expRayToWad(int256 x) internal pure returns (int256) {
         // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 66, where the deficit
         // envelope below exceeds 1ulp.
-        if (x >= 0x92b2f16cc66c5a4ae96e80d4) {
+        if (x >= _EXP_RAY_TO_WAD_HI) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        return _expRayToWad(x);
+
+        int256 k = _octave(x);
+        unchecked {
+            return int256(_expRayKernel(x, k, _SCALE_MAX, uint256(int256(67) - k), _WAD_ZERO_MAX));
+        }
     }
 
-    /// @dev The rational polynomial approximation kernel
-    function _expRayToWad(int256 x) private pure returns (int256 r) {
+    /// @notice Compute y * exp(x / 10**27), with y's sign reapplied after magnitude evaluation.
+    /// @dev Let A = abs(y) * exp(x / 10**27). For accepted inputs, this function returns sign(y) * m
+    ///      with m <= A < m + 2. Reverts with `Panic(17)` when abs(y) exceeds the supported scale,
+    ///      or when x and abs(y) cannot preserve that bound with a single-word scaled product.
+    function mulExpRay(int256 y, int256 x) internal pure returns (int256) {
+        if (y == 0) {
+            return 0;
+        }
+
+        (uint256 ay, uint256 sign) = _absSign(y);
+        uint256 s = _scaleShift(ay);
+        int256 k = _octave(x);
+        unchecked {
+            if ((ay > _SCALE_MAX).or(x >= _X_HI).or((x != 0).and(x > _X_LO_ZERO).and(k > int256(s) - 2))) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+
+            uint256 m = _expRayKernel(x, k, ay << s, uint256(int256(s) - k), _X_LO_ZERO);
+            // Apply y's sign without branching:
+            //     m = (m ^ sign) - sign
+            assembly ("memory-safe") {
+                m := sub(xor(m, sign), sign)
+            }
+            return int256(m);
+        }
+    }
+
+    function _absSign(int256 y) private pure returns (uint256 ay, uint256 sign) {
+        // Compute `abs(y)` without negating `type(int256).min`:
+        //     sign = 0 for nonnegative y, -1 for negative y
+        //     ay = (y ^ sign) - sign
+        assembly ("memory-safe") {
+            sign := sar(0xff, y)
+            ay := sub(xor(y, sign), sign)
+        }
+    }
+
+    function _scaleShift(uint256 ay) private pure returns (uint256 s) {
+        unchecked {
+            s = Clz.clz(ay) - _SCALE_MAX_CLZ;
+            uint256 scaleMax = _SCALE_MAX;
+            // Correct the bit-length estimate without branching:
+            //     s -= gt(ay << s, scaleMax)
+            assembly ("memory-safe") {
+                s := sub(s, gt(shl(s, ay), scaleMax))
+            }
+        }
+    }
+
+    function _octave(int256 x) private pure returns (int256 k) {
+        // Round to the nearest octave:
+        //     k = round(x / (10**27 * ln(2)))
+        assembly ("memory-safe") {
+            // k = round(x / (10²⁷⋅ln(2))), half-open. CINV = round(2¹⁹² / (10²⁷⋅ln(2))); the +2¹⁹¹
+            // and `sar(192, …)` round to nearest with ties resolved toward +∞.
+            k := sar(0xc0, add(shl(0xbf, 0x01), mul(0x724d54edbacbebbb95c52a0f60, x)))
+        }
+    }
+
+    /// @dev The rational polynomial approximation kernel.
+    function _expRayKernel(int256 x, int256 k, uint256 scale, uint256 shift, int256 zeroCutoff)
+        private
+        pure
+        returns (uint256 r)
+    {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
-        //     k = round(x / (10²⁷⋅ln(2))); // x = (k⋅ln(2) + t)⋅10²⁷, |t| ≤ ln(2)/2
         //     t = x/10²⁷ - k⋅ln(2);        // range-reduced argument; Q129
         //     ev = Ev(t²);                 // polynomial approximation; Q89
         //     od = Od(t²);                 // polynomial approximation; Q89
         //     n = ev + t⋅od;               // rational numerator; Q89
         //     d = ev - t⋅od;               // rational denominator; Q89
-        //     e = 10¹⁸⋅n / d;              // ≈ 10¹⁸⋅exp(t); Q67
-        //     r = ⌊(e - margin)⋅2ᵏ⌋;       // wad
-        //     r = r ⋅ (x > C);             // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
-        //     return r + (x == 0);         // pin exp(0) = 10¹⁸ exactly
+        //     e = scale⋅n / d;             // ≈ scale⋅exp(t)
+        //     r = ⌊(e - margin) / 2ˢʰⁱᶠᵗ⌋;
+        //     r = r ⋅ (x > zeroCutoff);
+        //     return r + (x == 0);         // pin exact scale points
         //
         // `exp(t) = (1 + tanh(t/2)) / (1 - tanh(t/2))`, so with the even/odd split N(t) = Ev(t²) +
         // t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational that matches
@@ -57,9 +134,9 @@ library Exp {
         //         product stays inside 256 bits
         //     dividend: Q156 the widest basis that fits in 256 bits before the single truncating
         //         `DIV` by Q89 divisor. < 2¹²⁹
-        //     r: Q67 implied by the pre-scale 10¹⁸⋅2⁶⁷ < 2¹²⁷ to avoid overflowing the dividend.
-        //     output: the closing `shr(67 - k, …)` is the output-rounding floor, with the 2ᵏ octave
-        //         scaling folded in
+        //     r: the pre-scale is at most 10¹⁸⋅2⁶⁷ < 2¹²⁷ to avoid overflowing the dividend.
+        //     output: the closing `shr(shift, …)` is the output-rounding floor, with the 2ᵏ octave
+        //         scaling folded into the caller's scale/shift pair.
         //
         // Error budget. Let ê = N/D be the exact value of the integer rational (N = Ev + t⋅Od, D =
         // Ev - t⋅Od; the closing `DIV` floor is counted on the output grid below) and write its
@@ -82,25 +159,26 @@ library Exp {
         //         (k⋅ln(2) grid error is below 2⁻²²⁹), enveloped one-sidedly at 2⁻¹³³ of reduced
         //         argument, lifting ê by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) = √2/128).
         //
-        // The quotient `r` carries 10¹⁸⋅ê on the 2⁶⁷ output grid, where one grid unit is worth
-        // 2ᵏ⁻⁶⁷ ulp (1 ulp = 10⁻¹⁸ of the result) and Δ's image is below one grid unit: the Q89
-        // closing bases confine the over-side jitter so that 5¹⁸⋅Δ/2⁴¹ < 1. The margin is the least
-        // integer strictly above that image: 0x01, worth 0.25 ulp at the supported edge k = 65. The
-        // `DIV` floor only lowers the quotient, so the pre-floor accumulator A = q - margin
-        // satisfies A⋅2ᵏ⁻⁶⁷ ≤ E. The under side is certified directly on the output grid, piecewise
-        // over the 32 domain pieces (per-piece denominator floors confine the truncation
-        // amplification): q ≥ 10¹⁸⋅2⁶⁷⋅exp(t) - 2993/1000, where 2993/1000 bounds, on each sign
-        // half, the sum of the integer-rational deficit together with the `DIV` floor (≤ 2378/1000,
-        // certified piecewise), the `Mp` factor (≤ 2/25, via ê ≤ 1.45), the under-direction
-        // reduced-argument gap (≤ 307/1000 on the t > 0 half via exp(t) ≤ √2; ≤ 218/1000 on the
-        // other, where exp(t) ≤ 1 + ε), and the under-direction argument granularity (≤ 143/500:
-        // the one-grain envelope with the negative-half denominator floor; free on the t > 0 half).
+        // The quotient `r` carries the scaled rational on a dynamic output grid, where one grid unit
+        // is worth 2ᵏ⁻ˢ ulp (1 ulp = 1 in the caller's magnitude). Because scale ≤ 10¹⁸⋅2⁶⁷, Δ's
+        // image is below one grid unit: the Q89 closing bases confine the over-side jitter so that
+        // 5¹⁸⋅Δ/2⁴¹ < 1. The margin is the least integer strictly above that image: 0x01, worth
+        // 0.25 ulp at the supported edge. The `DIV` floor only lowers the quotient, so the
+        // pre-floor accumulator A = q - margin satisfies A⋅2ᵏ⁻ˢ ≤ E. The under side is certified
+        // directly on the output grid, piecewise over the 32 domain pieces (per-piece denominator
+        // floors confine the truncation amplification): q ≥ scale⋅exp(t) - 2993/1000, where
+        // 2993/1000 bounds, on each sign half, the sum of the integer-rational deficit together
+        // with the `DIV` floor (≤ 2378/1000, certified piecewise), the `Mp` factor (≤ 2/25, via ê ≤
+        // 1.45), the under-direction reduced-argument gap (≤ 307/1000 on the t > 0 half via exp(t)
+        // ≤ √2; ≤ 218/1000 on the other, where exp(t) ≤ 1 + ε), and the under-direction argument
+        // granularity (≤ 143/500: the one-grain envelope with the negative-half denominator floor;
+        // free on the t > 0 half).
         //
-        // Hence the maximum underestimation is E - A⋅2ᵏ⁻⁶⁷ ≤ (2993/1000 + margin)⋅2ᵏ⁻⁶⁷ =
-        // (3993/4000)⋅2ᵏ⁻⁶⁵ ulp. At k ≤ 65, this is < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
-        // deficit envelope doubles each octave and exceeds 1ulp at k ≥ 66. On the central octave k
-        // = 0, the margin is 2⁻⁶⁷ ≈ 6.8⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves,
-        // so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
+        // Hence the maximum underestimation is E - A⋅2ᵏ⁻ˢ ≤ (2993/1000 + margin)⋅2ᵏ⁻ˢ. The caller
+        // keeps k ≤ s - 2, where this is < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. For the wad
+        // specialization s = 67, the deficit envelope exceeds 1ulp at k ≥ 66. On the central octave
+        // k = 0, the margin is 2⁻⁶⁷ ≈ 6.8⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay`
+        // leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
         // ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
@@ -114,10 +192,6 @@ library Exp {
         // ⌊E⌋ ≥ 0, and the adjacent runtime values around x = 0 bracket the pinned scale-point
         // value.
         assembly ("memory-safe") {
-            // k = round(x / (10²⁷⋅ln(2))), half-open. CINV = round(2¹⁹² / (10²⁷⋅ln(2))); the +2¹⁹¹
-            // and `sar(192, …)` round to nearest with ties resolved toward +∞.
-            let k := sar(0xc0, add(shl(0xbf, 0x01), mul(0x724d54edbacbebbb95c52a0f60, x)))
-
             // t in Q129. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k⋅LN2
             // from K27⋅x at the Q235 product basis (so the k⋅ln(2) rounding error is ~2⁻²³⁵, far
             // below an output ulp) then one `sar(106, …)` leaves the reduced argument at Q129.
@@ -155,22 +229,21 @@ library Exp {
             // both positive.
             let tod := sar(0x81, mul(t, od))
 
-            // 10¹⁸⋅exp(t) in Q67: the constant is 10¹⁸⋅2⁶⁷ = 5¹⁸⋅2⁸⁵, so one `DIV` scales, widens,
-            // and floors at once. The numerator stays below 2¹²⁹ and 10¹⁸⋅2⁶⁷ < 2¹²⁷, so the
+            // The scaled rational: the caller keeps scale ≤ 10¹⁸⋅2⁶⁷, so one `DIV` scales, widens,
+            // and floors at once. The numerator stays below 2¹²⁹ and scale < 2¹²⁷, so the
             // dividend stays inside 256 bits; the denominator > 0.
-            r := div(mul(0x6f05b59d3b2000000000000000000000, add(ev, tod)), sub(ev, tod))
+            r := div(mul(scale, add(ev, tod)), sub(ev, tod))
 
             // Less the one-sided margin (0x01; see the budget above), then floored by
-            // `shr(67 - k, …)` which folds in the 2ᵏ octave scaling (67 - k ∈ [3, 127]).
-            r := shr(sub(0x43, k), sub(r, 0x01))
+            // `shr(shift, …)` which folds in the 2ᵏ octave scaling.
+            r := shr(shift, sub(r, 0x01))
 
-            // Zero the result at and below C = ⌊-18⋅ln(10)⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
-            // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
-            // where the reduction would overflow, so it also discards those (otherwise garbage).
-            r := mul(slt(sub(0x00, 0x85ebc478242540a11f5f1029), x), r)
+            // Zero results whose exact magnitude is below one output unit. For very negative x,
+            // this also discards arithmetic outside the reduction range.
+            r := mul(slt(zeroCutoff, x), r)
 
             // exp(0) = 1 is the only input whose exact result is an integer; the construction lands
-            // on 10¹⁸ - 1, so add one back exactly there.
+            // one unit below the input magnitude, so add one back exactly there.
             r := add(iszero(x), r)
         }
     }
