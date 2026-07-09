@@ -96,6 +96,19 @@ magnitudes are nonincreasing, and zero is constant. -/
 def MulExpRaySignedMonotone (y x1 x2 r1 r2 : Int) : Prop :=
   x1 ≤ x2 ∧ if y < 0 then r2 ≤ r1 else r1 ≤ r2
 
+/-- Monotonicity in `y`: at a fixed exponent, signed results are nondecreasing in signed
+multiplier order. -/
+def MulExpRayYMonotone (y1 y2 _x r1 r2 : Int) : Prop :=
+  y1 ≤ y2 ∧ r1 ≤ r2
+
+/-- Joint monotonicity is sign-aware: nonnegative multipliers move with `x`, nonpositive
+multipliers move against `x`, and sign-crossing multipliers are ordered for any exponents. -/
+def MulExpRayJointMonotone (y1 y2 x1 x2 r1 r2 : Int) : Prop :=
+  ((0 ≤ y1 ∧ y1 ≤ y2 ∧ x1 ≤ x2) ∨
+    (y1 ≤ y2 ∧ y2 ≤ 0 ∧ x2 ≤ x1) ∨
+    (y1 ≤ 0 ∧ 0 ≤ y2)) ∧
+    r1 ≤ r2
+
 theorem mulExpRayMagnitudeTarget_nonneg (y x : Int) :
     0 ≤ mulExpRayMagnitudeTarget y x := by
   unfold mulExpRayMagnitudeTarget
@@ -125,6 +138,14 @@ theorem mulExpRayTarget_antitone_neg {y x1 x2 : Int} (hy : y < 0) (hle : x1 ≤ 
     exact div_le_div_of_nonneg_right (by exact_mod_cast hle) hR
   exact mul_le_mul_of_nonpos_left (Real.exp_le_exp.mpr hx) (by exact_mod_cast (le_of_lt hy))
 
+theorem mulExpRayTarget_antitone_nonpos {y x1 x2 : Int} (hy : y ≤ 0) (hle : x1 ≤ x2) :
+    mulExpRayTarget y x2 ≤ mulExpRayTarget y x1 := by
+  unfold mulExpRayTarget
+  have hR : (0 : Real) ≤ (RAY : Real) := by norm_num [RAY]
+  have hx : ((x1 : Real) / (RAY : Real)) ≤ ((x2 : Real) / (RAY : Real)) := by
+    exact div_le_div_of_nonneg_right (by exact_mod_cast hle) hR
+  exact mul_le_mul_of_nonpos_left (Real.exp_le_exp.mpr hx) (by exact_mod_cast hy)
+
 theorem mulExpRayTarget_signed_mono {y x1 x2 : Int} (hle : x1 ≤ x2) :
     if y < 0 then mulExpRayTarget y x2 ≤ mulExpRayTarget y x1
     else mulExpRayTarget y x1 ≤ mulExpRayTarget y x2 := by
@@ -132,6 +153,34 @@ theorem mulExpRayTarget_signed_mono {y x1 x2 : Int} (hle : x1 ≤ x2) :
   · simp [hy, mulExpRayTarget_antitone_neg hy hle]
   · have hy0 : 0 ≤ y := by omega
     simp [hy, mulExpRayTarget_mono_nonneg hy0 hle]
+
+theorem mulExpRayTarget_mono_y {y1 y2 x : Int} (hle : y1 ≤ y2) :
+    mulExpRayTarget y1 x ≤ mulExpRayTarget y2 x := by
+  unfold mulExpRayTarget
+  exact mul_le_mul_of_nonneg_right (by exact_mod_cast hle) (le_of_lt (Real.exp_pos _))
+
+theorem mulExpRayTarget_nonpos_of_nonpos_y {y x : Int} (hy : y ≤ 0) :
+    mulExpRayTarget y x ≤ 0 := by
+  unfold mulExpRayTarget
+  exact mul_nonpos_of_nonpos_of_nonneg (by exact_mod_cast hy) (le_of_lt (Real.exp_pos _))
+
+theorem mulExpRayTarget_nonneg_of_nonneg_y {y x : Int} (hy : 0 ≤ y) :
+    0 ≤ mulExpRayTarget y x := by
+  unfold mulExpRayTarget
+  exact mul_nonneg (by exact_mod_cast hy) (le_of_lt (Real.exp_pos _))
+
+theorem mulExpRayTarget_joint_mono {y1 y2 x1 x2 : Int}
+    (h :
+      (0 ≤ y1 ∧ y1 ≤ y2 ∧ x1 ≤ x2) ∨
+      (y1 ≤ y2 ∧ y2 ≤ 0 ∧ x2 ≤ x1) ∨
+      (y1 ≤ 0 ∧ 0 ≤ y2)) :
+    mulExpRayTarget y1 x1 ≤ mulExpRayTarget y2 x2 := by
+  rcases h with ⟨hy1, hy, hx⟩ | ⟨hy, hy2, hx⟩ | ⟨hy1, hy2⟩
+  · exact le_trans (mulExpRayTarget_mono_nonneg hy1 hx) (mulExpRayTarget_mono_y hy)
+  · have hy1 : y1 ≤ 0 := le_trans hy hy2
+    exact le_trans (mulExpRayTarget_antitone_nonpos hy1 hx) (mulExpRayTarget_mono_y hy)
+  · exact le_trans (mulExpRayTarget_nonpos_of_nonpos_y hy1)
+      (mulExpRayTarget_nonneg_of_nonneg_y hy2)
 
 theorem mulExpRayMagnitudeBracket_zero (x r : Int) (hr : r = 0) :
     MulExpRayMagnitudeBracket 0 x r := by

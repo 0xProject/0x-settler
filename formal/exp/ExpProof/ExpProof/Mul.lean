@@ -7,8 +7,8 @@ import ExpProof.Spec.RealExp
 
 This module states the public runtime specifications for `mulExpRay` and exposes the proof
 obligations that connect the compiled run to the arithmetic tree. The tree is defined in
-`Mono.MulTree`; consumers supply proofs that the tree satisfies the real bracket and monotonicity
-predicates below.
+`Mono.MulTree`; consumers supply proofs that the tree satisfies the real bracket and x/y
+monotonicity predicates below.
 -/
 
 namespace ExpYul
@@ -24,10 +24,21 @@ def MulExpRayRunBracket (y x : Nat) : Prop :=
   ∃ r, run_mul_exp_ray_evm y x = .ok r ∧
     MulExpRayBracket (int256 y) (int256 x) (int256 r)
 
-/-- The public monotonicity spec for two successful `mulExpRay` runs at a fixed multiplier. -/
+/-- The public monotonicity-in-`x` spec for two successful runs at a fixed multiplier. -/
 def MulExpRayRunMonotone (y x1 x2 : Nat) : Prop :=
   ∃ r1 r2, run_mul_exp_ray_evm y x1 = .ok r1 ∧ run_mul_exp_ray_evm y x2 = .ok r2 ∧
     MulExpRaySignedMonotone (int256 y) (int256 x1) (int256 x2) (int256 r1) (int256 r2)
+
+/-- The public monotonicity-in-`y` spec for two successful runs at a fixed exponent. -/
+def MulExpRayRunYMonotone (y1 y2 x : Nat) : Prop :=
+  ∃ r1 r2, run_mul_exp_ray_evm y1 x = .ok r1 ∧ run_mul_exp_ray_evm y2 x = .ok r2 ∧
+    MulExpRayYMonotone (int256 y1) (int256 y2) (int256 x) (int256 r1) (int256 r2)
+
+/-- The public sign-aware joint monotonicity spec for two successful runs. -/
+def MulExpRayRunJointMonotone (y1 y2 x1 x2 : Nat) : Prop :=
+  ∃ r1 r2, run_mul_exp_ray_evm y1 x1 = .ok r1 ∧ run_mul_exp_ray_evm y2 x2 = .ok r2 ∧
+    MulExpRayJointMonotone (int256 y1) (int256 y2) (int256 x1) (int256 x2)
+      (int256 r1) (int256 r2)
 
 /-- Runtime bracket proof obligation for the named arithmetic tree. -/
 theorem mulExpRay_run_bracket_of_tree
@@ -37,7 +48,7 @@ theorem mulExpRay_run_bracket_of_tree
     MulExpRayRunBracket y x :=
   ⟨mulExpTree y x, hrun, hbracket⟩
 
-/-- Runtime monotonicity proof obligation for the named arithmetic tree. -/
+/-- Runtime monotonicity-in-`x` proof obligation for the named arithmetic tree. -/
 theorem mulExpRay_run_monotone_of_tree
     {y x1 x2 : Nat}
     (hrun1 : run_mul_exp_ray_evm y x1 = .ok (mulExpTree y x1))
@@ -46,6 +57,26 @@ theorem mulExpRay_run_monotone_of_tree
       (int256 (mulExpTree y x1)) (int256 (mulExpTree y x2))) :
     MulExpRayRunMonotone y x1 x2 :=
   ⟨mulExpTree y x1, mulExpTree y x2, hrun1, hrun2, hmono⟩
+
+/-- Runtime monotonicity-in-`y` proof obligation for the named arithmetic tree. -/
+theorem mulExpRay_run_y_monotone_of_tree
+    {y1 y2 x : Nat}
+    (hrun1 : run_mul_exp_ray_evm y1 x = .ok (mulExpTree y1 x))
+    (hrun2 : run_mul_exp_ray_evm y2 x = .ok (mulExpTree y2 x))
+    (hmono : MulExpRayYMonotone (int256 y1) (int256 y2) (int256 x)
+      (int256 (mulExpTree y1 x)) (int256 (mulExpTree y2 x))) :
+    MulExpRayRunYMonotone y1 y2 x :=
+  ⟨mulExpTree y1 x, mulExpTree y2 x, hrun1, hrun2, hmono⟩
+
+/-- Runtime sign-aware joint monotonicity proof obligation for the named arithmetic tree. -/
+theorem mulExpRay_run_joint_monotone_of_tree
+    {y1 y2 x1 x2 : Nat}
+    (hrun1 : run_mul_exp_ray_evm y1 x1 = .ok (mulExpTree y1 x1))
+    (hrun2 : run_mul_exp_ray_evm y2 x2 = .ok (mulExpTree y2 x2))
+    (hmono : MulExpRayJointMonotone (int256 y1) (int256 y2) (int256 x1) (int256 x2)
+      (int256 (mulExpTree y1 x1)) (int256 (mulExpTree y2 x2))) :
+    MulExpRayRunJointMonotone y1 y2 x1 x2 :=
+  ⟨mulExpTree y1 x1, mulExpTree y2 x2, hrun1, hrun2, hmono⟩
 
 /-- The zero-magnitude result satisfies the signed `mulExpRay` bracket for every exponent. -/
 theorem mulExpRayBracket_zero_result (x : Int) :

@@ -38,9 +38,17 @@ library Exp {
     }
 
     /// @notice Compute y * exp(x / 10**27), with y's sign reapplied after magnitude evaluation.
-    /// @dev Let A = abs(y) * exp(x / 10**27). For accepted inputs, this function returns sign(y) * m
-    ///      with m <= A < m + 2. Reverts with `Panic(17)` when abs(y) exceeds the supported scale,
-    ///      or when x and abs(y) cannot preserve that bound with a single-word scaled product.
+    /// @dev Let A = abs(y) ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
+    ///      with 0 ≤ m, m ≤ A, and A < m + 2; equivalently the magnitude is either ⌊A⌋ or
+    ///      ⌊A⌋ - 1. Negative y uses the same magnitude bracket and then reapplies the sign.
+    ///      `mulExpRay(0, x) == 0` for every x and `mulExpRay(y, 0) == y` for every supported y.
+    ///      Among accepted inputs, the result is monotone in x: nondecreasing if y ≥ 0 and
+    ///      nonincreasing if y < 0. For a fixed x, among accepted inputs, the result is
+    ///      nondecreasing in y. Jointly, for accepted pairs (y₁, x₁) and (y₂, x₂), the first
+    ///      result is no greater than the second when 0 ≤ y₁ ≤ y₂ and x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0
+    ///      and x₂ ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any exponents. Reverts with `Panic(17)` when
+    ///      abs(y) exceeds the supported scale, x is too large, or x and abs(y) cannot preserve
+    ///      the two-unit magnitude bracket with a single-word scaled product.
     function mulExpRay(int256 y, int256 x) internal pure returns (int256) {
         if (y == 0) {
             return 0;

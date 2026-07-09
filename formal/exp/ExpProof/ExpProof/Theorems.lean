@@ -95,10 +95,11 @@ example (x1 x2 : Nat)
 
 /-! ## `mulExpRay`
 
-The public spec for `mulExpRay` is a signed magnitude bracket and a monotonicity predicate in the
-exponent argument. Positive multipliers are nondecreasing in `x`; negative multipliers are
-nonincreasing. The runtime facade below reduces successful-run bracket and monotonicity statements
-to the compiled arithmetic tree `mulExpTree`.
+The public spec for `mulExpRay` is a signed magnitude bracket plus monotonicity predicates in both
+arguments. Positive multipliers are nondecreasing in `x`; negative multipliers are nonincreasing in
+`x`; for fixed `x`, signed results are nondecreasing in `y`; and joint monotonicity is stated
+piecewise over the two sign regions and the sign-crossing case. The runtime facade below reduces
+successful-run bracket and monotonicity statements to the compiled arithmetic tree `mulExpTree`.
 -/
 
 /-- A tree equality plus a tree bracket gives the public runtime bracket spec. -/
@@ -110,7 +111,7 @@ example {y x : Nat}
     MulExpRayRunBracket y x :=
   mulExpRay_run_bracket_of_tree hrun hbracket
 
-/-- A tree equality plus ordered tree results gives the public runtime monotonicity spec. -/
+/-- A tree equality plus ordered tree results gives the public runtime monotonicity-in-`x` spec. -/
 example {y x1 x2 : Nat}
     (hrun1 : run_mul_exp_ray_evm y x1 = .ok (mulExpTree y x1))
     (hrun2 : run_mul_exp_ray_evm y x2 = .ok (mulExpTree y x2))
@@ -120,6 +121,29 @@ example {y x1 x2 : Nat}
       (FormalYul.Preservation.int256 (mulExpTree y x2))) :
     MulExpRayRunMonotone y x1 x2 :=
   mulExpRay_run_monotone_of_tree hrun1 hrun2 hmono
+
+/-- A tree equality plus ordered tree results gives the public runtime monotonicity-in-`y` spec. -/
+example {y1 y2 x : Nat}
+    (hrun1 : run_mul_exp_ray_evm y1 x = .ok (mulExpTree y1 x))
+    (hrun2 : run_mul_exp_ray_evm y2 x = .ok (mulExpTree y2 x))
+    (hmono : ExpRealSpec.MulExpRayYMonotone
+      (FormalYul.Preservation.int256 y1) (FormalYul.Preservation.int256 y2)
+      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 (mulExpTree y1 x))
+      (FormalYul.Preservation.int256 (mulExpTree y2 x))) :
+    MulExpRayRunYMonotone y1 y2 x :=
+  mulExpRay_run_y_monotone_of_tree hrun1 hrun2 hmono
+
+/-- A tree equality plus sign-aware ordered tree results gives the joint runtime spec. -/
+example {y1 y2 x1 x2 : Nat}
+    (hrun1 : run_mul_exp_ray_evm y1 x1 = .ok (mulExpTree y1 x1))
+    (hrun2 : run_mul_exp_ray_evm y2 x2 = .ok (mulExpTree y2 x2))
+    (hmono : ExpRealSpec.MulExpRayJointMonotone
+      (FormalYul.Preservation.int256 y1) (FormalYul.Preservation.int256 y2)
+      (FormalYul.Preservation.int256 x1) (FormalYul.Preservation.int256 x2)
+      (FormalYul.Preservation.int256 (mulExpTree y1 x1))
+      (FormalYul.Preservation.int256 (mulExpTree y2 x2))) :
+    MulExpRayRunJointMonotone y1 y2 x1 x2 :=
+  mulExpRay_run_joint_monotone_of_tree hrun1 hrun2 hmono
 
 /-- Zero magnitude satisfies the signed bracket for every exponent. -/
 example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
@@ -137,6 +161,20 @@ example {y x1 x2 : Int} (hle : x1 ≤ x2) :
     else ExpRealSpec.mulExpRayTarget y x1 ≤ ExpRealSpec.mulExpRayTarget y x2 :=
   ExpRealSpec.mulExpRayTarget_signed_mono hle
 
+/-- The real target is monotone in the multiplier. -/
+example {y1 y2 x : Int} (hle : y1 ≤ y2) :
+    ExpRealSpec.mulExpRayTarget y1 x ≤ ExpRealSpec.mulExpRayTarget y2 x :=
+  ExpRealSpec.mulExpRayTarget_mono_y hle
+
+/-- The real target is sign-aware jointly monotone in the multiplier and exponent. -/
+example {y1 y2 x1 x2 : Int}
+    (h :
+      (0 ≤ y1 ∧ y1 ≤ y2 ∧ x1 ≤ x2) ∨
+      (y1 ≤ y2 ∧ y2 ≤ 0 ∧ x2 ≤ x1) ∨
+      (y1 ≤ 0 ∧ 0 ≤ y2)) :
+    ExpRealSpec.mulExpRayTarget y1 x1 ≤ ExpRealSpec.mulExpRayTarget y2 x2 :=
+  ExpRealSpec.mulExpRayTarget_joint_mono h
+
 /-- info: 'ExpYul.mulExpRay_run_bracket_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms mulExpRay_run_bracket_of_tree
@@ -145,6 +183,14 @@ example {y x1 x2 : Int} (hle : x1 ≤ x2) :
 #guard_msgs in
 #print axioms mulExpRay_run_monotone_of_tree
 
+/-- info: 'ExpYul.mulExpRay_run_y_monotone_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_y_monotone_of_tree
+
+/-- info: 'ExpYul.mulExpRay_run_joint_monotone_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_joint_monotone_of_tree
+
 /-- info: 'ExpYul.mulExpRayBracket_zero_result' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms mulExpRayBracket_zero_result
@@ -152,6 +198,14 @@ example {y x1 x2 : Int} (hle : x1 ≤ x2) :
 /-- info: 'ExpRealSpec.mulExpRayTarget_signed_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms ExpRealSpec.mulExpRayTarget_signed_mono
+
+/-- info: 'ExpRealSpec.mulExpRayTarget_mono_y' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms ExpRealSpec.mulExpRayTarget_mono_y
+
+/-- info: 'ExpRealSpec.mulExpRayTarget_joint_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms ExpRealSpec.mulExpRayTarget_joint_mono
 
 /-! ## `Real.exp` floor brackets
 
