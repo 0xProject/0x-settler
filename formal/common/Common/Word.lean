@@ -235,6 +235,21 @@ theorem wordNat_slt (a b : EvmYul.UInt256) :
     rw [hua', hub', word_mod_eq]
   rw [hLHS, hRHS]
 
+theorem wordNat_sgt (a b : EvmYul.UInt256) :
+    wordNat (EvmYul.UInt256.sgt a b) = evmSgt (wordNat a) (wordNat b) := by
+  have hbool : EvmYul.UInt256.sgtBool a b = EvmYul.UInt256.sltBool b a := by
+    unfold EvmYul.UInt256.sgtBool EvmYul.UInt256.sltBool
+    by_cases ha : 2 ^ 255 ≤ a.toNat <;> by_cases hb : 2 ^ 255 ≤ b.toNat
+    · rw [if_pos ha, if_pos hb, if_pos hb, if_pos ha]
+    · rw [if_pos ha, if_neg hb, if_neg hb, if_pos ha]
+    · rw [if_neg ha, if_pos hb, if_pos hb, if_neg ha]
+    · rw [if_neg ha, if_neg hb, if_neg hb, if_neg ha]
+  unfold EvmYul.UInt256.sgt
+  rw [hbool]
+  change wordNat (EvmYul.UInt256.slt b a) = evmSgt (wordNat a) (wordNat b)
+  rw [wordNat_slt b a]
+  rfl
+
 /-- An `evmAdd` result is already `u256`-wrapped, so injecting it through `ofNat` and reading its
 `toNat` is the identity. Discharges the run-level `resultWord` extraction without re-stating the
 evm* tree. -/
@@ -248,6 +263,13 @@ theorem evmSlt_u256_left (a b : Nat) : evmSlt (u256 a) b = evmSlt a b := by
   simp only [evmSlt, u256_idem]
 theorem evmSlt_u256_right (a b : Nat) : evmSlt a (u256 b) = evmSlt a b := by
   simp only [evmSlt, u256_idem]
+theorem evmSgt_u256_left (a b : Nat) : evmSgt (u256 a) b = evmSgt a b := by
+  simp only [evmSgt, u256_idem]
+theorem evmSgt_u256_right (a b : Nat) : evmSgt a (u256 b) = evmSgt a b := by
+  simp only [evmSgt, u256_idem]
+theorem u256_evmSgt (a b : Nat) : u256 (evmSgt a b) = evmSgt a b := by
+  unfold evmSgt
+  split <;> simp [u256, WORD_MOD]
 
 theorem evmSar_u256_left (s v : Nat) : evmSar (u256 s) v = evmSar s v := by
   simp only [evmSar, u256_idem]

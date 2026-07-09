@@ -1528,4 +1528,12 @@ theorem call_fun_and_direct
     call_zero_value_for_split_t_bool_direct (fuel := fuel + extra) (extra := 56)
       (shared := shared) (hlookup := hlookup)]
 
+theorem uint256_ofNat_sgt_eq_word_evmSgt (a b : Nat) :
+    EvmYul.UInt256.sgt (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      FormalYul.word (evmSgt a b) := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [wordNat_sgt, FormalYul.Preservation.wordNat_ofNat,
+    FormalYul.Preservation.wordNat_word]
+  simp [evmSgt_u256_left, evmSgt_u256_right, u256_evmSgt]
+
 end ExpYul

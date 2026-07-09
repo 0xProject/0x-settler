@@ -39,6 +39,17 @@ def mulScaleTree (y : Nat) : Nat :=
 def mulShiftTree (y x : Nat) : Nat :=
   evmSub (scaleShiftTree (absTree y)) (kTree x)
 
+/-- The branch word for the `Panic(17)` guard. -/
+def mulExpGuardTree (y x : Nat) : Nat :=
+  let ay := absTree y
+  let s := scaleShiftTree ay
+  let k := kTree x
+  let outOfRange := evmOr (evmGt ay scaleQ67) (evmIszero (evmSlt x xHiMulExpRay))
+  let inaccurate :=
+    evmAnd (evmAnd (evmIszero (evmEq x 0)) (evmSgt x xLoZeroMulExpRay))
+      (evmSgt k (evmSub s 2))
+  evmOr outOfRange inaccurate
+
 /-- The dynamic-scaled quotient before the closing shift. -/
 def r0MulTree (y x : Nat) : Nat :=
   evmDiv (evmMul (mulScaleTree y) (evmAdd (evTree x) (todTree x)))
@@ -70,6 +81,10 @@ theorem mulScaleTree_lt (y : Nat) : mulScaleTree y < 2 ^ 256 := by
 theorem mulShiftTree_lt (y x : Nat) : mulShiftTree y x < 2 ^ 256 := by
   unfold mulShiftTree
   exact evmSub_lt _ _
+
+theorem mulExpGuardTree_lt (y x : Nat) : mulExpGuardTree y x < 2 ^ 256 := by
+  unfold mulExpGuardTree
+  simpa [WORD_MOD] using evmOr_lt_WORD_MOD _ _
 
 theorem r0MulTree_lt (y x : Nat) : r0MulTree y x < 2 ^ 256 := by
   unfold r0MulTree
