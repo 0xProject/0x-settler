@@ -41,7 +41,10 @@ abbrev odShift4 : Nat := 0x80
 abbrev todShift : Nat := 0x81
 abbrev foldShift : Nat := 0x43
 abbrev scaleQ67 : Nat := 0x6f05b59d3b2000000000000000000000
+abbrev scaleMaxClz : Nat := 0x81
 abbrev marginWord : Nat := 0x1
+abbrev xHiMulExpRay : Nat := 0x0116d70f49dec622d4bda70c52
+abbrev xLoZeroMulExpRay : Nat := 0xfffffffffffffffffffffffffffffffffffffffee270ddd64709e8aac2676ec3
 
 theorem scaleQ67_eq : (scaleQ67 : Int) = 3814697265625 * 2 ^ 85 := by
   unfold scaleQ67; norm_num
@@ -58,6 +61,23 @@ theorem Cmask_lt : Cmask < 2 ^ 256 := by
 
 theorem int256_C0thresh : int256 C0thresh = 45401140326676417766828703956 := by
   unfold C0thresh int256
+  norm_num
+
+theorem int256_xHiMulExpRay : int256 xHiMulExpRay = 86296823979713191022445399122 := by
+  unfold xHiMulExpRay int256
+  norm_num
+
+theorem int256_xLoZeroMulExpRay :
+    int256 xLoZeroMulExpRay = -88376265521393026950697095485 := by
+  unfold xLoZeroMulExpRay int256
+  norm_num
+
+theorem xHiMulExpRay_lt : xHiMulExpRay < 2 ^ 256 := by
+  unfold xHiMulExpRay
+  norm_num
+
+theorem xLoZeroMulExpRay_lt : xLoZeroMulExpRay < 2 ^ 256 := by
+  unfold xLoZeroMulExpRay
   norm_num
 
 end ExpYul

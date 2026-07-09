@@ -6,17 +6,19 @@ import ExpProof.Floor.PublicUncond
 import ExpProof.Floor.R0BoundHolds
 import ExpProof.Floor.R0Bound
 import ExpProof.Floor.RoundTrip
+import ExpProof.Mul
 
 /-!
-# `expRayToWad` — proven properties of the compiled runtime (signpost)
+# `expRayToWad` and `mulExpRay` — compiled-runtime proof signpost
 
 This file is the at-a-glance demonstration that the documented properties hold for *the
 interpretation of the implementation*: the EVMYulLean execution of the compiled `ExpWrapper` Yul,
-`run_exp_ray_to_wad_evm` (defined in the generated `ExpYulRuntime`). Each property below is a
-runtime-level theorem; the axiom gate at the bottom pins it to Lean's three standard axioms, so a
-stray `sorry` (or any new axiom) breaks the build.
+`run_exp_ray_to_wad_evm` and `run_mul_exp_ray_evm` (defined in the generated `ExpYulRuntime`).
+Each listed theorem is a runtime-level theorem or a runtime proof obligation; the axiom gate at the
+bottom pins it to Lean's three standard axioms, so a stray `sorry` (or any new axiom) breaks the
+build.
 
-## Documented properties (about the runtime)
+## Documented `expRayToWad` properties (about the runtime)
 
 | Property                                          | Theorem                                          |
 |---------------------------------------------------|--------------------------------------------------|
@@ -28,7 +30,7 @@ stray `sorry` (or any new axiom) breaks the build.
 | Monotone in the input                             | `run_exp_ray_to_wad_evm_mono_unconditional`      |
 | `lnWadToRay` round trip                           | `run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if` |
 
-Every property is unconditional. The monotonicity analytic core (`RegionMonotonicityFacts`,
+Every `expRayToWad` property is unconditional. The monotonicity analytic core (`RegionMonotonicityFacts`,
 reduced to the octave-seam `r0` doubling bound `SeamR0Bound`) is discharged by
 `seamR0Bound_holds`; the floor brackets consume the discharged accumulator facts
 (`accumReal_over`, `accumReal_under`, `belowC_target_lt_one`) directly.
@@ -90,6 +92,66 @@ example (x1 x2 : Nat)
 /-- info: 'ExpYul.seamR0Bound_holds' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms seamR0Bound_holds
+
+/-! ## `mulExpRay`
+
+The public spec for `mulExpRay` is a signed magnitude bracket and a monotonicity predicate in the
+exponent argument. Positive multipliers are nondecreasing in `x`; negative multipliers are
+nonincreasing. The runtime facade below reduces successful-run bracket and monotonicity statements
+to the compiled arithmetic tree `mulExpTree`.
+-/
+
+/-- A tree equality plus a tree bracket gives the public runtime bracket spec. -/
+example {y x : Nat}
+    (hrun : run_mul_exp_ray_evm y x = .ok (mulExpTree y x))
+    (hbracket : ExpRealSpec.MulExpRayBracket
+      (FormalYul.Preservation.int256 y) (FormalYul.Preservation.int256 x)
+      (FormalYul.Preservation.int256 (mulExpTree y x))) :
+    MulExpRayRunBracket y x :=
+  mulExpRay_run_bracket_of_tree hrun hbracket
+
+/-- A tree equality plus ordered tree results gives the public runtime monotonicity spec. -/
+example {y x1 x2 : Nat}
+    (hrun1 : run_mul_exp_ray_evm y x1 = .ok (mulExpTree y x1))
+    (hrun2 : run_mul_exp_ray_evm y x2 = .ok (mulExpTree y x2))
+    (hmono : ExpRealSpec.MulExpRaySignedMonotone
+      (FormalYul.Preservation.int256 y) (FormalYul.Preservation.int256 x1)
+      (FormalYul.Preservation.int256 x2) (FormalYul.Preservation.int256 (mulExpTree y x1))
+      (FormalYul.Preservation.int256 (mulExpTree y x2))) :
+    MulExpRayRunMonotone y x1 x2 :=
+  mulExpRay_run_monotone_of_tree hrun1 hrun2 hmono
+
+/-- Zero magnitude satisfies the signed bracket for every exponent. -/
+example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
+  mulExpRayBracket_zero_result x
+
+/-- Existing `expRayToWad` floor brackets instantiate the `y = 10^18` specialization. -/
+example {x r : Int} (hr : 0 ≤ r)
+    (h : ExpRealSpec.FloorOrOneLessBracket x r) :
+    ExpRealSpec.MulExpRayBracket (10 ^ 18) x r :=
+  floorOrOneLess_to_mulExpRayBracket_wad hr h
+
+/-- The real target is monotone in the exponent with direction determined by the multiplier sign. -/
+example {y x1 x2 : Int} (hle : x1 ≤ x2) :
+    if y < 0 then ExpRealSpec.mulExpRayTarget y x2 ≤ ExpRealSpec.mulExpRayTarget y x1
+    else ExpRealSpec.mulExpRayTarget y x1 ≤ ExpRealSpec.mulExpRayTarget y x2 :=
+  ExpRealSpec.mulExpRayTarget_signed_mono hle
+
+/-- info: 'ExpYul.mulExpRay_run_bracket_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_bracket_of_tree
+
+/-- info: 'ExpYul.mulExpRay_run_monotone_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_monotone_of_tree
+
+/-- info: 'ExpYul.mulExpRayBracket_zero_result' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRayBracket_zero_result
+
+/-- info: 'ExpRealSpec.mulExpRayTarget_signed_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms ExpRealSpec.mulExpRayTarget_signed_mono
 
 /-! ## `Real.exp` floor brackets
 

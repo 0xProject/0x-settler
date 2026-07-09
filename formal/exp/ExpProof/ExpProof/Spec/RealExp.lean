@@ -70,6 +70,78 @@ theorem expRayToWadTarget_zero : expRayToWadTarget 0 = (WAD : Real) := by
 theorem floorOrOneLess_zero : FloorOrOneLessBracket 0 (10 ^ 18) := by
   constructor <;> rw [expRayToWadTarget_zero] <;> simp [WAD]
 
+/-! ## `mulExpRay` magnitude target -/
+
+/-- `A = abs(y) · exp(x / 10^27)`, the nonnegative real magnitude target of `mulExpRay`. -/
+def mulExpRayMagnitudeTarget (y x : Int) : Real :=
+  (y.natAbs : Real) * Real.exp ((x : Real) / (RAY : Real))
+
+/-- **Magnitude floor-or-one-less bracket.** The nonnegative magnitude result never exceeds the
+target magnitude and is under it by strictly less than two output units. -/
+def MulExpRayMagnitudeBracket (y x m : Int) : Prop :=
+  0 ≤ m ∧ (m : Real) ≤ mulExpRayMagnitudeTarget y x ∧
+    mulExpRayMagnitudeTarget y x < (m : Real) + 2
+
+/-- **Signed magnitude bracket.** The runtime result is interpreted by removing `y`'s sign before
+checking the magnitude bracket. -/
+def MulExpRayBracket (y x r : Int) : Prop :=
+  if y < 0 then MulExpRayMagnitudeBracket y x (-r) else MulExpRayMagnitudeBracket y x r
+
+/-- The exact real target of `mulExpRay`, including sign. -/
+def mulExpRayTarget (y x : Int) : Real :=
+  (y : Real) * Real.exp ((x : Real) / (RAY : Real))
+
+/-- Monotonicity in `x` follows `y`'s sign: positive magnitudes are nondecreasing, negative
+magnitudes are nonincreasing, and zero is constant. -/
+def MulExpRaySignedMonotone (y x1 x2 r1 r2 : Int) : Prop :=
+  x1 ≤ x2 ∧ if y < 0 then r2 ≤ r1 else r1 ≤ r2
+
+theorem mulExpRayMagnitudeTarget_nonneg (y x : Int) :
+    0 ≤ mulExpRayMagnitudeTarget y x := by
+  unfold mulExpRayMagnitudeTarget
+  positivity
+
+theorem mulExpRayMagnitudeTarget_mono {y x1 x2 : Int} (hle : x1 ≤ x2) :
+    mulExpRayMagnitudeTarget y x1 ≤ mulExpRayMagnitudeTarget y x2 := by
+  unfold mulExpRayMagnitudeTarget
+  have hR : (0 : Real) ≤ (RAY : Real) := by norm_num [RAY]
+  have hx : ((x1 : Real) / (RAY : Real)) ≤ ((x2 : Real) / (RAY : Real)) := by
+    exact div_le_div_of_nonneg_right (by exact_mod_cast hle) hR
+  exact mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr hx) (by positivity)
+
+theorem mulExpRayTarget_mono_nonneg {y x1 x2 : Int} (hy : 0 ≤ y) (hle : x1 ≤ x2) :
+    mulExpRayTarget y x1 ≤ mulExpRayTarget y x2 := by
+  unfold mulExpRayTarget
+  have hR : (0 : Real) ≤ (RAY : Real) := by norm_num [RAY]
+  have hx : ((x1 : Real) / (RAY : Real)) ≤ ((x2 : Real) / (RAY : Real)) := by
+    exact div_le_div_of_nonneg_right (by exact_mod_cast hle) hR
+  exact mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr hx) (by exact_mod_cast hy)
+
+theorem mulExpRayTarget_antitone_neg {y x1 x2 : Int} (hy : y < 0) (hle : x1 ≤ x2) :
+    mulExpRayTarget y x2 ≤ mulExpRayTarget y x1 := by
+  unfold mulExpRayTarget
+  have hR : (0 : Real) ≤ (RAY : Real) := by norm_num [RAY]
+  have hx : ((x1 : Real) / (RAY : Real)) ≤ ((x2 : Real) / (RAY : Real)) := by
+    exact div_le_div_of_nonneg_right (by exact_mod_cast hle) hR
+  exact mul_le_mul_of_nonpos_left (Real.exp_le_exp.mpr hx) (by exact_mod_cast (le_of_lt hy))
+
+theorem mulExpRayTarget_signed_mono {y x1 x2 : Int} (hle : x1 ≤ x2) :
+    if y < 0 then mulExpRayTarget y x2 ≤ mulExpRayTarget y x1
+    else mulExpRayTarget y x1 ≤ mulExpRayTarget y x2 := by
+  by_cases hy : y < 0
+  · simp [hy, mulExpRayTarget_antitone_neg hy hle]
+  · have hy0 : 0 ≤ y := by omega
+    simp [hy, mulExpRayTarget_mono_nonneg hy0 hle]
+
+theorem mulExpRayMagnitudeBracket_zero (x r : Int) (hr : r = 0) :
+    MulExpRayMagnitudeBracket 0 x r := by
+  subst hr
+  constructor
+  · norm_num
+  · constructor
+    · simp [mulExpRayMagnitudeTarget]
+    · simp [mulExpRayMagnitudeTarget]
+
 end
 
 end ExpRealSpec
