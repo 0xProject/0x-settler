@@ -1434,4 +1434,23 @@ theorem uint256_ofNat_sgt_eq_word_evmSgt (a b : Nat) :
     FormalYul.Preservation.wordNat_word]
   simp [evmSgt_u256_left, evmSgt_u256_right, u256_evmSgt]
 
+theorem uint256_ofNat_slt_eq_word_evmSlt (a b : Nat) :
+    EvmYul.UInt256.slt (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      FormalYul.word (evmSlt a b) := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [wordNat_slt, FormalYul.Preservation.wordNat_ofNat,
+    FormalYul.Preservation.wordNat_word]
+  have hclosed : u256 (evmSlt a b) = evmSlt a b := by
+    unfold evmSlt
+    split <;> simp [u256, WORD_MOD]
+  simp [evmSlt_u256_left, evmSlt_u256_right, hclosed]
+
+theorem uint256_ofNat_iszero_eq_word_evmIszero (a : Nat) :
+    EvmYul.UInt256.isZero (EvmYul.UInt256.ofNat a) =
+      FormalYul.word (evmIszero a) := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [FormalYul.Preservation.wordNat_iszero, FormalYul.Preservation.wordNat_ofNat,
+    FormalYul.Preservation.wordNat_word]
+  simp [FormalYul.Preservation.evmIszero_u256]
+
 end ExpYul
