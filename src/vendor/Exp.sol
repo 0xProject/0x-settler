@@ -54,10 +54,23 @@ library Exp {
             return 0;
         }
 
-        (uint256 ay, uint256 sign) = _absSign(y);
-        uint256 s = _scaleShift(ay);
-        int256 k = _octave(x);
+        uint256 ay;
+        uint256 sign;
+        // Compute `abs(y)` without negating `type(int256).min`.
+        assembly ("memory-safe") {
+            sign := sar(0xff, y)
+            ay := sub(xor(y, sign), sign)
+        }
+
         unchecked {
+            uint256 s = Clz.clz(ay) - _SCALE_MAX_CLZ;
+            uint256 scaleMax = _SCALE_MAX;
+            // Correct the bit-length estimate without branching.
+            assembly ("memory-safe") {
+                s := sub(s, gt(shl(s, ay), scaleMax))
+            }
+
+            int256 k = _octave(x);
             if ((ay > _SCALE_MAX).or(x >= _X_HI).or((x != 0).and(x > _X_LO_ZERO).and(k > int256(s) - 2))) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
@@ -69,28 +82,6 @@ library Exp {
                 m := sub(xor(m, sign), sign)
             }
             return int256(m);
-        }
-    }
-
-    function _absSign(int256 y) private pure returns (uint256 ay, uint256 sign) {
-        // Compute `abs(y)` without negating `type(int256).min`:
-        //     sign = 0 for nonnegative y, -1 for negative y
-        //     ay = (y ^ sign) - sign
-        assembly ("memory-safe") {
-            sign := sar(0xff, y)
-            ay := sub(xor(y, sign), sign)
-        }
-    }
-
-    function _scaleShift(uint256 ay) private pure returns (uint256 s) {
-        unchecked {
-            s = Clz.clz(ay) - _SCALE_MAX_CLZ;
-            uint256 scaleMax = _SCALE_MAX;
-            // Correct the bit-length estimate without branching:
-            //     s -= gt(ay << s, scaleMax)
-            assembly ("memory-safe") {
-                s := sub(s, gt(shl(s, ay), scaleMax))
-            }
         }
     }
 
