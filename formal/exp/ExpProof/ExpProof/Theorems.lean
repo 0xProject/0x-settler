@@ -102,6 +102,16 @@ piecewise over the two sign regions and the sign-crossing case. The runtime faca
 successful-run bracket and monotonicity statements to the compiled arithmetic tree `mulExpTree`.
 -/
 
+/-- Canonical `mulExpRay` inputs are partitioned by the implementation value and panic guards. -/
+example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
+    MulExpRayValueDomain y x ∨ MulExpRayPanicDomain y x :=
+  mulExpRay_value_or_panic_of_canonical hcanon
+
+/-- The value and panic guards are disjoint on canonical inputs. -/
+example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
+    MulExpRayValueDomain y x ↔ ¬ MulExpRayPanicDomain y x :=
+  mulExpRay_value_iff_not_panic hcanon
+
 /-- A tree equality plus a tree bracket gives the public runtime bracket spec. -/
 example {y x : Nat}
     (hrun : run_mul_exp_ray_evm y x = .ok (mulExpTree y x))
@@ -149,6 +159,37 @@ example {y1 y2 x1 x2 : Nat}
 example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
   mulExpRayBracket_zero_result x
 
+/-- The compiled runtime returns zero for every exponent when the multiplier is zero. -/
+example (x : Nat) : run_mul_exp_ray_evm 0 x = .ok 0 :=
+  run_mul_exp_ray_evm_zero x
+
+/-- The compiled runtime satisfies the public bracket spec unconditionally at zero magnitude. -/
+example (x : Nat) : MulExpRayRunBracket 0 x :=
+  mulExpRay_run_bracket_zero x
+
+/-- The accumulator floor and target bounds imply the public magnitude bracket. -/
+example {y x m : Int} {A : Real}
+    (hm_nonneg : 0 ≤ m)
+    (hfloor : (m : Real) ≤ A)
+    (hfloor1 : A < (m : Real) + 1)
+    (hover : A ≤ ExpRealSpec.mulExpRayMagnitudeTarget y x)
+    (hunder : ExpRealSpec.mulExpRayMagnitudeTarget y x < A + 1) :
+    ExpRealSpec.MulExpRayMagnitudeBracket y x m :=
+  mulExpRayMagnitudeBracket_of_accum hm_nonneg hfloor hfloor1 hover hunder
+
+/-- Sign reapplication turns a magnitude bracket into the signed public bracket. -/
+example {y x r m : Int}
+    (hmag : ExpRealSpec.MulExpRayMagnitudeBracket y x m)
+    (hsign : if y < 0 then r = -m else r = m) :
+    ExpRealSpec.MulExpRayBracket y x r :=
+  mulExpRayBracket_of_signed_magnitude hmag hsign
+
+/-- Magnitude brackets imply the magnitude is under by at most one output unit. -/
+example {y x m : Int}
+    (h : ExpRealSpec.MulExpRayMagnitudeBracket y x m) :
+    ⌊ExpRealSpec.mulExpRayMagnitudeTarget y x⌋ - 1 ≤ m :=
+  mulExpRayMagnitudeBracket_to_underByAtMostOne h
+
 /-- Existing `expRayToWad` floor brackets instantiate the `y = 10^18` specialization. -/
 example {x r : Int} (hr : 0 ≤ r)
     (h : ExpRealSpec.FloorOrOneLessBracket x r) :
@@ -191,9 +232,45 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms mulExpRay_run_joint_monotone_of_tree
 
+/-- info: 'ExpYul.mulExpRay_value_or_panic_of_canonical' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_value_or_panic_of_canonical
+
+/-- info: 'ExpYul.mulExpRay_value_iff_not_panic' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_value_iff_not_panic
+
+/-- info: 'ExpYul.mulExpRayMagnitudeBracket_of_accum' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRayMagnitudeBracket_of_accum
+
+/-- info: 'ExpYul.mulExpRayBracket_of_signed_magnitude' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRayBracket_of_signed_magnitude
+
+/-- info: 'ExpYul.mulExpRayMagnitudeBracket_to_underByAtMostOne' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRayMagnitudeBracket_to_underByAtMostOne
+
 /-- info: 'ExpYul.mulExpRayBracket_zero_result' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms mulExpRayBracket_zero_result
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_zero
+
+/-- info: 'ExpYul.mulExpRay_run_bracket_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpRay_run_bracket_zero
+
+/-- info: 'ExpYul.call_fun__absSign_direct' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms call_fun__absSign_direct
+
+/-- info: 'ExpYul.call_fun__scaleShift_direct' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms call_fun__scaleShift_direct
 
 /-- info: 'ExpRealSpec.mulExpRayTarget_signed_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

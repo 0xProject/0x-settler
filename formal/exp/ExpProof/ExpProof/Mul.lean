@@ -1,6 +1,9 @@
 import ExpProof.Mono.MulTree
 import ExpProof.ExpYulRuntime
 import ExpProof.Spec.RealExp
+import ExpProof.Seam.MulValue
+import ExpProof.Mul.Domain
+import ExpProof.Mul.Bridge
 
 /-!
 # `mulExpRay` proof facade
@@ -88,6 +91,11 @@ theorem mulExpRay_run_bracket_zero_of_run {x : Nat}
     (hrun : run_mul_exp_ray_evm 0 x = .ok 0) :
     MulExpRayRunBracket 0 x :=
   ⟨0, hrun, mulExpRayBracket_zero_result (int256 x)⟩
+
+/-- The compiled runtime satisfies the public bracket spec unconditionally for zero magnitude. -/
+theorem mulExpRay_run_bracket_zero (x : Nat) :
+    MulExpRayRunBracket 0 x :=
+  mulExpRay_run_bracket_zero_of_run (run_mul_exp_ray_evm_zero x)
 
 /-- The `y = 10^18` magnitude target is the existing `expRayToWad` target. -/
 theorem mulExpRayMagnitudeTarget_wad (x : Int) :
