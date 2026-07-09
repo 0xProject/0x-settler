@@ -362,13 +362,16 @@ theorem selectSwitchCase_expRayToWad_sharedFor_mk (x : Nat) :
                   (FormalYul.word 64) (FormalYul.word 128)))
             (Inhabited.default : EvmYul.Yul.VarStore)).toState
           (FormalYul.word 0))
-        (FormalYul.word 224))
+      (FormalYul.word 224))
       [(FormalYul.word 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])]),
+        (FormalYul.word 2041299081,
+          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])] := by
   rw [expRayToWad_selector_sharedFor_mk]
   rfl
 
@@ -385,13 +388,16 @@ theorem selectSwitchCase_expRayToWad_sharedFor_mk_raw (x : Nat) :
                   (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
             (Inhabited.default : EvmYul.Yul.VarStore)).toState
           (EvmYul.UInt256.ofNat 0))
-        (EvmYul.UInt256.ofNat 224))
+      (EvmYul.UInt256.ofNat 224))
       [(EvmYul.UInt256.ofNat 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])]),
+        (EvmYul.UInt256.ofNat 2041299081,
+          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_expRayToWad_97") [])] := by
+          (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])] := by
   simpa [FormalYul.word] using selectSwitchCase_expRayToWad_sharedFor_mk x
 
 /-- Revert-analogue of `Preservation.runContract_ok_of_dispatcherReturn`: if the bare dispatcher
