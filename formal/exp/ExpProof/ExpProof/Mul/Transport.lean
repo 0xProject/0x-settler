@@ -143,6 +143,10 @@ private theorem scaleShiftTree_cases (ay : Nat) (hy : ay < 2 ^ 256) (habs : ay �
         _ ≤ ay * 2 ^ (126 - Nat.log2 ay) * 2 := Nat.mul_le_mul_right _ hbig
         _ = ay * 2 ^ (126 - Nat.log2 ay + 1) := by rw [pow_succ]; ring
 
+/-- The zero magnitude takes the maximal headroom shift. -/
+theorem scaleShiftTree_zero : scaleShiftTree 0 = 127 :=
+  (scaleShiftTree_cases 0 (by norm_num) (by unfold scaleQ67; norm_num)).1 rfl
+
 /-- The headroom shift never exceeds `127` on supported magnitudes. -/
 theorem scaleShiftTree_le_127 {y : Nat} (habs : absTree y ≤ scaleQ67) :
     scaleShiftTree (absTree y) ≤ 127 := by

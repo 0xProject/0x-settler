@@ -10,6 +10,7 @@ import ExpProof.Mul.Shell
 import ExpProof.Mul.Accum
 import ExpProof.Mul.XMono
 import ExpProof.Mul.YMono
+import ExpProof.Mul.Joint
 
 /-!
 # `expRayToWad` and `mulExpRay` — compiled-runtime proof signpost
@@ -17,9 +18,8 @@ import ExpProof.Mul.YMono
 This file is the at-a-glance demonstration that the documented properties hold for *the
 interpretation of the implementation*: the EVMYulLean execution of the compiled `ExpWrapper` Yul,
 `run_exp_ray_to_wad_evm` and `run_mul_exp_ray_evm` (defined in the generated `ExpYulRuntime`).
-Each listed theorem is a runtime-level theorem or a runtime proof obligation; the axiom gate at the
-bottom pins it to Lean's three standard axioms, so a stray `sorry` (or any new axiom) breaks the
-build.
+Each listed theorem is a runtime-level theorem; the axiom gate at the bottom pins it to Lean's
+three standard axioms, so a stray `sorry` (or any new axiom) breaks the build.
 
 ## Documented `expRayToWad` properties (about the runtime)
 
@@ -98,31 +98,33 @@ example (x1 x2 : Nat)
 
 /-! ## `mulExpRay`
 
-The public spec for `mulExpRay` is a signed magnitude bracket plus monotonicity predicates in both
-arguments. Discharged today, axiom-clean:
+Every documented `mulExpRay` property holds for the compiled runtime, axiom-clean:
 
-| Property                                            | Theorem                                 |
-|-----------------------------------------------------|-----------------------------------------|
-| Exact value/panic partition of canonical calldata   | `mulExpRay_value_iff_not_panic`         |
-| Guard word ↔ domain bridge                          | `valueDomain_iff_guard_eq_zero`         |
-| Value path returns the compiled tree                | `run_mul_exp_ray_evm_eq_tree`           |
-| Rejected inputs revert                              | `run_mul_exp_ray_evm_revert`            |
-| Signed bracket `0 ≤ m ≤ A < m + 2` on the domain    | `mulExpRay_run_bracket`                 |
-| Sign-directed monotonicity in the exponent          | `run_mul_exp_ray_evm_mono_x`            |
-| Monotonicity in the multiplier                      | `run_mul_exp_ray_evm_mono_y`            |
-| Result magnitude is `⌊A⌋` or `⌊A⌋ − 1`              | `mulExpRay_run_floor_membership`        |
-| `A < 1` pins the result to zero                     | `mulExpRay_run_pins_zero`               |
-| Zero multiplier returns zero (and its bracket)      | `run_mul_exp_ray_evm_zero_of_guard`     |
-| Scale point `mulExpRay(y, 0) = y` (and its bracket) | `run_mul_exp_ray_evm_scale_point`       |
-| Zero clamp at deep-negative `x` (and its bracket)   | `run_mul_exp_ray_evm_clamped`           |
+| Documented property                                    | Theorem                              |
+|--------------------------------------------------------|--------------------------------------|
+| Signed bracket `0 ≤ m ≤ A ∧ A < m + 2` on the domain   | `mulExpRay_run_bracket`              |
+| `m` is `⌊A⌋` or `⌊A⌋ − 1`; `A < 1` pins `m = 0`        | `mulExpRay_run_floor_membership`, `mulExpRay_run_pins_zero` |
+| `mulExpRay(0, x) = 0` for accepted `x` (and bracket)   | `run_mul_exp_ray_evm_zero_of_guard`  |
+| `mulExpRay(y, 0) = y` for supported `y` (and bracket)  | `run_mul_exp_ray_evm_scale_point`    |
+| Monotone in `x`, direction following `sign(y)`         | `run_mul_exp_ray_evm_mono_x`         |
+| Nondecreasing in `y` at a fixed `x`                    | `run_mul_exp_ray_evm_mono_y`         |
+| Joint sign-aware monotonicity (three cases)            | `run_mul_exp_ray_evm_mono_joint`     |
+| Reverts in exactly three cases, with the exemptions    | `mulExpRay_value_iff_not_panic`, `run_mul_exp_ray_evm_revert`, `panicDomain_iff_octave`, `run_mul_exp_ray_evm_revert_int_min` |
+| The accepted exponents need not form an interval       | `MulExpRayValueDomain` (the exact accept set; its third disjunct is headroom-dependent) |
 
-The bracket and the monotonicity in the exponent are proven on the whole value domain: the
-scale-symbolic per-point certificates (`r0Scaled_real_over_within`/`r0Scaled_real_under_within`)
-instantiate at the dynamic scale `abs(y)·2ˢ ∈ [2¹²⁵, 10¹⁸·2⁶⁷]`, the accumulator fold
-(`Mul.Accum`) closes the live-region bracket, the unit-step induction with the scaled seam
-doubling (`Mul.XMono`) closes the sign-directed exponent monotonicity, and the headroom-step
-induction (`Mul.YMono`) closes the multiplier monotonicity. Still open, visible below as an
-explicit hypothesis of the facade lemma: the joint runtime monotonicity statement.
+Supporting rows: the exact value/panic partition of canonical calldata
+(`mulExpRay_value_or_panic_of_canonical`), the guard word ↔ domain bridge
+(`valueDomain_iff_guard_eq_zero`), the value path to the compiled tree
+(`run_mul_exp_ray_evm_eq_tree`), and the zero clamp (`run_mul_exp_ray_evm_clamped`).
+
+The proof chain: the scale-symbolic per-point certificates
+(`r0Scaled_real_over_within`/`r0Scaled_real_under_within`) instantiate at the dynamic scale
+`abs(y)·2ˢ ∈ [2¹²⁵, 10¹⁸·2⁶⁷]`; the accumulator fold (`Mul.Accum`) closes the live-region
+bracket; the unit-step induction with the scaled seam doubling (`Mul.XMono`) closes the
+sign-directed exponent monotonicity; the headroom-step induction (`Mul.YMono`) closes the
+multiplier monotonicity; and the corner composition with the antitone headroom (`Mul.Joint`)
+closes the joint form. Rejected inputs revert through the compiled `fun_panic` path,
+instantiated at code `0x11` — `Panic(ARITHMETIC_OVERFLOW)` — in `Seam/MulRevert.lean`.
 -/
 
 /-- Canonical `mulExpRay` inputs are partitioned by the implementation value and panic guards. -/
@@ -147,6 +149,37 @@ example {y1 y2 x : Nat} (h1 : MulExpRayValueDomain y1 x) (h2 : MulExpRayValueDom
     MulExpRayRunYMonotone y1 y2 x :=
   run_mul_exp_ray_evm_mono_y h1 h2 hle
 
+/-- **Sign-aware joint monotonicity on the value domain.** -/
+example {y1 y2 x1 x2 : Nat}
+    (h1 : MulExpRayValueDomain y1 x1) (h2 : MulExpRayValueDomain y2 x2)
+    (hcond : (0 ≤ FormalYul.Preservation.int256 y1 ∧
+        FormalYul.Preservation.int256 y1 ≤ FormalYul.Preservation.int256 y2 ∧
+        FormalYul.Preservation.int256 x1 ≤ FormalYul.Preservation.int256 x2) ∨
+      (FormalYul.Preservation.int256 y1 ≤ FormalYul.Preservation.int256 y2 ∧
+        FormalYul.Preservation.int256 y2 ≤ 0 ∧
+        FormalYul.Preservation.int256 x2 ≤ FormalYul.Preservation.int256 x1) ∨
+      (FormalYul.Preservation.int256 y1 ≤ 0 ∧ 0 ≤ FormalYul.Preservation.int256 y2)) :
+    MulExpRayRunJointMonotone y1 y2 x1 x2 :=
+  run_mul_exp_ray_evm_mono_joint h1 h2 hcond
+
+/-- **The panic domain in the natspec's octave vocabulary**: too-large magnitude, exponent at or
+beyond the unconditional fence, or a live exponent whose octave count exceeds the headroom shift
+less two. -/
+example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
+    MulExpRayPanicDomain y x ↔
+      scaleQ67 < absTree y ∨
+        FormalYul.Preservation.int256 mulExpRayHi ≤ FormalYul.Preservation.int256 x ∨
+        (FormalYul.Preservation.int256 x ≠ 0 ∧
+          FormalYul.Preservation.int256 mulExpRayZeroMax < FormalYul.Preservation.int256 x ∧
+          (scaleShiftTree (absTree y) : Int) - 2 < FormalYul.Preservation.int256 (kTree x)) :=
+  panicDomain_iff_octave hcanon
+
+/-- **`type(int256).min` always reverts**: its magnitude word `2^255` exceeds the maximal
+scale. -/
+example {x : Nat} (hx : x < 2 ^ 256) :
+    run_mul_exp_ray_evm (2 ^ 255) x = .error "revert" :=
+  run_mul_exp_ray_evm_revert_int_min hx
+
 /-- **Floor membership.** Every accepted input's result magnitude is `⌊A⌋` or `⌊A⌋ − 1`. -/
 example {y x : Nat} (h : MulExpRayValueDomain y x) :
     ∃ r, run_mul_exp_ray_evm y x = .ok r ∧
@@ -164,49 +197,6 @@ example {y x : Nat} (h : MulExpRayValueDomain y x) :
 example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
     MulExpRayValueDomain y x ↔ ¬ MulExpRayPanicDomain y x :=
   mulExpRay_value_iff_not_panic hcanon
-
-/-- A tree equality plus a tree bracket gives the public runtime bracket spec. -/
-example {y x : Nat}
-    (hrun : run_mul_exp_ray_evm y x = .ok (mulExpTree y x))
-    (hbracket : ExpRealSpec.MulExpRayBracket
-      (FormalYul.Preservation.int256 y) (FormalYul.Preservation.int256 x)
-      (FormalYul.Preservation.int256 (mulExpTree y x))) :
-    MulExpRayRunBracket y x :=
-  mulExpRay_run_bracket_of_tree hrun hbracket
-
-/-- A tree equality plus ordered tree results gives the public runtime monotonicity-in-`x` spec. -/
-example {y x1 x2 : Nat}
-    (hrun1 : run_mul_exp_ray_evm y x1 = .ok (mulExpTree y x1))
-    (hrun2 : run_mul_exp_ray_evm y x2 = .ok (mulExpTree y x2))
-    (hmono : ExpRealSpec.MulExpRaySignedMonotone
-      (FormalYul.Preservation.int256 y) (FormalYul.Preservation.int256 x1)
-      (FormalYul.Preservation.int256 x2) (FormalYul.Preservation.int256 (mulExpTree y x1))
-      (FormalYul.Preservation.int256 (mulExpTree y x2))) :
-    MulExpRayRunMonotone y x1 x2 :=
-  mulExpRay_run_monotone_of_tree hrun1 hrun2 hmono
-
-/-- A tree equality plus ordered tree results gives the public runtime monotonicity-in-`y` spec. -/
-example {y1 y2 x : Nat}
-    (hrun1 : run_mul_exp_ray_evm y1 x = .ok (mulExpTree y1 x))
-    (hrun2 : run_mul_exp_ray_evm y2 x = .ok (mulExpTree y2 x))
-    (hmono : ExpRealSpec.MulExpRayYMonotone
-      (FormalYul.Preservation.int256 y1) (FormalYul.Preservation.int256 y2)
-      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 (mulExpTree y1 x))
-      (FormalYul.Preservation.int256 (mulExpTree y2 x))) :
-    MulExpRayRunYMonotone y1 y2 x :=
-  mulExpRay_run_y_monotone_of_tree hrun1 hrun2 hmono
-
-/-- A tree equality plus sign-aware ordered tree results gives the joint runtime spec. -/
-example {y1 y2 x1 x2 : Nat}
-    (hrun1 : run_mul_exp_ray_evm y1 x1 = .ok (mulExpTree y1 x1))
-    (hrun2 : run_mul_exp_ray_evm y2 x2 = .ok (mulExpTree y2 x2))
-    (hmono : ExpRealSpec.MulExpRayJointMonotone
-      (FormalYul.Preservation.int256 y1) (FormalYul.Preservation.int256 y2)
-      (FormalYul.Preservation.int256 x1) (FormalYul.Preservation.int256 x2)
-      (FormalYul.Preservation.int256 (mulExpTree y1 x1))
-      (FormalYul.Preservation.int256 (mulExpTree y2 x2))) :
-    MulExpRayRunJointMonotone y1 y2 x1 x2 :=
-  mulExpRay_run_joint_monotone_of_tree hrun1 hrun2 hmono
 
 /-- Zero magnitude satisfies the signed bracket for every exponent. -/
 example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
@@ -334,21 +324,17 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms mulExpRay_run_pins_zero
 
-/-- info: 'ExpYul.mulExpRay_run_bracket_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.run_mul_exp_ray_evm_mono_joint' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms mulExpRay_run_bracket_of_tree
+#print axioms run_mul_exp_ray_evm_mono_joint
 
-/-- info: 'ExpYul.mulExpRay_run_monotone_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.panicDomain_iff_octave' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms mulExpRay_run_monotone_of_tree
+#print axioms panicDomain_iff_octave
 
-/-- info: 'ExpYul.mulExpRay_run_y_monotone_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.run_mul_exp_ray_evm_revert_int_min' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms mulExpRay_run_y_monotone_of_tree
-
-/-- info: 'ExpYul.mulExpRay_run_joint_monotone_of_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms mulExpRay_run_joint_monotone_of_tree
+#print axioms run_mul_exp_ray_evm_revert_int_min
 
 /-- info: 'ExpYul.mulExpRay_value_or_panic_of_canonical' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in

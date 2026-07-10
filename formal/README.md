@@ -11,7 +11,7 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 | `cbrt/CbrtProof` | `src/vendor/Cbrt.sol` | `_cbrt`, `cbrt`, `cbrtUp` correct on uint256 |
 | `cbrt/Cbrt512Proof` | `src/utils/512Math.sol` | `_cbrt` (512-bit) correct: `cbrt(x_hi * 2^256 + x_lo) = icbrt(x)` |
 | `ln/LnProof` | `src/vendor/Ln.sol` | `lnWadToRay`, `lnWad` correct vs. `Real.log`, monotone, with a 1.6986-ulp error bound |
-| `exp/ExpProof` | `src/vendor/Exp.sol` | `expRayToWad` correct vs. `Real.exp`: never over, floor-or-one-less, monotone, and the central `lnWadToRay` round trip. `mulExpRay`: exact accept/revert domains, value path to the compiled tree, and the bracket at the scale point and the zero clamp; the live-region bracket and monotonicity still need the certificates generalized to the dynamic scale |
+| `exp/ExpProof` | `src/vendor/Exp.sol` | `expRayToWad` correct vs. `Real.exp`: never over, floor-or-one-less, monotone, and the central `lnWadToRay` round trip. `mulExpRay` correct vs. `abs(y)·Real.exp(x/10²⁷)`: exact accept/revert domains (also stated in octave vocabulary), value path to the compiled tree, the signed two-unit bracket with floor membership over the whole accepted domain, and monotonicity in each argument and jointly |
 
 ## Method
 
