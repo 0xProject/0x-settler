@@ -30,7 +30,7 @@ noncomputable section
 and the grid rational exceeds the cert rational by at most one `K`-step:
 `2¹²⁶·(ê(v) − ê(t²)) ≤ 3290521163436398582/10¹⁹` (the piecewise-certified envelope). -/
 theorem gran_over_pair {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     (evalPoly ExpCertV.numExpV (int256 (tTree x)) : Real) /
         (evalPoly ExpCertV.denExpV (int256 (tTree x)) : Real) ≤
@@ -40,10 +40,10 @@ theorem gran_over_pair {x : Nat} (hx : x < 2 ^ 256)
       (2 ^ 126 : Real) * ((evalPoly ExpCertV.numExpV (int256 (tTree x)) : Real) /
         (evalPoly ExpCertV.denExpV (int256 (tTree x)) : Real)) +
         3290521163436398582 / 10000000000000000000 := by
-  obtain ⟨htie1, htie2⟩ := tie_over hx hC hC0 htnn
-  obtain ⟨T, DO, DU, Khi, hpiece, hT2⟩ := piece_select hx hC hC0
+  obtain ⟨htie1, htie2⟩ := tie_over_wide hx hW htnn
+  obtain ⟨T, DO, DU, Khi, hpiece, hT2⟩ := piece_select_wide hx hW
   obtain ⟨hDOpos, _, hKhinn, hTnn, hflO, hflO1, _, _, hK, hbudO, _⟩ := hpiece
-  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   have htdom : t ≤ (ExpCertV.H129 : Int) := by
@@ -158,7 +158,7 @@ the cert rational exceeds the grid rational — `Mp`-factor `2¹³¹/(2¹³¹−
 one-grain lift is monotone in `|t|` (the sign condition is the over-half denominator floor), so
 each piece's `t = −T` denominator floor applies for every `t` in the half. -/
 theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnp : int256 (tTree x) ≤ 0) :
     (NUMv (vTree x) (int256 (tTree x)) : Real) / (DENv (vTree x) (int256 (tTree x)) : Real) ≤
       (evalPoly ExpCertV.numExpV (int256 (tTree x)) : Real) /
@@ -168,11 +168,11 @@ theorem gran_under_pair {x : Nat} (hx : x < 2 ^ 256)
           (evalPoly ExpCertV.denExpV (int256 (tTree x)) : Real) -
          (NUMv (vTree x) (int256 (tTree x)) : Real) / (DENv (vTree x) (int256 (tTree x)) : Real)) ≤
       1644901622230542074 / 10000000000000000000 := by
-  obtain ⟨htie1, htie2⟩ := tie_under hx hC hC0 htnp
-  obtain ⟨T, DO, DU, Khi, hpiece, hT2⟩ := piece_select hx hC hC0
+  obtain ⟨htie1, htie2⟩ := tie_under_wide hx hW htnp
+  obtain ⟨T, DO, DU, Khi, hpiece, hT2⟩ := piece_select_wide hx hW
   obtain ⟨hDOpos, hDUpos, hKhinn, hTnn, hflO, hflO1, hflU, hflU1, hK, _, hbudU⟩ := hpiece
-  obtain ⟨htlo, _⟩ := tTree_in_cert_domain hx hC hC0
-  have hvle := vTree_le_vmax hx hC hC0
+  obtain ⟨htlo, _⟩ := tTree_in_cert_domain_wide hx hW
+  have hvle := vTree_le_vmax_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   have htdom : -t ≤ (ExpCertV.H129 : Int) := by

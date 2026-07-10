@@ -239,13 +239,12 @@ theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 
   have hDpos : 0 < ((evmSub E TD : Nat) : Int) := by rw [← hDi, hsub]; omega
   exact r0Tree_bounds_of hNlt128 hDlt128 hDwlt hDi hNpos hDpos hNlo hND
 
-/-- `2^124 ≤ r0Tree x < 2^130` on the meaningful region. -/
-theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+/-- `2^124 ≤ r0Tree x < 2^130` on the wide region. -/
+theorem r0Tree_bounds_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 130 := by
-  obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
+  obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW
   obtain ⟨hev_lo, hev_hi⟩ := evTree_facts hvlt
-  obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+  obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound_wide hx hW
   have hr0 : r0Tree x =
       evmDiv (evmMul scaleQ67 (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x)) := rfl
   rw [hr0]
@@ -259,5 +258,10 @@ theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
     rw [show ((3 * 2 ^ 127 : Nat) : Int) = 3 * 2 ^ 127 by norm_num] at this; exact this
   · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact htod_lo
   · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact htod_hi
+
+theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 130 :=
+  r0Tree_bounds_wide hx (wideRegion_of_wad hC hC0)
 
 end ExpYul

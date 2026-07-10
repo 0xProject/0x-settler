@@ -45,12 +45,12 @@ set_option exponentiation.threshold 2000
 /-- The scaled quotient is the integer floor: `r0·den_rt ≤ scaleQ67·num_rt < (r0+1)·den_rt` with
 `num_rt = ev + tod`, `den_rt = ev − tod`. -/
 theorem r0_floor_sandwich {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (hW : WideRegion x) :
     int256 (r0Tree x) * ((evTree x : Int) - int256 (todTree x)) ≤
         (0x6f05b59d3b2000000000000000000000 : Int) * ((evTree x : Int) + int256 (todTree x)) ∧
       (0x6f05b59d3b2000000000000000000000 : Int) * ((evTree x : Int) + int256 (todTree x)) <
         (int256 (r0Tree x) + 1) * ((evTree x : Int) - int256 (todTree x)) := by
-  obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos hx hC hC0
+  obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_wide hx hW
   set num := evmAdd (evTree x) (todTree x) with hnumdef
   set den := evmSub (evTree x) (todTree x) with hdendef
   have hnumw : num < 2 ^ 256 := evmAdd_lt _ _
@@ -59,8 +59,8 @@ theorem r0_floor_sandwich {x : Nat} (hx : x < 2 ^ 256)
   have hdeni : int256 den = (evTree x : Int) - int256 (todTree x) := hsub
   obtain ⟨hnumeq, hnum255⟩ := int256_eq_of_nonneg hnumw (by rw [hnumi]; omega)
   obtain ⟨hdeneq, hden255⟩ := int256_eq_of_nonneg hdenw (by rw [hdeni]; omega)
-  obtain ⟨hevlo, hevhi⟩ := evTree_facts (vTree_eq hx hC hC0).2
-  obtain ⟨_, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+  obtain ⟨hevlo, hevhi⟩ := evTree_facts (vTree_eq_wide hx hW).2
+  obtain ⟨_, htod_hi, _, _⟩ := todTree_bound_wide hx hW
   have hevloI : (415147853590918758559635130244235626256 : Int) ≤ (evTree x : Int) := by
     have : (0x1385291795942d41ba5fd317688e18710 : Int) ≤ (evTree x : Int) := by exact_mod_cast hevlo
     linarith [this]
@@ -133,11 +133,11 @@ theorem r0_floor_sandwich {x : Nat} (hx : x < 2 ^ 256)
 
 /-- `den_rt = ev − tod ≥ 1.94·2¹²⁶` on the region (the even accumulator dominates `|tod|`). -/
 theorem den_ge_194 {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (hW : WideRegion x) :
     (330077261860684142693791478386293573392 : Int) ≤
       (evTree x : Int) - int256 (todTree x) := by
-  obtain ⟨hevlo, _⟩ := evTree_facts (vTree_eq hx hC hC0).2
-  obtain ⟨_, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+  obtain ⟨hevlo, _⟩ := evTree_facts (vTree_eq_wide hx hW).2
+  obtain ⟨_, htod_hi, _, _⟩ := todTree_bound_wide hx hW
   have hev : (0x1385291795942d41ba5fd317688e18710 : Int) ≤ (evTree x : Int) := by exact_mod_cast hevlo
   have ht126 : int256 (todTree x) < 2 ^ 126 := htod_hi
   rw [show (0x1385291795942d41ba5fd317688e18710 : Int) = 415147853590918758559635130244235626256 from by norm_num] at hev
@@ -146,18 +146,18 @@ theorem den_ge_194 {x : Nat} (hx : x < 2 ^ 256)
 
 /-- On the nonpositive half `tod ≤ 0` and hence `r0 ≤ scaleQ67` (num ≤ den). -/
 theorem r0_le_scale_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
     int256 (r0Tree x) ≤ (0x6f05b59d3b2000000000000000000000 : Int) := by
-  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hC hC0
+  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hW
   set r0 := int256 (r0Tree x) with hr0def
   set ev := (evTree x : Int) with hevdef
   set tod := int256 (todTree x) with htoddef
   have hden072 : (330077261860684142693791478386293573392 : Int) ≤ ev - tod := by
-    have := den_ge_194 hx hC hC0; rw [← hevdef, ← htoddef] at this; exact this
+    have := den_ge_194 hx hW; rw [← hevdef, ← htoddef] at this; exact this
   have hdenpos : (0:Int) < ev - tod := lt_of_lt_of_le (by norm_num) hden072
   have htodnp : tod ≤ 0 := by
-    obtain ⟨_, _, htodlo, _⟩ := todTree_bound hx hC hC0
+    obtain ⟨_, _, htodlo, _⟩ := todTree_bound_wide hx hW
     have hodnn : (0:Int) ≤ (odTree x : Int) := Int.natCast_nonneg _
     have : int256 (tTree x) * (odTree x : Int) ≤ 0 := mul_nonpos_of_nonpos_of_nonneg htneg hodnn
     nlinarith [htodlo, this]
@@ -177,12 +177,12 @@ runtime `ev`/`tod` at the common scale `2^637`. -/
 
 /-- The `Int`-cast Horner brackets and `tod` floor collected. -/
 theorem bridge_facts {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (hW : WideRegion x) :
     2 ^ 526 * (evTree x : Int) ≤ (evNumV (vTree x) : Int) ∧
       (evNumV (vTree x) : Int) < 2 ^ 526 * (evTree x : Int) + 72572599271425 * 2 ^ 480 ∧
       2 ^ 508 * (odTree x : Int) ≤ (odNumV (vTree x) : Int) ∧
       (odNumV (vTree x) : Int) < 2 ^ 508 * (odTree x : Int) + 269746241 * 2 ^ 480 := by
-  obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
+  obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW
   obtain ⟨hev_lo, hev_hi⟩ := evTree_bracket hvlt
   obtain ⟨hod_lo, hod_hi⟩ := odTree_bracket hvlt
   refine ⟨?_, ?_, ?_, ?_⟩
@@ -194,13 +194,13 @@ theorem bridge_facts {x : Nat} (hx : x < 2 ^ 256)
 /-- The `t·Od` product brackets (nonnegative half): `2⁶³⁷·tod ≤ t·Od` and
 `t·Od ≤ 2⁶³⁷·tod + 2⁶³⁷ + Wod·2⁴⁸⁰·t`. -/
 theorem tOd_bracket_nonneg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     2 ^ 637 * int256 (todTree x) ≤ int256 (tTree x) * (odNumV (vTree x) : Int) ∧
       int256 (tTree x) * (odNumV (vTree x) : Int) ≤
         2 ^ 637 * int256 (todTree x) + 2 ^ 637 + 269746241 * 2 ^ 480 * int256 (tTree x) := by
-  obtain ⟨_, _, hOp_lo, hOp_hi⟩ := bridge_facts hx hC hC0
-  obtain ⟨_, _, htod_lo, htod_hi⟩ := todTree_bound hx hC hC0
+  obtain ⟨_, _, hOp_lo, hOp_hi⟩ := bridge_facts hx hW
+  obtain ⟨_, _, htod_lo, htod_hi⟩ := todTree_bound_wide hx hW
   set t := int256 (tTree x) with htdef
   set od := (odTree x : Int) with hoddef
   set tod := int256 (todTree x) with htoddef
@@ -221,13 +221,13 @@ theorem tOd_bracket_nonneg {x : Nat} (hx : x < 2 ^ 256)
 /-- The `t·Od` product brackets (nonpositive half): `t·Od ≤ 2⁶³⁷·tod + 2⁶³⁷` and
 `2⁶³⁷·tod − Wod·2⁴⁸⁰·(−t) ≤ t·Od`. -/
 theorem tOd_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
     int256 (tTree x) * (odNumV (vTree x) : Int) ≤ 2 ^ 637 * int256 (todTree x) + 2 ^ 637 ∧
       2 ^ 637 * int256 (todTree x) - 269746241 * 2 ^ 480 * (-(int256 (tTree x))) ≤
         int256 (tTree x) * (odNumV (vTree x) : Int) := by
-  obtain ⟨_, _, hOp_lo, hOp_hi⟩ := bridge_facts hx hC hC0
-  obtain ⟨_, _, htod_lo, htod_hi⟩ := todTree_bound hx hC hC0
+  obtain ⟨_, _, hOp_lo, hOp_hi⟩ := bridge_facts hx hW
+  obtain ⟨_, _, htod_lo, htod_hi⟩ := todTree_bound_wide hx hW
   set t := int256 (tTree x) with htdef
   set od := (odTree x : Int) with hoddef
   set tod := int256 (todTree x) with htoddef
@@ -250,15 +250,15 @@ theorem tOd_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
 /-- **Joint link-1 over (nonneg half, `r0 ≥ scaleQ67`)**: the shared even truncation cancels through
 the floor, `r0·DENv − scaleQ67·NUMv ≤ Wev·2⁵⁹⁰·(r0 − scaleQ67)`. -/
 theorem link1_over_tight {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x))
     (hr0ge : (0x6f05b59d3b2000000000000000000000 : Int) ≤ int256 (r0Tree x)) :
     int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x)) -
         (0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) ≤
       72572599271425 * 2 ^ 591 * (int256 (r0Tree x) - (0x6f05b59d3b2000000000000000000000 : Int)) := by
-  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hC hC0
-  obtain ⟨hEp_lo, hEp_hi, _, _⟩ := bridge_facts hx hC hC0
-  obtain ⟨htOp_lo, _⟩ := tOd_bracket_nonneg hx hC hC0 htnn
+  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hW
+  obtain ⟨hEp_lo, hEp_hi, _, _⟩ := bridge_facts hx hW
+  obtain ⟨htOp_lo, _⟩ := tOd_bracket_nonneg hx hW htnn
   unfold NUMv DENv
   set r0 := int256 (r0Tree x) with hr0def
   set ev := (evTree x : Int) with hevdef
@@ -284,14 +284,14 @@ theorem link1_over_tight {x : Nat} (hx : x < 2 ^ 256)
 
 /-- **Link-1 over (nonneg half, `r0 ≤ scaleQ67`)**: the residue is nonpositive outright. -/
 theorem link1_over_small {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x))
     (hr0le : int256 (r0Tree x) ≤ (0x6f05b59d3b2000000000000000000000 : Int)) :
     int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x)) -
         (0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) ≤ 0 := by
-  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hC hC0
-  obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hC hC0
-  obtain ⟨htOp_lo, _⟩ := tOd_bracket_nonneg hx hC hC0 htnn
+  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hW
+  obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hW
+  obtain ⟨htOp_lo, _⟩ := tOd_bracket_nonneg hx hW htnn
   unfold NUMv DENv
   set r0 := int256 (r0Tree x) with hr0def
   set ev := (evTree x : Int) with hevdef
@@ -299,7 +299,7 @@ theorem link1_over_small {x : Nat} (hx : x < 2 ^ 256)
   set t := int256 (tTree x) with htdef
   set Ep := (evNumV (vTree x) : Int) with hEpdef
   set Op := (odNumV (vTree x) : Int) with hOpdef
-  obtain ⟨hr0lo, _⟩ := r0Tree_bounds hx hC hC0
+  obtain ⟨hr0lo, _⟩ := r0Tree_bounds_wide hx hW
   have hr0nn : (0:Int) ≤ r0 := by
     have : (0:Int) < 2 ^ 124 := by positivity
     linarith [hr0lo]
@@ -319,15 +319,15 @@ theorem link1_over_small {x : Nat} (hx : x < 2 ^ 256)
 /-- **Link-1 over (nonpositive half)**: the even truncation drops (`r0 ≤ scaleQ67`); the odd truncation
 survives attenuated to the `t`-scale: `r0·DENv − scaleQ67·NUMv ≤ Wod·2⁴⁸⁰·(−t)·(r0 + scaleQ67)`. -/
 theorem link1_over_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
     int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x)) -
         (0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) ≤
       269746241 * 2 ^ 480 * (-(int256 (tTree x))) * (int256 (r0Tree x) + (0x6f05b59d3b2000000000000000000000 : Int)) := by
-  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hC hC0
-  obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hC hC0
-  obtain ⟨_, htOp_lo⟩ := tOd_bracket_neg hx hC hC0 htneg
-  have hr0le := r0_le_scale_neg hx hC hC0 htneg
+  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hW
+  obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hW
+  obtain ⟨_, htOp_lo⟩ := tOd_bracket_neg hx hW htneg
+  have hr0le := r0_le_scale_neg hx hW htneg
   unfold NUMv DENv
   set r0 := int256 (r0Tree x) with hr0def
   set ev := (evTree x : Int) with hevdef
@@ -335,7 +335,7 @@ theorem link1_over_neg {x : Nat} (hx : x < 2 ^ 256)
   set t := int256 (tTree x) with htdef
   set Ep := (evNumV (vTree x) : Int) with hEpdef
   set Op := (odNumV (vTree x) : Int) with hOpdef
-  obtain ⟨hr0lo, _⟩ := r0Tree_bounds hx hC hC0
+  obtain ⟨hr0lo, _⟩ := r0Tree_bounds_wide hx hW
   have hr0nn : (0:Int) ≤ r0 := by
     have : (0:Int) < 2 ^ 124 := by positivity
     linarith [hr0lo]
@@ -358,15 +358,15 @@ theorem link1_over_neg {x : Nat} (hx : x < 2 ^ 256)
 /-- On the nonneg half `DENv` brackets the runtime denominator:
 `2⁶³⁷·(den − 2) ≤ DENv ≤ 2⁶³⁷·den + Wev·2⁵⁹⁰` (`den = ev − tod`). -/
 theorem DENv_runtime_bracket {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     2 ^ 637 * ((evTree x : Int) - int256 (todTree x)) - 2 * 2 ^ 637 ≤
         DENv (vTree x) (int256 (tTree x)) ∧
       DENv (vTree x) (int256 (tTree x)) ≤
         2 ^ 637 * ((evTree x : Int) - int256 (todTree x)) + 72572599271425 * 2 ^ 591 := by
-  obtain ⟨hEp_lo, hEp_hi, _, _⟩ := bridge_facts hx hC hC0
-  obtain ⟨htOp_lo, htOp_hi⟩ := tOd_bracket_nonneg hx hC hC0 htnn
-  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  obtain ⟨hEp_lo, hEp_hi, _, _⟩ := bridge_facts hx hW
+  obtain ⟨htOp_lo, htOp_hi⟩ := tOd_bracket_nonneg hx hW htnn
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
   unfold DENv
   set ev := (evTree x : Int) with hevdef
   set tod := int256 (todTree x) with htoddef
@@ -389,10 +389,10 @@ theorem DENv_runtime_bracket {x : Nat} (hx : x < 2 ^ 256)
 
 /-- On the nonpositive half `DENv` dominates the scaled even accumulator: `2⁶³⁷·ev ≤ DENv`. -/
 theorem DENv_ge_ev_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
     2 ^ 637 * (evTree x : Int) ≤ DENv (vTree x) (int256 (tTree x)) := by
-  obtain ⟨hEp_lo, _, _, hOp_hi⟩ := bridge_facts hx hC hC0
+  obtain ⟨hEp_lo, _, _, hOp_hi⟩ := bridge_facts hx hW
   unfold DENv
   have hOp_nn : (0:Int) ≤ (odNumV (vTree x) : Int) := Int.natCast_nonneg _
   have htOp : int256 (tTree x) * (odNumV (vTree x) : Int) ≤ 0 :=
@@ -401,11 +401,11 @@ theorem DENv_ge_ev_neg {x : Nat} (hx : x < 2 ^ 256)
 
 /-- On the nonneg half `NUMv` dominates the scaled runtime numerator: `2⁶³⁷·num ≤ NUMv`. -/
 theorem NUMv_ge_num {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     2 ^ 637 * ((evTree x : Int) + int256 (todTree x)) ≤ NUMv (vTree x) (int256 (tTree x)) := by
-  obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hC hC0
-  obtain ⟨htOp_lo, _⟩ := tOd_bracket_nonneg hx hC hC0 htnn
+  obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hW
+  obtain ⟨htOp_lo, _⟩ := tOd_bracket_nonneg hx hW htnn
   unfold NUMv
   nlinarith [hEp_lo, htOp_lo]
 
@@ -557,9 +557,9 @@ theorem certLo_real_neg {t : Int} (h1 : t ≤ 0) (h2 : (-t) ≤ (ExpCertV.H129 :
 
 /-- `t/2¹²⁸ ≤ 0` gives the cert domain `−t ≤ H129` for the negative half. -/
 theorem tdom_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) : (-(int256 (tTree x))) ≤ (ExpCertV.H129 : Int) := by
-  obtain ⟨htlo, _⟩ := tTree_in_cert_domain hx hC hC0
+  obtain ⟨htlo, _⟩ := tTree_in_cert_domain_wide hx hW
   rw [show ((ExpCertV.H129 : Nat) : Int) = 235865763225513294137944142764154484399 from by
     unfold ExpCertV.H129; norm_num]
   omega
@@ -569,9 +569,9 @@ theorem tdom_neg {x : Nat} (hx : x < 2 ^ 256)
 /-- On the nonnegative half of the region the reduced argument is below `ln2/2`:
 `t/2¹²⁸ ≤ log 2 / 2`. -/
 theorem t_over_2128_le_half_log2 {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (hW : WideRegion x) :
     (int256 (tTree x) : Real) / (2 ^ 129 : Real) ≤ Real.log 2 / 2 := by
-  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
   have hln2lo := ln2_lower
   rw [LN2c_eq] at hln2lo
   have htR : (int256 (tTree x) : Real) ≤ (235865763225513294137944142764154484399 : Real) := by
@@ -590,9 +590,9 @@ theorem t_over_2128_le_half_log2 {x : Nat} (hx : x < 2 ^ 256)
 
 /-- `exp(t/2¹²⁸) ≤ √2` on the nonneg half. -/
 theorem exp_t_le_sqrt2 {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (hW : WideRegion x) :
     Real.exp ((int256 (tTree x) : Real) / (2 ^ 129 : Real)) ≤ Real.sqrt 2 := by
-  have hle := t_over_2128_le_half_log2 hx hC hC0
+  have hle := t_over_2128_le_half_log2 hx hW
   calc Real.exp ((int256 (tTree x) : Real) / (2 ^ 129 : Real))
       ≤ Real.exp (Real.log 2 / 2) := Real.exp_le_exp.mpr hle
     _ = Real.sqrt 2 := by
@@ -607,10 +607,10 @@ theorem exp_diff_le (a b : Real) : Real.exp b - Real.exp a ≤ (b - a) * Real.ex
 
 /-- The reduced argument is above `−log 2` on the region, so `exp(rt) > 1/2`. -/
 theorem exp_reducedArg_gt_half {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (hW : WideRegion x) :
     (1 : Real) / 2 < Real.exp (reducedArg x) := by
-  obtain ⟨htlo, _⟩ := tTree_in_cert_domain hx hC hC0
-  have hclose := abs_lt.mp (reducedArg_close hx hC hC0)
+  obtain ⟨htlo, _⟩ := tTree_in_cert_domain_wide hx hW
+  have hclose := abs_lt.mp (reducedArg_close_wide hx hW)
   have hp128 : (0 : Real) < (2 ^ 129 : Real) := by positivity
   have htR : -(235865763225513294137944142764154484399 : Real) ≤ (int256 (tTree x) : Real) := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr htlo; push_cast at this; linarith [this]
@@ -637,12 +637,12 @@ Pulling that back through the truncation brackets caps the runtime numerator
 
 /-- The grid rational is below `14145/10000` on the nonneg half. -/
 theorem Qv_le_14145 {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     (NUMv (vTree x) (int256 (tTree x)) : Real) / (DENv (vTree x) (int256 (tTree x)) : Real) ≤
       14145 / 10000 := by
-  obtain ⟨_, hgran⟩ := gran_over_pair hx hC hC0 htnn
-  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  obtain ⟨_, hgran⟩ := gran_over_pair hx hW htnn
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
   set t := int256 (tTree x) with htdef
   have htdom : t ≤ (ExpCertV.H129 : Int) := by
     rw [show ((ExpCertV.H129 : Nat) : Int) = 235865763225513294137944142764154484399 from by
@@ -657,7 +657,7 @@ theorem Qv_le_14145 {x : Nat} (hx : x < 2 ^ 256)
   -- NE/DE ≤ Et·Mp ≤ √2·(2^131/(2^131−1)) ≤ 14144/10000
   have hcertlo := certLo_real htnn htdom
   set Et := Real.exp ((t : Real) / (2 ^ 129 : Real)) with hEtdef
-  have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0
+  have hEtsqrt2 := exp_t_le_sqrt2 hx hW
   rw [← hEtdef] at hEtsqrt2
   have hNEDE_le : (evalPoly ExpCertV.numExpV t : Real) / (evalPoly ExpCertV.denExpV t : Real) ≤
       Et * ((2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1)) := by
@@ -696,13 +696,13 @@ theorem Qv_le_14145 {x : Nat} (hx : x < 2 ^ 256)
 
 /-- The runtime numerator ceiling: `10⁴·num ≤ 14145·den + 28290`. -/
 theorem num_ceiling {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     10000 * ((evTree x : Int) + int256 (todTree x)) ≤
       14145 * ((evTree x : Int) - int256 (todTree x)) + 28290 := by
-  have hQv := Qv_le_14145 hx hC hC0 htnn
-  obtain ⟨hthi_lo, hthi⟩ := tTree_in_cert_domain hx hC hC0
-  have hvle := vTree_le_vmax hx hC hC0
+  have hQv := Qv_le_14145 hx hW htnn
+  obtain ⟨hthi_lo, hthi⟩ := tTree_in_cert_domain_wide hx hW
+  have hvle := vTree_le_vmax_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   have hD : 1108965543718 * 2 ^ 725 ≤ DENv v t := DENv_ge_over (by omega) hthi
@@ -717,8 +717,8 @@ theorem num_ceiling {x : Nat} (hx : x < 2 ^ 256)
       nlinarith [hR]
     exact_mod_cast hR2
   -- pull back through the brackets: 2^637·num ≤ NUMv; DENv ≤ 2^637·den + Wev·2^590
-  have hNUM_ge := NUMv_ge_num hx hC hC0 htnn
-  obtain ⟨_, hDEN_le⟩ := DENv_runtime_bracket hx hC hC0 htnn
+  have hNUM_ge := NUMv_ge_num hx hW htnn
+  obtain ⟨_, hDEN_le⟩ := DENv_runtime_bracket hx hW htnn
   set num := (evTree x : Int) + int256 (todTree x) with hnumdef
   set den := (evTree x : Int) - int256 (todTree x) with hdendef
   -- 10000·2^637·num ≤ 14145·(2^637·den + Wev·2^590) ≤ 2^637·(14145·den + 28290)
@@ -738,11 +738,11 @@ theorem num_ceiling {x : Nat} (hx : x < 2 ^ 256)
 
 /-- `100·num ≤ 145·den` (`ê ≤ 1.45`) on the nonneg half. -/
 theorem num_le_145_den {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     100 * ((evTree x : Int) + int256 (todTree x)) ≤ 145 * ((evTree x : Int) - int256 (todTree x)) := by
-  have hceil := num_ceiling hx hC hC0 htnn
-  have hden := den_ge_194 hx hC hC0
+  have hceil := num_ceiling hx hW htnn
+  have hden := den_ge_194 hx hW
   set num := (evTree x : Int) + int256 (todTree x) with hnumdef
   set den := (evTree x : Int) - int256 (todTree x) with hdendef
   -- 100·(10000·num) ≤ 100·(14145·den + 28290) ≤ 10000·(145·den) since 355·den ≥ 2829000
@@ -750,12 +750,12 @@ theorem num_le_145_den {x : Nat} (hx : x < 2 ^ 256)
 
 /-- The quotient cap: `10⁴·(r0 − scaleQ67) ≤ 4146·scaleQ67` on the nonneg half. -/
 theorem r0_cap {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     10000 * (int256 (r0Tree x) - (0x6f05b59d3b2000000000000000000000 : Int)) ≤ 4146 * (0x6f05b59d3b2000000000000000000000 : Int) := by
-  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hC hC0
-  have hceil := num_ceiling hx hC hC0 htnn
-  have hden := den_ge_194 hx hC hC0
+  obtain ⟨hfloor_lo, _⟩ := r0_floor_sandwich hx hW
+  have hceil := num_ceiling hx hW htnn
+  have hden := den_ge_194 hx hW
   set r0 := int256 (r0Tree x) with hr0def
   set num := (evTree x : Int) + int256 (todTree x) with hnumdef
   set den := (evTree x : Int) - int256 (todTree x) with hdendef
@@ -773,13 +773,13 @@ theorem r0_cap {x : Nat} (hx : x < 2 ^ 256)
 /-- The link-1 jitter divided by `DENv` stays inside its budget (nonneg half):
 `Wev·2⁵⁹⁰·(r0 − scaleQ67)/DENv ≤ (5¹⁸/2⁴⁰)·2170557036555806152/10¹⁹`. -/
 theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     (72572599271425 : Real) * 2 ^ 591 * ((int256 (r0Tree x) : Real) - 0x6f05b59d3b2000000000000000000000) /
         (DENv (vTree x) (int256 (tTree x)) : Real) ≤
       3814697265625 * 2170557036555806152 / (10000000000000000000 * 2199023255552) := by
-  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
-  have hvle := vTree_le_vmax hx hC hC0
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
+  have hvle := vTree_le_vmax_wide hx hW
   set r0 := int256 (r0Tree x) with hr0def
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
@@ -794,13 +794,13 @@ theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
     have hpos : (0:Real) ≤ 3814697265625 * 2170557036555806152 / (10000000000000000000 * 2199023255552) := by positivity
     linarith [this, hpos]
   · rw [div_le_iff₀ hDR]
-    have hcap := r0_cap hx hC hC0 htnn
+    have hcap := r0_cap hx hW htnn
     have hcapR : (r0 : Real) - 0x6f05b59d3b2000000000000000000000 ≤ 4146 * 0x6f05b59d3b2000000000000000000000 / 10000 := by
       have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hcap
       push_cast at h
       linarith [h]
-    obtain ⟨hDEN_ge, _⟩ := DENv_runtime_bracket hx hC hC0 htnn
-    have hden := den_ge_194 hx hC hC0
+    obtain ⟨hDEN_ge, _⟩ := DENv_runtime_bracket hx hW htnn
+    have hden := den_ge_194 hx hW
     have hDENlow : (2:Int) ^ 637 * (330077261860684142693791478386293573392 - 2) ≤ DENv v t := by
       have : (2:Int) ^ 637 * (330077261860684142693791478386293573392 - 2) ≤
           2 ^ 637 * ((evTree x : Int) - int256 (todTree x)) - 2 * 2 ^ 637 := by
@@ -828,12 +828,12 @@ theorem jitter_over_budget {x : Nat} (hx : x < 2 ^ 256)
 /-- **The per-point never-over (nonneg half).** `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴¹)·B` with the
 four-link budget `B = 5737291786393199862/10¹⁹` itemized in the module header. -/
 theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     (int256 (r0Tree x) : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) +
       3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) := by
-  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
-  have hvle := vTree_le_vmax hx hC hC0
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
+  have hvle := vTree_le_vmax_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   have htdom : t ≤ (ExpCertV.H129 : Int) := by
@@ -852,14 +852,14 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
   have hlink1 : (r0 : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
       3814697265625 * 2170557036555806152 / (10000000000000000000 * 2199023255552) := by
     rcases le_or_gt r0 (0x6f05b59d3b2000000000000000000000 : Int) with hsm | hbg
-    · have hi := link1_over_small hx hC hC0 htnn hsm
+    · have hi := link1_over_small hx hW htnn hsm
       have hiR : (r0 : Real) * (DENv v t : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * (NUMv v t : Real) := by
         have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hi; push_cast at this; linarith [this]
       have hr0le : (r0 : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) := by
         rw [mul_div_assoc', le_div_iff₀ hDR]; linarith [hiR]
       have hBJnn : (0:Real) ≤ 3814697265625 * 2170557036555806152 / (10000000000000000000 * 2199023255552) := by positivity
       linarith [hr0le, hBJnn]
-    · have hi := link1_over_tight hx hC hC0 htnn (le_of_lt hbg)
+    · have hi := link1_over_tight hx hW htnn (le_of_lt hbg)
       have hjointR : (r0 : Real) * (DENv v t : Real) - (0x6f05b59d3b2000000000000000000000 : Real) * (NUMv v t : Real) ≤
           (72572599271425 : Real) * 2 ^ 591 * ((r0 : Real) - 0x6f05b59d3b2000000000000000000000) := by
         have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hi; push_cast at this; linarith [this]
@@ -867,16 +867,16 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
           (72572599271425 : Real) * 2 ^ 591 * ((r0 : Real) - 0x6f05b59d3b2000000000000000000000) / (DENv v t : Real) := by
         rw [div_add_div_same, le_div_iff₀ hDR]; nlinarith [hjointR, hDR]
       rw [mul_div_assoc] at hstep
-      linarith [hstep, jitter_over_budget hx hC hC0 htnn]
+      linarith [hstep, jitter_over_budget hx hW htnn]
   -- link 2: 2^126·Qv ≤ 2^126·(NE/DE) + grain
-  obtain ⟨_, hgran⟩ := gran_over_pair hx hC hC0 htnn
+  obtain ⟨_, hgran⟩ := gran_over_pair hx hW htnn
   -- link 3: NE/DE ≤ Et·Mp; Mp excess ≤ √2·2^126/(2^131−1)
   have hcertlo := certLo_real htnn htdom
   set Et := Real.exp ((t : Real) / (2 ^ 129 : Real)) with hEtdef
   set NE := evalPoly ExpCertV.numExpV t with hNEdef
   set DE := evalPoly ExpCertV.denExpV t with hDEdef
   set Mp : Real := (2 ^ 132 : Real) / ((2 ^ 132 : Real) - 1) with hMpdef
-  have hEtsqrt2 := exp_t_le_sqrt2 hx hC hC0
+  have hEtsqrt2 := exp_t_le_sqrt2 hx hW
   rw [← hEtdef] at hEtsqrt2
   have hEtnn : (0 : Real) ≤ Et := le_of_lt (Real.exp_pos _)
   have hNEDE_le : (NE : Real) / (DE : Real) ≤ Et * Mp := by
@@ -906,7 +906,7 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     linarith [hb, hn]
   -- link 4: 2^126·(Et − Ert) ≤ √2/128
   set Ert := Real.exp (reducedArg x) with hErtdef
-  have hgapover := reducedArg_close_over hx hC hC0
+  have hgapover := reducedArg_close_over_wide hx hW
   have hExp_diff : Et - Ert ≤ ((t : Real) / (2 ^ 129 : Real) - reducedArg x) * Et := exp_diff_le _ _
   have hcGap1 : (2 ^ 126 : Real) * (Et - Ert) ≤ 55242717280199026 / 10000000000000000000 := by
     have h1 : Et - Ert ≤ (1 / (32 * (2 ^ 129 : Real))) * Et :=
@@ -939,16 +939,16 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
 /-- The link-1 jitter budget on the nonpositive half:
 `Wod·2⁴⁸⁰·(−t)·(r0 + scaleQ67)/DENv ≤ (5¹⁸/2⁴⁰)·2170557036555806152/10¹⁹`. -/
 theorem jitter_over_budget_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
     (269746241 : Real) * 2 ^ 480 * (-(int256 (tTree x) : Real)) *
         ((int256 (r0Tree x) : Real) + 0x6f05b59d3b2000000000000000000000) / (DENv (vTree x) (int256 (tTree x)) : Real) ≤
       3814697265625 * 2170557036555806152 / (10000000000000000000 * 2199023255552) := by
-  obtain ⟨htlo, _⟩ := tTree_in_cert_domain hx hC hC0
-  have hr0le := r0_le_scale_neg hx hC hC0 htneg
-  obtain ⟨hr0lo, _⟩ := r0Tree_bounds hx hC hC0
-  have hDEN_ge := DENv_ge_ev_neg hx hC hC0 htneg
-  obtain ⟨hev_lo, _⟩ := evTree_facts (vTree_eq hx hC hC0).2
+  obtain ⟨htlo, _⟩ := tTree_in_cert_domain_wide hx hW
+  have hr0le := r0_le_scale_neg hx hW htneg
+  obtain ⟨hr0lo, _⟩ := r0Tree_bounds_wide hx hW
+  have hDEN_ge := DENv_ge_ev_neg hx hW htneg
+  obtain ⟨hev_lo, _⟩ := evTree_facts (vTree_eq_wide hx hW).2
   set r0 := int256 (r0Tree x) with hr0def
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
@@ -1008,12 +1008,12 @@ theorem jitter_over_budget_neg {x : Nat} (hx : x < 2 ^ 256)
 /-- **The per-point never-over (nonpositive half).** The granularity is free here; the `Mp` factor
 and reduced-argument gap shrink (`Et ≤ 1`), so the same budget `B` covers the half. -/
 theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
     (int256 (r0Tree x) : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) +
       3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) := by
-  have htdom := tdom_neg hx hC hC0 htneg
-  have hvle := vTree_le_vmax hx hC hC0
+  have htdom := tdom_neg hx hW htneg
+  have hvle := vTree_le_vmax_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   set r0 := int256 (r0Tree x) with hr0def
@@ -1025,7 +1025,7 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
   -- link 1: r0 ≤ scaleQ67·Qv + jitter
   have hlink1 : (r0 : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
       3814697265625 * 2170557036555806152 / (10000000000000000000 * 2199023255552) := by
-    have hi := link1_over_neg hx hC hC0 htneg
+    have hi := link1_over_neg hx hW htneg
     have hiR : (r0 : Real) * (DENv v t : Real) - (0x6f05b59d3b2000000000000000000000 : Real) * (NUMv v t : Real) ≤
         (269746241 : Real) * 2 ^ 480 * (-(t : Real)) * ((r0 : Real) + 0x6f05b59d3b2000000000000000000000) := by
       have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hi; push_cast at this; linarith [this]
@@ -1034,9 +1034,9 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
           (DENv v t : Real) := by
       rw [div_add_div_same, le_div_iff₀ hDR]; nlinarith [hiR, hDR]
     rw [mul_div_assoc] at hstep
-    linarith [hstep, jitter_over_budget_neg hx hC hC0 htneg]
+    linarith [hstep, jitter_over_budget_neg hx hW htneg]
   -- link 2 (free): Qv ≤ NE/DE
-  obtain ⟨hgran1, _⟩ := gran_under_pair hx hC hC0 htneg
+  obtain ⟨hgran1, _⟩ := gran_under_pair hx hW htneg
   -- link 3: NE/DE ≤ Et·Mpp with Et ≤ 1
   have hcertlo := certLo_real_neg htneg htdom
   set Et := Real.exp ((t : Real) / (2 ^ 129 : Real)) with hEtdef
@@ -1071,7 +1071,7 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     linarith [h1, hn]
   -- link 4 with Et ≤ 1
   set Ert := Real.exp (reducedArg x) with hErtdef
-  have hgapover := reducedArg_close_over hx hC hC0
+  have hgapover := reducedArg_close_over_wide hx hW
   have hExp_diff : Et - Ert ≤ ((t : Real) / (2 ^ 129 : Real) - reducedArg x) * Et := exp_diff_le _ _
   have hcGap1 : (2 ^ 126 : Real) * (Et - Ert) ≤ 55242717280199026 / 10000000000000000000 := by
     have h1 : Et - Ert ≤ (1 / (32 * (2 ^ 129 : Real))) * Et :=
@@ -1099,13 +1099,19 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
 
 /-- **Per-point never-over (tight, any sign):** `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴⁰)·B`
 (the budget's image is strictly below `MARGIN = 1`). -/
-theorem r0_real_over_within {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem r0_real_over_within_wide {x : Nat} (hx : x < 2 ^ 256)
+    (hW : WideRegion x) :
     (int256 (r0Tree x) : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) +
       3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) := by
   rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
-  · exact r0_real_over_tight hx hC hC0 htnn
-  · exact r0_real_over_tight_neg hx hC hC0 (le_of_lt htneg)
+  · exact r0_real_over_tight hx hW htnn
+  · exact r0_real_over_tight_neg hx hW (le_of_lt htneg)
+
+theorem r0_real_over_within {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (int256 (r0Tree x) : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) +
+      3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) :=
+  r0_real_over_within_wide hx (wideRegion_of_wad hC hC0)
 
 /-! ## The octave real identity `E·2^(68−k) = WAD·2⁶⁸·exp(rt)`
 
