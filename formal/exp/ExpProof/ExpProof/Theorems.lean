@@ -9,6 +9,7 @@ import ExpProof.Floor.RoundTrip
 import ExpProof.Mul.Shell
 import ExpProof.Mul.Accum
 import ExpProof.Mul.XMono
+import ExpProof.Mul.YMono
 
 /-!
 # `expRayToWad` and `mulExpRay` — compiled-runtime proof signpost
@@ -108,6 +109,7 @@ arguments. Discharged today, axiom-clean:
 | Rejected inputs revert                              | `run_mul_exp_ray_evm_revert`            |
 | Signed bracket `0 ≤ m ≤ A < m + 2` on the domain    | `mulExpRay_run_bracket`                 |
 | Sign-directed monotonicity in the exponent          | `run_mul_exp_ray_evm_mono_x`            |
+| Monotonicity in the multiplier                      | `run_mul_exp_ray_evm_mono_y`            |
 | Result magnitude is `⌊A⌋` or `⌊A⌋ − 1`              | `mulExpRay_run_floor_membership`        |
 | `A < 1` pins the result to zero                     | `mulExpRay_run_pins_zero`               |
 | Zero multiplier returns zero (and its bracket)      | `run_mul_exp_ray_evm_zero_of_guard`     |
@@ -117,10 +119,10 @@ arguments. Discharged today, axiom-clean:
 The bracket and the monotonicity in the exponent are proven on the whole value domain: the
 scale-symbolic per-point certificates (`r0Scaled_real_over_within`/`r0Scaled_real_under_within`)
 instantiate at the dynamic scale `abs(y)·2ˢ ∈ [2¹²⁵, 10¹⁸·2⁶⁷]`, the accumulator fold
-(`Mul.Accum`) closes the live-region bracket, and the unit-step induction with the scaled seam
-doubling (`Mul.XMono`) closes the sign-directed exponent monotonicity. Still open, visible below
-as explicit hypotheses of the facade lemmas: the runtime monotonicity statements in the
-multiplier and the joint form.
+(`Mul.Accum`) closes the live-region bracket, the unit-step induction with the scaled seam
+doubling (`Mul.XMono`) closes the sign-directed exponent monotonicity, and the headroom-step
+induction (`Mul.YMono`) closes the multiplier monotonicity. Still open, visible below as an
+explicit hypothesis of the facade lemma: the joint runtime monotonicity statement.
 -/
 
 /-- Canonical `mulExpRay` inputs are partitioned by the implementation value and panic guards. -/
@@ -138,6 +140,12 @@ example {y x1 x2 : Nat} (h1 : MulExpRayValueDomain y x1) (h2 : MulExpRayValueDom
     (hle : FormalYul.Preservation.int256 x1 ≤ FormalYul.Preservation.int256 x2) :
     MulExpRayRunMonotone y x1 x2 :=
   run_mul_exp_ray_evm_mono_x h1 h2 hle
+
+/-- **Monotonicity in the multiplier on the value domain.** -/
+example {y1 y2 x : Nat} (h1 : MulExpRayValueDomain y1 x) (h2 : MulExpRayValueDomain y2 x)
+    (hle : FormalYul.Preservation.int256 y1 ≤ FormalYul.Preservation.int256 y2) :
+    MulExpRayRunYMonotone y1 y2 x :=
+  run_mul_exp_ray_evm_mono_y h1 h2 hle
 
 /-- **Floor membership.** Every accepted input's result magnitude is `⌊A⌋` or `⌊A⌋ − 1`. -/
 example {y x : Nat} (h : MulExpRayValueDomain y x) :
@@ -313,6 +321,10 @@ example {y1 y2 x1 x2 : Int}
 /-- info: 'ExpYul.run_mul_exp_ray_evm_mono_x' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_mul_exp_ray_evm_mono_x
+
+/-- info: 'ExpYul.run_mul_exp_ray_evm_mono_y' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_mul_exp_ray_evm_mono_y
 
 /-- info: 'ExpYul.mulExpRay_run_floor_membership' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

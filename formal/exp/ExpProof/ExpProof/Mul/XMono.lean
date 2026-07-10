@@ -59,7 +59,7 @@ theorem mulShift_antitone {y x1 x2 : Nat} (hy : y < 2 ^ 256)
   linarith [hkmono]
 
 /-- The decremented quotient word: transport and range at the dynamic scale. -/
-private theorem mulShiftArg_facts {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
+theorem mulShiftArg_facts {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
     (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleQ67) (hW : WideRegion x) :
     int256 (evmSub (r0MulTree y x) marginWord) = int256 (r0MulTree y x) - 1 ∧
       0 ≤ int256 (r0MulTree y x) - 1 ∧ int256 (r0MulTree y x) - 1 < 2 ^ 130 := by
@@ -354,7 +354,7 @@ private theorem kTree_one : int256 (kTree 1) = 0 := by
   omega
 
 /-- The magnitude at the scale point is the multiplier's magnitude. -/
-private theorem int256_mulMagnitude_zero {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
+theorem int256_mulMagnitude_zero {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
     (habs : absTree y ≤ scaleQ67) :
     int256 (mulMagnitudeTree y 0) = (absTree y : Int) := by
   have hpos : 0 < absTree y := absTree_pos hy hy0
@@ -494,38 +494,38 @@ theorem mulMagnitude_le_abs_of_neg {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0
 
 /-! ## Sign transports -/
 
-private theorem int256_zero_word' : int256 (0 : Nat) = 0 := by unfold int256; norm_num
+theorem int256_zero_word' : int256 (0 : Nat) = 0 := by unfold int256; norm_num
 
-private theorem int256_pos_eq_abs {y : Nat} (hneg : y < 2 ^ 255) :
+theorem int256_pos_eq_abs {y : Nat} (hneg : y < 2 ^ 255) :
     int256 y = (absTree y : Int) := by
   rw [absTree_nonneg hneg, int256_of_lt hneg]
 
-private theorem int256_neg_eq_abs {y : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256) :
+theorem int256_neg_eq_abs {y : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256) :
     int256 y = -(absTree y : Int) := by
   rw [absTree_neg hlo hy]
   unfold int256
   rw [if_neg (by omega)]
   omega
 
-private theorem int256_y_neg {y : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256) :
+theorem int256_y_neg {y : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256) :
     int256 y < 0 := by
   unfold int256
   rw [if_neg (by omega)]
   have h1 : (y : Int) < 2 ^ 256 := by exact_mod_cast hy
   omega
 
-private theorem int256_y_nonneg {y : Nat} (hneg : y < 2 ^ 255) :
+theorem int256_y_nonneg {y : Nat} (hneg : y < 2 ^ 255) :
     ¬ (int256 y < 0) := by
   rw [int256_of_lt hneg]
   exact not_lt.mpr (Int.natCast_nonneg y)
 
 /-- The signed tree result under a positive multiplier is the magnitude. -/
-private theorem int256_tree_pos {y x : Nat} (hpos : 0 < y) (hneg : y < 2 ^ 255) :
+theorem int256_tree_pos {y x : Nat} (hpos : 0 < y) (hneg : y < 2 ^ 255) :
     int256 (mulExpTree y x) = int256 (mulMagnitudeTree y x) := by
   rw [mulExpTree_pos hpos hneg]
 
 /-- The signed tree result under a negative multiplier is the negated magnitude. -/
-private theorem int256_tree_neg {y x : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256)
+theorem int256_tree_neg {y x : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256)
     (hm255 : mulMagnitudeTree y x < 2 ^ 255) :
     int256 (mulExpTree y x) = -(int256 (mulMagnitudeTree y x)) := by
   rcases Nat.eq_zero_or_pos (mulMagnitudeTree y x) with hmz | hmpos
@@ -545,7 +545,7 @@ private theorem int256_tree_neg {y x : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 
     exact hres
 
 /-- The live magnitude word stays below `2^255`. -/
-private theorem mag_word_small {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
+theorem mag_word_small {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
     (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleQ67)
     (hx0 : int256 x ≠ 0) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
