@@ -19,3 +19,4 @@ import Common.Seam.RealExpBridge
 import Common.GenCover
 import Common.GenBernstein
 import Common.CertificateExamples
+import Common.AxiomCheck
