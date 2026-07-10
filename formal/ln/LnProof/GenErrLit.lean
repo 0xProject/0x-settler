@@ -7,7 +7,7 @@ their covers for the current BIASc and `lnErrorBoundNum`. Computes
 `certErrLt`/`certErrGe`
 inline (mirroring the ErrCert*Bridge constructions) so it does not depend on the
 bridges building, then walks the `checkCoverK` covers (literal signature, as the
-checked `errLt_nonneg`/`errGe_nonneg` theorems use). -/
+checked `errLt_nonnegOn`/`errGe_nonnegOn` theorems use). -/
 
 open Common.Poly LnFloorCert Common.Exp LnFloor LnYul
 open Common.GenCover hiding litText
@@ -40,6 +40,8 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
   let (ok, cells) := walk C lo hi
   IO.println s!"-- {coverMod}: reached={ok} ncells={cells.length}"
   if ! ok then IO.println s!"-- FAILED tail: {cells.drop (cells.length-2)}"; return
+  let expected := cells.zipIdx.map fun (_, i) => s!"{modPrefix}{pad2 i}.lean"
+  reconcileOutputs "LnProof/Cert" [modPrefix] expected
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{pad2 i}.lean"
@@ -48,11 +50,12 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
   let mut s := ""
   for (_, i) in cells.zipIdx do s := s ++ s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
   s := s ++ s!"\nnamespace LnFloorCert\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\n"
-  s := s ++ s!"theorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :\n    0 ≤ evalPoly {litName} m := by\n"
+  s := s ++ s!"theorem {nonnegName}On : NonnegOn {litName} {lo} {hi} := by\n  intro m h1 h2\n"
   let n := cells.length
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     s := s ++ ladderStep s!"{cellPrefix}{pad2 i}" "m" a w (i + 1 == n)
+  s := s ++ s!"\ntheorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :\n    0 ≤ evalPoly {litName} m :=\n  {nonnegName}On m h1 h2\n"
   s := s ++ "\nend LnFloorCert\n"
   IO.FS.writeFile s!"LnProof/Cert/{coverMod}.lean" s
 

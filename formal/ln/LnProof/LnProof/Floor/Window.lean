@@ -115,7 +115,7 @@ theorem x1capGeUpF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
       560227709747861399187319382270000000000000000000000000000000 := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
   · exact (wGe_facts h1 (by omega)).2.1
-  · have hup := geUp_nonneg (m := (m : Int))
+  · have hup := geUp_nonnegOn (m : Int)
       (by simp only [Sc] at ho; omega) (by simp only [MHI] at h2; omega)
     have h := x1capGeUp ho h2 hup
     rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
@@ -128,7 +128,7 @@ theorem x1capGeLoF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
       560227709747861399187319382270000000000000000000000000000000 := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
   · exact (wGe_facts h1 (by omega)).2.2
-  · have hlo := geLo_nonneg (m := (m : Int))
+  · have hlo := geLo_nonnegOn (m : Int)
       (by simp only [Sc] at ho; omega) (by simp only [MHI] at h2; omega)
     have h := x1capGeLo ho h2 hlo
     rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
@@ -140,7 +140,7 @@ theorem x1capLtUpF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
       560227709747861399187319382270000000000000000000000000000000
       (m * 10000000000000000000000000003382) := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw
-  · have hup := ltUp_nonneg (m := (m : Int))
+  · have hup := ltUp_nonnegOn (m : Int)
       (by simp only [MLO] at h1; omega) (by simp only [Sc] at ho ⊢; omega)
     have h := x1capLtUp h1 (by simp only [Sc] at ho ⊢; omega) hup
     rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
@@ -153,7 +153,7 @@ theorem x1capLtLoF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
       560227709747861399187319382270000000000000000000000000000000
       (m * 9999999999999999999999999996615) := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw
-  · have hlo := ltLo_nonneg (m := (m : Int))
+  · have hlo := ltLo_nonnegOn (m : Int)
       (by simp only [MLO] at h1; omega) (by simp only [Sc] at ho ⊢; omega)
     have h := x1capLtLo h1 (by simp only [Sc] at ho ⊢; omega) hlo
     rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS

@@ -1,5 +1,5 @@
 import LnProof.Floor.CertDefs
-import LnProof.Cert.FloorCertLit
+import LnProof.Cert.FloorCertLtLoLit
 import Common.Foundation.Kronecker
 import LnProof.Cert.FloorCertLtLoC00
 import LnProof.Cert.FloorCertLtLoC01
@@ -88,8 +88,9 @@ theorem ltLo_eval_eq : ∀ x : Int, evalPoly certLtLo x = evalPoly certLtLoLit x
       evalPoly_polyPow, evalPoly_expPolyNum, eval01]
     decide +kernel
 
-theorem ltLo_nonneg {m : Int} (h1 : 39614081257132168796771975168 ≤ m) (h2 : m ≤ 56022770974786139918731938181) :
-    0 ≤ evalPoly certLtLo m := by
+theorem ltLo_nonnegOn :
+    NonnegOn certLtLo 39614081257132168796771975168 56022770974786139918731938181 := by
+  intro m h1 h2
   have hev := ltLo_eval_eq m
   rw [hev]
   rcases Int.lt_or_le m (39691340757316876069324712922 + 1) with h | h
@@ -123,5 +124,9 @@ theorem ltLo_nonneg {m : Int} (h1 : 39614081257132168796771975168 ≤ m) (h2 : m
   rcases Int.lt_or_le m (52579881301127525176107597773 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltLo_cell14 m (by omega) (by omega)
   exact checkCoverK_sound _ _ _ _ _ ltLo_cell15 m (by omega) h2
+
+theorem ltLo_nonneg {m : Int} (h1 : 39614081257132168796771975168 ≤ m)
+    (h2 : m ≤ 56022770974786139918731938181) : 0 ≤ evalPoly certLtLo m :=
+  ltLo_nonnegOn m h1 h2
 
 end LnFloorCert

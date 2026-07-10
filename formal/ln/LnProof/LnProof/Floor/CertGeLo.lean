@@ -1,5 +1,5 @@
 import LnProof.Floor.CertDefs
-import LnProof.Cert.FloorCertLit
+import LnProof.Cert.FloorCertGeLoLit
 import Common.Foundation.Kronecker
 import LnProof.Cert.FloorCertGeLoC00
 import LnProof.Cert.FloorCertGeLoC01
@@ -77,8 +77,9 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
       evalPoly_polyPow, evalPoly_expPolyNum, eval01]
     decide +kernel
 
-theorem geLo_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m ≤ 79228162514264337593543950335) :
-    0 ≤ evalPoly certGeLo m := by
+theorem geLo_nonnegOn :
+    NonnegOn certGeLo 56022770974786139918731938273 79228162514264337593543950335 := by
+  intro m h1 h2
   have hev := geLo_eval_eq m
   rw [hev]
   rcases Int.lt_or_le m (62244752178564837341413711044 + 1) with h | h
@@ -112,5 +113,9 @@ theorem geLo_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m
   rcases Int.lt_or_le m (78012383942778533660629771928 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell14 m (by omega) (by omega)
   exact checkCoverK_sound _ _ _ _ _ geLo_cell15 m (by omega) h2
+
+theorem geLo_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m)
+    (h2 : m ≤ 79228162514264337593543950335) : 0 ≤ evalPoly certGeLo m :=
+  geLo_nonnegOn m h1 h2
 
 end LnFloorCert

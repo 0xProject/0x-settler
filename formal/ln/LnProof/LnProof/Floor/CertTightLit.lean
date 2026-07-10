@@ -1,5 +1,3 @@
-import LnProof.Cert.FloorCertLit
-
 /-!
 Generated tightened floor-certificate literals used by the exact ln error-bound proof.
 The lists are materialized so Kronecker cell checks do not rebuild the source

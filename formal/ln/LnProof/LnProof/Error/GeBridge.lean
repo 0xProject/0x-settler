@@ -5,7 +5,7 @@ import LnProof.Error.FactoredCap
 /-!
 # Bridge from the ge error cell cover to the `sumGE` inequality
 
-`errGe_nonneg` proves `0 ≤ evalPoly certErrGeLit m` over the ge domain.  Here we
+`errGe_nonnegOn` proves `0 ≤ evalPoly certErrGeLit m` over the ge domain. Here we
 identify the literal cert with the symbolic margin
 `certErrGe = expMarginPoly 22 geTN2b geTD2b (errGeK·(m+1)) errGeW`
 (an `evalPoly_ext` identity, exactly as `geLo_eval_eq`), and feed the existing
@@ -89,6 +89,12 @@ theorem errGe_eval_eq : ∀ x : Int, evalPoly certErrGe x = evalPoly certErrGeLi
       evalPoly_polyPow, evalPoly_expPolyNum, eval01]
     decide +kernel
 
+theorem certErrGe_nonnegOn :
+    NonnegOn certErrGe 56022770974786139918731938273 79228162514264337593543950335 := by
+  intro x hlo hhi
+  rw [errGe_eval_eq]
+  exact errGe_nonnegOn x hlo hhi
+
 /-- The ge cell cover proves the `sumGE`-shaped budget inequality. -/
 theorem errGe_sumGE {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     sumGE 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat
@@ -97,8 +103,7 @@ theorem errGe_sumGE {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     simp only [Sc] at h1; omega
   have hle : (m : Int) ≤ 79228162514264337593543950335 := by
     simp only [MHI] at h2; omega
-  have hnn : 0 ≤ evalPoly certErrGe (m : Int) := by
-    rw [errGe_eval_eq]; exact errGe_nonneg hge hle
+  have hnn : 0 ≤ evalPoly certErrGe (m : Int) := certErrGe_nonnegOn _ hge hle
   have hyp : 0 ≤ evalPoly (polyScale errGeK [1, 1]) (m : Int) := by
     rw [evalPoly_polyScale]
     refine Int.mul_nonneg (by unfold errGeK; decide) ?_
