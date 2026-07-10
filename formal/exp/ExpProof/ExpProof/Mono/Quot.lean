@@ -37,14 +37,13 @@ theorem int256_eq_of_nonneg {w : Nat} (hw : w < 2 ^ 256) (hnn : 0 ≤ int256 w) 
 
 /-- `tod` transported to `Int`: a signed floor with `|tod| < 2^126`. The product `t·Od` fits a word
 (`|t| < 2.4·10³⁸`, `Od < 5·2^125`, so `|t·Od| < 29·2^250`). -/
-theorem todTree_bound {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem todTree_bound_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     -(2 ^ 126 : Int) ≤ int256 (todTree x) ∧ int256 (todTree x) < 2 ^ 126 ∧
       (2 ^ 129 : Int) * int256 (todTree x) ≤ int256 (tTree x) * (odTree x : Int) ∧
       int256 (tTree x) * (odTree x : Int) <
         (2 ^ 129 : Int) * int256 (todTree x) + 2 ^ 129 := by
-  obtain ⟨htlo, hthi⟩ := tTree_bound_sharp hx hC hC0
-  obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
+  obtain ⟨htlo, hthi⟩ := tTree_bound_sharp_wide hx hW
+  obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW
   have hodlt : odTree x < 5 * 2 ^ 125 := odTree_lt hvlt
   have htw : tTree x < 2 ^ 256 := by unfold tTree; exact evmSar_lt _ _
   have hodw : odTree x < 2 ^ 256 := by unfold odTree; exact evmAdd_lt _ _
@@ -85,6 +84,14 @@ theorem todTree_bound {x : Nat} (hx : x < 2 ^ 256)
   · -- upper bound: t·od < 2^129·tod + 2^129 and t·od < 29·2^250 ⇒ tod < 2^126
     nlinarith [hsh, hprod_lt, hp252]
 
+theorem todTree_bound {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    -(2 ^ 126 : Int) ≤ int256 (todTree x) ∧ int256 (todTree x) < 2 ^ 126 ∧
+      (2 ^ 129 : Int) * int256 (todTree x) ≤ int256 (tTree x) * (odTree x : Int) ∧
+      int256 (tTree x) * (odTree x : Int) <
+        (2 ^ 129 : Int) * int256 (todTree x) + 2 ^ 129 :=
+  todTree_bound_wide hx (wideRegion_of_wad hC hC0)
+
 /-! ## Numerator and denominator -/
 
 /-- Abstract numerator/denominator positivity: stated over opaque words `E` (the even accumulator)
@@ -119,15 +126,14 @@ theorem numden_pos_of {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
 
 /-- `num = ev + tod` and `den = ev − tod`, transported to `Int`, are both strictly positive: the
 even accumulator dominates `|tod|`. -/
-theorem numden_pos {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem numden_pos_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     int256 (evmAdd (evTree x) (todTree x)) = (evTree x : Int) + int256 (todTree x) ∧
       int256 (evmSub (evTree x) (todTree x)) = (evTree x : Int) - int256 (todTree x) ∧
       0 < (evTree x : Int) + int256 (todTree x) ∧
       0 < (evTree x : Int) - int256 (todTree x) := by
-  obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
+  obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW
   obtain ⟨hev_lo, hev_hi⟩ := evTree_facts hvlt
-  obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+  obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound_wide hx hW
   have hevw : evTree x < 2 ^ 256 := by unfold evTree; exact evmAdd_lt _ _
   have htodw : todTree x < 2 ^ 256 := by unfold todTree; exact evmSar_lt _ _
   refine numden_pos_of hevw htodw ?_ ?_ ?_ ?_
@@ -138,6 +144,14 @@ theorem numden_pos {x : Nat} (hx : x < 2 ^ 256)
     rw [show ((3 * 2 ^ 127 : Nat) : Int) = 3 * 2 ^ 127 by norm_num] at this; exact this
   · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact htod_lo
   · rw [show (85070591730234615865843651857942052864 : Int) = 2 ^ 126 by norm_num]; exact htod_hi
+
+theorem numden_pos {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    int256 (evmAdd (evTree x) (todTree x)) = (evTree x : Int) + int256 (todTree x) ∧
+      int256 (evmSub (evTree x) (todTree x)) = (evTree x : Int) - int256 (todTree x) ∧
+      0 < (evTree x : Int) + int256 (todTree x) ∧
+      0 < (evTree x : Int) - int256 (todTree x) :=
+  numden_pos_wide hx (wideRegion_of_wad hC hC0)
 
 /-! ## The runtime quotient `r0 = ⌊(10¹⁸·2⁶⁷)·num/den⌋` -/
 

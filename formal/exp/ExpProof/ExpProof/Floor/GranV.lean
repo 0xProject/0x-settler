@@ -403,11 +403,10 @@ theorem step_identity (v : Nat) (t : Int) :
 /-! ## Grid placement of the exact square -/
 
 /-- The squared reduced argument splits as `t² = 2¹³⁵·vTree x + r` with `0 ≤ r < 2¹³⁵`. -/
-theorem tsq_split {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem tsq_split_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     2 ^ 135 * (vTree x : Int) ≤ (int256 (tTree x)) ^ 2 ∧
       (int256 (tTree x)) ^ 2 < 2 ^ 135 * (vTree x : Int) + 2 ^ 135 := by
-  obtain ⟨hveq, _⟩ := vTree_eq hx hC hC0
+  obtain ⟨hveq, _⟩ := vTree_eq_wide hx hW
   have hsqnn : (0 : Int) ≤ (int256 (tTree x)) ^ 2 := sq_nonneg _
   have hdm := Int.ediv_add_emod ((int256 (tTree x)) ^ 2) (2 ^ 135)
   have hmod_lt := Int.emod_lt_of_pos ((int256 (tTree x)) ^ 2) (by norm_num : (0:Int) < 2 ^ 135)
@@ -417,12 +416,17 @@ theorem tsq_split {x : Nat} (hx : x < 2 ^ 256)
   · nlinarith [hdm, hmod_nn]
   · nlinarith [hdm, hmod_lt]
 
-/-- The grid index never leaves the certified domain: `vTree x ≤ vmaxV`. -/
-theorem vTree_le_vmax {x : Nat} (hx : x < 2 ^ 256)
+theorem tsq_split {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    2 ^ 135 * (vTree x : Int) ≤ (int256 (tTree x)) ^ 2 ∧
+      (int256 (tTree x)) ^ 2 < 2 ^ 135 * (vTree x : Int) + 2 ^ 135 :=
+  tsq_split_wide hx (wideRegion_of_wad hC hC0)
+
+/-- The grid index never leaves the certified domain: `vTree x ≤ vmaxV`. -/
+theorem vTree_le_vmax_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     vTree x ≤ ExpCertV.vmaxV := by
-  obtain ⟨hlo, _⟩ := tsq_split hx hC hC0
-  obtain ⟨htlo, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  obtain ⟨hlo, _⟩ := tsq_split_wide hx hW
+  obtain ⟨htlo, hthi⟩ := tTree_in_cert_domain_wide hx hW
   have ht2 : (int256 (tTree x)) ^ 2 ≤ 235865763225513294137944142764154484399 ^ 2 := by
     nlinarith [htlo, hthi]
   have hlt : 2 ^ 135 * (vTree x : Int) <
@@ -435,6 +439,11 @@ theorem vTree_le_vmax {x : Nat} (hx : x < 2 ^ 256)
   have hvN : vTree x < 1277263193518626341050532535110179583 := by exact_mod_cast hvI
   unfold ExpCertV.vmaxV
   omega
+
+theorem vTree_le_vmax {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    vTree x ≤ ExpCertV.vmaxV :=
+  vTree_le_vmax_wide hx (wideRegion_of_wad hC hC0)
 
 /-! ## Cross-monotonicity of the rational in the square argument -/
 
@@ -547,14 +556,13 @@ theorem DE_eq_w (t : Int) :
 
 /-- **The tie at the runtime point (nonnegative half)**: the cert rational at `t²` lies between the
 two grid values, as cross products. -/
-theorem tie_over {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+theorem tie_over_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
     evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x) (int256 (tTree x)) ≤
         NUMv (vTree x) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) ∧
       NUMv (vTree x + 1) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) ≤
         evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x + 1) (int256 (tTree x)) := by
-  obtain ⟨haw, hwb⟩ := tsq_split hx hC hC0
+  obtain ⟨haw, hwb⟩ := tsq_split_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   have hs : (0:Int) ≤ 2 ^ 24 * t := by positivity
@@ -586,15 +594,23 @@ theorem tie_over {x : Nat} (hx : x < 2 ^ 256)
         _ = 2 ^ 564 * (evalPoly ExpCertV.numExpV t * DENv (v + 1) t) := by ring
     exact le_of_mul_le_mul_left h2 hp555
 
-/-- **The tie at the runtime point (nonpositive half)**: the directions flip. -/
-theorem tie_under {x : Nat} (hx : x < 2 ^ 256)
+theorem tie_over {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x) (int256 (tTree x)) ≤
+        NUMv (vTree x) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) ∧
+      NUMv (vTree x + 1) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) ≤
+        evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x + 1) (int256 (tTree x)) :=
+  tie_over_wide hx (wideRegion_of_wad hC hC0) htnn
+
+/-- **The tie at the runtime point (nonpositive half)**: the directions flip. -/
+theorem tie_under_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x)
     (htnp : int256 (tTree x) ≤ 0) :
     NUMv (vTree x) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) ≤
         evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x) (int256 (tTree x)) ∧
       evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x + 1) (int256 (tTree x)) ≤
         NUMv (vTree x + 1) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) := by
-  obtain ⟨haw, hwb⟩ := tsq_split hx hC hC0
+  obtain ⟨haw, hwb⟩ := tsq_split_wide hx hW
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
   have hs : (0:Int) ≤ 2 ^ 24 * (-t) := by
@@ -645,6 +661,15 @@ theorem tie_under {x : Nat} (hx : x < 2 ^ 256)
         _ ≤ evalPoly ExpCertV.denExpV t * (2 ^ 564 * NUMv (v + 1) t) := h1
         _ = 2 ^ 564 * (NUMv (v + 1) t * evalPoly ExpCertV.denExpV t) := by ring
     exact le_of_mul_le_mul_left h2 hp555
+
+theorem tie_under {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnp : int256 (tTree x) ≤ 0) :
+    NUMv (vTree x) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) ≤
+        evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x) (int256 (tTree x)) ∧
+      evalPoly ExpCertV.numExpV (int256 (tTree x)) * DENv (vTree x + 1) (int256 (tTree x)) ≤
+        NUMv (vTree x + 1) (int256 (tTree x)) * evalPoly ExpCertV.denExpV (int256 (tTree x)) :=
+  tie_under_wide hx (wideRegion_of_wad hC hC0) htnp
 
 /-! ## The 32-piece granularity certificate -/
 
@@ -1201,18 +1226,23 @@ theorem granPieces_ok : ∀ p ∈ ExpCertV.granPieces, PieceHolds p := by
 
 /-- **Piece selection.** The runtime grid point lies in one of the 32 pieces, whose certified
 constants apply, and the piece's `t`-cap dominates the reduced argument: `t² < T²`. -/
-theorem piece_select {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem piece_select_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     ∃ T DO DU Khi : Int,
       PieceOK (vTree x) T DO DU Khi ∧ (int256 (tTree x)) ^ 2 < T ^ 2 := by
-  obtain ⟨_, hsplit⟩ := tsq_split hx hC hC0
+  obtain ⟨_, hsplit⟩ := tsq_split_wide hx hW
   have hvI : ((vTree x : Nat) : Int) ≤ (ExpCertV.vmaxV : Int) := by
-    exact_mod_cast vTree_le_vmax hx hC hC0
+    exact_mod_cast vTree_le_vmax_wide hx hW
   obtain ⟨p, hp, hplo, hphi⟩ :=
     piecesCover_sound hvI 0 granPieces_cover (Int.natCast_nonneg _)
   obtain ⟨vlo, vhi, T, DO, DU⟩ := p
   exact ⟨T, DO, DU, evalPoly Kpoly vhi,
     granPieces_ok _ hp (vTree x) hplo hphi,
     tsq_lt_capsq hsplit hphi (granPieces_caps _ hp)⟩
+
+theorem piece_select {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    ∃ T DO DU Khi : Int,
+      PieceOK (vTree x) T DO DU Khi ∧ (int256 (tTree x)) ^ 2 < T ^ 2 :=
+  piece_select_wide hx (wideRegion_of_wad hC hC0)
 
 end ExpYul
