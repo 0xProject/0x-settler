@@ -14,6 +14,94 @@ namespace Common.GenCover
 
 open Common.Poly
 
+structure CellSpec where
+  lo : Int
+  hi : Int
+  bits : Nat
+
+structure CellEmitter where
+  checkerImport : String
+  preamble : String → String
+  checkType : String → String → CellSpec → String
+  soundTerm : String → String → CellSpec → String
+
+/-- Search a finite consecutive range for its first checker-accepted bit width. -/
+def firstAcceptedB (check : Nat → Bool) : Nat → Nat → Option Nat
+  | _, 0 => none
+  | start, fuel + 1 =>
+    if check start then some start else firstAcceptedB check (start + 1) fuel
+
+def strictPow2Bits (n : Nat) : Nat :=
+  if n = 0 then 0 else Nat.log2 n + 1
+
+def firstCoverKB (C : List Int) (lo hi : Int) (fuel : Nat) : Option Nat :=
+  let start := strictPow2Bits (aeval C (1 + lo.natAbs) * 2)
+  firstAcceptedB (fun B => checkCoverK B C lo hi [hi - lo]) start fuel
+
+def acceptedKCell (C : List Int) (bitFuel : Nat) (lo hi : Int) : Option CellSpec :=
+  match firstCoverKB C lo hi bitFuel with
+  | none => none
+  | some B => some ⟨lo, hi, B⟩
+
+partial def bisectWidestK (C : List Int) (bitFuel : Nat)
+    (accepted : CellSpec) (rejected : Int) : CellSpec :=
+  if rejected ≤ accepted.hi + 1 then accepted
+  else
+    let mid := accepted.hi + (rejected - accepted.hi) / 2
+    match acceptedKCell C bitFuel accepted.lo mid with
+    | some cell => bisectWidestK C bitFuel cell rejected
+    | none => bisectWidestK C bitFuel accepted mid
+
+def widestKCell (C : List Int) (bitFuel : Nat) (lo hi : Int) : Option CellSpec :=
+  if hi < lo then none
+  else
+    match acceptedKCell C bitFuel lo hi with
+    | some full => some full
+    | none =>
+      match acceptedKCell C bitFuel lo lo with
+      | none => none
+      | some point => some (bisectWidestK C bitFuel point hi)
+
+/-- Greedy left-to-right partition with a checker-accepted bit width per cell. -/
+def walkK (C : List Int) (bitFuel : Nat) :
+    Nat → Int → Int → Option (List CellSpec)
+  | 0, lo, hi => if hi < lo then some [] else none
+  | cellFuel + 1, lo, hi =>
+    if hi < lo then some []
+    else
+      match widestKCell C bitFuel lo hi with
+      | none => none
+      | some cell =>
+        if cell.hi = hi then some [cell]
+        else
+          match walkK C bitFuel cellFuel (cell.hi + 1) hi with
+          | none => none
+          | some rest => some (cell :: rest)
+
+/-- Remove stale generated Lean files only from the caller's owned prefixes. -/
+def reconcileOutputs (outDir : System.FilePath) (ownedPrefixes expected : List String) :
+    IO Unit := do
+  for entry in (← outDir.readDir) do
+    let name := entry.fileName
+    let owned := ownedPrefixes.any (fun pfx => name.startsWith pfx)
+    let keep := expected.any (fun expectedName => name = expectedName)
+    if name.endsWith ".lean" && owned && !keep then
+      let metadata ← entry.path.symlinkMetadata
+      if metadata.type == .file then
+        IO.FS.removeFile entry.path
+
+def cellTextWith (emitter : CellEmitter) (importMod ns cellName litName : String)
+    (spec : CellSpec) : String :=
+  s!"import {importMod}\nimport {emitter.checkerImport}\n\nnamespace {ns}\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\n{emitter.preamble cellName}theorem {cellName} : {emitter.checkType litName cellName spec} := by\n  decide +kernel\n\ntheorem {cellName}_nonnegOn : NonnegOn {litName} {spec.lo} {spec.hi} := by\n  exact {emitter.soundTerm litName cellName spec}\n\nend {ns}\n"
+
+def coverKEmitter : CellEmitter where
+  checkerImport := "Common.Foundation.KroneckerShift"
+  preamble := fun _ => ""
+  checkType := fun litName _ spec =>
+    s!"checkCoverK {spec.bits} {litName} {spec.lo} {spec.hi}\n    [{spec.hi - spec.lo}] = true"
+  soundTerm := fun litName cellName spec =>
+    s!"checkCoverK_nonnegOn {spec.bits} {litName} [{spec.hi - spec.lo}] {spec.lo} {spec.hi} {cellName}"
+
 /-- Drop trailing zero coefficients. -/
 def ptrim (a : List Int) : List Int :=
   let r := (a.reverse.dropWhile (· == 0)).reverse
@@ -53,6 +141,28 @@ def litText (name : String) (c : List Int) : String :=
 /-- One cover-cell module: the kernel-decided `checkCoverK` theorem for `[a, a + w]`. -/
 def cellText (importMod ns cellName litName : String) (a w : Int) : String :=
   s!"import {importMod}\nimport Common.Foundation.KroneckerShift\n\nnamespace {ns}\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\ntheorem {cellName} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend {ns}\n"
+
+def cellTextK (importMod ns cellName litName : String) (spec : CellSpec) : String :=
+  cellTextWith coverKEmitter importMod ns cellName litName spec
+
+def emitKCells (outDir importMod ns modPrefix cellPrefix litName : String)
+    (cells : List CellSpec) : IO Unit := do
+  for (spec, i) in cells.zipIdx do
+    let suffix := pad2 i
+    IO.FS.writeFile s!"{outDir}/{modPrefix}{suffix}.lean"
+      (cellTextK importMod ns s!"{cellPrefix}{suffix}" litName spec)
+
+def walkAndEmitK (outDir importMod ns modPrefix cellPrefix litName : String)
+    (C : List Int) (lo hi : Int) (cellFuel bitFuel : Nat) :
+    IO (Option (List CellSpec)) := do
+  let result := walkK C bitFuel cellFuel lo hi
+  match result with
+  | none => pure none
+  | some cells =>
+    let expected := cells.zipIdx.map fun (_, i) => s!"{modPrefix}{pad2 i}.lean"
+    reconcileOutputs outDir [modPrefix] expected
+    emitKCells outDir importMod ns modPrefix cellPrefix litName cells
+    pure (some cells)
 
 /-- One `_nonneg`-ladder step dispatching variable `x` into cell `cellName`; the final cell
 consumes the ladder's upper hypothesis `h2` directly. -/

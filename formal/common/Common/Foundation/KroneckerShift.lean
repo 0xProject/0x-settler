@@ -256,9 +256,8 @@ def checkCoverK (B : Nat) (C : List Int) (lo hi : Int) : List Int → Bool
       decide (0 ≤ (hornerIv S 0 w).1) &&
       checkCoverK B C (lo + w + 1) hi ws
 
-theorem checkCoverK_sound (B : Nat) (C : List Int) (ws : List Int) :
-    ∀ lo hi : Int, checkCoverK B C lo hi ws = true →
-      ∀ x : Int, lo ≤ x → x ≤ hi → 0 ≤ evalPoly C x := by
+theorem checkCoverK_nonnegOn (B : Nat) (C : List Int) (ws : List Int) :
+    ∀ lo hi : Int, checkCoverK B C lo hi ws = true → NonnegOn C lo hi := by
   induction ws with
   | nil =>
     intro lo hi h x h1 h2
@@ -284,5 +283,11 @@ theorem checkCoverK_sound (B : Nat) (C : List Int) (ws : List Int) :
       rw [polyShift_eval] at hx
       rw [show lo + (x - lo) = x by omega] at hx
       omega
+
+theorem checkCoverK_sound (B : Nat) (C : List Int) (ws : List Int) :
+    ∀ lo hi : Int, checkCoverK B C lo hi ws = true →
+      ∀ x : Int, lo ≤ x → x ≤ hi → 0 ≤ evalPoly C x := by
+  intro lo hi h
+  exact checkCoverK_nonnegOn B C ws lo hi h
 
 end Common.Poly
