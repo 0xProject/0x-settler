@@ -854,6 +854,82 @@ theorem r0_seam_double {x1 x2 : Nat}
     int256 (r0Tree x1) + 3 ≤ 2 * int256 (r0Tree x2) :=
   r0_seam_double_wide hx1 hx2 (wideRegion_of_wad hC1 hC01) (wideRegion_of_wad hC2 hC02) hk hadj
 
+/-- **The scaled quotient at most doubles across a seam, three units short**, at any live scale:
+the seam slack `exp(−1/RAY) < 1` against `r0₂ > 2¹²²` (worth `≈ 5·10⁹` grid units at the minimal
+scale) still dwarfs the per-point envelopes and the three integer units. -/
+theorem r0Scaled_seam_double {scale x1 x2 : Nat}
+    (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleQ67)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hW1 : WideRegion x1) (hW2 : WideRegion x2)
+    (hk : int256 (kTree x2) = int256 (kTree x1) + 1)
+    (hadj : int256 x2 = int256 x1 + 1) :
+    int256 (r0ScaledTree scale x1) + 3 ≤ 2 * int256 (r0ScaledTree scale x2) := by
+  have hover1 := r0Scaled_real_over_within hslo hshi hx1 hW1
+  have hunder2 := r0Scaled_real_under_within hslo hshi hx2 hW2
+  have hr0_2_big := r0Scaled_gt_2122 hslo hshi hx2 hW2
+  have hseam := reducedArg_seam hk hadj
+  set E1 := Real.exp (reducedArg x1) with hE1
+  set E2 := Real.exp (reducedArg x2) with hE2
+  set y := Real.exp (-(1 / (10 ^ 27 : Real))) with hy
+  have hy_pos : 0 < y := Real.exp_pos _
+  have hy_bound : y ≤ 1 - 1 / (2 * (10 ^ 27 : Real)) := by
+    rw [hy]
+    have hz : (0:Real) < 1 / (10 ^ 27 : Real) := by positivity
+    have hez : (1 : Real) + 1 / (10 ^ 27 : Real) ≤ Real.exp (1 / (10 ^ 27 : Real)) := by
+      have := Real.add_one_le_exp (1 / (10 ^ 27 : Real)); linarith [this]
+    rw [Real.exp_neg]
+    have hexppos : 0 < Real.exp (1 / (10 ^ 27 : Real)) := Real.exp_pos _
+    rw [inv_le_iff_one_le_mul₀ hexppos]
+    have h1z : (1 - 1 / (2 * (10 ^ 27 : Real))) * (1 + 1 / (10 ^ 27 : Real)) ≥ 1 := by
+      rw [ge_iff_le]; nlinarith [sq_nonneg (1 / (10 ^ 27 : Real))]
+    nlinarith [hez, h1z, hexppos, mul_pos (by positivity : (0:Real) < 1 - 1/(2*(10^27:Real))) hexppos]
+  have hE2bound : (scale : Real) * E2 ≤ (int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real) :=
+    hunder2
+  have hr0_1 : (int256 (r0ScaledTree scale x1) : Real) ≤
+      2 * ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) * y +
+        3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) := by
+    have h1 : (scale : Real) * E1 = 2 * ((scale : Real) * E2) * y := by
+      rw [hseam]; ring
+    have h2 : (int256 (r0ScaledTree scale x1) : Real) ≤ (scale : Real) * E1 +
+        3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) := hover1
+    rw [h1] at h2
+    have h3 : 2 * ((scale : Real) * E2) * y ≤
+        2 * ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) * y :=
+      mul_le_mul_of_nonneg_right
+        (by linarith [mul_le_mul_of_nonneg_left hE2bound (by norm_num : (0:Real) ≤ 2)])
+        (le_of_lt hy_pos)
+    linarith [h2, h3]
+  have hr0_2nn : (0:Real) ≤ (int256 (r0ScaledTree scale x2) : Real) := by
+    linarith [hr0_2_big, (by positivity : (0:Real) ≤ (2:Real)^122)]
+  have hkey : 2 * ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) * y +
+      3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) + 3 <
+        2 * (int256 (r0ScaledTree scale x2) : Real) := by
+    have hyb : 2 * ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) * y ≤
+        2 * ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) * (1 - 1 / (2 * (10 ^ 27 : Real))) := by
+      apply mul_le_mul_of_nonneg_left hy_bound
+      linarith [hr0_2nn]
+    have hexpand : 2 * ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) *
+          (1 - 1 / (2 * (10 ^ 27 : Real))) =
+        2 * (int256 (r0ScaledTree scale x2) : Real) + 2 * (2993 / 1000 : Real) -
+          ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) / (10 ^ 27 : Real) := by
+      field_simp
+      ring
+    have hbig : ((int256 (r0ScaledTree scale x2) : Real) + (2993 / 1000 : Real)) / (10 ^ 27 : Real) > 30 := by
+      rw [gt_iff_lt, lt_div_iff₀ (by positivity)]
+      nlinarith [hr0_2_big, (by norm_num : (30:Real) * 10 ^ 27 + 1 < 2 ^ 122)]
+    have hUB : 2 * (2993 / 1000 : Real) +
+        3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) + 3 < 30 := by
+      norm_num
+    linarith [hyb, hexpand ▸ hyb, hbig, hUB]
+  have hreal : (int256 (r0ScaledTree scale x1) : Real) + 3 ≤
+      2 * (int256 (r0ScaledTree scale x2) : Real) := by
+    linarith [hr0_1, hkey]
+  have hcast : ((int256 (r0ScaledTree scale x1) + 3 : Int) : Real) ≤
+      ((2 * int256 (r0ScaledTree scale x2) : Int) : Real) := by
+    push_cast
+    linarith [hreal]
+  exact_mod_cast hcast
+
 end
 
 end ExpYul

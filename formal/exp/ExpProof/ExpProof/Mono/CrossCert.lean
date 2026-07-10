@@ -224,4 +224,61 @@ theorem tod_cross {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   exact tod_cross_of hfl1 hfu2 hev1pos hev2nn
     (smooth_cross hx1 hx2 hC1 hC01 hC2 hC02 hk hadj)
 
+/-- The squared-argument step gap on the wide region, as a `Nat` two-sided gap. -/
+theorem vTree_step_nat_wide {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hW1 : WideRegion x1) (hW2 : WideRegion x2)
+    (hk : int256 (kTree x1) = int256 (kTree x2))
+    (hadj : int256 x2 = int256 x1 + 1) :
+    vTree x1 ≤ vTree x2 + Wstep ∧ vTree x2 ≤ vTree x1 + Wstep := by
+  obtain ⟨hlo, hhi⟩ := vTree_step_wide hx1 hx2 hW1 hW2 hk hadj
+  have c1 : (vTree x1 : Int) ≤ (vTree x2 : Int) + Wstep := by omega
+  have c2 : (vTree x2 : Int) ≤ (vTree x1 : Int) + Wstep := by omega
+  exact ⟨by exact_mod_cast c1, by exact_mod_cast c2⟩
+
+/-- **The smooth certificate on the wide region.** -/
+theorem smooth_cross_wide {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hW1 : WideRegion x1) (hW2 : WideRegion x2)
+    (hk : int256 (kTree x1) = int256 (kTree x2))
+    (hadj : int256 x2 = int256 x1 + 1) :
+    int256 (tTree x1) * (odTree x1 : Int) * (evTree x2 : Int) +
+        2 ^ 129 * (evTree x1 : Int) ≤
+      int256 (tTree x2) * (odTree x2 : Int) * (evTree x1 : Int) := by
+  have hv1 : vTree x1 < 2 ^ 120 := (vTree_eq_wide hx1 hW1).2
+  have hv2 : vTree x2 < 2 ^ 120 := (vTree_eq_wide hx2 hW2).2
+  obtain ⟨hg1, hg2⟩ := vTree_step_nat_wide hx1 hx2 hW1 hW2 hk hadj
+  obtain ⟨hev1lo, hev1hi⟩ := evTree_int hv1
+  obtain ⟨hev2lo, hev2hi⟩ := evTree_int hv2
+  obtain ⟨hod2lo, hod2hi⟩ := odTree_int hv2
+  obtain ⟨hevd1, hevd2⟩ := evTree_lip_int hv1 hv2 hg1 hg2
+  obtain ⟨hodd1, hodd2⟩ := odTree_lip_int hv1 hv2 hg1 hg2
+  obtain ⟨htg1, -⟩ := tTree_step_wide hx1 hx2 hW1 hW2 hk hadj
+  obtain ⟨htlo1, hthi1⟩ := tTree_bound_wide hx1 hW1
+  have hGv : (Gstep : Int) = 680564733841 := by unfold Gstep; norm_num
+  rw [hGv] at htg1
+  rw [show (2 : Int) ^ 128 = 340282366920938463463374607431768211456 by norm_num] at htlo1 hthi1
+  rw [show (3 : Int) * 2 ^ 127 = 510423550381407695195061911147652317184 by norm_num] at hev1hi hev2hi
+  rw [show (5 : Int) * 2 ^ 125 = 212676479325586539664609129644855132160 by norm_num] at hod2hi
+  rw [show (2 : Int) ^ 129 = 680564733841876926926749214863536422912 by norm_num]
+  have ht2eq : int256 (tTree x2) = int256 (tTree x1) + (int256 (tTree x2) - int256 (tTree x1)) := by
+    ring
+  rw [ht2eq]
+  exact smooth_cross_of htg1 htlo1 hthi1 hev1lo hev1hi hev2lo hev2hi hod2lo hod2hi
+    hevd1 hevd2 hodd1 hodd2
+
+/-- **The same-octave cross inequality on the wide region.** -/
+theorem tod_cross_wide {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hW1 : WideRegion x1) (hW2 : WideRegion x2)
+    (hk : int256 (kTree x1) = int256 (kTree x2))
+    (hadj : int256 x2 = int256 x1 + 1) :
+    int256 (todTree x1) * (evTree x2 : Int) ≤ int256 (todTree x2) * (evTree x1 : Int) := by
+  obtain ⟨_, _, hfl1, _⟩ := todTree_bound_wide hx1 hW1
+  obtain ⟨_, _, _, hfu2⟩ := todTree_bound_wide hx2 hW2
+  have hv1 : vTree x1 < 2 ^ 120 := (vTree_eq_wide hx1 hW1).2
+  have hv2 : vTree x2 < 2 ^ 120 := (vTree_eq_wide hx2 hW2).2
+  have hev1pos : 0 < (evTree x1 : Int) := by
+    have := (evTree_int hv1).1; linarith
+  have hev2nn : 0 ≤ (evTree x2 : Int) := Int.natCast_nonneg _
+  exact tod_cross_of hfl1 hfu2 hev1pos hev2nn
+    (smooth_cross_wide hx1 hx2 hW1 hW2 hk hadj)
+
 end ExpYul
