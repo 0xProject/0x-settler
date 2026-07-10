@@ -5,6 +5,7 @@ if ! hash forge &>/dev/null ; then
     exit 1
 fi
 
+foundryup -u v1.5.1 &>/dev/null || true
 if [[ $(forge --version) != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
     echo 'Wrong foundry version installed' >&2
     echo 'Run `foundryup -i v1.5.1`' >&2
