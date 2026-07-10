@@ -7,7 +7,9 @@ import {Clz} from "src/vendor/Clz.sol";
 import {Test, stdError} from "@forge-std/Test.sol";
 
 contract ExpTest is Test {
-    uint256 private constant _SCALE_MAX = 0x6f05b59d3b2000000000000000000000;
+    // Mirrors Exp._SCALE_MAX: floor(2**126 * 1e19 / 5737291786393199862), the over-side
+    // certification ceiling of the kernel.
+    uint256 private constant _SCALE_MAX = 0x6f8d071203399a4f3617495dba31eeb1;
     // First input whose octave count exceeds the supported range; `expRayToWad` reverts here.
     int256 private constant _TOO_BIG = 0x92b2f16cc66c5a4ae96e80d4;
     // First input whose octave count reaches 125: the accuracy-guard boundary at the deepest
@@ -208,11 +210,46 @@ contract ExpTest is Test {
         }
     }
 
-    function testMulExpRayScalePoint() external pure {
+    /// x = 0 is pinned exactly wherever it is accepted: acceptance needs two bits of closing
+    /// shift, i.e. 4*abs(y) <= _SCALE_MAX. One unit of magnitude past that boundary reverts.
+    function testMulExpRayScalePoint() external {
         assertEq(Exp.mulExpRay(1, 0), 1, "one");
         assertEq(Exp.mulExpRay(-1, 0), -1, "minus one");
-        assertEq(Exp.mulExpRay(int256(_SCALE_MAX), 0), int256(_SCALE_MAX), "scale max");
-        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), 0), -int256(_SCALE_MAX), "negative scale max");
+        int256 pinMax = int256(_SCALE_MAX >> 2);
+        assertEq(Exp.mulExpRay(pinMax, 0), pinMax, "deepest pinned magnitude");
+        assertEq(Exp.mulExpRay(-pinMax, 0), -pinMax, "negative mirror");
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(pinMax + 1, 0);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(-(pinMax + 1), 0);
+    }
+
+    /// The deepest live corner at the scale cap: abs(y) = _SCALE_MAX (s = 0) at the first x of
+    /// octave k = -2, where the closing shift is exactly 2. The two-unit bracket must hold here.
+    function testMulExpRayScaleCapLive() external pure {
+        int256 x = -1732867951399863273543080303; // _octaveStart(-2)
+        int256 floorA = 26211841114070945982531467099595678267;
+        int256 r = Exp.mulExpRay(int256(_SCALE_MAX), x);
+        assertLe(r, floorA, "overestimates");
+        assertGe(r, floorA - 1, "below floor minus one");
+    }
+
+    /// Below the octave-wrap boundary (x < -(2**255 + 2**191)/CINV ~ -5.7e45) the wrapped octave
+    /// word decides between revert and the zero clamp; either is within the bracket (A < 1 at
+    /// every supported magnitude). One deterministic witness each way, plus the boundary pair.
+    function testMulExpRayWrappedOctave() external {
+        // 2**191 + CINV*x wraps to exactly zero: octave word 0, closing shift 67, clamps.
+        assertEq(
+            Exp.mulExpRay(1e18, -57402104550644550183762763389232637323199440519166886170539266728770553249792),
+            0,
+            "wrapped word 0 clamps"
+        );
+        assertEq(Exp.mulExpRay(1e18, type(int256).min), 0, "int256.min clamps");
+        // The deepest wrap-free x: octave word -2**63, closing shift far above 2, clamps.
+        assertEq(Exp.mulExpRay(1e18, -6393154322601327830240888940151524429370348050), 0, "deepest wrap-free x clamps");
+        // One below it the product wraps positive (octave word 2**63 - 1) and the guard fires.
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(1e18, -6393154322601327830240888940151524429370348051);
     }
 
     /// A zero multiplier takes the same guard as every other y: any x below the k = 126 fence is
@@ -230,10 +267,13 @@ contract ExpTest is Test {
         this.mulExpRayExternal(0, type(int256).max);
     }
 
-    /// `_SCALE_MAX_CLZ` inside the library must track `_SCALE_MAX`.
+    /// `_SCALE_MAX_CLZ` inside the library must track `_SCALE_MAX`, and `_SCALE_MAX` must be the
+    /// over-side certification ceiling floor(2**126 / Delta) with Delta = 5737291786393199862/1e19,
+    /// the kernel's Q126 error envelope. The wad scale must sit within the cap.
     function testScaleMaxClzPairing() external pure {
-        assertEq(_SCALE_MAX, uint256(1e18) << 67, "scale is the wad unit at 67 bits of headroom");
+        assertEq(_SCALE_MAX, ((uint256(1) << 126) * 1e19) / 5737291786393199862, "scale cap is floor(2^126 / Delta)");
         assertEq(Clz.clz(_SCALE_MAX), 129, "_SCALE_MAX_CLZ");
+        assertLe(uint256(1e18) << 67, _SCALE_MAX, "wad scale within the cap");
     }
 
     function testMulExpRayLowerZero() external pure {
