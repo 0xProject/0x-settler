@@ -20,6 +20,27 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 3. **The `formal/yul` Lake importer** consumes `forge inspect ... ir` output and emits ignored EVMYulLean runtime/proof modules.
 4. **Runtime bridge modules** execute ABI calls through EVMYulLean against the Yul emitted by solc. The implementation is Solidity; Lean proof machinery consumes the generated Yul artifacts rather than a second hand-maintained model.
 
+## Tactic discipline over the runtime trees
+
+The runtime normal forms (`evTree`, `r0MulTree`, `mulShiftTree`, …) are deeply nested `evm*`
+application terms whose subterms repeat: each Horner stage mentions its argument several times,
+the squared argument mentions the reduced argument twice, and so on. In memory these are shared
+DAGs, but any procedure that reduces or re-traverses them without sharing sees a syntactic
+expansion exponential in nesting depth. Tactic preprocessing that sends atoms through `whnf` or
+rebuilds them — `omega`'s atom collection, `positivity`, `nlinarith`'s ring normalization —
+crashes the elaborator or kernel with a stack overflow or "deep recursion detected" when a
+tree-valued term is in scope, even on goals that are trivially linear in the tree atoms. A
+tree-valued `Nat` in the exponent of a `pow` fed to such a tactic fails the same way.
+
+The mitigation is opacification: name every tree-valued word before doing arithmetic near it —
+`set w := … with hw` followed by `clear_value w` — so the atom is an opaque local with no value
+to unfold, or close the goal with term-level lemmas (`lt_of_le_of_lt`, `Nat.add_le_add`,
+`mul_le_mul_of_nonneg_left`, `linarith` with an explicit hypothesis list) instead of the
+whnf-hungry tactics. Facts that need a tree's definition (an `rfl` unfolding, an `evmDiv`/`evmMul`
+transport) must be established *before* the `clear_value`; everything downstream works on the
+opaque name. The `Mul/*` modules and the scale-symbolic `Floor` lemmas follow this discipline
+throughout; `omega` on opaque locals and on literals remains safe and is used freely.
+
 ## Deriving the fixed-point rational coefficients
 
 The polynomial/rational coefficients in `Ln.sol` and `Exp.sol` (and their error margins)
