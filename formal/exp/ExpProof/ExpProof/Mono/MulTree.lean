@@ -53,6 +53,8 @@ def r0MulTree (y x : Nat) : Nat :=
   evmDiv (evmMul (mulScaleTree y) (evmAdd (evTree x) (todTree x)))
     (evmSub (evTree x) (todTree x))
 
+theorem r0MulTree_eq_scaled (y x : Nat) : r0MulTree y x = r0ScaledTree (mulScaleTree y) x := rfl
+
 /-- The nonnegative magnitude returned by the shared kernel before the `sgn(y)` multiply. -/
 def mulMagnitudeTree (y x : Nat) : Nat :=
   evmAdd (evmIszero x)

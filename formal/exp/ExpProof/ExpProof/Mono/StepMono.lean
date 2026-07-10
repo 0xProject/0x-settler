@@ -51,8 +51,8 @@ theorem r0_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hr02 : r0Tree x2 =
       evmDiv (evmMul scaleQ67 (evmAdd (evTree x2) (todTree x2))) (evmSub (evTree x2) (todTree x2)) := rfl
   rw [hr01, hr02]
-  exact r0_mono_of_cross hevw1 htodw1 hevw2 htodw2 hev1lo hev1hi htod1lo htod1hi
-    hev2lo hev2hi htod2lo htod2hi hcross
+  exact r0_mono_of_cross (le_refl scaleQ67) hevw1 htodw1 hevw2 htodw2 hev1lo hev1hi htod1lo
+    htod1hi hev2lo hev2hi htod2lo htod2hi hcross
 
 /-- The closing shift words coincide across an octave. -/
 theorem closing_shift_eq {x1 x2 : Nat}

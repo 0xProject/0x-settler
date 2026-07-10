@@ -3,8 +3,9 @@ import ExpProof.Floor.R0Exp
 /-!
 # The deficit (under) side of the per-point `r0`-vs-`exp` bridge, and the seam bound
 
-This module contains the counterpart to the never-over `r0_real_over_within`: the per-point deficit
-`scaleQ67·exp(rt) ≤ r0 + 2993/1000` (`r0_real_under_within`), both signs, with the same four-link chain:
+This module contains the counterpart to the never-over `r0Scaled_real_over_within`: the per-point
+deficit `scale·exp(rt) ≤ r0 + 2993/1000` (`r0Scaled_real_under_within`), both signs and any scale
+`2¹²⁵ ≤ scale ≤ scaleQ67`, with the same four-link chain:
 
 1. link-1 deficit against the grid rational including the `div` floor, `≤ 2378/1000`;
 2. the argument granularity (`Floor.GranV`) — free on the `t ≥ 0` half, `≤ (5¹⁸/2⁴¹)·1644901622230542074/10¹⁹`
@@ -78,14 +79,15 @@ theorem exp_reducedArg_le_sqrt2bound {x : Nat} (hx : x < 2 ^ 256)
 /-! ## The `r0` bracket on the nonneg half -/
 
 /-- `r0` is bracketed on the nonneg half: `scaleQ67 ≤ r0` and `100·r0 ≤ 145·scaleQ67`. -/
-theorem r0_bracket_nonneg {x : Nat} (hx : x < 2 ^ 256)
+theorem r0_bracket_nonneg {scale x : Nat} (hshi : scale ≤ scaleQ67) (hx : x < 2 ^ 256)
     (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
-    (0x6f05b59d3b2000000000000000000000 : Int) ≤ int256 (r0Tree x) ∧
-      100 * (int256 (r0Tree x)) ≤ 145 * (0x6f05b59d3b2000000000000000000000 : Int) := by
-  obtain ⟨hfloor_lo, hfloor_hi⟩ := r0_floor_sandwich hx hW
+    (scale : Int) ≤ int256 (r0ScaledTree scale x) ∧
+      100 * (int256 (r0ScaledTree scale x)) ≤ 145 * (scale : Int) := by
+  obtain ⟨hfloor_lo, hfloor_hi⟩ := r0_floor_sandwich hshi hx hW
   have h145 := num_le_145_den hx hW htnn
-  set r0 := int256 (r0Tree x) with hr0def
+  have hSnn : (0:Int) ≤ (scale : Int) := Int.natCast_nonneg _
+  set r0 := int256 (r0ScaledTree scale x) with hr0def
   set ev := (evTree x : Int) with hevdef
   set tod := int256 (todTree x) with htoddef
   have hden072 : (330077261860684142693791478386293573392 : Int) ≤ ev - tod := by
@@ -99,17 +101,18 @@ theorem r0_bracket_nonneg {x : Nat} (hx : x < 2 ^ 256)
     have hpos : (0:Int) ≤ int256 (tTree x) * (odTree x : Int) := mul_nonneg htnn hodnn
     nlinarith [htod, hpos]
   refine ⟨?_, ?_⟩
-  · -- 2^126 ≤ r0:  2^126·num < (r0+1)·den, num ≥ den ⟹ 2^126·den < (r0+1)·den ⟹ 2^126 < r0+1
-    have hnumden : (0x6f05b59d3b2000000000000000000000 : Int) * (ev - tod) ≤ (0x6f05b59d3b2000000000000000000000 : Int) * (ev + tod) := by nlinarith [htodnn]
-    have h : (0x6f05b59d3b2000000000000000000000 : Int) * (ev - tod) < (r0 + 1) * (ev - tod) := lt_of_le_of_lt hnumden hfloor_hi
+  · -- scale ≤ r0:  scale·num < (r0+1)·den, num ≥ den ⟹ scale·den < (r0+1)·den ⟹ scale < r0+1
+    have hnumden : (scale : Int) * (ev - tod) ≤ (scale : Int) * (ev + tod) := by
+      nlinarith [htodnn, hSnn]
+    have h : (scale : Int) * (ev - tod) < (r0 + 1) * (ev - tod) := lt_of_le_of_lt hnumden hfloor_hi
     have := lt_of_mul_lt_mul_right h (le_of_lt hdenpos)
     omega
-  · -- 100·r0 ≤ 145·2^126:  100·r0·den ≤ 100·2^126·num ≤ 2^126·145·den
-    have h1 : 100 * (r0 * (ev - tod)) ≤ 100 * ((0x6f05b59d3b2000000000000000000000 : Int) * (ev + tod)) :=
+  · -- 100·r0 ≤ 145·scale:  100·r0·den ≤ 100·scale·num ≤ scale·145·den
+    have h1 : 100 * (r0 * (ev - tod)) ≤ 100 * ((scale : Int) * (ev + tod)) :=
       mul_le_mul_of_nonneg_left hfloor_lo (by norm_num)
-    have h2 : (0x6f05b59d3b2000000000000000000000 : Int) * (100 * (ev + tod)) ≤ (0x6f05b59d3b2000000000000000000000 : Int) * (145 * (ev - tod)) :=
-      mul_le_mul_of_nonneg_left h145 (by positivity)
-    have hchain : 100 * r0 * (ev - tod) ≤ 145 * (0x6f05b59d3b2000000000000000000000 : Int) * (ev - tod) := by nlinarith [h1, h2]
+    have h2 : (scale : Int) * (100 * (ev + tod)) ≤ (scale : Int) * (145 * (ev - tod)) :=
+      mul_le_mul_of_nonneg_left h145 hSnn
+    have hchain : 100 * r0 * (ev - tod) ≤ 145 * (scale : Int) * (ev - tod) := by nlinarith [h1, h2]
     exact le_of_mul_le_mul_right hchain hdenpos
 
 /-! ## The piecewise link-1 carry table -/
@@ -182,42 +185,51 @@ theorem link1Pieces_hold : ∀ p ∈ ExpCertV.granPieces, Link1PieceOK p := by
 costs one denominator; the odd-truncation carry `(2⁶³⁷ + Wod·2⁴⁸⁰·t)·(scaleQ67 + r0)` is aggregated
 piecewise over `granPieces` (`t ≤ T` and `DO·2⁷²⁵ ≤ DENv` per piece, the certified
 `Link1PieceOK` row closing the quadratic), fitting `1.378` denominators. -/
-theorem link1_under_int {x : Nat} (hx : x < 2 ^ 256)
+theorem link1_under_int {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleQ67)
+    (hx : x < 2 ^ 256)
     (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
-    1000 * ((0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) -
-        int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x))) ≤
+    1000 * ((scale : Int) * NUMv (vTree x) (int256 (tTree x)) -
+        int256 (r0ScaledTree scale x) * DENv (vTree x) (int256 (tTree x))) ≤
       2378 * DENv (vTree x) (int256 (tTree x)) := by
-  obtain ⟨hfloor_lo, hfloor_hi⟩ := r0_floor_sandwich hx hW
+  obtain ⟨hfloor_lo, hfloor_hi⟩ := r0_floor_sandwich hshi hx hW
   obtain ⟨hEp_lo, _, _, _⟩ := bridge_facts hx hW
   obtain ⟨htOp_lo, htOp_hi⟩ := tOd_bracket_nonneg hx hW htnn
-  obtain ⟨hr0lo, hr0hi145⟩ := r0_bracket_nonneg hx hW htnn
+  obtain ⟨hr0lo, hr0hi145⟩ := r0_bracket_nonneg hshi hx hW htnn
   obtain ⟨hDEN_lo, hDEN_up⟩ := DENv_runtime_bracket hx hW htnn
-  have hLHS : (0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) -
-      int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x)) ≤
+  have hshiI : (scale : Int) ≤ (0x6f05b59d3b2000000000000000000000 : Int) := by
+    have h : ((scale : Nat) : Int) ≤ ((scaleQ67 : Nat) : Int) := by exact_mod_cast hshi
+    have hs : ((scaleQ67 : Nat) : Int) = 0x6f05b59d3b2000000000000000000000 := by
+      unfold scaleQ67; norm_num
+    rw [hs] at h
+    exact h
+  have hLHS : (scale : Int) * NUMv (vTree x) (int256 (tTree x)) -
+      int256 (r0ScaledTree scale x) * DENv (vTree x) (int256 (tTree x)) ≤
       2 ^ 637 * ((evTree x : Int) - int256 (todTree x)) +
-        (2 ^ 637 + 269746241 * 2 ^ 480 * int256 (tTree x)) * ((0x6f05b59d3b2000000000000000000000 : Int) + int256 (r0Tree x)) := by
+        (2 ^ 637 + 269746241 * 2 ^ 480 * int256 (tTree x)) * ((scale : Int) + int256 (r0ScaledTree scale x)) := by
     unfold NUMv DENv
-    set r0 := int256 (r0Tree x) with hr0def
+    set r0 := int256 (r0ScaledTree scale x) with hr0def
     set ev := (evTree x : Int) with hevdef
     set tod := int256 (todTree x) with htoddef
     set t := int256 (tTree x) with htdef
     set Ep := (evNumV (vTree x) : Int) with hEpdef
     set Op := (odNumV (vTree x) : Int) with hOpdef
-    have h2126r0_np : (0x6f05b59d3b2000000000000000000000 : Int) - r0 ≤ 0 := by linarith [hr0lo]
-    have hr0p_nn : (0:Int) ≤ (0x6f05b59d3b2000000000000000000000 : Int) + r0 := by linarith [hr0lo]
-    -- Ep·2^110·(2^126−r0) ≤ 2^637·ev·(2^126−r0)
-    have hterm1 : Ep * 2 ^ 111 * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) ≤ 2 ^ 637 * ev * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) := by
+    have h2126r0_np : (scale : Int) - r0 ≤ 0 := by linarith [hr0lo]
+    have hr0p_nn : (0:Int) ≤ (scale : Int) + r0 := by
+      have := Int.natCast_nonneg scale
+      linarith [hr0lo]
+    -- Ep·2^110·(scale−r0) ≤ 2^637·ev·(scale−r0)
+    have hterm1 : Ep * 2 ^ 111 * ((scale : Int) - r0) ≤ 2 ^ 637 * ev * ((scale : Int) - r0) := by
       apply mul_le_mul_of_nonpos_right _ h2126r0_np
       nlinarith [hEp_lo]
-    -- t·Op·(2^126+r0) ≤ (2^637·tod + 2^637 + Wod·2^480·t)·(2^126+r0)
-    have hterm2 : t * Op * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) ≤
-        (2 ^ 637 * tod + 2 ^ 637 + 269746241 * 2 ^ 480 * t) * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) :=
+    -- t·Op·(scale+r0) ≤ (2^637·tod + 2^637 + Wod·2^480·t)·(scale+r0)
+    have hterm2 : t * Op * ((scale : Int) + r0) ≤
+        (2 ^ 637 * tod + 2 ^ 637 + 269746241 * 2 ^ 480 * t) * ((scale : Int) + r0) :=
       mul_le_mul_of_nonneg_right htOp_hi hr0p_nn
-    -- floor: 2^126·num − r0·den < den, scaled by 2^637
-    have hfloor : (0x6f05b59d3b2000000000000000000000 : Int) * (ev + tod) - r0 * (ev - tod) ≤ (ev - tod) := by
+    -- floor: scale·num − r0·den < den, scaled by 2^637
+    have hfloor : (scale : Int) * (ev + tod) - r0 * (ev - tod) ≤ (ev - tod) := by
       linarith [hfloor_hi]
-    have hfloor638 : (2:Int) ^ 637 * ((0x6f05b59d3b2000000000000000000000 : Int) * (ev + tod) - r0 * (ev - tod)) ≤
+    have hfloor638 : (2:Int) ^ 637 * ((scale : Int) * (ev + tod) - r0 * (ev - tod)) ≤
         2 ^ 637 * (ev - tod) := mul_le_mul_of_nonneg_left hfloor (by positivity)
     nlinarith [hterm1, hterm2, hfloor638]
   -- select the covering piece; its certified facts drive the aggregation
@@ -231,13 +243,16 @@ theorem link1_under_int {x : Nat} (hx : x < 2 ^ 256)
     granPieces_ok _ hp (vTree x) hplo hphi
   have hrow := (link1Pieces_hold _ hp).1
   have hcaps := granPieces_caps _ hp
-  set r0 := int256 (r0Tree x) with hr0def
+  set r0 := int256 (r0ScaledTree scale x) with hr0def
   set t := int256 (tTree x) with htdef
   set den := (evTree x : Int) - int256 (todTree x) with hdendef
   set D := DENv (vTree x) t with hDdef
-  set S := (0x6f05b59d3b2000000000000000000000 : Int) with hSdef
+  set S := (scale : Int) with hSdef
   set Op := (odNumV (vTree x) : Int) with hOpdef
-  have hSpos : (0 : Int) < S := by rw [hSdef]; norm_num
+  have hSpos : (0 : Int) < S := by
+    rw [hSdef]
+    exact_mod_cast lt_of_lt_of_le (by norm_num : (0:Nat) < 2 ^ 125) hslo
+  have hS67 : S ≤ (0x6f05b59d3b2000000000000000000000 : Int) := by rw [hSdef]; exact hshiI
   have hr0nn : (0 : Int) ≤ r0 := le_trans (le_of_lt hSpos) hr0lo
   -- `t ≤ T` on the piece
   have htT : t ≤ T := by
@@ -286,10 +301,35 @@ theorem link1_under_int {x : Nat} (hx : x < 2 ^ 256)
     nlinarith [htransfer]
   -- feed the certified piece row and cancel one factor of `DO·2^725`
   have hcoefT_nn : (0 : Int) ≤ 2 ^ 637 + 269746241 * 2 ^ 480 * T := by nlinarith [hTnn]
+  -- the certified row holds at the literal maximal scale; every scale coefficient on its
+  -- left-hand side is nonnegative, so it holds a fortiori at the symbolic scale
+  have hrow_s : 1000 * ((2 ^ 637 + 269746241 * 2 ^ 480 * T) *
+      (200 * S * (DO * 2 ^ 725) + 200 * S * T * odCap + 800 * S * 2 ^ 637)) +
+        200000 * 2 ^ 637 * (DO * 2 ^ 725) ≤
+      137800 * ((DO * 2 ^ 725) * (DO * 2 ^ 725)) := by
+    have hS67S_nn : (0 : Int) ≤ (0x6f05b59d3b2000000000000000000000 : Int) - S := by
+      linarith [hS67]
+    have hOpcap_nn : (0 : Int) ≤ odCap := le_trans hOpnn hOple
+    have h1 : 200 * S * (DO * 2 ^ 725) ≤
+        200 * (0x6f05b59d3b2000000000000000000000 : Int) * (DO * 2 ^ 725) := by
+      nlinarith [mul_nonneg hS67S_nn (le_of_lt hDOpos')]
+    have h2 : 200 * S * T * odCap ≤
+        200 * (0x6f05b59d3b2000000000000000000000 : Int) * T * odCap := by
+      nlinarith [mul_nonneg hS67S_nn (mul_nonneg hTnn hOpcap_nn)]
+    have h3 : 800 * S * 2 ^ 637 ≤
+        800 * (0x6f05b59d3b2000000000000000000000 : Int) * 2 ^ 637 := by
+      nlinarith [hS67S_nn]
+    have hsum_le : 200 * S * (DO * 2 ^ 725) + 200 * S * T * odCap + 800 * S * 2 ^ 637 ≤
+        200 * (0x6f05b59d3b2000000000000000000000 : Int) * (DO * 2 ^ 725) +
+          200 * (0x6f05b59d3b2000000000000000000000 : Int) * T * odCap +
+          800 * (0x6f05b59d3b2000000000000000000000 : Int) * 2 ^ 637 := by
+      linarith [h1, h2, h3]
+    have hmul_le := mul_le_mul_of_nonneg_left hsum_le hcoefT_nn
+    linarith [hrow, hmul_le]
   have hXY : (100000 * ((2 ^ 637 + 269746241 * 2 ^ 480 * T) * (S + r0)) + 200000 * 2 ^ 637) *
       (DO * 2 ^ 725) ≤ (137800 * (DO * 2 ^ 725)) * (DO * 2 ^ 725) := by
     have h1 := mul_le_mul_of_nonneg_left h100DO hcoefT_nn
-    nlinarith [h1, hrow]
+    nlinarith [h1, hrow_s]
   have hDIV : 100000 * ((2 ^ 637 + 269746241 * 2 ^ 480 * T) * (S + r0)) + 200000 * 2 ^ 637 ≤
       137800 * (DO * 2 ^ 725) :=
     le_of_mul_le_mul_right hXY hDOpos'
@@ -304,25 +344,33 @@ theorem link1_under_int {x : Nat} (hx : x < 2 ^ 256)
 /-- **Link-1 under (nonpositive half)**: the same `2378/1000` budget, with no piece machinery: on
 this half `DENv = Ep·2¹¹¹ − t·Op ≥ 2⁶³⁸·ev`, so the even-truncation width and the `tod`-floor unit
 are absorbed against `2⁶³⁸·ev ≥ 2⁶³⁸·A0`. -/
-theorem link1_under_int_neg {x : Nat} (hx : x < 2 ^ 256)
+theorem link1_under_int_neg {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleQ67)
+    (hx : x < 2 ^ 256)
     (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
-    1000 * ((0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) -
-        int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x))) ≤
+    1000 * ((scale : Int) * NUMv (vTree x) (int256 (tTree x)) -
+        int256 (r0ScaledTree scale x) * DENv (vTree x) (int256 (tTree x))) ≤
       2378 * DENv (vTree x) (int256 (tTree x)) := by
-  obtain ⟨_, hfloor_hi⟩ := r0_floor_sandwich hx hW
+  obtain ⟨_, hfloor_hi⟩ := r0_floor_sandwich hshi hx hW
   obtain ⟨hEp_lo, hEp_hi, _, _⟩ := bridge_facts hx hW
   obtain ⟨htOp_hi, _⟩ := tOd_bracket_neg hx hW htneg
-  have hr0le := r0_le_scale_neg hx hW htneg
-  obtain ⟨hr0lo, _⟩ := r0Tree_bounds_wide hx hW
+  have hr0le := r0_le_scale_neg hshi hx hW htneg
+  obtain ⟨hr0lo, _⟩ := r0Scaled_bounds hslo hshi hx hW
   obtain ⟨hev_lo, _⟩ := evTree_facts (vTree_eq_wide hx hW).2
   obtain ⟨htod_lo126, _, _, _⟩ := todTree_bound_wide hx hW
-  have hLHS : (0x6f05b59d3b2000000000000000000000 : Int) * NUMv (vTree x) (int256 (tTree x)) -
-      int256 (r0Tree x) * DENv (vTree x) (int256 (tTree x)) ≤
+  have hshiI : (scale : Int) ≤ (0x6f05b59d3b2000000000000000000000 : Int) := by
+    have h : ((scale : Nat) : Int) ≤ ((scaleQ67 : Nat) : Int) := by exact_mod_cast hshi
+    have hs : ((scaleQ67 : Nat) : Int) = 0x6f05b59d3b2000000000000000000000 := by
+      unfold scaleQ67; norm_num
+    rw [hs] at h
+    exact h
+  have hSnn : (0:Int) ≤ (scale : Int) := Int.natCast_nonneg _
+  have hLHS : (scale : Int) * NUMv (vTree x) (int256 (tTree x)) -
+      int256 (r0ScaledTree scale x) * DENv (vTree x) (int256 (tTree x)) ≤
       2 ^ 637 * ((evTree x : Int) - int256 (todTree x)) +
-        72572599271425 * 2 ^ 591 * (0x6f05b59d3b2000000000000000000000 : Int) + 2 * 2 ^ 637 * (0x6f05b59d3b2000000000000000000000 : Int) := by
+        72572599271425 * 2 ^ 591 * (scale : Int) + 2 * 2 ^ 637 * (scale : Int) := by
     unfold NUMv DENv
-    set r0 := int256 (r0Tree x) with hr0def
+    set r0 := int256 (r0ScaledTree scale x) with hr0def
     set ev := (evTree x : Int) with hevdef
     set tod := int256 (todTree x) with htoddef
     set t := int256 (tTree x) with htdef
@@ -331,33 +379,33 @@ theorem link1_under_int_neg {x : Nat} (hx : x < 2 ^ 256)
     have hr0nn : (0:Int) ≤ r0 := by
       have : (0:Int) < 2 ^ 123 := by positivity
       linarith [hr0lo]
-    have h2126r0_nn : (0:Int) ≤ (0x6f05b59d3b2000000000000000000000 : Int) - r0 := by linarith [hr0le]
-    have h2126r0_le : (0x6f05b59d3b2000000000000000000000 : Int) - r0 ≤ (0x6f05b59d3b2000000000000000000000 : Int) := by linarith [hr0nn]
-    have hr0p_nn : (0:Int) ≤ (0x6f05b59d3b2000000000000000000000 : Int) + r0 := by positivity
-    have hr0p_le : (0x6f05b59d3b2000000000000000000000 : Int) + r0 ≤ 2 * (0x6f05b59d3b2000000000000000000000 : Int) := by linarith [hr0le]
-    -- Ep·2^110·(2^126−r0) ≤ 2^637·ev·(2^126−r0) + Wev·2^590·2^126
-    have hterm1 : Ep * 2 ^ 111 * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) ≤
-        2 ^ 637 * ev * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) + 72572599271425 * 2 ^ 591 * (0x6f05b59d3b2000000000000000000000 : Int) := by
-      have h1 : Ep * 2 ^ 111 * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) ≤
-          (2 ^ 637 * ev + 72572599271425 * 2 ^ 591) * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) := by
+    have h2126r0_nn : (0:Int) ≤ (scale : Int) - r0 := by linarith [hr0le]
+    have h2126r0_le : (scale : Int) - r0 ≤ (scale : Int) := by linarith [hr0nn]
+    have hr0p_nn : (0:Int) ≤ (scale : Int) + r0 := by linarith [hr0nn, hSnn]
+    have hr0p_le : (scale : Int) + r0 ≤ 2 * (scale : Int) := by linarith [hr0le]
+    -- Ep·2^110·(scale−r0) ≤ 2^637·ev·(scale−r0) + Wev·2^590·scale
+    have hterm1 : Ep * 2 ^ 111 * ((scale : Int) - r0) ≤
+        2 ^ 637 * ev * ((scale : Int) - r0) + 72572599271425 * 2 ^ 591 * (scale : Int) := by
+      have h1 : Ep * 2 ^ 111 * ((scale : Int) - r0) ≤
+          (2 ^ 637 * ev + 72572599271425 * 2 ^ 591) * ((scale : Int) - r0) := by
         apply mul_le_mul_of_nonneg_right _ h2126r0_nn
         nlinarith [hEp_hi]
-      have h2 : (72572599271425 : Int) * 2 ^ 590 * ((0x6f05b59d3b2000000000000000000000 : Int) - r0) ≤
-          72572599271425 * 2 ^ 591 * (0x6f05b59d3b2000000000000000000000 : Int) := by
-        linarith [h2126r0_le, hr0nn]
+      have h2 : (72572599271425 : Int) * 2 ^ 590 * ((scale : Int) - r0) ≤
+          72572599271425 * 2 ^ 591 * (scale : Int) := by
+        nlinarith [h2126r0_le, hr0nn, hSnn]
       nlinarith [h1, h2]
-    -- t·Op·(2^126+r0) ≤ (2^637·tod + 2^637)·(2^126+r0) ≤ 2^637·tod·(2^126+r0) + 2·2^637·2^126
-    have hterm2 : t * Op * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) ≤
-        2 ^ 637 * tod * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) + 2 * 2 ^ 637 * (0x6f05b59d3b2000000000000000000000 : Int) := by
-      have h1 : t * Op * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) ≤ (2 ^ 637 * tod + 2 ^ 637) * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) :=
+    -- t·Op·(scale+r0) ≤ (2^637·tod + 2^637)·(scale+r0) ≤ 2^637·tod·(scale+r0) + 2·2^637·scale
+    have hterm2 : t * Op * ((scale : Int) + r0) ≤
+        2 ^ 637 * tod * ((scale : Int) + r0) + 2 * 2 ^ 637 * (scale : Int) := by
+      have h1 : t * Op * ((scale : Int) + r0) ≤ (2 ^ 637 * tod + 2 ^ 637) * ((scale : Int) + r0) :=
         mul_le_mul_of_nonneg_right htOp_hi hr0p_nn
-      have h2 : (2:Int) ^ 637 * ((0x6f05b59d3b2000000000000000000000 : Int) + r0) ≤ 2 ^ 637 * (2 * (0x6f05b59d3b2000000000000000000000 : Int)) :=
+      have h2 : (2:Int) ^ 637 * ((scale : Int) + r0) ≤ 2 ^ 637 * (2 * (scale : Int)) :=
         mul_le_mul_of_nonneg_left hr0p_le (by positivity)
       nlinarith [h1, h2]
-    -- floor: 2^126·num − r0·den ≤ den, scaled
-    have hfloor : (0x6f05b59d3b2000000000000000000000 : Int) * (ev + tod) - r0 * (ev - tod) ≤ (ev - tod) := by
+    -- floor: scale·num − r0·den ≤ den, scaled
+    have hfloor : (scale : Int) * (ev + tod) - r0 * (ev - tod) ≤ (ev - tod) := by
       linarith [hfloor_hi]
-    have hfloor638 : (2:Int) ^ 637 * ((0x6f05b59d3b2000000000000000000000 : Int) * (ev + tod) - r0 * (ev - tod)) ≤
+    have hfloor638 : (2:Int) ^ 637 * ((scale : Int) * (ev + tod) - r0 * (ev - tod)) ≤
         2 ^ 637 * (ev - tod) := mul_le_mul_of_nonneg_left hfloor (by positivity)
     nlinarith [hterm1, hterm2, hfloor638]
   -- budget against DENv = Ep·2^111 − t·Op ≥ 2^638·ev ≥ 2^638·A0; den ≤ ev + 2^126
@@ -387,27 +435,41 @@ theorem link1_under_int_neg {x : Nat} (hx : x < 2 ^ 256)
         int256 (tTree x) * (odNumV (vTree x) : Int) := by
       linarith [hEp111, htOp_np]
     linarith [h1, h2]
-  -- 1000·(2^637 + Wev·2^591·S + 2·2^637·S) ≤ 1378·2^637·A0
+  -- 1000·(2^637 + Wev·2^591·S + 2·2^637·S) ≤ 1378·2^637·A0, relaxing the symbolic scale to the
+  -- literal maximal one first
+  have hSrelax : 1000 * (72572599271425 * 2 ^ 591 * (scale : Int) +
+        2 * 2 ^ 637 * (scale : Int)) ≤
+      1000 * (72572599271425 * 2 ^ 591 * (0x6f05b59d3b2000000000000000000000 : Int) +
+        2 * 2 ^ 637 * (0x6f05b59d3b2000000000000000000000 : Int)) := by
+    nlinarith [hshiI]
   have hlit : 1000 * (2 ^ 637 : Int) +
       1000 * (72572599271425 * 2 ^ 591 * (0x6f05b59d3b2000000000000000000000 : Int) +
         2 * 2 ^ 637 * (0x6f05b59d3b2000000000000000000000 : Int)) ≤
       (1378 : Int) * (2 ^ 637 * 415147853590918758559635130244235626256) := by
     norm_num
-  linarith [hLHS, hDden, hD_A, hlit]
+  linarith [hLHS, hDden, hD_A, hlit, hSrelax]
 
 /-! ## The per-point deficit (nonneg half) -/
 
 /-- **The per-point deficit (nonneg half).** `scaleQ67·exp(rt) ≤ r0 + 2993/1000`: link-1 `≤ 2378/1000`, the
 `Mp` factor `≤ 2/25`, the under gap `≤ 307/1000`; the granularity is free on this half. -/
-theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
+theorem r0_real_under_tight {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleQ67)
+    (hx : x < 2 ^ 256)
     (hW : WideRegion x)
     (htnn : 0 ≤ int256 (tTree x)) :
-    (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) ≤ (int256 (r0Tree x) : Real) + 2993 / 1000 := by
+    (scale : Real) * Real.exp (reducedArg x) ≤ (int256 (r0ScaledTree scale x) : Real) + 2993 / 1000 := by
   obtain ⟨_, hthi⟩ := tTree_in_cert_domain_wide hx hW
   have hvle := vTree_le_vmax_wide hx hW
+  have hsRnn : (0:Real) ≤ (scale : Real) := by positivity
+  have hshiR : (scale : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) := by
+    have h : ((scale : Nat) : Real) ≤ ((scaleQ67 : Nat) : Real) := by exact_mod_cast hshi
+    have hs : ((scaleQ67 : Nat) : Real) = 0x6f05b59d3b2000000000000000000000 := by
+      unfold scaleQ67; norm_num
+    rw [hs] at h
+    exact h
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  set r0 := int256 (r0Tree x) with hr0def
+  set r0 := int256 (r0ScaledTree scale x) with hr0def
   have htdom : t ≤ (ExpCertV.H129 : Int) := by
     rw [show ((ExpCertV.H129 : Nat) : Int) = 235865763225513294137944142764154484399 from by
       unfold ExpCertV.H129; norm_num]
@@ -419,9 +481,9 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
   have hDER : (0:Real) < (evalPoly ExpCertV.denExpV t : Real) := by
     have : (0:Int) < evalPoly ExpCertV.denExpV t := lt_of_lt_of_le one_pos hDE
     exact_mod_cast this
-  -- link 1: 2^126·Qv ≤ r0 + 2378/1000
-  have hlink1 := link1_under_int hx hW htnn
-  have hQv_le : (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
+  -- link 1: scale·Qv ≤ r0 + 2378/1000
+  have hlink1 := link1_under_int hslo hshi hx hW htnn
+  have hQv_le : (scale : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
       (r0 : Real) + 2378 / 1000 := by
     rw [mul_div_assoc', div_le_iff₀ hDR]
     have hR := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hlink1
@@ -447,21 +509,21 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
   have hEt_le_Qv : Et ≤ ((NUMv v t : Real) / (DENv v t : Real)) * Mpp :=
     le_trans hEt_le (mul_le_mul_of_nonneg_right hgran1 hMpp_nn)
   have hMpp1 : Mpp - 1 = 1 / (2 ^ 132 : Real) := by rw [hMppdef]; field_simp
-  obtain ⟨_, hr0hi145⟩ := r0_bracket_nonneg hx hW htnn
+  obtain ⟨_, hr0hi145⟩ := r0_bracket_nonneg hshi hx hW htnn
   have hr0R : (r0 : Real) ≤ (145 / 100) * (0x6f05b59d3b2000000000000000000000 : Real) := by
     have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hr0hi145
     push_cast at h
-    linarith [h]
-  have hEt_bound : (0x6f05b59d3b2000000000000000000000 : Real) * Et ≤ (r0 : Real) + 2378 / 1000 + 2 / 25 := by
-    have h1 : (0x6f05b59d3b2000000000000000000000 : Real) * Et ≤
-        (0x6f05b59d3b2000000000000000000000 : Real) * (((NUMv v t : Real) / (DENv v t : Real)) * Mpp) :=
-      mul_le_mul_of_nonneg_left hEt_le_Qv (by positivity)
-    have h2 : (0x6f05b59d3b2000000000000000000000 : Real) * (((NUMv v t : Real) / (DENv v t : Real)) * Mpp) =
-        (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
-          ((0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mpp - 1) := by ring
-    have h3 : ((0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mpp - 1) ≤ 2 / 25 := by
+    nlinarith [h, hshiR]
+  have hEt_bound : (scale : Real) * Et ≤ (r0 : Real) + 2378 / 1000 + 2 / 25 := by
+    have h1 : (scale : Real) * Et ≤
+        (scale : Real) * (((NUMv v t : Real) / (DENv v t : Real)) * Mpp) :=
+      mul_le_mul_of_nonneg_left hEt_le_Qv hsRnn
+    have h2 : (scale : Real) * (((NUMv v t : Real) / (DENv v t : Real)) * Mpp) =
+        (scale : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
+          ((scale : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mpp - 1) := by ring
+    have h3 : ((scale : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mpp - 1) ≤ 2 / 25 := by
       rw [hMpp1]
-      have hcap : (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
+      have hcap : (scale : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
           (145 / 100) * (0x6f05b59d3b2000000000000000000000 : Real) + 2378 / 1000 := by linarith [hQv_le, hr0R]
       have := mul_le_mul_of_nonneg_right hcap (by positivity : (0:Real) ≤ 1 / (2 ^ 132 : Real))
       have hfin : ((145 / 100) * (0x6f05b59d3b2000000000000000000000 : Real) + 2378 / 1000) * (1 / (2 ^ 132 : Real)) ≤
@@ -475,20 +537,23 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
   have hErt_le := exp_reducedArg_le_sqrt2bound hx hW
   rw [← hErtdef] at hErt_le
   have hErt_nn : (0:Real) ≤ Ert := le_of_lt (Real.exp_pos _)
-  have hgap126 : (0x6f05b59d3b2000000000000000000000 : Real) * (Ert - Et) ≤ 307 / 1000 := by
+  have hgap126 : (scale : Real) * (Ert - Et) ≤ 307 / 1000 := by
     have hgap : Ert - Et ≤ (1025 / (1024 * (2 ^ 129 : Real))) * Ert :=
       le_trans hExp_diff (mul_le_mul_of_nonneg_right (le_of_lt hgapunder) hErt_nn)
-    have h1 : (0x6f05b59d3b2000000000000000000000 : Real) * (Ert - Et) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) :=
-      mul_le_mul_of_nonneg_left hgap (by positivity)
-    have h2 : (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) ≤
+    have h1 : (scale : Real) * (Ert - Et) ≤ (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) :=
+      mul_le_mul_of_nonneg_left hgap hsRnn
+    have h2 : (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) ≤
+        (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (14143 / 10000)) :=
+      mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hErt_le (by positivity)) hsRnn
+    have h2' : (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (14143 / 10000)) ≤
         (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (14143 / 10000)) :=
-      mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hErt_le (by positivity)) (by positivity)
+      mul_le_mul_of_nonneg_right hshiR (by positivity)
     have h3 : (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (14143 / 10000)) ≤ 307 / 1000 := by
       norm_num
-    linarith [h1, h2, h3]
-  have hdist : (0x6f05b59d3b2000000000000000000000 : Real) * Ert = (0x6f05b59d3b2000000000000000000000 : Real) * Et + (0x6f05b59d3b2000000000000000000000 : Real) * (Ert - Et) := by
+    linarith [h1, h2, h2', h3]
+  have hdist : (scale : Real) * Ert = (scale : Real) * Et + (scale : Real) * (Ert - Et) := by
     ring
-  show (0x6f05b59d3b2000000000000000000000 : Real) * Ert ≤ (r0 : Real) + 2993 / 1000
+  show (scale : Real) * Ert ≤ (r0 : Real) + 2993 / 1000
   have hsum : (2378 : Real) / 1000 + 2 / 25 + 307 / 1000 ≤ 2993 / 1000 := by norm_num
   linarith [hEt_bound, hgap126, hdist, hsum]
 
@@ -497,23 +562,31 @@ theorem r0_real_under_tight {x : Nat} (hx : x < 2 ^ 256)
 /-- **The per-point deficit (nonpositive half).** `scaleQ67·exp(rt) ≤ r0 + 2993/1000`: link-1 `≤ 2378/1000`,
 the `Mp`-folded granularity `≤ (5¹⁸/2⁴¹)·1644901622230542074/10¹⁹`, the `Mp` factor `≤ 2/25`
 (via `r0 ≤ scaleQ67`), the under gap `≤ 307/1000`. -/
-theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
+theorem r0_real_under_tight_neg {scale x : Nat} (hslo : 2 ^ 125 ≤ scale)
+    (hshi : scale ≤ scaleQ67) (hx : x < 2 ^ 256)
     (hW : WideRegion x)
     (htneg : int256 (tTree x) ≤ 0) :
-    (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) ≤ (int256 (r0Tree x) : Real) + 2993 / 1000 := by
+    (scale : Real) * Real.exp (reducedArg x) ≤ (int256 (r0ScaledTree scale x) : Real) + 2993 / 1000 := by
   have htdom := tdom_neg hx hW htneg
   have hvle := vTree_le_vmax_wide hx hW
+  have hsRnn : (0:Real) ≤ (scale : Real) := by positivity
+  have hshiR : (scale : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) := by
+    have h : ((scale : Nat) : Real) ≤ ((scaleQ67 : Nat) : Real) := by exact_mod_cast hshi
+    have hs : ((scaleQ67 : Nat) : Real) = 0x6f05b59d3b2000000000000000000000 := by
+      unfold scaleQ67; norm_num
+    rw [hs] at h
+    exact h
   set t := int256 (tTree x) with htdef
   set v := vTree x with hvdef
-  set r0 := int256 (r0Tree x) with hr0def
+  set r0 := int256 (r0ScaledTree scale x) with hr0def
   have hD : 1108965543718 * 2 ^ 725 ≤ DENv v t := DENv_ge_neg (by omega) htneg
   have hDpos : (0:Int) < DENv v t := lt_of_lt_of_le (by positivity) hD
   have hDR : (0:Real) < (DENv v t : Real) := by exact_mod_cast hDpos
   have hDEpos : (0:Int) < evalPoly ExpCertV.denExpV t := (certNE_pos_neg_aux htneg htdom).2
   have hDER : (0:Real) < (evalPoly ExpCertV.denExpV t : Real) := by exact_mod_cast hDEpos
-  -- link 1: 2^126·Qv ≤ r0 + 2378/1000
-  have hlink1 := link1_under_int_neg hx hW htneg
-  have hQv_le : (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
+  -- link 1: scale·Qv ≤ r0 + 2378/1000
+  have hlink1 := link1_under_int_neg hslo hshi hx hW htneg
+  have hQv_le : (scale : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
       (r0 : Real) + 2378 / 1000 := by
     rw [mul_div_assoc', div_le_iff₀ hDR]
     have hR := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hlink1
@@ -532,31 +605,52 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
           (((2 ^ 132 - 1 : Int) : Real) * (DE : Real)) := by
       push_cast; field_simp; ring
     rw [key]; exact hcertup
-  obtain ⟨_, hgran2⟩ := gran_under_pair hx hW htneg
+  obtain ⟨hgran1, hgran2⟩ := gran_under_pair hx hW htneg
   have hMp_nn : (0:Real) ≤ Mp := by
     rw [hMpdef]
     have : (0:Real) < (2 ^ 132 : Real) - 1 := by norm_num
     positivity
   have hMp1 : Mp - 1 = 1 / ((2 ^ 132 : Real) - 1) := by rw [hMpdef]; field_simp
-  have hr0le := r0_le_scale_neg hx hW htneg
+  have hr0le := r0_le_scale_neg hshi hx hW htneg
   have hr0R : (r0 : Real) ≤ (0x6f05b59d3b2000000000000000000000 : Real) := by
     have h := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hr0le
     push_cast at h
-    linarith [h]
-  have hEt_bound : (0x6f05b59d3b2000000000000000000000 : Real) * Et ≤ (r0 : Real) + 2378 / 1000 + 2 / 25 +
+    linarith [h, hshiR]
+  -- the certified granularity envelope at the 2^126 normalization, rescaled to the symbolic
+  -- scale and relaxed to the literal maximal-scale budget
+  have hgran2S : (scale : Real) * Mp *
+      ((NE : Real) / (DE : Real) - (NUMv v t : Real) / (DENv v t : Real)) ≤
       3814697265625 * 1644901622230542074 / (10000000000000000000 * 2199023255552) := by
-    have h1 : (0x6f05b59d3b2000000000000000000000 : Real) * Et ≤ (0x6f05b59d3b2000000000000000000000 : Real) * (((NE : Real) / (DE : Real)) * Mp) :=
-      mul_le_mul_of_nonneg_left hEt_le (by positivity)
-    -- split: 2^126·(NE/DE)·Mp = 2^126·Qv + 2^126·Qv·(Mp−1) + 2^126·Mp·(NE/DE − Qv)
-    have hsplit : (0x6f05b59d3b2000000000000000000000 : Real) * (((NE : Real) / (DE : Real)) * Mp) =
-        (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
-        ((0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mp - 1) +
-        (0x6f05b59d3b2000000000000000000000 : Real) * Mp *
+    have hdiff_nn : (0:Real) ≤ (NE : Real) / (DE : Real) - (NUMv v t : Real) / (DENv v t : Real) := by
+      linarith [hgran1]
+    have hMp' : Mp ≤ (2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1) := by
+      rw [hMpdef, div_le_div_iff₀ (by norm_num) (by norm_num)]
+      norm_num
+    have hMp_nn' : (0:Real) ≤ Mp := hMp_nn
+    have h1 : (scale : Real) * Mp *
+        ((NE : Real) / (DE : Real) - (NUMv v t : Real) / (DENv v t : Real)) ≤
+        (scale : Real) * ((2 ^ 131 : Real) / ((2 ^ 131 : Real) - 1)) *
+          ((NE : Real) / (DE : Real) - (NUMv v t : Real) / (DENv v t : Real)) :=
+      mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hMp' hsRnn) hdiff_nn
+    have h2 := mul_le_mul_of_nonneg_left hgran2 hsRnn
+    have h3 : (scale : Real) * (1644901622230542074 / 10000000000000000000) ≤
+        (0x6f05b59d3b2000000000000000000000 : Real) * (1644901622230542074 / 10000000000000000000) :=
+      mul_le_mul_of_nonneg_right hshiR (by positivity)
+    nlinarith [h1, h2, h3]
+  have hEt_bound : (scale : Real) * Et ≤ (r0 : Real) + 2378 / 1000 + 2 / 25 +
+      3814697265625 * 1644901622230542074 / (10000000000000000000 * 2199023255552) := by
+    have h1 : (scale : Real) * Et ≤ (scale : Real) * (((NE : Real) / (DE : Real)) * Mp) :=
+      mul_le_mul_of_nonneg_left hEt_le hsRnn
+    -- split: scale·(NE/DE)·Mp = scale·Qv + scale·Qv·(Mp−1) + scale·Mp·(NE/DE − Qv)
+    have hsplit : (scale : Real) * (((NE : Real) / (DE : Real)) * Mp) =
+        (scale : Real) * ((NUMv v t : Real) / (DENv v t : Real)) +
+        ((scale : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mp - 1) +
+        (scale : Real) * Mp *
           ((NE : Real) / (DE : Real) - (NUMv v t : Real) / (DENv v t : Real)) := by ring
-    have hMpterm : ((0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mp - 1) ≤
+    have hMpterm : ((scale : Real) * ((NUMv v t : Real) / (DENv v t : Real))) * (Mp - 1) ≤
         2 / 25 := by
       rw [hMp1]
-      have hcap : (0x6f05b59d3b2000000000000000000000 : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
+      have hcap : (scale : Real) * ((NUMv v t : Real) / (DENv v t : Real)) ≤
           (0x6f05b59d3b2000000000000000000000 : Real) + 2378 / 1000 := by linarith [hQv_le, hr0R]
       have := mul_le_mul_of_nonneg_right hcap
         (by positivity : (0:Real) ≤ 1 / ((2 ^ 132 : Real) - 1))
@@ -564,7 +658,7 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
         rw [mul_one_div, div_le_div_iff₀ (by norm_num) (by norm_num)]
         norm_num
       linarith [this, hfin]
-    linarith [h1, hsplit ▸ h1, hMpterm, hgran2, hQv_le]
+    linarith [h1, hsplit ▸ h1, hMpterm, hgran2S, hQv_le]
   -- link 4 (under gap): 2^126·(Ert − Et) ≤ 307/1000
   set Ert := Real.exp (reducedArg x) with hErtdef
   have hgapunder := reducedArg_close_under_wide hx hW
@@ -595,31 +689,46 @@ theorem r0_real_under_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     have hfin : (1:Real) / (1 - u) ≤ 10001 / 10000 := by
       rw [div_le_div_iff₀ h1u (by norm_num)]; nlinarith [husmall]
     linarith [hmono, hexpu, hfin]
-  have hgap126 : (0x6f05b59d3b2000000000000000000000 : Real) * (Ert - Et) ≤ 218 / 1000 := by
+  have hgap126 : (scale : Real) * (Ert - Et) ≤ 218 / 1000 := by
     have hgap : Ert - Et ≤ (1025 / (1024 * (2 ^ 129 : Real))) * Ert :=
       le_trans hExp_diff (mul_le_mul_of_nonneg_right (le_of_lt hgapunder) hErt_nn)
-    have h1 : (0x6f05b59d3b2000000000000000000000 : Real) * (Ert - Et) ≤ (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) :=
-      mul_le_mul_of_nonneg_left hgap (by positivity)
-    have h2 : (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) ≤
+    have h1 : (scale : Real) * (Ert - Et) ≤ (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) :=
+      mul_le_mul_of_nonneg_left hgap hsRnn
+    have h2 : (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * Ert) ≤
+        (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (10001 / 10000)) :=
+      mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hErt_le (by positivity)) hsRnn
+    have h2' : (scale : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (10001 / 10000)) ≤
         (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (10001 / 10000)) :=
-      mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hErt_le (by positivity)) (by positivity)
+      mul_le_mul_of_nonneg_right hshiR (by positivity)
     have h3 : (0x6f05b59d3b2000000000000000000000 : Real) * ((1025 / (1024 * (2 ^ 129 : Real))) * (10001 / 10000)) ≤ 218 / 1000 := by
       norm_num
-    linarith [h1, h2, h3]
-  have hdist : (0x6f05b59d3b2000000000000000000000 : Real) * Ert = (0x6f05b59d3b2000000000000000000000 : Real) * Et + (0x6f05b59d3b2000000000000000000000 : Real) * (Ert - Et) := by
+    linarith [h1, h2, h2', h3]
+  have hdist : (scale : Real) * Ert = (scale : Real) * Et + (scale : Real) * (Ert - Et) := by
     ring
-  show (0x6f05b59d3b2000000000000000000000 : Real) * Ert ≤ (r0 : Real) + 2993 / 1000
+  show (scale : Real) * Ert ≤ (r0 : Real) + 2993 / 1000
   have hsum : (2378 : Real) / 1000 + 2 / 25 + 3814697265625 * 1644901622230542074 / (10000000000000000000 * 2199023255552) +
       218 / 1000 ≤ 2993 / 1000 := by norm_num
   linarith [hEt_bound, hgap126, hdist, hsum]
 
-/-- **Per-point deficit (tight, any sign):** `scaleQ67·exp(rt) ≤ r0 + 2993/1000`. -/
+/-- **Per-point deficit (tight, any sign):** `scale·exp(rt) ≤ r0 + 2993/1000` (the deficit budget
+is certified at the maximal scale, and smaller scales only shrink the true deficit). -/
+theorem r0Scaled_real_under_within {scale x : Nat} (hslo : 2 ^ 125 ≤ scale)
+    (hshi : scale ≤ scaleQ67) (hx : x < 2 ^ 256) (hW : WideRegion x) :
+    (scale : Real) * Real.exp (reducedArg x) ≤ (int256 (r0ScaledTree scale x) : Real) + 2993 / 1000 := by
+  rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
+  · exact r0_real_under_tight hslo hshi hx hW htnn
+  · exact r0_real_under_tight_neg hslo hshi hx hW (le_of_lt htneg)
+
 theorem r0_real_under_within_wide {x : Nat} (hx : x < 2 ^ 256)
     (hW : WideRegion x) :
     (0x6f05b59d3b2000000000000000000000 : Real) * Real.exp (reducedArg x) ≤ (int256 (r0Tree x) : Real) + 2993 / 1000 := by
-  rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
-  · exact r0_real_under_tight hx hW htnn
-  · exact r0_real_under_tight_neg hx hW (le_of_lt htneg)
+  have h := r0Scaled_real_under_within (scale := scaleQ67) (by unfold scaleQ67; norm_num)
+    (le_refl _) hx hW
+  rw [r0Tree_eq_scaled]
+  have hs : ((scaleQ67 : Nat) : Real) = 0x6f05b59d3b2000000000000000000000 := by
+    unfold scaleQ67; norm_num
+  rw [← hs]
+  exact h
 
 theorem r0_real_under_within {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
@@ -635,6 +744,16 @@ theorem r0Tree_gt_2126 {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hr0lo, _⟩ := r0Tree_bounds_wide hx hW
   have h : ((2 ^ 124 : Int) : Real) ≤ (int256 (r0Tree x) : Real) := by exact_mod_cast hr0lo
   have h2 : (2 : Real) ^ 123 < ((2 ^ 124 : Int) : Real) := by norm_num
+  linarith [h, h2]
+
+/-- `2¹²² < r0ScaledTree scale x` on the region, for `2^125 ≤ scale ≤ scaleQ67`. -/
+theorem r0Scaled_gt_2122 {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleQ67)
+    (hx : x < 2 ^ 256) (hW : WideRegion x) :
+    (2 : Real) ^ 122 < (int256 (r0ScaledTree scale x) : Real) := by
+  obtain ⟨hr0lo, _⟩ := r0Scaled_bounds hslo hshi hx hW
+  have h : ((2 ^ 123 : Int) : Real) ≤ (int256 (r0ScaledTree scale x) : Real) := by
+    exact_mod_cast hr0lo
+  have h2 : (2 : Real) ^ 122 < ((2 ^ 123 : Int) : Real) := by norm_num
   linarith [h, h2]
 
 /-- **The seam exp relation.** Across a seam (`X2 = X1 + 1`, `k2 = k1 + 1`),

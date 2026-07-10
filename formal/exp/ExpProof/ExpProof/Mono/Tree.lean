@@ -47,10 +47,17 @@ def odTree (x : Nat) : Nat :=
 /-- `t * Od(v)` in Q89. -/
 def todTree (x : Nat) : Nat := evmSar todShift (evmMul (tTree x) (odTree x))
 
+/-- The scaled rational at an explicit scale word: `⌊scale·(ev + tod)/(ev − tod)⌋`. `r0Tree` is
+its `scaleQ67` instance and the `mulExpRay` quotient its dynamic-scale instance. -/
+def r0ScaledTree (scale x : Nat) : Nat :=
+  evmDiv (evmMul scale (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
+
 /-- `10¹⁸·exp(t)` on the `2⁶⁷` output grid: the numerator is pre-scaled by `10¹⁸·2⁶⁷ = 5¹⁸·2⁸⁵`
 before the single `DIV`. -/
 def r0Tree (x : Nat) : Nat :=
   evmDiv (evmMul scaleQ67 (evmAdd (evTree x) (todTree x))) (evmSub (evTree x) (todTree x))
+
+theorem r0Tree_eq_scaled (x : Nat) : r0Tree x = r0ScaledTree scaleQ67 x := rfl
 
 /-- The floored, octave-scaled, margin-subtracted accumulator on the `2⁶⁷` output grid. -/
 def r1Tree (x : Nat) : Nat :=
