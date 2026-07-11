@@ -68,6 +68,16 @@ contract SelectUnitTest is Test, SelectShared {
 
     function _run(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         uint256[] memory hurdles = new uint256[](candidates.length);
+        _runWithHurdles(token, targets, hurdles, candidates, minOut);
+    }
+
+    function _runWithHurdles(
+        address token,
+        uint256[] memory targets,
+        uint256[] memory hurdles,
+        bytes[][] memory candidates,
+        uint256 minOut
+    ) internal {
         bytes[] memory actions = new bytes[](1);
         actions[0] =
             abi.encodeWithSelector(ISettlerActions.SELECT.selector, uint256(0), token, targets, hurdles, candidates);
@@ -133,6 +143,19 @@ contract SelectUnitTest is Test, SelectShared {
         _run(address(buy), targets, _candidates3(), 9 ether);
         assertEq(buy.balanceOf(recipient), 9 ether, "best (p2) committed");
         assertEq(p0.callCount() + p1.callCount(), 0, "losing measurements rolled back");
+    }
+
+    function test_measured_hurdles_chooseBestNet_commitAtGrossScore() public {
+        p0.set(8 ether, false);
+        p1.set(7 ether, false);
+        p2.set(9 ether, false);
+        uint256[] memory targets = _bestOfTargets(10 ether);
+        uint256[] memory hurdles = new uint256[](3);
+        hurdles[2] = 3 ether;
+        _runWithHurdles(address(buy), targets, hurdles, _candidates3(), 8 ether);
+        assertEq(buy.balanceOf(recipient), 8 ether, "best gas-adjusted candidate committed at gross score");
+        assertEq(p0.callCount(), 1, "best net candidate committed");
+        assertEq(p2.callCount(), 0, "gross-only winner rolled back");
     }
 
     function test_measured_winsOutright_skipsMeasurements() public {

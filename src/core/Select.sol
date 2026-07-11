@@ -70,12 +70,9 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x00, 0x00)
             }
 
-            let scores := mload(0x40)
-            let nets := add(scores, shl(0x05, n))
-            let alive := add(nets, shl(0x05, n))
-            // `alive` is above the free pointer under `DANGEROUS_freeMemory`.
-            calldatacopy(alive, calldatasize(), shl(0x05, n))
-            let ret := add(alive, shl(0x05, n))
+            let nets := mload(0x40)
+            let tags := add(nets, shl(0x05, n))
+            let ret := add(tags, shl(0x05, n))
             let cd := add(0x60, ret)
             mstore(cd, selector)
             mstore(add(0x04, cd), 0x80)
@@ -85,56 +82,63 @@ abstract contract Select is SettlerSwapAbstract {
 
             let attemptedCommit
             let anyScore
-            for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
+            let measuredCount
+            for {} lt(measuredCount, n) { measuredCount := add(0x01, measuredCount) } {
                 // Preserve a commit reserve once at least one candidate has measured positive.
                 if and(and(iszero(iszero(gasCap)), anyScore), lt(gas(), add(add(gasCap, gasCap), 0x10000))) {
                     break
                 }
-                let start, len := blob(candsData, n, dataEnd, i)
+                let start, len := blob(candsData, n, dataEnd, measuredCount)
                 calldatacopy(dst, start, len)
                 let tag := or(and(keccak256(dst, len), not(tagMask)), tagFlag)
-                mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, i))))
+                mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, measuredCount))))
                 mstore(add(0x64, cd), tag)
                 let g := gasCap
-                if or(iszero(g), and(iszero(anyScore), eq(i, sub(n, 0x01)))) { g := gas() }
+                if or(iszero(g), and(iszero(anyScore), eq(measuredCount, sub(n, 0x01)))) { g := gas() }
                 if call(g, address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
                     attemptedCommit := 0x01
                     break
                 }
                 let score := measured(ret, tag, measuredSelector)
                 anyScore := or(anyScore, gt(score, 0x00))
-                mstore(add(scores, shl(0x05, i)), score)
-                mstore(add(nets, shl(0x05, i)), sub(score, calldataload(add(hurdlesData, shl(0x05, i)))))
-                mstore(add(alive, shl(0x05, i)), 0x01)
+                mstore(
+                    add(nets, shl(0x05, measuredCount)),
+                    sub(score, calldataload(add(hurdlesData, shl(0x05, measuredCount))))
+                )
+                // Cache the hash and use its high bit as the attempted-candidate marker.
+                mstore(add(tags, shl(0x05, measuredCount)), or(tag, tagMask))
             }
 
             if iszero(attemptedCommit) {
                 for {} 0x01 {} {
-                    let best := n
+                    let best := measuredCount
                     let bestNet := shl(0xff, 0x01)
-                    for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
-                        if mload(add(alive, shl(0x05, i))) {
+                    for { let i := 0x00 } lt(i, measuredCount) { i := add(0x01, i) } {
+                        if mload(add(tags, shl(0x05, i))) {
                             let net := mload(add(nets, shl(0x05, i)))
-                            if or(eq(best, n), sgt(net, bestNet)) {
+                            if or(eq(best, measuredCount), sgt(net, bestNet)) {
                                 best := i
                                 bestNet := net
                             }
                         }
                     }
-                    if eq(best, n) {
+                    if eq(best, measuredCount) {
                         returndatacopy(ret, 0x00, returndatasize())
                         revert(ret, returndatasize())
                     }
 
                     let start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
-                    mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
-                    mstore(add(0x64, cd), or(and(keccak256(dst, len), not(tagMask)), tagFlag))
+                    mstore(
+                        add(0x44, cd),
+                        add(mload(add(nets, shl(0x05, best))), calldataload(add(hurdlesData, shl(0x05, best))))
+                    )
+                    mstore(add(0x64, cd), or(and(mload(add(tags, shl(0x05, best))), not(tagMask)), tagFlag))
                     if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
                         break
                     }
 
-                    mstore(add(alive, shl(0x05, best)), 0x00)
+                    mstore(add(tags, shl(0x05, best)), 0x00)
                 }
             }
         }
