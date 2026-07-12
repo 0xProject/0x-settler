@@ -8,6 +8,7 @@ import LnProof.Error.Core.Direct
 import LnProof.Error.Core.PhaseCover
 import LnProof.Error.Core.Bounds
 import LnProof.Error.Core.Assembly
+import LnProof.Cert.HardMantissaLtGap
 
 /-!
 # Error bound — BranchCert
@@ -77,10 +78,6 @@ def posShiftGePhaseGapDirectOkB (m c : Nat) : Bool :=
   sumGEB 320 (posPhaseNatGe m c + lnPhaseExtraArg + lnDirectGapArg) lnErrQ
     (posTopX c m) (10 ^ 18)
 
-def posShiftLtPhaseGapDirectOkB (m c : Nat) : Bool :=
-  sumGEB 320 (posPhaseNatLt m c + lnPhaseExtraArg + lnDirectGapArg) lnErrQ
-    (posTopX c m) (10 ^ 18)
-
 def posShiftGeBranchCertB (m c : Nat) (r : Int) : Bool :=
   geResidueGapOkB m c r ||
     (posShiftGeTopBudgetIneqOkB m c ||
@@ -96,15 +93,6 @@ def posShiftLtBranchCertB (m c : Nat) (r : Int) : Bool :=
         (posShiftLtPhaseDirectOkB m c ||
           (directResidueGapOkB m c r && posShiftLtPhaseGapDirectOkB m c)
         )))
-
-def hardMantissaLtGapBranchB (c : Nat) : Bool :=
-  directResidueGapOkB lnErrorHardMantissa c
-      (int256 (lnTail (evmSub 160 c) lnErrorHardMantissa)) &&
-    posShiftLtPhaseGapDirectOkB lnErrorHardMantissa c
-
-theorem hardMantissaLtGapBranch_all :
-    (List.range 159).all (fun i => hardMantissaLtGapBranchB (i + 1)) = true := by
-  decide +kernel
 
 theorem hardMantissaLtGapBranch {c : Nat} (hc1 : 1 ≤ c) (hc : c < 160) :
     PosShiftDirectResidueGapOk lnErrorHardMantissa c

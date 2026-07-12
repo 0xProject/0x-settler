@@ -69,13 +69,28 @@ The **generated certificates** under `Cert/` (ignored) come from the in-tree
 generators, run from `formal/ln/LnProof`:
 
 ```bash
-lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts
+lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover
 lake env lean GenFloorCertLit.lean
-lake build LnProof.Cert.FloorCertLit
+lake build \
+  LnProof.Cert.FloorCertGeUpLit \
+  LnProof.Cert.FloorCertGeLoLit \
+  LnProof.Cert.FloorCertLtUpLit \
+  LnProof.Cert.FloorCertLtLoLit
 lake env lean GenCover.lean
 lake env lean GenErr1.lean
-lake build LnProof.Error.Core
+lake build \
+  LnProof.Error.Core.ExpMargin \
+  LnProof.Error.Core.Budget \
+  LnProof.Error.Core.BranchCertHardDefs
 lake env lean GenErrLit.lean
+lake env lean GenBranchCertHard.lean
+lake build LnProof.Cert.HardMantissaLtGap
+lake build
 ```
 
-See `.github/workflows/ln-formal.yml` for the canonical CI sequence.
+The hard-mantissa certificate consists of ten generated 16-case-or-smaller
+kernel checks in two contiguous dependency lanes. The generated aggregate
+imports the two lane tips and reconstructs the 159-case theorem from those
+checked chunks.
+
+See `.github/workflows/formal.yml` for the canonical CI sequence.

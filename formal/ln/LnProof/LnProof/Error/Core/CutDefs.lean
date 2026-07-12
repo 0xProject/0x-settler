@@ -72,6 +72,7 @@ def twoPow99I : Int := 2 ^ 99
 def lnPhaseScaleN : Nat := 1000000000000000000000000000
 def lnPhaseScaleI : Int := 1000000000000000000000000000
 def lnBiasI : Int := 116873961749927929127912020551516284764321243411868
+def lnErrorHardMantissa : Nat := 39770979022059719714796403827
 
 /-- First-order exact-wad budget with the common `10^18` and `2^99` factors
 cancelled out. -/

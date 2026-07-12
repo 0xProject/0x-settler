@@ -161,8 +161,6 @@ theorem ltPhaseGapCell_sound {lo hi m c : Nat}
 def phaseSearchFuel : Nat := 128
 def phaseCoverFuel : Nat := 20000
 
-def lnErrorHardMantissa : Nat := 39770979022059719714796403827
-
 def phaseSearchMax (fuel : Nat) (ok : Nat → Bool) (lo hi best : Nat) : Nat :=
   match fuel with
   | 0 => best
