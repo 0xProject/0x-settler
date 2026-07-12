@@ -1,0 +1,57 @@
+name: Cache formal package
+description: >-
+  Restore one Lean proof package under a key that includes its direct
+  dependency sources and its own sources. Restore-only consumers require the
+  exact cache produced by their ordered publisher.
+
+inputs:
+  cache-name:
+    description: Stable package name used only by this package's cache.
+    required: true
+  cache-path:
+    description: Newline-separated package build and generated-source paths.
+    required: true
+  dependency-hash-globs:
+    description: Newline-separated hashFiles patterns for direct dependencies.
+    required: true
+  source-hash-globs:
+    description: Newline-separated hashFiles patterns for the package inputs.
+    required: true
+  publish:
+    description: Save a cache miss after the job completes.
+    required: false
+    default: "true"
+
+outputs:
+  cache-hit:
+    description: Whether an exact cache entry was restored.
+    value: ${{ steps.cache.outputs.cache-hit || steps.restore.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore and publish ${{ inputs.cache-name }} cache
+      id: cache
+      if: inputs.publish == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ${{ inputs.cache-path }}
+        key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
+        restore-keys: |
+          ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-
+          ${{ runner.os }}-formal-${{ inputs.cache-name }}-
+
+    - name: Restore ${{ inputs.cache-name }} cache without publishing
+      id: restore
+      if: inputs.publish != 'true'
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ${{ inputs.cache-path }}
+        key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
+
+    - name: Require exact ${{ inputs.cache-name }} cache from its publisher
+      if: inputs.publish != 'true' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "exact ${{ inputs.cache-name }} cache is unavailable after its publisher completed" >&2
+        exit 1

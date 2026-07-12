@@ -1,0 +1,10 @@
+name: Build Common
+description: Build the shared formal proof package.
+
+runs:
+  using: composite
+  steps:
+    - name: Build Common package
+      shell: bash
+      working-directory: formal/common
+      run: lake build

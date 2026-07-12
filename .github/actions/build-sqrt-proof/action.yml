@@ -1,0 +1,31 @@
+name: Build SqrtProof
+description: Generate SqrtProof sources once and build the package.
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Sqrt proof sources
+      uses: ./.github/actions/check-generated-sources
+      with:
+        generated-paths: |
+          formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean
+          formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean
+          formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+        generator: |
+          ./formal/yul/generate_from_forge.sh \
+            sqrt \
+            src/wrappers/SqrtWrapper.sol:SqrtWrapper \
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean \
+            0.8.34
+          python3 formal/python/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
+    - name: Fetch Sqrt proof dependency cache
+      uses: ./.github/actions/fetch-lean-cache
+      with:
+        working-directory: formal/sqrt/SqrtProof
+
+    - name: Build Sqrt proof package
+      shell: bash
+      working-directory: formal/sqrt/SqrtProof
+      run: lake build

@@ -1,0 +1,28 @@
+name: Build Cbrt512Proof
+description: Generate Cbrt512Proof sources once and build the package.
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Cbrt512 EVMYulLean artifacts
+      uses: ./.github/actions/check-generated-sources
+      with:
+        generated-paths: |
+          formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulRuntime.lean
+          formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulProof.lean
+        generator: |
+          ./formal/yul/generate_from_forge.sh \
+            cbrt512 \
+            src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
+            0.8.34
+
+    - name: Fetch Cbrt512 proof dependency cache
+      uses: ./.github/actions/fetch-lean-cache
+      with:
+        working-directory: formal/cbrt/Cbrt512Proof
+
+    - name: Build Cbrt512 proof package
+      shell: bash
+      working-directory: formal/cbrt/Cbrt512Proof
+      run: lake build

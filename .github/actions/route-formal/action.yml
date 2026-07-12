@@ -1,0 +1,56 @@
+name: Route formal checks
+description: Select the formal proof jobs affected by the current change.
+
+inputs:
+  event-name:
+    description: GitHub event name.
+    required: true
+  before-sha:
+    description: Push event predecessor commit.
+    required: false
+  base-sha:
+    description: Pull request base commit.
+    required: false
+  head-sha:
+    description: Commit containing the proposed changes.
+    required: true
+
+outputs:
+  any:
+    description: Whether any formal package is affected.
+    value: ${{ steps.route.outputs.any }}
+  common:
+    description: Whether Common is required.
+    value: ${{ steps.route.outputs.common }}
+  cbrt:
+    description: Whether CbrtProof is required.
+    value: ${{ steps.route.outputs.cbrt }}
+  cbrt512:
+    description: Whether Cbrt512Proof is required.
+    value: ${{ steps.route.outputs.cbrt512 }}
+  sqrt:
+    description: Whether SqrtProof is required.
+    value: ${{ steps.route.outputs.sqrt }}
+  sqrt512:
+    description: Whether Sqrt512Proof is required.
+    value: ${{ steps.route.outputs.sqrt512 }}
+  ln:
+    description: Whether LnProof is required.
+    value: ${{ steps.route.outputs.ln }}
+  exp:
+    description: Whether ExpProof is required.
+    value: ${{ steps.route.outputs.exp }}
+
+runs:
+  using: composite
+  steps:
+    - name: Select affected formal packages
+      id: route
+      shell: bash
+      env:
+        EVENT_NAME: ${{ inputs.event-name }}
+        BEFORE_SHA: ${{ inputs.before-sha }}
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+        ROUTER: ${{ github.action_path }}/route.sh
+      run: bash "$ROUTER"
