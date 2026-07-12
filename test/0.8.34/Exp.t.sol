@@ -9,6 +9,7 @@ import {Test, stdError} from "@forge-std/Test.sol";
 contract ExpTest is Test {
     // The largest magnitude admitted by `mulExpRay`'s s <= 127 guard.
     uint256 private constant _SCALE_MAX = 0x7fffffffffffffffffffffffffffffff;
+    int128 private constant _Y_MAX = type(int128).max;
     // First input whose octave count exceeds the supported range; `expRayToWad` reverts here.
     int256 private constant _TOO_BIG = 0x92b2f16cc66c5a4ae96e80d4;
     // First input whose octave count reaches 125: the accuracy-guard boundary at the deepest
@@ -28,7 +29,17 @@ contract ExpTest is Test {
         return Exp.expRayToWad(x);
     }
 
-    function mulExpRayExternal(int256 y, int256 x) external pure returns (int256) {
+    function mulExpRayExternal(int128 y, int256 x) external pure returns (int256) {
+        return Exp.mulExpRay(y, x);
+    }
+
+    function mulExpRayDirtyY(uint256 dirtyY, int256 x) public pure returns (int256) {
+        int128 y;
+        // Solidity cannot construct a narrow signed value with dirty upper bits.
+        // Equivalent value: y = int128(uint128(dirtyY)).
+        assembly ("memory-safe") {
+            y := dirtyY
+        }
         return Exp.mulExpRay(y, x);
     }
 
@@ -214,7 +225,7 @@ contract ExpTest is Test {
     function testMulExpRayScalePoint() external {
         assertEq(Exp.mulExpRay(1, 0), 1, "one");
         assertEq(Exp.mulExpRay(-1, 0), -1, "minus one");
-        int256 pinMax = int256(_SCALE_MAX >> 2);
+        int128 pinMax = _Y_MAX / 4;
         assertEq(Exp.mulExpRay(pinMax, 0), pinMax, "deepest pinned magnitude");
         assertEq(Exp.mulExpRay(-pinMax, 0), -pinMax, "negative mirror");
         vm.expectRevert(stdError.arithmeticError);
@@ -228,18 +239,18 @@ contract ExpTest is Test {
     function testMulExpRayScaleCapLive() external pure {
         int256 x = _octaveStart(-2);
         int256 floorA = 30076996146000563943129221579116071223;
-        int256 r = Exp.mulExpRay(int256(_SCALE_MAX), x);
+        int256 r = Exp.mulExpRay(_Y_MAX, x);
         assertLe(r, floorA, "overestimates");
         assertGe(r, floorA - 1, "below floor minus one");
-        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), x), -r, "negative mirror");
+        assertEq(Exp.mulExpRay(-_Y_MAX, x), -r, "negative mirror");
 
         x = -1039720770839917964125848183;
         assertEq(x, _octaveStart(-1) - 1, "upper endpoint");
         floorA = 60153992292001127886258443070517000410;
-        r = Exp.mulExpRay(int256(_SCALE_MAX), x);
+        r = Exp.mulExpRay(_Y_MAX, x);
         assertLe(r, floorA, "overestimates at upper endpoint");
         assertGe(r, floorA - 1, "below floor minus one at upper endpoint");
-        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), x), -r, "negative mirror at upper endpoint");
+        assertEq(Exp.mulExpRay(-_Y_MAX, x), -r, "negative mirror at upper endpoint");
     }
 
     /// Below the octave-wrap boundary (x < -(2**255 + 2**191)/CINV ~ -5.7e45) the wrapped octave
@@ -286,28 +297,31 @@ contract ExpTest is Test {
 
     function testMulExpRayLowerZero() external pure {
         assertEq(Exp.mulExpRay(1, _X_LO_ZERO), 0, "one at boundary");
-        assertEq(Exp.mulExpRay(int256(_SCALE_MAX), _X_LO_ZERO), 0, "scale max at boundary");
-        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), _X_LO_ZERO - 1), 0, "negative below boundary");
+        assertEq(Exp.mulExpRay(_Y_MAX, _X_LO_ZERO), 0, "scale max at boundary");
+        assertEq(Exp.mulExpRay(-_Y_MAX, _X_LO_ZERO - 1), 0, "negative below boundary");
     }
 
     function testMulExpRayNegativeSignSymmetry() external pure {
         int256 x = 3e27;
-        int256 y = 123456789012345678901234567;
+        int128 y = 123456789012345678901234567;
         assertEq(Exp.mulExpRay(-y, x), -Exp.mulExpRay(y, x), "positive exponent");
         assertEq(Exp.mulExpRay(-y, -x), -Exp.mulExpRay(y, -x), "negative exponent");
     }
 
-    function testMulExpRayOverScaleReverts() external {
+    function testMulExpRayClearsDirtyYBits() external pure {
+        uint256 positive = (type(uint256).max << 128) | uint256(uint128(1e18));
+        uint256 negative = uint256(uint128(-int128(1e18)));
+        assertEq(mulExpRayDirtyY(positive, 1e27), Exp.mulExpRay(1e18, 1e27), "dirty positive");
+        assertEq(mulExpRayDirtyY(negative, 1e27), Exp.mulExpRay(-1e18, 1e27), "dirty negative");
+    }
+
+    function testMulExpRayMinReverts() external {
         vm.expectRevert(stdError.arithmeticError);
-        this.mulExpRayExternal(int256(_SCALE_MAX + 1), 0);
+        this.mulExpRayExternal(type(int128).min, 0);
         vm.expectRevert(stdError.arithmeticError);
-        this.mulExpRayExternal(type(int256).min, 0);
+        this.mulExpRayExternal(type(int128).min, _X_LO_ZERO);
         vm.expectRevert(stdError.arithmeticError);
-        this.mulExpRayExternal(int256(_SCALE_MAX + 1), _X_LO_ZERO);
-        vm.expectRevert(stdError.arithmeticError);
-        this.mulExpRayExternal(-int256(_SCALE_MAX + 1), _X_LO_ZERO);
-        vm.expectRevert(stdError.arithmeticError);
-        this.mulExpRayExternal(type(int256).min, type(int256).min);
+        this.mulExpRayExternal(type(int128).min, type(int256).min);
     }
 
     function testMulExpRayHighGuardReverts() external {
@@ -325,7 +339,7 @@ contract ExpTest is Test {
         vm.expectRevert(stdError.arithmeticError);
         this.mulExpRayExternal(1e18, _TOO_BIG);
         vm.expectRevert(stdError.arithmeticError);
-        this.mulExpRayExternal(int256(_SCALE_MAX), _octaveStart(-1));
+        this.mulExpRayExternal(_Y_MAX, _octaveStart(-1));
     }
 
     function testMulExpRaySmallMagnitudeHighOctave() external {
@@ -340,13 +354,13 @@ contract ExpTest is Test {
     }
 
     function testFuzzMulExpRaySignSymmetry(uint256 uy, int256 x) external pure {
-        int256 y = int256(bound(uy, 1, 1e18));
+        int128 y = int128(uint128(bound(uy, 1, 1e18)));
         x = bound(x, _X_LO_ZERO + 1, _TOO_BIG - 1);
         assertEq(Exp.mulExpRay(-y, x), -Exp.mulExpRay(y, x), "sign symmetry");
     }
 
     function testFuzzMulExpRayMonotoneMagnitude(uint256 uy, int256 x) external pure {
-        int256 y = int256(bound(uy, 1, 1e18));
+        int128 y = int128(uint128(bound(uy, 1, 1e18)));
         x = bound(x, _X_LO_ZERO + 1, _TOO_BIG - 2);
         assertGe(Exp.mulExpRay(y, x + 1), Exp.mulExpRay(y, x), "adjacent monotonicity");
     }
@@ -355,7 +369,7 @@ contract ExpTest is Test {
     /// at its deepest accepted octaves.
     function testMulExpRayMonotoneYHeadroomBoundaries() external pure {
         for (uint256 s0 = 1; s0 <= 126; ++s0) {
-            int256 q = int256(_SCALE_MAX >> s0);
+            int128 q = int128(uint128(_SCALE_MAX >> s0));
             int256 kmax = int256(s0) - 3;
             for (int256 k = kmax; k >= kmax - 2 && k >= -60; --k) {
                 int256 xb = _octaveStart(k);
@@ -370,7 +384,7 @@ contract ExpTest is Test {
     /// Fuzz the bit-length headroom boundaries across the full accepted exponent range.
     function testFuzzMulExpRayMonotoneYHeadroom(uint256 us, int256 x) external pure {
         uint256 s0 = bound(us, 1, 126);
-        int256 q = int256(_SCALE_MAX >> s0);
+        int128 q = int128(uint128(_SCALE_MAX >> s0));
         // The deepest x accepted by both magnitudes: octave count at most s0 - 3.
         x = bound(x, _X_LO_ZERO + 1, _octaveStart(int256(s0) - 2) - 1);
         assertLe(Exp.mulExpRay(q, x), Exp.mulExpRay(q + 1, x), "y-monotonicity across headroom");
@@ -380,8 +394,8 @@ contract ExpTest is Test {
     /// Adjacent multipliers anywhere in the supported range, with the exponent bounded to the
     /// octaves both headrooms accept.
     function testFuzzMulExpRayMonotoneYAdjacent(uint256 uy, int256 x) external pure {
-        int256 y = int256(bound(uy, 1, _SCALE_MAX - 1));
-        uint256 s = Clz.clz(uint256(y) + 1) - 129;
+        int128 y = int128(uint128(bound(uy, 1, _SCALE_MAX - 1)));
+        uint256 s = Clz.clz(uint256(uint128(y)) + 1) - 129;
         x = bound(x, _X_LO_ZERO + 1, _octaveStart(int256(s) - 1) - 1);
         assertLe(Exp.mulExpRay(y, x), Exp.mulExpRay(y + 1, x), "adjacent y-monotonicity");
     }

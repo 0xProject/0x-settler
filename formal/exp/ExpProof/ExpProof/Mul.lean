@@ -60,7 +60,8 @@ theorem mulExpRay_run_bracket_zero_of_run {x : Nat}
 theorem run_mul_exp_ray_evm_zero_of_guard (x : Nat)
     (hguard : mulExpGuardTree 0 x = 0) :
     run_mul_exp_ray_evm 0 x = .ok 0 := by
-  simpa [mulExpTree_zero] using run_mul_exp_ray_evm_eq_tree_of_guard 0 x hguard
+  simpa [mulExpTree_zero] using
+    run_mul_exp_ray_evm_eq_tree_of_guard 0 x int128CalldataWord_zero.2 hguard
 
 /-- The compiled runtime satisfies the public bracket spec at zero magnitude whenever the guard
 accepts. -/
@@ -71,12 +72,14 @@ theorem mulExpRay_run_bracket_zero (x : Nat) (hguard : mulExpGuardTree 0 x = 0) 
 /-- **Value path on the domain.** Accepted inputs return the compiled arithmetic tree. -/
 theorem run_mul_exp_ray_evm_eq_tree {y x : Nat} (h : MulExpRayValueDomain y x) :
     run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
-  run_mul_exp_ray_evm_eq_tree_of_guard y x ((valueDomain_iff_guard_eq_zero h.1).mp h)
+  run_mul_exp_ray_evm_eq_tree_of_guard y x h.1.1.2
+    ((valueDomain_iff_guard_eq_zero h.1).mp h)
 
 /-- **Panic revert.** Rejected inputs revert. -/
 theorem run_mul_exp_ray_evm_revert {y x : Nat} (h : MulExpRayPanicDomain y x) :
     run_mul_exp_ray_evm y x = .error "revert" :=
-  run_mul_exp_ray_evm_revert_of_guard y x ((panicDomain_iff_guard_eq_one h.1).mp h)
+  run_mul_exp_ray_evm_revert_of_guard y x h.1.1.2
+    ((panicDomain_iff_guard_eq_one h.1).mp h)
 
 /-- The `y = 10^18` magnitude target is the existing `expRayToWad` target. -/
 theorem mulExpRayMagnitudeTarget_wad (x : Int) :

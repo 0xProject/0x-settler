@@ -73,8 +73,7 @@ library Exp {
     ///      and x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 and x₂ ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any exponents.
     ///
     ///      Reverts with `Panic(17)` in exactly three cases:
-    ///      abs(y) > 2¹²⁷ - 1 = 170141183460469231731687303715884105727 ≈ 1.70⋅10³⁸ (including
-    ///      y = type(int256).min); x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷ (regardless of
+    ///      y = type(int128).min; x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷ (regardless of
     ///      y); or the octave word — `_octave`'s output, which is round(x / (10²⁷⋅ln(2))) wherever
     ///      its product does not wrap (|x| ≲ 2¹⁵²) — exceeding s - 2, with 2ˢ the scale headroom
     ///      above abs(y) (the largest power of two with abs(y)⋅2ˢ < 2¹²⁷;
@@ -83,12 +82,13 @@ library Exp {
     ///      x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap
     ///      boundary (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to
     ///      zero, either of which is sound (A < 1 there at every supported magnitude).
-    function mulExpRay(int256 y, int256 x) internal pure returns (int256) {
+    function mulExpRay(int128 y, int256 x) internal pure returns (int256) {
         uint256 ay;
         uint256 sign;
-        // Split y into a sign mask and a magnitude without negating `type(int256).min`:
+        // Split y into a sign mask and a magnitude without negating `type(int128).min`:
         //     sign = y >> 255; ay = (y ^ sign) - sign
         assembly ("memory-safe") {
+            y := signextend(0x0f, y)
             sign := sar(0xff, y)
             ay := sub(xor(y, sign), sign)
         }

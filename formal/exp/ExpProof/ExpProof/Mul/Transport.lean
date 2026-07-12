@@ -236,7 +236,8 @@ theorem scaleMax_octave_neg_two_valueDomain {x : Nat} (hx : x < 2 ^ 256)
   have hshift : int256 (mulShiftTree scaleMax x) = 2 := by
     rw [mulShiftTree_transport_global hcap, hs, hk]
     norm_num
-  exact ⟨hs, hshift, ⟨⟨hy, hx⟩, by rw [hs]; norm_num, hxhi, by omega⟩⟩
+  exact ⟨hs, hshift,
+    ⟨⟨int128CalldataWord_scaleMax, hx⟩, by rw [hs]; norm_num, hxhi, by omega⟩⟩
 
 /-- The closing-shift word carries the signed difference `S − k` on the wide region. -/
 theorem mulShiftTree_transport {y x : Nat} (_hy : y < 2 ^ 256) (_hx : x < 2 ^ 256)

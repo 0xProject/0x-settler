@@ -88,6 +88,48 @@ theorem call_cleanup_t_int256_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word]
 
+/-- A Yul `signextend(a, b)` primitive call returns the sign-extended word. -/
+theorem primCall_signextend_yul (fuel : Nat) (s : EvmYul.Yul.State)
+    (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (fuel + 1) s
+        (EvmYul.Operation.StopArith EvmYul.Operation.SAOp.SIGNEXTEND : EvmYul.Operation .Yul)
+        [a, b] =
+      .ok (s, [EvmYul.UInt256.signextend a b]) := by
+  rw [EvmYul.Yul.primCall.eq_def]
+  simp only [List.mem_cons, List.not_mem_nil, Bool.not_eq_true, reduceCtorEq, or_self, and_false, if_false,
+    EvmYul.step.eq_def]
+  rfl
+
+/-- `cleanup_t_int128(value) -> cleaned { cleaned := signextend(15, value) }`. -/
+theorem call_cleanup_t_int128_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [FormalYul.word v] (.some "cleanup_t_int128")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word v)]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_cleanup_t_int128]
+  simp only [yulFunction_cleanup_t_int128,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hsign := primCall_signextend_yul (fuel + extra + 16)
+    (EvmYul.Yul.State.Ok shared
+      (Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore)))
+    (FormalYul.word 15) (FormalYul.word v)
+  simp only [FormalYul.word] at hsign
+  simp +decide [EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hsign]
+
 theorem call_identity_direct
     (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =

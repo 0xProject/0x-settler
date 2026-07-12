@@ -292,7 +292,7 @@ theorem mulExpRay_run_bracket {y x : Nat} (h : MulExpRayValueDomain y x) :
     have hrun : run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
       run_mul_exp_ray_evm_eq_tree ⟨⟨hy, hx⟩, hscale, hxhi, hlive⟩
     exact ⟨mulExpTree y x, hrun,
-      mulExpTree_bracket_live hy hx (by omega) habs hx0 hWx hlive⟩
+      mulExpTree_bracket_live hy.1 hx (by omega) habs hx0 hWx hlive⟩
 
 /-! ## Floor membership and the small-target pin -/
 

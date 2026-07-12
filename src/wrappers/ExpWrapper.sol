@@ -11,7 +11,7 @@ contract ExpWrapper {
         return Exp.expRayToWad(x);
     }
 
-    function wrap_mulExpRay(int256 y, int256 x) external pure returns (int256) {
+    function wrap_mulExpRay(int128 y, int256 x) external pure returns (int256) {
         return Exp.mulExpRay(y, x);
     }
 }

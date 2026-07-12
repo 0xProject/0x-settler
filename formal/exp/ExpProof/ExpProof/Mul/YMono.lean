@@ -566,7 +566,7 @@ theorem run_mul_exp_ray_evm_mono_y {y1 y2 x : Nat}
   by_cases hx0 : int256 x = 0
   · have hxz : x = 0 := (int256_zero_iff_of_canonical hxw).1 hx0
     subst hxz
-    rw [mulExpTree_scale_point hy1 habs1, mulExpTree_scale_point hy2 habs2]
+    rw [mulExpTree_scale_point hy1.1 habs1, mulExpTree_scale_point hy2.1 habs2]
     exact hle
   -- the live region
   have hW : WideRegion x := ⟨by omega, hxhi⟩
@@ -585,9 +585,10 @@ theorem run_mul_exp_ray_evm_mono_y {y1 y2 x : Nat}
       rw [h0] at hle
       have hy2small : y2 < 2 ^ 255 := by
         by_contra hbig
-        have := int256_y_neg (by omega) hy2
+        have := int256_y_neg (by omega) hy2.1
         omega
-      obtain ⟨hm0, _, _, _⟩ := mulMagnitude_bracket_live hy2 hxw (by omega) habs2 hx0 hW hlv2
+      obtain ⟨hm0, _, _, _⟩ :=
+        mulMagnitude_bracket_live hy2.1 hxw (by omega) habs2 hx0 hW hlv2
       rw [int256_tree_pos hp2 hy2small]
       exact hm0
   rcases Nat.eq_zero_or_pos y2 with hz2 | hp2
@@ -601,16 +602,17 @@ theorem run_mul_exp_ray_evm_mono_y {y1 y2 x : Nat}
       rw [h1] at hle
       have : y1 = 0 := by exact_mod_cast le_antisymm (by exact_mod_cast hle) (Nat.zero_le y1)
       omega
-    have hm255 := mag_word_small hy1 (by omega) hxw habs1 hx0 hW hlv1
-    obtain ⟨hm0, _, _, _⟩ := mulMagnitude_bracket_live hy1 hxw (by omega) habs1 hx0 hW hlv1
-    rw [int256_tree_neg hy1big hy1 hm255]
+    have hm255 := mag_word_small hy1.1 (by omega) hxw habs1 hx0 hW hlv1
+    obtain ⟨hm0, _, _, _⟩ :=
+      mulMagnitude_bracket_live hy1.1 hxw (by omega) habs1 hx0 hW hlv1
+    rw [int256_tree_neg hy1big hy1.1 hm255]
     linarith [hm0]
   -- both multipliers nonzero
   by_cases hneg1 : y1 < 2 ^ 255
   · -- y1 on the nonnegative-word side, hence so is y2
     have hy2small : y2 < 2 ^ 255 := by
       by_contra hbig
-      have hn := int256_y_neg (by omega) hy2
+      have hn := int256_y_neg (by omega) hy2.1
       have hp := int256_of_lt hneg1
       rw [hp] at hle
       have : (0:Int) ≤ (y1 : Int) := Int.natCast_nonneg y1
@@ -629,32 +631,34 @@ theorem run_mul_exp_ray_evm_mono_y {y1 y2 x : Nat}
     have hy1big : 2 ^ 255 ≤ y1 := by omega
     by_cases hneg2 : y2 < 2 ^ 255
     · -- signs differ: a nonpositive result against a nonnegative one
-      have hm255a := mag_word_small hy1 (by omega) hxw habs1 hx0 hW hlv1
-      obtain ⟨hm0a, _, _, _⟩ := mulMagnitude_bracket_live hy1 hxw (by omega) habs1 hx0 hW hlv1
-      obtain ⟨hm0b, _, _, _⟩ := mulMagnitude_bracket_live hy2 hxw (by omega) habs2 hx0 hW hlv2
-      rw [int256_tree_neg hy1big hy1 hm255a, int256_tree_pos hp2 hneg2]
+      have hm255a := mag_word_small hy1.1 (by omega) hxw habs1 hx0 hW hlv1
+      obtain ⟨hm0a, _, _, _⟩ :=
+        mulMagnitude_bracket_live hy1.1 hxw (by omega) habs1 hx0 hW hlv1
+      obtain ⟨hm0b, _, _, _⟩ :=
+        mulMagnitude_bracket_live hy2.1 hxw (by omega) habs2 hx0 hW hlv2
+      rw [int256_tree_neg hy1big hy1.1 hm255a, int256_tree_pos hp2 hneg2]
       linarith [hm0a, hm0b]
     · -- both negative: magnitudes reverse
       have hy2big : 2 ^ 255 ≤ y2 := by omega
-      have haa1 : absTree y1 = 2 ^ 256 - y1 := absTree_neg hy1big hy1
-      have haa2 : absTree y2 = 2 ^ 256 - y2 := absTree_neg hy2big hy2
+      have haa1 : absTree y1 = 2 ^ 256 - y1 := absTree_neg hy1big hy1.1
+      have haa2 : absTree y2 = 2 ^ 256 - y2 := absTree_neg hy2big hy2.1
       have h21 : absTree y2 ≤ absTree y1 := by
         rw [haa1, haa2]
-        have ha := int256_neg_eq_abs hy1big hy1
-        have hb := int256_neg_eq_abs hy2big hy2
+        have ha := int256_neg_eq_abs hy1big hy1.1
+        have hb := int256_neg_eq_abs hy2big hy2.1
         rw [ha, hb, haa1, haa2] at hle
         have h1 : ((2 ^ 256 - y2 : Nat) : Int) ≤ ((2 ^ 256 - y1 : Nat) : Int) := by omega
         exact_mod_cast h1
       have hmag : int256 (mulMagnitudeTree (absTree y2) x) ≤
           int256 (mulMagnitudeTree (absTree y1) x) := by
         refine mulMagnitudeY_region_mono ?_ h21 habs1 hxw hW hx0 ?_
-        · have : 1 ≤ absTree y2 := absTree_pos hy2 (by omega)
+        · have : 1 ≤ absTree y2 := absTree_pos hy2.1 (by omega)
           omega
         · rw [← mulShift_abs_norm habs1]
           exact hlv1
-      have hm255a := mag_word_small hy1 (by omega) hxw habs1 hx0 hW hlv1
-      have hm255b := mag_word_small hy2 (by omega) hxw habs2 hx0 hW hlv2
-      rw [int256_tree_neg hy1big hy1 hm255a, int256_tree_neg hy2big hy2 hm255b,
+      have hm255a := mag_word_small hy1.1 (by omega) hxw habs1 hx0 hW hlv1
+      have hm255b := mag_word_small hy2.1 (by omega) hxw habs2 hx0 hW hlv2
+      rw [int256_tree_neg hy1big hy1.1 hm255a, int256_tree_neg hy2big hy2.1 hm255b,
         mulMagnitude_abs_norm habs1, mulMagnitude_abs_norm habs2]
       linarith [hmag]
 

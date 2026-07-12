@@ -111,7 +111,7 @@ theorem calldataload_mulExpRay_arg0_of_calldata
       (EvmYul.Yul.State.Ok shared store).toState (FormalYul.word 4) =
       FormalYul.word y := by
   exact FormalYul.Preservation.calldataload_two_args_first_of_calldata
-    0x79 0xab 0xc0 0x89 y x shared store (by simpa [selector_mulExpRay] using hdata)
+    0x0d 0xbb 0x6b 0xb9 y x shared store (by simpa [selector_mulExpRay] using hdata)
 
 @[simp]
 theorem calldataload_mulExpRay_arg1_of_calldata
@@ -121,7 +121,7 @@ theorem calldataload_mulExpRay_arg1_of_calldata
       (EvmYul.Yul.State.Ok shared store).toState (FormalYul.word 36) =
       FormalYul.word x := by
   exact FormalYul.Preservation.calldataload_two_args_second_of_calldata
-    0x79 0xab 0xc0 0x89 y x shared store (by simpa [selector_mulExpRay] using hdata)
+    0x0d 0xbb 0x6b 0xb9 y x shared store (by simpa [selector_mulExpRay] using hdata)
 
 /-- `validator_revert_t_int256(value)` does `if iszero(eq(value, cleanup_t_int256(value))) {revert}`;
 since `cleanup_t_int256` is the identity the equality always holds, so it never reverts. -/
@@ -152,6 +152,39 @@ theorem call_validator_revert_t_int256_direct
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     FormalYul.word, hcleanup]
+
+/-- `validator_revert_t_int128(value)` accepts exactly the words unchanged by
+`cleanup_t_int128`. -/
+theorem call_validator_revert_t_int128_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word v) =
+      FormalYul.word v) :
+    EvmYul.Yul.call (fuel + (extra + 80)) [FormalYul.word v] (.some "validator_revert_t_int128")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, []) := by
+  rw [show fuel + (extra + 80) = (fuel + extra) + 80 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_validator_revert_t_int128]
+  simp only [yulFunction_validator_revert_t_int128,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hcleanup :=
+    call_cleanup_t_int128_direct (v := v) (fuel := fuel + extra) (extra := 51)
+      (shared := shared) (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at hcleanup
+  simp only [FormalYul.word] at hclean
+  simp +decide [EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    FormalYul.word, hcleanup, hclean]
 
 /-- `abi_decode_t_int256(offset, end) := calldataload(offset); validator(value)` — for the
 `expRayToWad` calldata at offset 4 it reads `x` and validates (no revert). -/
@@ -222,26 +255,28 @@ theorem call_abi_decode_tuple_t_int256_of_calldata
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hdecode]
 
-theorem call_abi_decode_t_int256_mul_arg0_of_calldata
+theorem call_abi_decode_t_int128_mul_arg0_of_calldata
     (y x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
-    (hdata : shared.executionEnv.calldata = selector_mulExpRay ++ FormalYul.encodeWords [y, x]) :
+    (hdata : shared.executionEnv.calldata = selector_mulExpRay ++ FormalYul.encodeWords [y, x])
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y) :
     EvmYul.Yul.call (fuel + (extra + 200)) [FormalYul.word 4, FormalYul.word 68]
-      (.some "abi_decode_t_int256") (.some yulContract)
+      (.some "abi_decode_t_int128") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word y]) := by
   rw [show fuel + (extra + 200) = (fuel + extra) + 200 by omega]
   rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_abi_decode_t_int256]
-  simp only [yulFunction_abi_decode_t_int256,
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_abi_decode_t_int128]
+  simp only [yulFunction_abi_decode_t_int128,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hvalidator :=
-    call_validator_revert_t_int256_direct (v := y) (fuel := fuel + extra) (extra := 115)
-      (shared := shared) (hlookup := hlookup)
+    call_validator_revert_t_int128_direct (v := y) (fuel := fuel + extra) (extra := 115)
+      (shared := shared) (hlookup := hlookup) (hclean := hclean)
   simp only [Nat.reduceAdd, FormalYul.word] at hvalidator
   have hload :=
     calldataload_mulExpRay_arg0_of_calldata y x shared
@@ -294,34 +329,36 @@ theorem call_abi_decode_t_int256_mul_arg1_of_calldata
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hload, hvalidator]
 
-/-- `abi_decode_tuple_t_int256t_int256(headStart, dataEnd)` decodes `(y, x)`. -/
-theorem call_abi_decode_tuple_t_int256t_int256_of_mul_calldata
+/-- `abi_decode_tuple_t_int128t_int256(headStart, dataEnd)` decodes `(y, x)`. -/
+theorem call_abi_decode_tuple_t_int128t_int256_of_mul_calldata
     (y x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
-    (hdata : shared.executionEnv.calldata = selector_mulExpRay ++ FormalYul.encodeWords [y, x]) :
+    (hdata : shared.executionEnv.calldata = selector_mulExpRay ++ FormalYul.encodeWords [y, x])
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y) :
     EvmYul.Yul.call (fuel + (extra + 520)) [FormalYul.word 4, FormalYul.word 68]
-      (.some "abi_decode_tuple_t_int256t_int256") (.some yulContract)
+      (.some "abi_decode_tuple_t_int128t_int256") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word y, FormalYul.word x]) := by
   rw [show fuel + (extra + 520) = (fuel + extra) + 520 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions,
-    lookup_abi_decode_tuple_t_int256t_int256]
-  simp only [yulFunction_abi_decode_tuple_t_int256t_int256,
+    lookup_abi_decode_tuple_t_int128t_int256]
+  simp only [yulFunction_abi_decode_tuple_t_int128t_int256,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hdecode0 :=
-    call_abi_decode_t_int256_mul_arg0_of_calldata (y := y) (x := x)
+    call_abi_decode_t_int128_mul_arg0_of_calldata (y := y) (x := x)
       (fuel := fuel + extra) (extra := 313)
       (shared := shared)
       (store := Finmap.insert "offset" (FormalYul.word 0)
         (Finmap.insert "headStart" (FormalYul.word 4)
           (Finmap.insert "dataEnd" (FormalYul.word 68)
             (Inhabited.default : EvmYul.Yul.VarStore))))
-      (hlookup := hlookup) (hdata := hdata)
+      (hlookup := hlookup) (hdata := hdata) (hclean := hclean)
   have hdecode1 :=
     call_abi_decode_t_int256_mul_arg1_of_calldata (y := y) (x := x)
       (fuel := fuel + extra) (extra := 312)
@@ -543,12 +580,12 @@ theorem selectSwitchCase_expRayToWad_sharedFor_mk (x : Nat) :
             (Inhabited.default : EvmYul.Yul.VarStore)).toState
           (FormalYul.word 0))
       (FormalYul.word 224))
-      [(FormalYul.word 1099384363,
+      [(FormalYul.word 230386617,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])]),
-        (FormalYul.word 2041299081,
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])]),
+        (FormalYul.word 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
           (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])] := by
@@ -569,12 +606,12 @@ theorem selectSwitchCase_expRayToWad_sharedFor_mk_raw (x : Nat) :
             (Inhabited.default : EvmYul.Yul.VarStore)).toState
           (EvmYul.UInt256.ofNat 0))
       (EvmYul.UInt256.ofNat 224))
-      [(EvmYul.UInt256.ofNat 1099384363,
+      [(EvmYul.UInt256.ofNat 230386617,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])]),
-        (EvmYul.UInt256.ofNat 2041299081,
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])]),
+        (EvmYul.UInt256.ofNat 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
           (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])] := by
@@ -608,12 +645,12 @@ theorem mulExpRay_selector_afterFreePtr (y x : Nat) :
           (Inhabited.default : EvmYul.Yul.VarStore)).toState
         (FormalYul.word 0))
       (FormalYul.word 224) =
-      FormalYul.word 2041299081 := by
+      FormalYul.word 230386617 := by
   have hselector :=
     FormalYul.Preservation.shiftRight_calldataload_selector_two_args_of_calldata
       (shared := mulExpSharedAfterFreePtr y x)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (a := 0x79) (b := 0xab) (c := 0xc0) (d := 0x89) (x := y) (y := x)
+      (a := 0x0d) (b := 0xbb) (c := 0x6b) (d := 0xb9) (x := y) (y := x)
       (by simp [selector_mulExpRay])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
@@ -631,7 +668,7 @@ theorem mulExpRay_selector_sharedFor_mk (y x : Nat) :
           (Inhabited.default : EvmYul.Yul.VarStore)).toState
         (FormalYul.word 0))
       (FormalYul.word 224) =
-      FormalYul.word 2041299081 := by
+      FormalYul.word 230386617 := by
   rw [sharedFor_inherited_mstore_mk_eq_mulExpSharedAfterFreePtr]
   exact mulExpRay_selector_afterFreePtr y x
 
@@ -650,12 +687,12 @@ theorem selectSwitchCase_mulExpRay_sharedFor_mk (y x : Nat) :
             (Inhabited.default : EvmYul.Yul.VarStore)).toState
           (FormalYul.word 0))
       (FormalYul.word 224))
-      [(FormalYul.word 1099384363,
+      [(FormalYul.word 230386617,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])]),
-        (FormalYul.word 2041299081,
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])]),
+        (FormalYul.word 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
           (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])] := by
@@ -676,12 +713,12 @@ theorem selectSwitchCase_mulExpRay_sharedFor_mk_raw (y x : Nat) :
             (Inhabited.default : EvmYul.Yul.VarStore)).toState
           (EvmYul.UInt256.ofNat 0))
       (EvmYul.UInt256.ofNat 224))
-      [(EvmYul.UInt256.ofNat 1099384363,
+      [(EvmYul.UInt256.ofNat 230386617,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])]),
-        (EvmYul.UInt256.ofNat 2041299081,
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])]),
+        (EvmYul.UInt256.ofNat 1099384363,
           [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])])] =
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_expRayToWad) [])])] =
       some
         [EvmYul.Yul.Ast.Stmt.ExprStmtCall
           (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_mulExpRay) [])] := by

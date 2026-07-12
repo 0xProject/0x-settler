@@ -109,7 +109,7 @@ Every documented `mulExpRay` property holds for the compiled runtime, axiom-clea
 | Monotone in `x`, direction following `sign(y)`         | `run_mul_exp_ray_evm_mono_x`         |
 | Nondecreasing in `y` at a fixed `x`                    | `run_mul_exp_ray_evm_mono_y`         |
 | Joint sign-aware monotonicity (three cases)            | `run_mul_exp_ray_evm_mono_joint`     |
-| Reverts exactly when magnitude, upper-fence, or closing-shift guard fails | `mulExpRay_value_iff_not_panic`, `run_mul_exp_ray_evm_revert`, `panicDomain_iff_magnitude_guard`, `run_mul_exp_ray_evm_revert_int_min` |
+| Reverts exactly when magnitude, upper-fence, or closing-shift guard fails | `mulExpRay_value_iff_not_panic`, `run_mul_exp_ray_evm_revert`, `panicDomain_iff_magnitude_guard`, `run_mul_exp_ray_evm_revert_int128_min` |
 | The 127-bit magnitude guard is exact                    | `scaleShiftTree_le_127_iff`          |
 | The maximal magnitude is live at closing shift two     | `scaleMax_octave_neg_two_run_bracket` |
 
@@ -223,11 +223,11 @@ example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
         FormalYul.Preservation.int256 (mulShiftTree y x) < 2 :=
   panicDomain_iff_magnitude_guard hcanon
 
-/-- **`type(int256).min` always reverts**: its magnitude word `2^255` exceeds the maximal
+/-- **`type(int128).min` always reverts**: its magnitude `2^127` exceeds the maximal
 scale. -/
 example {x : Nat} (hx : x < 2 ^ 256) :
-    run_mul_exp_ray_evm (2 ^ 255) x = .error "revert" :=
-  run_mul_exp_ray_evm_revert_int_min hx
+    run_mul_exp_ray_evm (2 ^ 256 - 2 ^ 127) x = .error "revert" :=
+  run_mul_exp_ray_evm_revert_int128_min hx
 
 /-- **Floor membership.** Every accepted input's result magnitude is `⌊A⌋` or `⌊A⌋ − 1`. -/
 example {y x : Nat} (h : MulExpRayValueDomain y x) :
@@ -251,10 +251,11 @@ example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
 example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
   mulExpRayBracket_zero_result x
 
-/-- The value path returns the compiled arithmetic tree whenever the guard word is zero. -/
-example (y x : Nat) (hguard : mulExpGuardTree y x = 0) :
+/-- The value path returns the compiled arithmetic tree whenever the ABI word is canonical and the
+guard word is zero. -/
+example (y x : Nat) (hy : Int128CalldataWord y) (hguard : mulExpGuardTree y x = 0) :
     run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
-  run_mul_exp_ray_evm_eq_tree_of_guard y x hguard
+  run_mul_exp_ray_evm_eq_tree_of_guard y x hy.2 hguard
 
 /-- The compiled runtime returns zero for a zero multiplier whenever the guard accepts. -/
 example (x : Nat) (hguard : mulExpGuardTree 0 x = 0) : run_mul_exp_ray_evm 0 x = .ok 0 :=
@@ -281,19 +282,19 @@ example {y x : Nat} (h : MulExpRayPanicDomain y x) :
   run_mul_exp_ray_evm_revert h
 
 /-- The accepted scale point returns the multiplier exactly. -/
-example {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+example {y : Nat} (hy : Int128CalldataWord y) (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y 0)) :
     run_mul_exp_ray_evm y 0 = .ok y :=
   run_mul_exp_ray_evm_scale_point hy habs hshift
 
 /-- The scale-point result satisfies the public bracket. -/
-example {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+example {y : Nat} (hy : Int128CalldataWord y) (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y 0)) :
     MulExpRayRunBracket y 0 :=
   mulExpRay_run_bracket_scale_point hy habs hshift
 
 /-- At or below the zero cutoff, every accepted magnitude returns zero. -/
-example {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+example {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
     (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y x))
     (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
@@ -301,7 +302,7 @@ example {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
   run_mul_exp_ray_evm_clamped hy hx habs hshift hclamp
 
 /-- The clamped result satisfies the public bracket. -/
-example {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+example {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
     (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y x))
     (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
@@ -413,9 +414,9 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms panicDomain_iff_magnitude_guard
 
-/-- info: 'ExpYul.run_mul_exp_ray_evm_revert_int_min' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.run_mul_exp_ray_evm_revert_int128_min' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms run_mul_exp_ray_evm_revert_int_min
+#print axioms run_mul_exp_ray_evm_revert_int128_min
 
 /-- info: 'ExpYul.mulExpRay_value_or_panic_of_canonical' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in

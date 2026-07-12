@@ -407,31 +407,31 @@ theorem mulExpTree_clamped {y x : Nat} (hx : x < 2 ^ 256)
 private theorem int256_zero_word : int256 (0 : Nat) = 0 := by unfold int256; norm_num
 
 /-- **Scale point.** `mulExpRay(y, 0)` returns `y` whenever the two-bit closing-shift guard accepts. -/
-theorem run_mul_exp_ray_evm_scale_point {y : Nat} (hy : y < 2 ^ 256)
+theorem run_mul_exp_ray_evm_scale_point {y : Nat} (hy : Int128CalldataWord y)
     (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y 0)) :
     run_mul_exp_ray_evm y 0 = .ok y := by
-  obtain ⟨hs127, _, _⟩ := mulScaleTree_spec hy habs
+  obtain ⟨hs127, _, _⟩ := mulScaleTree_spec hy.1 habs
   have hguard : mulExpGuardTree y 0 = 0 := by
     rw [mulExpGuardTree_eq_zero_iff (by norm_num)]
     refine ⟨hs127, ?_, hshift⟩
     rw [int256_mulExpRayHi, int256_zero_word]
     norm_num
-  have h := run_mul_exp_ray_evm_eq_tree_of_guard y 0 hguard
-  rwa [mulExpTree_scale_point hy habs] at h
+  have h := run_mul_exp_ray_evm_eq_tree_of_guard y 0 hy.2 hguard
+  rwa [mulExpTree_scale_point hy.1 habs] at h
 
 /-- **Clamp.** An accepted `mulExpRay(y, x)` returns zero at or below the zero cutoff. -/
-theorem run_mul_exp_ray_evm_clamped {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+theorem run_mul_exp_ray_evm_clamped {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
     (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y x))
     (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
     run_mul_exp_ray_evm y x = .ok 0 := by
-  obtain ⟨hs127, _, _⟩ := mulScaleTree_spec hy habs
+  obtain ⟨hs127, _, _⟩ := mulScaleTree_spec hy.1 habs
   have hguard : mulExpGuardTree y x = 0 := by
     rw [mulExpGuardTree_eq_zero_iff hx]
     refine ⟨hs127, ?_, hshift⟩
     rw [int256_mulExpRayHi]
     rw [int256_mulExpRayZeroMax] at hclamp
     omega
-  have h := run_mul_exp_ray_evm_eq_tree_of_guard y x hguard
+  have h := run_mul_exp_ray_evm_eq_tree_of_guard y x hy.2 hguard
   rwa [mulExpTree_clamped hx hclamp] at h
 
 /-! ## Shell brackets -/
@@ -439,7 +439,7 @@ theorem run_mul_exp_ray_evm_clamped {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^
 noncomputable section
 
 /-- **Scale-point bracket.** The exact result `y` satisfies the public bracket at `x = 0`. -/
-theorem mulExpRay_run_bracket_scale_point {y : Nat} (hy : y < 2 ^ 256)
+theorem mulExpRay_run_bracket_scale_point {y : Nat} (hy : Int128CalldataWord y)
     (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y 0)) :
     MulExpRayRunBracket y 0 := by
   refine ⟨y, run_mul_exp_ray_evm_scale_point hy habs hshift, ?_⟩
@@ -505,13 +505,13 @@ theorem clamped_target_lt_one {y x : Nat} (hy : y < 2 ^ 256) (_hx : x < 2 ^ 256)
     _ < 1 := hexp1
 
 /-- **Clamp bracket.** The zero result satisfies the public bracket at or below the cutoff. -/
-theorem mulExpRay_run_bracket_clamped {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+theorem mulExpRay_run_bracket_clamped {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
     (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y x))
     (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
     MulExpRayRunBracket y x := by
   refine ⟨0, run_mul_exp_ray_evm_clamped hy hx habs hshift hclamp, ?_⟩
   rw [int256_zero_word]
-  have hlt := clamped_target_lt_one hy hx habs hclamp
+  have hlt := clamped_target_lt_one hy.1 hx habs hclamp
   have hnn := mulExpRayMagnitudeTarget_nonneg (int256 y) (int256 x)
   unfold MulExpRayBracket
   split_ifs <;>

@@ -18,9 +18,26 @@ open FormalYul.Preservation
 
 set_option maxRecDepth 100000
 
+/-- A canonical ABI word for an `int128` argument. -/
+def Int128CalldataWord (y : Nat) : Prop :=
+  y < 2 ^ 256 ∧
+    EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) = FormalYul.word y
+
+theorem int128CalldataWord_zero : Int128CalldataWord 0 := by
+  unfold Int128CalldataWord
+  decide
+
+theorem int128CalldataWord_scaleMax : Int128CalldataWord scaleMax := by
+  unfold Int128CalldataWord
+  decide
+
+theorem int128CalldataWord_min : Int128CalldataWord (2 ^ 256 - 2 ^ 127) := by
+  unfold Int128CalldataWord
+  decide
+
 /-- ABI words transported into this proof layer. -/
 def MulExpRayCanonical (y x : Nat) : Prop :=
-  y < 2 ^ 256 ∧ x < 2 ^ 256
+  Int128CalldataWord y ∧ x < 2 ^ 256
 
 /-- The exact successful-input domain induced by the implementation guard. -/
 def MulExpRayValueDomain (y x : Nat) : Prop :=

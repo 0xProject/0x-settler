@@ -649,19 +649,19 @@ theorem run_mul_exp_ray_evm_mono_x {y x1 x2 : Nat}
     split <;> exact le_refl _
   -- (clamp, pin)
   · subst hp2
-    rw [mulExpTree_clamped hx1w hc1, mulExpTree_scale_point hy habs, int256_zero_word']
+    rw [mulExpTree_clamped hx1w hc1, mulExpTree_scale_point hy.1 habs, int256_zero_word']
     split_ifs with hneg
     · exact le_of_lt hneg
     · exact not_lt.mp hneg
   -- (clamp, live)
   · rw [mulExpTree_clamped hx1w hc1, int256_zero_word']
     have hW2 : WideRegion x2 := ⟨hzm2, hxhi2⟩
-    obtain ⟨hm0, _, _, _⟩ := mulMagnitude_bracket_live hy hx2w hy0 habs hx20 hW2 hlv2
-    have hm255 := mag_word_small hy hy0 hx2w habs hx20 hW2 hlv2
+    obtain ⟨hm0, _, _, _⟩ := mulMagnitude_bracket_live hy.1 hx2w hy0 habs hx20 hW2 hlv2
+    have hm255 := mag_word_small hy.1 hy0 hx2w habs hx20 hW2 hlv2
     by_cases hneg : y < 2 ^ 255
     · rw [if_neg (int256_y_nonneg hneg), int256_tree_pos hypos hneg]
       exact hm0
-    · rw [if_pos (int256_y_neg (by omega) hy), int256_tree_neg (by omega) hy hm255]
+    · rw [if_pos (int256_y_neg (by omega) hy.1), int256_tree_neg (by omega) hy.1 hm255]
       linarith [hm0]
   -- (pin, clamp): impossible, the scale point is above the clamp
   · exfalso
@@ -679,14 +679,14 @@ theorem run_mul_exp_ray_evm_mono_x {y x1 x2 : Nat}
     have hx2pos : 0 < int256 x2 := by
       rw [int256_zero_word'] at hle
       omega
-    have hge := mulMagnitude_ge_abs_of_pos hy hy0 hx2w habs hW2 hx2pos hlv2
-    have hm255 := mag_word_small hy hy0 hx2w habs hx20 hW2 hlv2
-    rw [mulExpTree_scale_point hy habs]
+    have hge := mulMagnitude_ge_abs_of_pos hy.1 hy0 hx2w habs hW2 hx2pos hlv2
+    have hm255 := mag_word_small hy.1 hy0 hx2w habs hx20 hW2 hlv2
+    rw [mulExpTree_scale_point hy.1 habs]
     by_cases hneg : y < 2 ^ 255
     · rw [if_neg (int256_y_nonneg hneg), int256_tree_pos hypos hneg, int256_pos_eq_abs hneg]
       exact hge
-    · rw [if_pos (int256_y_neg (by omega) hy), int256_tree_neg (by omega) hy hm255,
-        int256_neg_eq_abs (by omega) hy]
+    · rw [if_pos (int256_y_neg (by omega) hy.1), int256_tree_neg (by omega) hy.1 hm255,
+        int256_neg_eq_abs (by omega) hy.1]
       linarith [hge]
   -- (live, clamp): impossible
   · exfalso
@@ -698,27 +698,28 @@ theorem run_mul_exp_ray_evm_mono_x {y x1 x2 : Nat}
     have hx1neg : int256 x1 < 0 := by
       rw [int256_zero_word'] at hle
       omega
-    have hlt := mulMagnitude_le_abs_of_neg hy hy0 hx1w habs hW1 hx1neg hlv1
-    have hm255 := mag_word_small hy hy0 hx1w habs hx10 hW1 hlv1
-    rw [mulExpTree_scale_point hy habs]
+    have hlt := mulMagnitude_le_abs_of_neg hy.1 hy0 hx1w habs hW1 hx1neg hlv1
+    have hm255 := mag_word_small hy.1 hy0 hx1w habs hx10 hW1 hlv1
+    rw [mulExpTree_scale_point hy.1 habs]
     by_cases hneg : y < 2 ^ 255
     · rw [if_neg (int256_y_nonneg hneg), int256_tree_pos hypos hneg, int256_pos_eq_abs hneg]
       exact hlt
-    · rw [if_pos (int256_y_neg (by omega) hy), int256_tree_neg (by omega) hy hm255,
-        int256_neg_eq_abs (by omega) hy]
+    · rw [if_pos (int256_y_neg (by omega) hy.1), int256_tree_neg (by omega) hy.1 hm255,
+        int256_neg_eq_abs (by omega) hy.1]
       linarith [hlt]
   -- (live, live)
   · have hW1 : WideRegion x1 := ⟨hzm1, hxhi1⟩
     have hW2 : WideRegion x2 := ⟨hzm2, hxhi2⟩
-    have hmono := mulMagnitude_mono_pair hy hy0 hx1w hx2w habs hW1 hW2 hx10 hx20 hlv1 hlv2 hle
-    have hm255a := mag_word_small hy hy0 hx1w habs hx10 hW1 hlv1
-    have hm255b := mag_word_small hy hy0 hx2w habs hx20 hW2 hlv2
+    have hmono :=
+      mulMagnitude_mono_pair hy.1 hy0 hx1w hx2w habs hW1 hW2 hx10 hx20 hlv1 hlv2 hle
+    have hm255a := mag_word_small hy.1 hy0 hx1w habs hx10 hW1 hlv1
+    have hm255b := mag_word_small hy.1 hy0 hx2w habs hx20 hW2 hlv2
     by_cases hneg : y < 2 ^ 255
     · rw [if_neg (int256_y_nonneg hneg), int256_tree_pos hypos hneg,
         int256_tree_pos hypos hneg]
       exact hmono
-    · rw [if_pos (int256_y_neg (by omega) hy), int256_tree_neg (by omega) hy hm255a,
-        int256_tree_neg (by omega) hy hm255b]
+    · rw [if_pos (int256_y_neg (by omega) hy.1), int256_tree_neg (by omega) hy.1 hm255a,
+        int256_tree_neg (by omega) hy.1 hm255b]
       linarith [hmono]
 
 end ExpYul

@@ -28,6 +28,8 @@ theorem call_fun_mulExpRay_revert_direct
     (y x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y)
     (hguard : mulExpGuardTree y x = 1) :
     EvmYul.Yul.call (fuel + (extra + 2200)) [FormalYul.word y, FormalYul.word x]
       (.some yulName_fun_mulExpRay) (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
@@ -40,6 +42,7 @@ theorem call_fun_mulExpRay_revert_direct
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp only [FormalYul.word] at hclean
   let sign := signTree y
   let ay := absTree y
   let s := evmSub (evmClz ay) scaleMaxClz
@@ -162,7 +165,7 @@ theorem call_fun_mulExpRay_revert_direct
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
-    FormalYul.word,
+    FormalYul.word, primCall_signextend_yul,
     hguardUnfold,
     hzeroInit, hzeroUint1, hzeroUint2, hclz, hscaleMaxClz, hwrapS,
     hoctave, hconvertS, hwrapShift, hconvert127, hcleanupSGuard,
@@ -175,7 +178,7 @@ theorem call_fun_mulExpRay_revert_direct
     Common.Word.uint256_ofNat_sar_eq_word_evmSar,
     uint256_ofNat_slt_eq_word_evmSlt,
     uint256_ofNat_sgt_eq_word_evmSgt,
-    scaleMaxClz]
+    scaleMaxClz, hclean]
 
 set_option maxHeartbeats 12000000 in
 /-- `fun_wrap_mulExpRay` forwards the revert. -/
@@ -183,6 +186,8 @@ theorem call_fun_wrap_mulExpRay_revert_direct
     (y x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y)
     (hguard : mulExpGuardTree y x = 1) :
     EvmYul.Yul.call (fuel + (extra + 2300)) [FormalYul.word y, FormalYul.word x]
       (.some yulName_fun_wrap_mulExpRay) (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
@@ -197,7 +202,7 @@ theorem call_fun_wrap_mulExpRay_revert_direct
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hinner :=
     call_fun_mulExpRay_revert_direct (y := y) (x := x) (fuel := fuel + extra) (extra := 89)
-      (shared := shared) (hlookup := hlookup) (hguard := hguard)
+      (shared := shared) (hlookup := hlookup) (hclean := hclean) (hguard := hguard)
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_mulExpRay] at hinner
   simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
@@ -213,6 +218,8 @@ set_option maxHeartbeats 12000000 in
 /-- The external `mulExpRay` entrypoint forwards the revert. -/
 theorem external_fun_wrap_mulExpRay_calldata_revert
     (y x : Nat) (store : EvmYul.Yul.VarStore)
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y)
     (hguard : mulExpGuardTree y x = 1) :
     EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_mulExpRay) (.some yulContract)
         (EvmYul.Yul.State.Ok (mulExpSharedAfterFreePtr y x) store) =
@@ -226,12 +233,12 @@ theorem external_fun_wrap_mulExpRay_calldata_revert
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hdecode :=
-    call_abi_decode_tuple_t_int256t_int256_of_mul_calldata (y := y) (x := x)
+    call_abi_decode_tuple_t_int128t_int256_of_mul_calldata (y := y) (x := x)
       (fuel := 0) (extra := 999464)
       (shared := mulExpSharedAfterFreePtr y x)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := mulExpSharedAfterFreePtr_lookup y x)
-      (hdata := mulExpSharedAfterFreePtr_calldata y x)
+      (hdata := mulExpSharedAfterFreePtr_calldata y x) (hclean := hclean)
   simp only [Nat.reduceAdd, FormalYul.word] at hdecode
   have hwrap :=
     call_fun_wrap_mulExpRay_revert_direct (y := y) (x := x) (fuel := 0) (extra := 997683)
@@ -239,7 +246,7 @@ theorem external_fun_wrap_mulExpRay_calldata_revert
       (store := Finmap.insert "param_0" (FormalYul.word y)
         (Finmap.insert "param_1" (FormalYul.word x)
           (Inhabited.default : EvmYul.Yul.VarStore)))
-      (hlookup := mulExpSharedAfterFreePtr_lookup y x) (hguard := hguard)
+      (hlookup := mulExpSharedAfterFreePtr_lookup y x) (hclean := hclean) (hguard := hguard)
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_wrap_mulExpRay] at hwrap
   simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.evalPrimCall.eq_def,
@@ -259,6 +266,8 @@ set_option maxHeartbeats 12000000 in
 /-- The revert from the exact dispatcher-handed state. -/
 theorem external_fun_wrap_mulExpRay_dispatcher_state_revert
     (y x : Nat)
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y)
     (hguard : mulExpGuardTree y x = 1) :
     EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_mulExpRay) (.some yulContract)
         (EvmYul.Yul.State.Ok
@@ -293,11 +302,13 @@ theorem external_fun_wrap_mulExpRay_dispatcher_state_revert
             (EvmYul.UInt256.ofNat 0))
           (EvmYul.UInt256.ofNat 224))
         (Inhabited.default : EvmYul.Yul.VarStore))
-    hguard
+    hclean hguard
 
 set_option maxHeartbeats 12000000 in
 /-- **Guard revert.** When the guard word is one, the compiled runtime reverts. -/
 theorem run_mul_exp_ray_evm_revert_of_guard (y x : Nat)
+    (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
+      FormalYul.word y)
     (hguard : mulExpGuardTree y x = 1) :
     run_mul_exp_ray_evm y x = .error "revert" := by
   have hexec :
@@ -313,7 +324,7 @@ theorem run_mul_exp_ray_evm_revert_of_guard (y x : Nat)
       EvmYul.Yul.State.executionEnv, EvmYul.Yul.State.toMachineState,
       FormalYul.word, call_shift_right_224_unsigned_direct]
     rw [selectSwitchCase_mulExpRay_sharedFor_mk_raw y x]
-    simp +decide [external_fun_wrap_mulExpRay_dispatcher_state_revert y x hguard,
+    simp +decide [external_fun_wrap_mulExpRay_dispatcher_state_revert y x hclean hguard,
       EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
       EvmYul.Yul.reverse', EvmYul.Yul.multifill']
   have hrun :

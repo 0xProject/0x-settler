@@ -39,7 +39,7 @@ theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleMax) :
   · exact scaleShift_antitone hpos hab hb
 
 /-- Shrinking the magnitude keeps an accepted input accepted: the headroom shift only grows. -/
-theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : y1 < 2 ^ 256)
+theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : Int128CalldataWord y1)
     (h2 : MulExpRayValueDomain y2 x) (hab : absTree y1 ≤ absTree y2) :
     MulExpRayValueDomain y1 x := by
   obtain ⟨⟨_, hx⟩, hscale2, hxhi, hlv2⟩ := h2
@@ -75,11 +75,11 @@ theorem mulExpTree_result_nonneg {y x : Nat} (h : MulExpRayValueDomain y x)
   by_cases hx0 : int256 x = 0
   · have hxz : x = 0 := (int256_zero_iff_of_canonical hx).1 hx0
     subst hxz
-    rw [mulExpTree_scale_point hy habs, int256_of_lt hyw]
+    rw [mulExpTree_scale_point hy.1 habs, int256_of_lt hyw]
     exact Int.natCast_nonneg y
   · have hW : WideRegion x := ⟨by omega, hxhi⟩
     obtain ⟨hm0, _, _, _⟩ :=
-      mulMagnitude_bracket_live hy hx (by omega) habs hx0 hW hlv
+      mulMagnitude_bracket_live hy.1 hx (by omega) habs hx0 hW hlv
     rw [int256_tree_pos hpos hyw]
     exact hm0
 
@@ -102,13 +102,13 @@ theorem mulExpTree_result_nonpos {y x : Nat} (h : MulExpRayValueDomain y x)
   by_cases hx0 : int256 x = 0
   · have hxz : x = 0 := (int256_zero_iff_of_canonical hx).1 hx0
     subst hxz
-    rw [mulExpTree_scale_point hy habs]
+    rw [mulExpTree_scale_point hy.1 habs]
     exact hyneg
   · have hW : WideRegion x := ⟨by omega, hxhi⟩
     obtain ⟨hm0, _, _, _⟩ :=
-      mulMagnitude_bracket_live hy hx (by omega) habs hx0 hW hlv
-    have hm255 := mag_word_small hy (by omega) hx habs hx0 hW hlv
-    rw [int256_tree_neg hybig hy hm255]
+      mulMagnitude_bracket_live hy.1 hx (by omega) habs hx0 hW hlv
+    have hm255 := mag_word_small hy.1 (by omega) hx habs hx0 hW hlv
+    rw [int256_tree_neg hybig hy.1 hm255]
     linarith [hm0]
 
 /-! ## The joint statement -/
@@ -134,8 +134,8 @@ theorem run_mul_exp_ray_evm_mono_joint {y1 y2 x1 x2 : Nat}
   have hrun2 : run_mul_exp_ray_evm y2 x2 = .ok (mulExpTree y2 x2) :=
     run_mul_exp_ray_evm_eq_tree h2
   refine ⟨mulExpTree y1 x1, mulExpTree y2 x2, hrun1, hrun2, hcond, ?_⟩
-  have hy1w : y1 < 2 ^ 256 := h1.1.1
-  have hy2w : y2 < 2 ^ 256 := h2.1.1
+  have hy1w : y1 < 2 ^ 256 := h1.1.1.1
+  have hy2w : y2 < 2 ^ 256 := h2.1.1.1
   rcases hcond with ⟨hy1nn, hy12, hx12⟩ | ⟨hy12, hy2np, hx21⟩ | ⟨hy1np, hy2nn⟩
   · -- both nonnegative, exponents rising: route through (y1, x2)
     have hy1small : y1 < 2 ^ 255 := by
@@ -150,7 +150,7 @@ theorem run_mul_exp_ray_evm_mono_joint {y1 y2 x1 x2 : Nat}
       rw [absTree_nonneg hy1small, absTree_nonneg hy2small]
       rw [int256_of_lt hy1small, int256_of_lt hy2small] at hy12
       exact_mod_cast hy12
-    have h12 : MulExpRayValueDomain y1 x2 := valueDomain_of_abs_le hy1w h2 hab
+    have h12 : MulExpRayValueDomain y1 x2 := valueDomain_of_abs_le h1.1.1 h2 hab
     obtain ⟨r1, r2, hr1, hr2, _, hordx⟩ := run_mul_exp_ray_evm_mono_x h1 h12 hx12
     obtain ⟨r3, r4, hr3, hr4, _, hordy⟩ := run_mul_exp_ray_evm_mono_y h12 h2 hy12
     have e1 := tree_of_run hrun1 hr1
@@ -184,7 +184,7 @@ theorem run_mul_exp_ray_evm_mono_joint {y1 y2 x1 x2 : Nat}
       rw [ha, hb] at hy12
       have h1 : (absTree y2 : Int) ≤ (absTree y1 : Int) := by linarith [hy12]
       exact_mod_cast h1
-    have h21 : MulExpRayValueDomain y2 x1 := valueDomain_of_abs_le hy2w h1 hab
+    have h21 : MulExpRayValueDomain y2 x1 := valueDomain_of_abs_le h2.1.1 h1 hab
     obtain ⟨r1, r2, hr1, hr2, _, hordy⟩ := run_mul_exp_ray_evm_mono_y h1 h21 hy12
     obtain ⟨r3, r4, hr3, hr4, _, hordx⟩ := run_mul_exp_ray_evm_mono_x h2 h21 hx21
     have e1 := tree_of_run hrun1 hr1
@@ -247,16 +247,17 @@ theorem panicDomain_iff_magnitude_guard {y x : Nat} (hcanon : MulExpRayCanonical
     · exact ⟨⟨hy, hx⟩, Or.inr (Or.inl h)⟩
     · exact ⟨⟨hy, hx⟩, Or.inr (Or.inr h)⟩
 
-/-- **The `type(int256).min` multiplier always reverts**: its magnitude word is `2^255`, above
+/-- **The `type(int128).min` multiplier always reverts**: its magnitude is `2^127`, above
 the maximal scale. -/
-theorem run_mul_exp_ray_evm_revert_int_min {x : Nat} (hx : x < 2 ^ 256) :
-    run_mul_exp_ray_evm (2 ^ 255) x = .error "revert" := by
+theorem run_mul_exp_ray_evm_revert_int128_min {x : Nat} (hx : x < 2 ^ 256) :
+    run_mul_exp_ray_evm (2 ^ 256 - 2 ^ 127) x = .error "revert" := by
   apply run_mul_exp_ray_evm_revert
-  refine ⟨⟨by norm_num, hx⟩, Or.inl ?_⟩
-  have hiff := scaleShiftTree_le_127_iff (absTree_lt (2 ^ 255))
+  refine ⟨⟨int128CalldataWord_min, hx⟩, Or.inl ?_⟩
+  have hiff := scaleShiftTree_le_127_iff (absTree_lt (2 ^ 256 - 2 ^ 127))
   by_contra hshift
-  have hcap := hiff.mp (by omega : scaleShiftTree (absTree (2 ^ 255)) ≤ 127)
-  rw [absTree_neg (le_refl _) (by norm_num)] at hcap
+  have hcap := hiff.mp
+    (by omega : scaleShiftTree (absTree (2 ^ 256 - 2 ^ 127)) ≤ 127)
+  rw [absTree_neg (by norm_num) (by norm_num)] at hcap
   unfold scaleMax at hcap
   norm_num at hcap
 

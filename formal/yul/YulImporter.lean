@@ -40,7 +40,7 @@ def selectorCases : ModelKind → List String
   | .cbrt => ["0x56df2b56", "0x29f2f4f1"]
   | .cbrt512 => ["0xa83a5c08", "0x7c0352fc"]
   | .ln => ["0xef102248", "0x31d42abd"]
-  | .exp => ["0x4187462b", "0x79abc089"]
+  | .exp => ["0x0dbb6bb9", "0x4187462b"]
 
 def functionPrefixes : ModelKind → List String
   | .sqrt =>
@@ -511,7 +511,7 @@ def selector_expRayToWad : ByteArray :=
   FormalYul.bytes [0x41, 0x87, 0x46, 0x2b]
 
 def selector_mulExpRay : ByteArray :=
-  FormalYul.bytes [0x79, 0xab, 0xc0, 0x89]
+  FormalYul.bytes [0x0d, 0xbb, 0x6b, 0xb9]
 
 def run_exp_ray_to_wad_evm (x : Nat) : Except String Nat :=
   FormalYul.callWord yulContract selector_expRayToWad [x]
