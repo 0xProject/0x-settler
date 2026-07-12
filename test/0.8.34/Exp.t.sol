@@ -7,9 +7,8 @@ import {Clz} from "src/vendor/Clz.sol";
 import {Test, stdError} from "@forge-std/Test.sol";
 
 contract ExpTest is Test {
-    // Mirrors Exp._SCALE_MAX: floor(2**126 * 1e19 / 5737291786393199862), the over-side
-    // certification ceiling of the kernel.
-    uint256 private constant _SCALE_MAX = 0x6f8d071203399a4f3617495dba31eeb1;
+    // The largest magnitude admitted by `mulExpRay`'s s <= 127 guard.
+    uint256 private constant _SCALE_MAX = 0x7fffffffffffffffffffffffffffffff;
     // First input whose octave count exceeds the supported range; `expRayToWad` reverts here.
     int256 private constant _TOO_BIG = 0x92b2f16cc66c5a4ae96e80d4;
     // First input whose octave count reaches 125: the accuracy-guard boundary at the deepest
@@ -224,14 +223,23 @@ contract ExpTest is Test {
         this.mulExpRayExternal(-(pinMax + 1), 0);
     }
 
-    /// The deepest live corner at the scale cap: abs(y) = _SCALE_MAX (s = 0) at the first x of
-    /// octave k = -2, where the closing shift is exactly 2. The two-unit bracket must hold here.
+    /// At abs(y) = _SCALE_MAX (s = 0), octave k = -2 is the highest accepted octave and the
+    /// closing shift is exactly 2. The two-unit bracket must hold at both ends of that octave.
     function testMulExpRayScaleCapLive() external pure {
-        int256 x = -1732867951399863273543080303; // _octaveStart(-2)
-        int256 floorA = 26211841114070945982531467099595678267;
+        int256 x = _octaveStart(-2);
+        int256 floorA = 30076996146000563943129221579116071223;
         int256 r = Exp.mulExpRay(int256(_SCALE_MAX), x);
         assertLe(r, floorA, "overestimates");
         assertGe(r, floorA - 1, "below floor minus one");
+        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), x), -r, "negative mirror");
+
+        x = -1039720770839917964125848183;
+        assertEq(x, _octaveStart(-1) - 1, "upper endpoint");
+        floorA = 60153992292001127886258443070517000410;
+        r = Exp.mulExpRay(int256(_SCALE_MAX), x);
+        assertLe(r, floorA, "overestimates at upper endpoint");
+        assertGe(r, floorA - 1, "below floor minus one at upper endpoint");
+        assertEq(Exp.mulExpRay(-int256(_SCALE_MAX), x), -r, "negative mirror at upper endpoint");
     }
 
     /// Below the octave-wrap boundary (x < -(2**255 + 2**191)/CINV ~ -5.7e45) the wrapped octave
@@ -267,11 +275,11 @@ contract ExpTest is Test {
         this.mulExpRayExternal(0, type(int256).max);
     }
 
-    /// `_SCALE_MAX_CLZ` inside the library must track `_SCALE_MAX`, and `_SCALE_MAX` must be the
-    /// over-side certification ceiling floor(2**126 / Delta) with Delta = 5737291786393199862/1e19,
-    /// the kernel's Q126 error envelope. The wad scale must sit within the cap.
+    /// `_SCALE_MAX_CLZ` inside the library must track the maximal sub-2**127 scale. The positive
+    /// Q126 over envelope remains below one half, so its image at the cap is below one unit.
     function testScaleMaxClzPairing() external pure {
-        assertEq(_SCALE_MAX, ((uint256(1) << 126) * 1e19) / 5737291786393199862, "scale cap is floor(2^126 / Delta)");
+        assertEq(_SCALE_MAX, (uint256(1) << 127) - 1, "maximal 127-bit scale");
+        assertLt(uint256(2 * 4668745981919039833), uint256(1e19), "over envelope below one half");
         assertEq(Clz.clz(_SCALE_MAX), 129, "_SCALE_MAX_CLZ");
         assertLe(uint256(1e18) << 67, _SCALE_MAX, "wad scale within the cap");
     }
@@ -296,6 +304,8 @@ contract ExpTest is Test {
         this.mulExpRayExternal(type(int256).min, 0);
         vm.expectRevert(stdError.arithmeticError);
         this.mulExpRayExternal(int256(_SCALE_MAX + 1), _X_LO_ZERO);
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(-int256(_SCALE_MAX + 1), _X_LO_ZERO);
         vm.expectRevert(stdError.arithmeticError);
         this.mulExpRayExternal(type(int256).min, type(int256).min);
     }
@@ -341,10 +351,8 @@ contract ExpTest is Test {
         assertGe(Exp.mulExpRay(y, x + 1), Exp.mulExpRay(y, x), "adjacent monotonicity");
     }
 
-    /// Monotonicity in y is tightest where a unit step in abs(y) crosses a headroom-correction
-    /// boundary (abs(y) << s crossing _SCALE_MAX): the scale halves against a one-bit-coarser
-    /// output grid, and only the parity of the scaled quotient keeps the floor from slipping
-    /// backward. Sweep every reachable boundary at its deepest accepted octaves.
+    /// Sweep every bit-length boundary, where a unit magnitude step lowers the headroom by one,
+    /// at its deepest accepted octaves.
     function testMulExpRayMonotoneYHeadroomBoundaries() external pure {
         for (uint256 s0 = 1; s0 <= 126; ++s0) {
             int256 q = int256(_SCALE_MAX >> s0);
@@ -359,7 +367,7 @@ contract ExpTest is Test {
         }
     }
 
-    /// Fuzz the headroom-correction boundaries across the full accepted exponent range.
+    /// Fuzz the bit-length headroom boundaries across the full accepted exponent range.
     function testFuzzMulExpRayMonotoneYHeadroom(uint256 us, int256 x) external pure {
         uint256 s0 = bound(us, 1, 126);
         int256 q = int256(_SCALE_MAX >> s0);
@@ -374,7 +382,6 @@ contract ExpTest is Test {
     function testFuzzMulExpRayMonotoneYAdjacent(uint256 uy, int256 x) external pure {
         int256 y = int256(bound(uy, 1, _SCALE_MAX - 1));
         uint256 s = Clz.clz(uint256(y) + 1) - 129;
-        if (uint256(y + 1) << s > _SCALE_MAX) --s;
         x = bound(x, _X_LO_ZERO + 1, _octaveStart(int256(s) - 1) - 1);
         assertLe(Exp.mulExpRay(y, x), Exp.mulExpRay(y + 1, x), "adjacent y-monotonicity");
     }

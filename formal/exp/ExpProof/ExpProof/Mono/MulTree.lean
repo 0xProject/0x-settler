@@ -26,11 +26,9 @@ def signTree (y : Nat) : Nat :=
 def absTree (y : Nat) : Nat :=
   evmSub (evmXor y (signTree y)) (signTree y)
 
-/-- The largest shift chosen by the compiled bit-length estimate, corrected by one if the shifted
-magnitude exceeds `scaleQ67`. -/
+/-- The scale headroom computed from the magnitude's bit length. -/
 def scaleShiftTree (ay : Nat) : Nat :=
-  let s := evmSub (evmClz ay) scaleMaxClz
-  evmSub s (evmGt (evmShl s ay) scaleQ67)
+  evmSub (evmClz ay) scaleMaxClz
 
 /-- Dynamic pre-shift scale `abs(y) << S`. -/
 def mulScaleTree (y : Nat) : Nat :=
@@ -42,11 +40,9 @@ def mulShiftTree (y x : Nat) : Nat :=
 
 /-- The branch word for the `Panic(17)` guard. -/
 def mulExpGuardTree (y x : Nat) : Nat :=
-  let outOfRange := evmOr (evmGt (absTree y) scaleQ67) (evmIszero (evmSlt x mulExpRayHi))
-  let inaccurate :=
-    evmAnd (evmAnd (evmIszero (evmEq x 0)) (evmSgt x mulExpRayZeroMax))
-      (evmSlt (mulShiftTree y x) 2)
-  evmOr outOfRange inaccurate
+  let outOfRange := evmOr (evmGt (scaleShiftTree (absTree y)) 127)
+    (evmSgt x (evmSub mulExpRayHi 1))
+  evmOr outOfRange (evmSlt (mulShiftTree y x) 2)
 
 /-- The dynamic-scaled quotient before the closing shift. -/
 def r0MulTree (y x : Nat) : Nat :=

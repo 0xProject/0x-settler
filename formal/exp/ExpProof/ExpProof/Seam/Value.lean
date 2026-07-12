@@ -95,7 +95,7 @@ theorem call_fun_expRayToWad_zero_direct
     call_fun__octave_direct (x := 0) (fuel := fuel + extra) (extra := 767)
       (shared := shared) (hlookup := hlookup)
   have hscale :=
-    call_constant__SCALE_MAX_direct (fuel := fuel + extra) (extra := 721)
+    call_constant__WAD_SCALE_direct (fuel := fuel + extra) (extra := 721)
       (shared := shared) (hlookup := hlookup)
   have hconv67 :=
     call_convert_67_to_int256_direct (fuel := fuel + extra) (extra := 759)
@@ -498,7 +498,7 @@ theorem call_fun__expRayKernel_direct
     FormalYul.Preservation.wordNat_mul, FormalYul.Preservation.wordNat_iszero,
     FormalYul.Preservation.wordNat_ofNat, wordNat_sar, wordNat_div, wordNat_slt]
   simp only [FormalYul.Preservation.evmAdd_u256_left,
-    FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right,
+    FormalYul.Preservation.evmSub_u256_right,
     FormalYul.Preservation.evmMul_u256_left, FormalYul.Preservation.evmMul_u256_right,
     FormalYul.Preservation.evmShl_u256_left, FormalYul.Preservation.evmShl_u256_right,
     FormalYul.Preservation.evmShr_u256_left,
@@ -560,7 +560,7 @@ theorem call_fun_expRayToWad_direct
     call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 767)
       (shared := shared) (hlookup := hlookup)
   have hscale :=
-    call_constant__SCALE_MAX_direct (fuel := fuel + extra) (extra := 721)
+    call_constant__WAD_SCALE_direct (fuel := fuel + extra) (extra := 721)
       (shared := shared) (hlookup := hlookup)
   have hconv67 :=
     call_convert_67_to_int256_direct (fuel := fuel + extra) (extra := 759)

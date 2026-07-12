@@ -12,7 +12,7 @@ about the real pre-floor accumulator unconditionally and axiom-clean, via the oc
 `E·2^s = WAD·2⁶⁷·exp(rt)` (`WAD·2⁶⁷ = scaleQ67`; `s = 67 − k`, the closing shift; `k ≤ 65` so
 `s ≥ 2`).
 
-* `accumReal_over`  ⟸ `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴¹)·B` and `(5¹⁸/2⁴¹)·B ≤ MARGIN = 1`;
+* `accumReal_over`  ⟸ `r0 ≤ scaleQ67·exp(rt) + B` and `B < MARGIN = 1`;
 * `accumReal_under` ⟸ `scaleQ67·exp(rt) ≤ r0 + U` (`U = 2993/1000`) and
   `U + MARGIN < 2² ≤ 2^s`.
 
@@ -44,9 +44,7 @@ theorem accumReal_over (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 
     rw [hfold]
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     rw [hwad]
-    -- (5¹⁸/2⁴¹)·B ≤ 1 = MARGIN
-    have hBM : (3814697265625 : Real) * 5737291786393199862 /
-        (10000000000000000000 * 2199023255552) ≤ 1 := by norm_num
+    have hBM := over_budget_image_lt_one
     linarith [hover, hBM]
   rw [hAeq, div_le_iff₀ hps]
   linarith [hbound]

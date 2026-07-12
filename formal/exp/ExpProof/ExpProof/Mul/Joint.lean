@@ -9,9 +9,9 @@ in the magnitude: shrinking the magnitude only grows the accepted exponent set. 
 case needs no intermediate — a nonpositive multiplier's result is nonpositive and a nonnegative
 multiplier's is nonnegative, directly from the signed bracket's shape.
 
-The guard also admits the octave vocabulary of the natspec: on canonical inputs, rejection is
-exactly a too-large magnitude, an exponent at or beyond the unconditional fence, or a live
-exponent whose octave count exceeds the headroom shift less two.
+The guard also admits the magnitude vocabulary of the natspec: on canonical inputs, rejection
+is exactly a magnitude above `scaleMax`, an exponent at or beyond the unconditional fence, or
+an unconditional closing shift below two.
 -/
 
 namespace ExpYul
@@ -26,13 +26,13 @@ set_option maxHeartbeats 1600000
 /-! ## Acceptance transfers along the antitone headroom -/
 
 /-- The headroom shift is antitone in the magnitude, including the zero magnitude. -/
-theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleQ67) :
+theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleMax) :
     scaleShiftTree b ≤ scaleShiftTree a := by
   rcases Nat.eq_zero_or_pos a with h0 | hpos
   · subst h0
     rw [scaleShiftTree_zero]
     have hb' : absTree b = b :=
-      absTree_nonneg (lt_of_le_of_lt hb (by unfold scaleQ67; norm_num))
+      absTree_nonneg (lt_of_le_of_lt hb (by unfold scaleMax; norm_num))
     have h := scaleShiftTree_le_127 (y := b) (by rw [hb']; exact hb)
     rw [hb'] at h
     exact h
@@ -42,22 +42,15 @@ theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleQ67) :
 theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : y1 < 2 ^ 256)
     (h2 : MulExpRayValueDomain y2 x) (hab : absTree y1 ≤ absTree y2) :
     MulExpRayValueDomain y1 x := by
-  obtain ⟨⟨hy2, hx⟩, habs2, hxhi, hcase⟩ := h2
-  have habs1 : absTree y1 ≤ scaleQ67 := le_trans hab habs2
-  refine ⟨⟨hy1, hx⟩, habs1, hxhi, ?_⟩
-  by_cases hx0 : int256 x = 0
-  · exact Or.inl hx0
-  by_cases hcl : int256 x ≤ int256 mulExpRayZeroMax
-  · exact Or.inr (Or.inl hcl)
-  have hlv2 : 2 ≤ int256 (mulShiftTree y2 x) := by
-    rcases hcase with h | h | h
-    · exact absurd h hx0
-    · exact absurd h hcl
-    · exact h
-  have hW : WideRegion x := ⟨by omega, hxhi⟩
-  refine Or.inr (Or.inr ?_)
-  have ht1 := mulShiftTree_transport hy1 hx habs1 hW
-  have ht2 := mulShiftTree_transport hy2 hx habs2 hW
+  obtain ⟨⟨_, hx⟩, hscale2, hxhi, hlv2⟩ := h2
+  have habs2 : absTree y2 ≤ scaleMax :=
+    (scaleShiftTree_le_127_iff (absTree_lt y2)).mp hscale2
+  have habs1 : absTree y1 ≤ scaleMax := le_trans hab habs2
+  have hscale1 : scaleShiftTree (absTree y1) ≤ 127 :=
+    (scaleShiftTree_le_127_iff (absTree_lt y1)).mpr habs1
+  refine ⟨⟨hy1, hx⟩, hscale1, hxhi, ?_⟩
+  have ht1 := mulShiftTree_transport_global (y := y1) (x := x) habs1
+  have ht2 := mulShiftTree_transport_global (y := y2) (x := x) habs2
   have hanti : scaleShiftTree (absTree y2) ≤ scaleShiftTree (absTree y1) :=
     scaleShift_antitone' hab habs2
   have hantiI : (scaleShiftTree (absTree y2) : Int) ≤ (scaleShiftTree (absTree y1) : Int) := by
@@ -71,7 +64,9 @@ theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : y1 < 2 ^ 256)
 /-- A nonnegative multiplier's accepted result is nonnegative. -/
 theorem mulExpTree_result_nonneg {y x : Nat} (h : MulExpRayValueDomain y x)
     (hyw : y < 2 ^ 255) : 0 ≤ int256 (mulExpTree y x) := by
-  obtain ⟨⟨hy, hx⟩, habs, hxhi, hcase⟩ := h
+  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlv⟩ := h
+  have habs : absTree y ≤ scaleMax :=
+    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
   rcases Nat.eq_zero_or_pos y with h0 | hpos
   · subst h0
     rw [mulExpTree_zero, int256_zero_word']
@@ -82,12 +77,7 @@ theorem mulExpTree_result_nonneg {y x : Nat} (h : MulExpRayValueDomain y x)
     subst hxz
     rw [mulExpTree_scale_point hy habs, int256_of_lt hyw]
     exact Int.natCast_nonneg y
-  · have hlv : 2 ≤ int256 (mulShiftTree y x) := by
-      rcases hcase with h | h | h
-      · exact absurd h hx0
-      · exact absurd h hcl
-      · exact h
-    have hW : WideRegion x := ⟨by omega, hxhi⟩
+  · have hW : WideRegion x := ⟨by omega, hxhi⟩
     obtain ⟨hm0, _, _, _⟩ :=
       mulMagnitude_bracket_live hy hx (by omega) habs hx0 hW hlv
     rw [int256_tree_pos hpos hyw]
@@ -96,7 +86,9 @@ theorem mulExpTree_result_nonneg {y x : Nat} (h : MulExpRayValueDomain y x)
 /-- A nonpositive multiplier's accepted result is nonpositive. -/
 theorem mulExpTree_result_nonpos {y x : Nat} (h : MulExpRayValueDomain y x)
     (hyneg : int256 y ≤ 0) : int256 (mulExpTree y x) ≤ 0 := by
-  obtain ⟨⟨hy, hx⟩, habs, hxhi, hcase⟩ := h
+  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlv⟩ := h
+  have habs : absTree y ≤ scaleMax :=
+    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
   rcases Nat.eq_zero_or_pos y with h0 | hpos
   · subst h0
     rw [mulExpTree_zero, int256_zero_word']
@@ -112,12 +104,7 @@ theorem mulExpTree_result_nonpos {y x : Nat} (h : MulExpRayValueDomain y x)
     subst hxz
     rw [mulExpTree_scale_point hy habs]
     exact hyneg
-  · have hlv : 2 ≤ int256 (mulShiftTree y x) := by
-      rcases hcase with h | h | h
-      · exact absurd h hx0
-      · exact absurd h hcl
-      · exact h
-    have hW : WideRegion x := ⟨by omega, hxhi⟩
+  · have hW : WideRegion x := ⟨by omega, hxhi⟩
     obtain ⟨hm0, _, _, _⟩ :=
       mulMagnitude_bracket_live hy hx (by omega) habs hx0 hW hlv
     have hm255 := mag_word_small hy (by omega) hx habs hx0 hW hlv
@@ -231,42 +218,34 @@ theorem run_mul_exp_ray_evm_mono_joint {y1 y2 x1 x2 : Nat}
     have h2nn := mulExpTree_result_nonneg h2 hy2small
     linarith [h1np, h2nn]
 
-/-! ## The octave vocabulary of the guard -/
+/-! ## The guard in magnitude vocabulary -/
 
-/-- **The panic domain in octave language.** On canonical inputs, `mulExpRay` rejects exactly a
-magnitude above the maximal scale, an exponent at or beyond the unconditional fence, or a live
-exponent whose octave count exceeds the headroom shift less two. -/
-theorem panicDomain_iff_octave {y x : Nat} (hcanon : MulExpRayCanonical y x) :
+/-- **The panic domain in magnitude language.** On canonical inputs, `mulExpRay` rejects exactly
+when the magnitude exceeds `scaleMax`, the exponent reaches the unconditional upper fence, or
+the unconditional closing-shift guard fails. -/
+theorem panicDomain_iff_magnitude_guard {y x : Nat} (hcanon : MulExpRayCanonical y x) :
     MulExpRayPanicDomain y x ↔
-      scaleQ67 < absTree y ∨ int256 mulExpRayHi ≤ int256 x ∨
-        (int256 x ≠ 0 ∧ int256 mulExpRayZeroMax < int256 x ∧
-          (scaleShiftTree (absTree y) : Int) - 2 < int256 (kTree x)) := by
+      scaleMax < absTree y ∨ int256 mulExpRayHi ≤ int256 x ∨
+        int256 (mulShiftTree y x) < 2 := by
   obtain ⟨hy, hx⟩ := hcanon
   constructor
   · rintro ⟨_, hbad⟩
-    rcases hbad with h | h | ⟨hx0, hzm, hsh⟩
-    · exact Or.inl h
+    rcases hbad with h | h | h
+    · have hiff := scaleShiftTree_le_127_iff (absTree_lt y)
+      exact Or.inl (by
+        by_contra hcap
+        have := hiff.mpr (by omega : absTree y ≤ scaleMax)
+        omega)
     · exact Or.inr (Or.inl h)
-    · by_cases habs : absTree y ≤ scaleQ67
-      · by_cases hxhi : int256 x < int256 mulExpRayHi
-        · have hW : WideRegion x := ⟨hzm, hxhi⟩
-          have ht := mulShiftTree_transport hy hx habs hW
-          rw [ht] at hsh
-          exact Or.inr (Or.inr ⟨hx0, hzm, by linarith [hsh]⟩)
-        · exact Or.inr (Or.inl (by omega))
-      · exact Or.inl (by omega)
-  · rintro (h | h | ⟨hx0, hzm, hk⟩)
-    · exact ⟨⟨hy, hx⟩, Or.inl h⟩
+    · exact Or.inr (Or.inr h)
+  · rintro (h | h | h)
+    · have hiff := scaleShiftTree_le_127_iff (absTree_lt y)
+      refine ⟨⟨hy, hx⟩, Or.inl ?_⟩
+      by_contra hshift
+      have := hiff.mp (by omega : scaleShiftTree (absTree y) ≤ 127)
+      omega
     · exact ⟨⟨hy, hx⟩, Or.inr (Or.inl h)⟩
-    · by_cases habs : absTree y ≤ scaleQ67
-      · by_cases hxhi : int256 x < int256 mulExpRayHi
-        · have hW : WideRegion x := ⟨hzm, hxhi⟩
-          have ht := mulShiftTree_transport hy hx habs hW
-          refine ⟨⟨hy, hx⟩, Or.inr (Or.inr ⟨hx0, hzm, ?_⟩)⟩
-          rw [ht]
-          linarith [hk]
-        · exact ⟨⟨hy, hx⟩, Or.inr (Or.inl (by omega))⟩
-      · exact ⟨⟨hy, hx⟩, Or.inl (by omega)⟩
+    · exact ⟨⟨hy, hx⟩, Or.inr (Or.inr h)⟩
 
 /-- **The `type(int256).min` multiplier always reverts**: its magnitude word is `2^255`, above
 the maximal scale. -/
@@ -274,8 +253,11 @@ theorem run_mul_exp_ray_evm_revert_int_min {x : Nat} (hx : x < 2 ^ 256) :
     run_mul_exp_ray_evm (2 ^ 255) x = .error "revert" := by
   apply run_mul_exp_ray_evm_revert
   refine ⟨⟨by norm_num, hx⟩, Or.inl ?_⟩
-  rw [absTree_neg (le_refl _) (by norm_num)]
-  unfold scaleQ67
-  norm_num
+  have hiff := scaleShiftTree_le_127_iff (absTree_lt (2 ^ 255))
+  by_contra hshift
+  have hcap := hiff.mp (by omega : scaleShiftTree (absTree (2 ^ 255)) ≤ 127)
+  rw [absTree_neg (le_refl _) (by norm_num)] at hcap
+  unfold scaleMax at hcap
+  norm_num at hcap
 
 end ExpYul

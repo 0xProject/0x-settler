@@ -72,9 +72,9 @@ def functionPrefixes : ModelKind → List String
        "fun_wrap_expRayToWad_", "fun_wrap_mulExpRay_",
        "fun_expRayToWad_", "fun_mulExpRay_",
        "fun__octave_", "fun__expRayKernel_",
-       "constant__EXP_RAY_TO_WAD_HI_", "constant__WAD_ZERO_MAX_",
+       "constant__EXP_RAY_TO_WAD_HI_", "constant__WAD_SCALE_", "constant__WAD_ZERO_MAX_",
        "constant_ARITHMETIC_OVERFLOW_", "fun_panic_",
-       "fun_or_", "fun_and_", "fun_clz_"]
+       "fun_or_", "fun_clz_"]
 
 def requiredCalls : ModelKind → List String
   | .sqrt => ["clz"]
@@ -591,23 +591,10 @@ def uniqueNameWithPrefix
   | [] => .error s!"deployed Yul is missing a function with prefix {pfx}"
   | names => .error s!"deployed Yul prefix {pfx} is ambiguous: {commaSep names}"
 
-def uniqueNameWithPrefixExcluding
-    (functions : List FunctionSource) (pfx excludedPfx : String) : Except String String :=
-  match (namesWithPrefix functions pfx).filter fun name => !(name.startsWith excludedPfx) with
-  | [name] => .ok name
-  | [] => .error s!"deployed Yul is missing a function with prefix {pfx}"
-  | names => .error s!"deployed Yul prefix {pfx} is ambiguous: {commaSep names}"
-
 def aliasByPrefix
     (functions : List FunctionSource) (stable pfx : String) :
     Except String GeneratedAlias := do
   let original ← uniqueNameWithPrefix functions pfx
-  .ok { stable, original }
-
-def aliasByPrefixExcluding
-    (functions : List FunctionSource) (stable pfx excludedPfx : String) :
-    Except String GeneratedAlias := do
-  let original ← uniqueNameWithPrefixExcluding functions pfx excludedPfx
   .ok { stable, original }
 
 def callWithPrefixFrom
@@ -767,15 +754,14 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
         aliasByPrefix functions "fun__octave" "fun__octave_",
         aliasByPrefix functions "fun__expRayKernel" "fun__expRayKernel_",
         aliasByPrefix functions "constant__EXP_RAY_TO_WAD_HI" "constant__EXP_RAY_TO_WAD_HI_",
-        aliasByPrefixExcluding functions "constant__SCALE_MAX" "constant__SCALE_MAX_" "constant__SCALE_MAX_CLZ_",
         aliasByPrefix functions "constant__SCALE_MAX_CLZ" "constant__SCALE_MAX_CLZ_",
+        aliasByPrefix functions "constant__WAD_SCALE" "constant__WAD_SCALE_",
         aliasByPrefix functions "constant__WAD_ZERO_MAX" "constant__WAD_ZERO_MAX_",
         aliasByPrefix functions "constant__MUL_EXP_RAY_HI" "constant__MUL_EXP_RAY_HI_",
         aliasByPrefix functions "constant__MUL_EXP_RAY_ZERO_MAX" "constant__MUL_EXP_RAY_ZERO_MAX_",
         aliasByPrefix functions "constant_ARITHMETIC_OVERFLOW" "constant_ARITHMETIC_OVERFLOW_",
         aliasByPrefix functions "fun_panic" "fun_panic_",
         aliasByPrefix functions "fun_or" "fun_or_",
-        aliasByPrefix functions "fun_and" "fun_and_",
         aliasByPrefix functions "fun_clz" "fun_clz_"
       ]
 
@@ -828,8 +814,12 @@ def validateShape (kind : ModelKind) (contract : ParsedContract) : Except String
 def validateInput (kind : ModelKind) (contract : ParsedContract) : Except String Unit :=
   validateShape kind contract
 
+example : (ModelKind.functionPrefixes .exp).contains "fun_or_" := by decide
+
+example : ¬(ModelKind.functionPrefixes .exp).contains "fun_and_" := by decide
+
 def usage : String :=
-  "usage: yul_importer --kind <sqrt|sqrt512|cbrt|cbrt512|ln> --output <output-stem.lean> < solc-ir"
+  "usage: yul_importer --kind <sqrt|sqrt512|cbrt|cbrt512|ln|exp> --output <output-stem.lean> < solc-ir"
 
 unsafe def run (args : List String) : IO UInt32 := do
   let opts ← match parseArgs args {} with

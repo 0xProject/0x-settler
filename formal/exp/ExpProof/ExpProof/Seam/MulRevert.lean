@@ -42,8 +42,7 @@ theorem call_fun_mulExpRay_revert_direct
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   let sign := signTree y
   let ay := absTree y
-  let s0 := evmSub (evmClz ay) scaleMaxClz
-  let s := evmSub s0 (evmGt (evmShl s0 ay) scaleQ67)
+  let s := evmSub (evmClz ay) scaleMaxClz
   let k := kTree x
   let shift := evmSub s k
   have hzeroInit :=
@@ -61,168 +60,122 @@ theorem call_fun_mulExpRay_revert_direct
   have hscaleMaxClz :=
     call_constant__SCALE_MAX_CLZ_direct (fuel := fuel + extra) (extra := 2023)
       (shared := shared) (hlookup := hlookup)
-  have hwrapS0 :=
+  have hwrapS :=
     call_wrapping_sub_t_uint256_direct (x := evmClz ay) (y := scaleMaxClz)
       (fuel := fuel + extra) (extra := 2102) (shared := shared) (hlookup := hlookup)
-  have hscaleMax1 :=
-    call_constant__SCALE_MAX_direct (fuel := fuel + extra) (extra := 2020)
-      (shared := shared) (hlookup := hlookup)
   have hoctave :=
-    call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 2055)
+    call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 2058)
       (shared := shared) (hlookup := hlookup)
   have hconvertS :=
-    call_convert_uint256_to_int256_direct (v := s) (fuel := fuel + extra) (extra := 2051)
+    call_convert_uint256_to_int256_direct (v := s) (fuel := fuel + extra) (extra := 2054)
       (shared := shared) (hlookup := hlookup)
   have hwrapShift :=
-    call_wrapping_sub_t_int256_direct (x := s) (y := k) (fuel := fuel + extra) (extra := 2088)
+    call_wrapping_sub_t_int256_direct (x := s) (y := k) (fuel := fuel + extra) (extra := 2091)
       (shared := shared) (hlookup := hlookup)
-  have hscaleMax2 :=
-    call_constant__SCALE_MAX_direct (fuel := fuel + extra) (extra := 2004)
+  have hconvert127 :=
+    call_convert_127_to_uint256_direct (fuel := fuel + extra) (extra := 2044)
       (shared := shared) (hlookup := hlookup)
-  have hcleanupScaleMax :=
-    call_cleanup_t_uint256_direct (v := scaleQ67) (fuel := fuel + extra) (extra := 2141)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupAyGuard :=
-    call_cleanup_t_uint256_direct (v := ay) (fuel := fuel + extra) (extra := 2139)
+  have hcleanupSGuard :=
+    call_cleanup_t_uint256_direct (v := s) (fuel := fuel + extra) (extra := 2142)
       (shared := shared) (hlookup := hlookup)
   have hHi :=
-    call_constant__MUL_EXP_RAY_HI_direct (fuel := fuel + extra) (extra := 1998)
+    call_constant__MUL_EXP_RAY_HI_direct (fuel := fuel + extra) (extra := 2001)
       (shared := shared) (hlookup := hlookup)
-  have hcleanupHi :=
-    call_cleanup_t_int256_direct (v := mulExpRayHi) (fuel := fuel + extra) (extra := 2133)
+  have hconvertOne :=
+    call_convert_1_to_int256_direct (fuel := fuel + extra) (extra := 2037)
       (shared := shared) (hlookup := hlookup)
+  have hsubHi :=
+    call_wrapping_sub_t_int256_direct (x := mulExpRayHi) (y := 1)
+      (fuel := fuel + extra) (extra := 2079) (shared := shared) (hlookup := hlookup)
+  have hcleanupHiMinusOne :=
+    call_cleanup_t_int256_direct (v := evmSub mulExpRayHi 1)
+      (fuel := fuel + extra) (extra := 2136) (shared := shared) (hlookup := hlookup)
   have hcleanupXForHi :=
-    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2131)
+    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2134)
       (shared := shared) (hlookup := hlookup)
   have hOrOut :=
-    call_fun_or_direct (a := evmGt ay scaleQ67) (b := evmIszero (evmSlt x mulExpRayHi))
-      (fuel := fuel + extra) (extra := 2076) (shared := shared) (hlookup := hlookup)
-  have hconvertZeroEq :=
-    call_convert_0_to_int256_direct (fuel := fuel + extra) (extra := 2027)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupXEq :=
-    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2125)
-      (shared := shared) (hlookup := hlookup)
-  have hZM1 :=
-    call_constant__MUL_EXP_RAY_ZERO_MAX_direct (fuel := fuel + extra) (extra := 1986)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupZM :=
-    call_cleanup_t_int256_direct (v := mulExpRayZeroMax) (fuel := fuel + extra) (extra := 2123)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupXForLo :=
-    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2121)
-      (shared := shared) (hlookup := hlookup)
-  have hAndLo :=
-    call_fun_and_direct (a := evmIszero (evmEq x 0)) (b := evmSgt x mulExpRayZeroMax)
-      (fuel := fuel + extra) (extra := 2064) (shared := shared) (hlookup := hlookup)
+    call_fun_or_direct (a := evmGt s 127) (b := evmSgt x (evmSub mulExpRayHi 1))
+      (fuel := fuel + extra) (extra := 2077) (shared := shared) (hlookup := hlookup)
   have hconvertTwo :=
-    call_convert_2_to_int256_direct (fuel := fuel + extra) (extra := 2017)
+    call_convert_2_to_int256_direct (fuel := fuel + extra) (extra := 2030)
       (shared := shared) (hlookup := hlookup)
   have hcleanupShift :=
-    call_cleanup_t_int256_direct (v := shift) (fuel := fuel + extra) (extra := 2115)
-      (shared := shared) (hlookup := hlookup)
-  have hAndAccuracy :=
-    call_fun_and_direct
-      (a := evmAnd (evmIszero (evmEq x 0)) (evmSgt x mulExpRayZeroMax))
-      (b := evmSlt shift 2) (fuel := fuel + extra) (extra := 2058)
+    call_cleanup_t_int256_direct (v := shift) (fuel := fuel + extra) (extra := 2128)
       (shared := shared) (hlookup := hlookup)
   have hOrGuard :=
     call_fun_or_direct
-      (a := evmOr (evmGt ay scaleQ67) (evmIszero (evmSlt x mulExpRayHi)))
-      (b := evmAnd (evmAnd (evmIszero (evmEq x 0)) (evmSgt x mulExpRayZeroMax))
-        (evmSlt shift 2))
-      (fuel := fuel + extra) (extra := 2057) (shared := shared) (hlookup := hlookup)
+      (a := evmOr (evmGt s 127) (evmSgt x (evmSub mulExpRayHi 1)))
+      (b := evmSlt shift 2)
+      (fuel := fuel + extra) (extra := 2071) (shared := shared) (hlookup := hlookup)
   have hoverflow :=
-    call_constant_ARITHMETIC_OVERFLOW_direct (fuel := fuel + extra) (extra := 1972)
+    call_constant_ARITHMETIC_OVERFLOW_direct (fuel := fuel + extra) (extra := 1986)
       (shared := shared) (hlookup := hlookup)
   have hconvu :=
-    call_convert_uint8_to_uint256_17_direct (fuel := fuel + extra) (extra := 2011)
+    call_convert_uint8_to_uint256_17_direct (fuel := fuel + extra) (extra := 2025)
       (shared := shared) (hlookup := hlookup)
   have hpanic :=
-    call_fun_panic_revert_direct (code := 0x11) (fuel := fuel + extra) (extra := 1530)
+    call_fun_panic_revert_direct (code := 0x11) (fuel := fuel + extra) (extra := 1544)
       (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hzeroInit hzeroUint1 hzeroUint2
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_clz, ay, absTree, signTree] at hclz
   simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__SCALE_MAX_CLZ] at hscaleMaxClz
-  simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleMaxClz] at hwrapS0
-  simp only [Nat.reduceAdd, FormalYul.word] at hscaleMax1 hscaleMax2
+  simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleMaxClz] at hwrapS
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun__octave] at hoctave
-  simp only [Nat.reduceAdd, FormalYul.word, s, s0, ay, absTree, signTree, scaleMaxClz,
-    scaleQ67] at hconvertS
-  simp only [Nat.reduceAdd, FormalYul.word, k, kTree, s, s0, ay, absTree, signTree, scaleMaxClz,
-    scaleQ67] at hwrapShift
-  simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree,
-    scaleQ67] at hcleanupScaleMax hcleanupAyGuard
+  simp only [Nat.reduceAdd, FormalYul.word, s, ay, absTree, signTree, scaleMaxClz] at hconvertS
+  simp only [Nat.reduceAdd, FormalYul.word, k, kTree, s, ay, absTree, signTree, scaleMaxClz]
+    at hwrapShift
+  simp only [Nat.reduceAdd, FormalYul.word] at hconvert127
+  simp only [Nat.reduceAdd, FormalYul.word, s, ay, absTree, signTree, scaleMaxClz]
+    at hcleanupSGuard
   simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__MUL_EXP_RAY_HI,
     mulExpRayHi] at hHi
-  simp only [Nat.reduceAdd, FormalYul.word, mulExpRayHi] at hcleanupHi
+  simp only [Nat.reduceAdd, FormalYul.word] at hconvertOne
+  simp only [Nat.reduceAdd, FormalYul.word, mulExpRayHi] at hsubHi hcleanupHiMinusOne
   simp only [Nat.reduceAdd, FormalYul.word] at hcleanupXForHi
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_or, ay, absTree, signTree, scaleQ67,
-    mulExpRayHi] at hOrOut
-  simp only [Nat.reduceAdd, FormalYul.word] at hconvertZeroEq hcleanupXEq
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__MUL_EXP_RAY_ZERO_MAX,
-    mulExpRayZeroMax] at hZM1
-  simp only [Nat.reduceAdd, FormalYul.word, mulExpRayZeroMax] at hcleanupZM
-  simp only [Nat.reduceAdd, FormalYul.word] at hcleanupXForLo
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_and,
-    mulExpRayZeroMax] at hAndLo
+  simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_or, s, ay, absTree, signTree,
+    scaleMaxClz, mulExpRayHi] at hOrOut
   simp only [Nat.reduceAdd, FormalYul.word] at hconvertTwo
-  simp only [Nat.reduceAdd, FormalYul.word, shift, k, kTree, s, s0, ay, absTree, signTree,
-    scaleMaxClz, scaleQ67] at hcleanupShift
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_and, k, kTree, shift, s, s0, ay, absTree,
-    signTree, scaleMaxClz, scaleQ67, mulExpRayZeroMax] at hAndAccuracy
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_or, k, kTree, shift, s, s0, ay, absTree,
-    signTree, scaleMaxClz, scaleQ67, mulExpRayHi, mulExpRayZeroMax] at hOrGuard
+  simp only [Nat.reduceAdd, FormalYul.word, shift, k, kTree, s, ay, absTree, signTree,
+    scaleMaxClz] at hcleanupShift
+  simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_or, k, kTree, shift, s, ay, absTree,
+    signTree, scaleMaxClz, mulExpRayHi] at hOrGuard
   simp only [Nat.reduceAdd, FormalYul.word, yulName_constant_ARITHMETIC_OVERFLOW] at hoverflow
   simp only [Nat.reduceAdd, FormalYul.word] at hconvu
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_panic] at hpanic
   have hguardUnfold :
       evmOr
         (evmOr
-          (evmGt (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))
-            147573952589676412928000000000000000000)
-          (evmIszero (evmSlt x 86989971160273136331862631244)))
-        (evmAnd
-          (evmAnd (evmIszero (evmEq x 0))
-            (evmSgt x 115792089237316195423570985008687907853269984665552187773936190980962432544451))
+          (evmGt
+            (evmSub (evmClz (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))) 129)
+            127)
+          (evmSgt x (evmSub 86989971160273136331862631244 1)))
           (evmSlt
             (evmSub
-              (evmSub (evmSub (evmClz (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))) 129)
-                (evmGt
-                  (evmShl (evmSub (evmClz (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))) 129)
-                    (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y)))
-                  147573952589676412928000000000000000000))
+              (evmSub (evmClz (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))) 129)
               (evmSar kRoundShift (evmAdd (evmShl kHalfShift 1) (evmMul cInvQ192 x))))
-            2)) = 1 := by
-    simpa [mulExpGuardTree, mulShiftTree, scaleShiftTree, absTree, signTree, kTree, scaleQ67,
-      scaleMaxClz, mulExpRayHi, mulExpRayZeroMax] using hguard
+            2) = 1 := by
+    simpa [mulExpGuardTree, mulShiftTree, scaleShiftTree, absTree, signTree, kTree,
+      scaleMaxClz, mulExpRayHi] using hguard
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
-    EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word,
-    hguard, hguardUnfold,
-    hzeroInit, hzeroUint1, hzeroUint2, hclz, hscaleMaxClz, hwrapS0,
-    hscaleMax1, hoctave, hconvertS, hwrapShift, hscaleMax2, hcleanupScaleMax, hcleanupAyGuard,
-    hHi, hcleanupHi, hcleanupXForHi, hOrOut, hconvertZeroEq, hcleanupXEq, hZM1, hcleanupZM,
-    hcleanupXForLo, hAndLo, hconvertTwo, hcleanupShift, hAndAccuracy, hOrGuard,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word,
+    hguardUnfold,
+    hzeroInit, hzeroUint1, hzeroUint2, hclz, hscaleMaxClz, hwrapS,
+    hoctave, hconvertS, hwrapShift, hconvert127, hcleanupSGuard,
+    hHi, hconvertOne, hsubHi, hcleanupHiMinusOne, hcleanupXForHi, hOrOut,
+    hconvertTwo, hcleanupShift, hOrGuard,
     hoverflow, hconvu, hpanic,
-    FormalYul.Preservation.uint256_ofNat_eq_eq_word_evmEq,
     FormalYul.Preservation.uint256_ofNat_gt_eq_word_evmGt,
     FormalYul.Preservation.uint256_ofNat_sub_eq_word_evmSub,
-    FormalYul.Preservation.uint256_ofNat_shiftLeft_eq_word_evmShl,
     Common.Word.uint256_ofNat_xor_eq_word_evmXor,
     Common.Word.uint256_ofNat_sar_eq_word_evmSar,
     uint256_ofNat_slt_eq_word_evmSlt,
     uint256_ofNat_sgt_eq_word_evmSgt,
-    uint256_ofNat_iszero_eq_word_evmIszero,
-    mulExpGuardTree, mulShiftTree, kTree, scaleShiftTree, absTree, signTree,
-    scaleQ67, scaleMaxClz, mulExpRayHi, mulExpRayZeroMax,
-    sign, ay, s0, s, k, shift]
+    scaleMaxClz]
 
 set_option maxHeartbeats 12000000 in
 /-- `fun_wrap_mulExpRay` forwards the revert. -/

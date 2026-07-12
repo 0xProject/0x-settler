@@ -3,8 +3,7 @@ import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Positivity
 import Mathlib.Algebra.Order.Floor.Defs
 import Common.Foundation.ExpSum
-import ExpProof.Cert.ExpVUp
-import ExpProof.Cert.ExpVLo
+import ExpProof.Cert.ExpVTaylor
 import ExpProof.Cert.ExpVNum
 import ExpProof.Cert.ExpVDenM1
 
@@ -144,7 +143,7 @@ theorem capExpUp {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H129 : Int)) :
     have hHQ : 2 * H129 < 29 * Qexp := by unfold H129 Qexp; norm_num
     omega
   · rw [htn, hyn, hwn, Qexp_eq]
-    have h := expVUp_nonneg h1 h2
+    have h := expVUp_nonnegOn t h1 h2
     rw [evalCertExpUp] at h
     unfold fact28Q28 at h
     rw [Qexp_eq] at h
@@ -173,7 +172,7 @@ theorem capExpLo {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H129 : Int)) :
   have hwn : ((evalPoly wLB t).toNat : Int) = evalPoly wLB t := Int.toNat_of_nonneg hwlb
   refine capLB27_of_int ?_
   rw [htn, hyn, hwn, Qexp_eq]
-  have h := expVLo_nonneg h1 h2
+  have h := expVLo_nonnegOn t h1 h2
   rw [evalCertExpLo] at h
   unfold fact27Q27 at h
   rw [Qexp_eq] at h

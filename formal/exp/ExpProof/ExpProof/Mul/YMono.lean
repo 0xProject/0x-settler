@@ -28,18 +28,18 @@ set_option maxHeartbeats 1600000
 /-! ## Magnitude words normalize through the absolute value -/
 
 /-- A supported magnitude word is its own absolute value. -/
-private theorem absTree_of_small {a : Nat} (ha : a ≤ scaleQ67) : absTree a = a :=
-  absTree_nonneg (lt_of_le_of_lt ha (by unfold scaleQ67; norm_num))
+private theorem absTree_of_small {a : Nat} (ha : a ≤ scaleMax) : absTree a = a :=
+  absTree_nonneg (lt_of_le_of_lt ha (by unfold scaleMax; norm_num))
 
 /-- The kernel magnitude depends on the multiplier only through its magnitude word. -/
-theorem mulMagnitude_abs_norm {y : Nat} (habs : absTree y ≤ scaleQ67) (x : Nat) :
+theorem mulMagnitude_abs_norm {y : Nat} (habs : absTree y ≤ scaleMax) (x : Nat) :
     mulMagnitudeTree y x = mulMagnitudeTree (absTree y) x := by
   have h : absTree (absTree y) = absTree y := absTree_of_small habs
   unfold mulMagnitudeTree mulShiftTree r0MulTree mulScaleTree
   rw [h]
 
 /-- The closing shift depends on the multiplier only through its magnitude word. -/
-theorem mulShift_abs_norm {y : Nat} (habs : absTree y ≤ scaleQ67) (x : Nat) :
+theorem mulShift_abs_norm {y : Nat} (habs : absTree y ≤ scaleMax) (x : Nat) :
     mulShiftTree y x = mulShiftTree (absTree y) x := by
   have h : absTree (absTree y) = absTree y := absTree_of_small habs
   unfold mulShiftTree
@@ -48,11 +48,11 @@ theorem mulShift_abs_norm {y : Nat} (habs : absTree y ≤ scaleQ67) (x : Nat) :
 /-! ## Headroom arithmetic from scale maximality -/
 
 /-- The headroom shift is antitone in the magnitude. -/
-theorem scaleShift_antitone {a b : Nat} (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ scaleQ67) :
+theorem scaleShift_antitone {a b : Nat} (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ scaleMax) :
     scaleShiftTree b ≤ scaleShiftTree a := by
-  have haQ : a ≤ scaleQ67 := le_trans hab hb
-  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleQ67; norm_num)
-  have hbw : b < 2 ^ 256 := lt_of_le_of_lt hb (by unfold scaleQ67; norm_num)
+  have haQ : a ≤ scaleMax := le_trans hab hb
+  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleMax; norm_num)
+  have hbw : b < 2 ^ 256 := lt_of_le_of_lt hb (by unfold scaleMax; norm_num)
   have haa : absTree a = a := absTree_of_small haQ
   have hba : absTree b = b := absTree_of_small hb
   have hmax := mulScaleTree_max (y := a) haw (by rw [haa]; exact ha) (by rw [haa]; exact haQ)
@@ -82,11 +82,11 @@ theorem scaleShift_antitone {a b : Nat} (ha : 1 ≤ a) (hab : a ≤ b) (hb : b �
   omega
 
 /-- A unit magnitude step drops the headroom shift by at most one. -/
-theorem scaleShift_step {a : Nat} (ha : 1 ≤ a) (ha1 : a + 1 ≤ scaleQ67) :
+theorem scaleShift_step {a : Nat} (ha : 1 ≤ a) (ha1 : a + 1 ≤ scaleMax) :
     scaleShiftTree a ≤ scaleShiftTree (a + 1) + 1 := by
-  have haQ : a ≤ scaleQ67 := le_trans (Nat.le_succ a) ha1
-  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleQ67; norm_num)
-  have ha1w : a + 1 < 2 ^ 256 := lt_of_le_of_lt ha1 (by unfold scaleQ67; norm_num)
+  have haQ : a ≤ scaleMax := le_trans (Nat.le_succ a) ha1
+  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleMax; norm_num)
+  have ha1w : a + 1 < 2 ^ 256 := lt_of_le_of_lt ha1 (by unfold scaleMax; norm_num)
   have haa : absTree a = a := absTree_of_small haQ
   have ha1a : absTree (a + 1) = a + 1 := absTree_of_small ha1
   obtain ⟨_, hspec_a, hcap_a⟩ := mulScaleTree_spec (y := a) haw (by rw [haa]; exact haQ)
@@ -136,7 +136,7 @@ theorem num_den_ratio {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
   linarith [hev, htod_lo, htod_hi]
 
 /-- The scaled quotient is monotone in the scale at a fixed exponent. -/
-theorem r0Scaled_mono_scale {sc1 sc2 x : Nat} (h12 : sc1 ≤ sc2) (hshi2 : sc2 ≤ scaleQ67)
+theorem r0Scaled_mono_scale {sc1 sc2 x : Nat} (h12 : sc1 ≤ sc2) (hshi2 : sc2 ≤ scaleMax)
     (hx : x < 2 ^ 256) (hW : WideRegion x) :
     int256 (r0ScaledTree sc1 x) ≤ int256 (r0ScaledTree sc2 x) := by
   obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_wide hx hW
@@ -175,16 +175,16 @@ theorem r0Scaled_mono_scale {sc1 sc2 x : Nat} (h12 : sc1 ≤ sc2) (hshi2 : sc2 �
       rw [hp126]
       linarith [hev, htod_hi]
     exact_mod_cast h
-  have hsw1 : sc1 < 2 ^ 256 := lt_of_le_of_lt (le_trans h12 hshi2) (by unfold scaleQ67; norm_num)
-  have hsw2 : sc2 < 2 ^ 256 := lt_of_le_of_lt hshi2 (by unfold scaleQ67; norm_num)
+  have hsw1 : sc1 < 2 ^ 256 := lt_of_le_of_lt (le_trans h12 hshi2) (by unfold scaleMax; norm_num)
+  have hsw2 : sc2 < 2 ^ 256 := lt_of_le_of_lt hshi2 (by unfold scaleMax; norm_num)
   have hfit1 : sc1 * num < 2 ^ 256 := by
-    have h1 : sc1 * num ≤ scaleQ67 * 2 ^ 129 :=
+    have h1 : sc1 * num ≤ scaleMax * 2 ^ 129 :=
       Nat.mul_le_mul (le_trans h12 hshi2) (le_of_lt hnumnat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   have hfit2 : sc2 * num < 2 ^ 256 := by
-    have h1 : sc2 * num ≤ scaleQ67 * 2 ^ 129 := Nat.mul_le_mul hshi2 (le_of_lt hnumnat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h1 : sc2 * num ≤ scaleMax * 2 ^ 129 := Nat.mul_le_mul hshi2 (le_of_lt hnumnat)
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   have hq1 : r0ScaledTree sc1 x = sc1 * num / den := by
     show evmDiv (evmMul sc1 num) den = _
@@ -212,7 +212,7 @@ theorem r0Scaled_mono_scale {sc1 sc2 x : Nat} (h12 : sc1 ≤ sc2) (hshi2 : sc2 �
 `2·sc2 = sc1 + 2^S` with `S ≥ 1` gives `r0(sc1) ≤ 2·r0(sc2)` (`2·num > den` pays the floor
 loss). -/
 theorem r0Scaled_double_scale {sc1 sc2 S x : Nat} (hS : 1 ≤ S)
-    (hid : 2 * sc2 = sc1 + 2 ^ S) (hshi1 : sc1 ≤ scaleQ67) (hshi2 : sc2 ≤ scaleQ67)
+    (hid : 2 * sc2 = sc1 + 2 ^ S) (hshi1 : sc1 ≤ scaleMax) (hshi2 : sc2 ≤ scaleMax)
     (hx : x < 2 ^ 256) (hW : WideRegion x) :
     int256 (r0ScaledTree sc1 x) ≤ 2 * int256 (r0ScaledTree sc2 x) := by
   obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_wide hx hW
@@ -258,15 +258,15 @@ theorem r0Scaled_double_scale {sc1 sc2 S x : Nat} (hS : 1 ≤ S)
       rw [← hdeneq, ← hnumeq, hadd, hsub]
       exact hratio
     exact_mod_cast h1
-  have hsw1 : sc1 < 2 ^ 256 := lt_of_le_of_lt hshi1 (by unfold scaleQ67; norm_num)
-  have hsw2 : sc2 < 2 ^ 256 := lt_of_le_of_lt hshi2 (by unfold scaleQ67; norm_num)
+  have hsw1 : sc1 < 2 ^ 256 := lt_of_le_of_lt hshi1 (by unfold scaleMax; norm_num)
+  have hsw2 : sc2 < 2 ^ 256 := lt_of_le_of_lt hshi2 (by unfold scaleMax; norm_num)
   have hfit1 : sc1 * num < 2 ^ 256 := by
-    have h1 : sc1 * num ≤ scaleQ67 * 2 ^ 129 := Nat.mul_le_mul hshi1 (le_of_lt hnumnat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h1 : sc1 * num ≤ scaleMax * 2 ^ 129 := Nat.mul_le_mul hshi1 (le_of_lt hnumnat)
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   have hfit2 : sc2 * num < 2 ^ 256 := by
-    have h1 : sc2 * num ≤ scaleQ67 * 2 ^ 129 := Nat.mul_le_mul hshi2 (le_of_lt hnumnat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h1 : sc2 * num ≤ scaleMax * 2 ^ 129 := Nat.mul_le_mul hshi2 (le_of_lt hnumnat)
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   have hq1 : r0ScaledTree sc1 x = sc1 * num / den := by
     show evmDiv (evmMul sc1 num) den = _
@@ -375,12 +375,12 @@ theorem seam_close_odd {arg1 arg2 s1 s2 : Nat}
 /-! ## The adjacent magnitude step -/
 
 /-- The signed closing shift is antitone in the magnitude word. -/
-theorem mulShiftY_antitone {a b x : Nat} (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ scaleQ67)
+theorem mulShiftY_antitone {a b x : Nat} (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ scaleMax)
     (hx : x < 2 ^ 256) (hW : WideRegion x) :
     int256 (mulShiftTree b x) ≤ int256 (mulShiftTree a x) := by
-  have haQ : a ≤ scaleQ67 := le_trans hab hb
-  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleQ67; norm_num)
-  have hbw : b < 2 ^ 256 := lt_of_le_of_lt hb (by unfold scaleQ67; norm_num)
+  have haQ : a ≤ scaleMax := le_trans hab hb
+  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleMax; norm_num)
+  have hbw : b < 2 ^ 256 := lt_of_le_of_lt hb (by unfold scaleMax; norm_num)
   have haa : absTree a = a := absTree_of_small haQ
   have hba : absTree b = b := absTree_of_small hb
   have hta := mulShiftTree_transport (y := a) haw hx (by rw [haa]; exact haQ) hW
@@ -394,13 +394,13 @@ theorem mulShiftY_antitone {a b x : Nat} (ha : 1 ≤ a) (hab : a ≤ b) (hb : b 
 
 /-- **The adjacent magnitude step**: at a fixed live exponent, one unit of magnitude never
 decreases the kernel magnitude. -/
-theorem mulMagnitudeY_step {a x : Nat} (ha : 1 ≤ a) (ha1 : a + 1 ≤ scaleQ67)
+theorem mulMagnitudeY_step {a x : Nat} (ha : 1 ≤ a) (ha1 : a + 1 ≤ scaleMax)
     (hx : x < 2 ^ 256) (hW : WideRegion x) (hx0 : int256 x ≠ 0)
     (hlive2 : 2 ≤ int256 (mulShiftTree (a + 1) x)) :
     int256 (mulMagnitudeTree a x) ≤ int256 (mulMagnitudeTree (a + 1) x) := by
-  have haQ : a ≤ scaleQ67 := le_trans (Nat.le_succ a) ha1
-  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleQ67; norm_num)
-  have ha1w : a + 1 < 2 ^ 256 := lt_of_le_of_lt ha1 (by unfold scaleQ67; norm_num)
+  have haQ : a ≤ scaleMax := le_trans (Nat.le_succ a) ha1
+  have haw : a < 2 ^ 256 := lt_of_le_of_lt haQ (by unfold scaleMax; norm_num)
+  have ha1w : a + 1 < 2 ^ 256 := lt_of_le_of_lt ha1 (by unfold scaleMax; norm_num)
   have haa : absTree a = a := absTree_of_small haQ
   have ha1a : absTree (a + 1) = a + 1 := absTree_of_small ha1
   have hlive1 : 2 ≤ int256 (mulShiftTree a x) :=
@@ -506,7 +506,7 @@ theorem mulMagnitudeY_step {a x : Nat} (ha : 1 ≤ a) (ha1 : a + 1 ≤ scaleQ67)
 intermediate through the headroom antitonicity. -/
 theorem mulMagnitudeY_mono_steps {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x)
     (hx0 : int256 x ≠ 0) (n : Nat) :
-    ∀ a : Nat, 1 ≤ a → a + n ≤ scaleQ67 →
+    ∀ a : Nat, 1 ≤ a → a + n ≤ scaleMax →
     2 ≤ int256 (mulShiftTree (a + n) x) →
     int256 (mulMagnitudeTree a x) ≤ int256 (mulMagnitudeTree (a + n) x) := by
   induction n with
@@ -533,7 +533,7 @@ theorem mulMagnitudeY_mono_steps {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x
 
 /-- **Magnitude monotonicity in the multiplier at a fixed live exponent.** -/
 theorem mulMagnitudeY_region_mono {a1 a2 x : Nat} (ha1 : 1 ≤ a1) (h12 : a1 ≤ a2)
-    (ha2 : a2 ≤ scaleQ67) (hx : x < 2 ^ 256) (hW : WideRegion x) (hx0 : int256 x ≠ 0)
+    (ha2 : a2 ≤ scaleMax) (hx : x < 2 ^ 256) (hW : WideRegion x) (hx0 : int256 x ≠ 0)
     (hlive2 : 2 ≤ int256 (mulShiftTree a2 x)) :
     int256 (mulMagnitudeTree a1 x) ≤ int256 (mulMagnitudeTree a2 x) := by
   have h := mulMagnitudeY_mono_steps hx hW hx0 (a2 - a1) a1 ha1
@@ -549,12 +549,16 @@ theorem run_mul_exp_ray_evm_mono_y {y1 y2 x : Nat}
     (h1 : MulExpRayValueDomain y1 x) (h2 : MulExpRayValueDomain y2 x)
     (hle : int256 y1 ≤ int256 y2) :
     MulExpRayRunYMonotone y1 y2 x := by
-  obtain ⟨⟨hy1, hxw⟩, habs1, hxhi, hcase1⟩ := h1
-  obtain ⟨⟨hy2, _⟩, habs2, _, hcase2⟩ := h2
   have hrun1 : run_mul_exp_ray_evm y1 x = .ok (mulExpTree y1 x) :=
-    run_mul_exp_ray_evm_eq_tree ⟨⟨hy1, hxw⟩, habs1, hxhi, hcase1⟩
+    run_mul_exp_ray_evm_eq_tree h1
   have hrun2 : run_mul_exp_ray_evm y2 x = .ok (mulExpTree y2 x) :=
-    run_mul_exp_ray_evm_eq_tree ⟨⟨hy2, hxw⟩, habs2, hxhi, hcase2⟩
+    run_mul_exp_ray_evm_eq_tree h2
+  obtain ⟨⟨hy1, hxw⟩, hscale1, hxhi, hshift1⟩ := h1
+  obtain ⟨⟨hy2, _⟩, hscale2, _, hshift2⟩ := h2
+  have habs1 : absTree y1 ≤ scaleMax :=
+    (scaleShiftTree_le_127_iff (absTree_lt y1)).mp hscale1
+  have habs2 : absTree y2 ≤ scaleMax :=
+    (scaleShiftTree_le_127_iff (absTree_lt y2)).mp hscale2
   refine ⟨mulExpTree y1 x, mulExpTree y2 x, hrun1, hrun2, hle, ?_⟩
   -- the exponent's class decides the result shape
   by_cases hcl : int256 x ≤ int256 mulExpRayZeroMax
@@ -566,16 +570,8 @@ theorem run_mul_exp_ray_evm_mono_y {y1 y2 x : Nat}
     exact hle
   -- the live region
   have hW : WideRegion x := ⟨by omega, hxhi⟩
-  have hlive : ∀ y : Nat, y < 2 ^ 256 → absTree y ≤ scaleQ67 →
-      (int256 x = 0 ∨ int256 x ≤ int256 mulExpRayZeroMax ∨
-        2 ≤ int256 (mulShiftTree y x)) → 2 ≤ int256 (mulShiftTree y x) := by
-    intro y _ _ hcase
-    rcases hcase with h | h | h
-    · exact absurd h hx0
-    · exact absurd h hcl
-    · exact h
-  have hlv1 := hlive y1 hy1 habs1 hcase1
-  have hlv2 := hlive y2 hy2 habs2 hcase2
+  have hlv1 := hshift1
+  have hlv2 := hshift2
   -- the live magnitudes, at the magnitude words
   rcases Nat.eq_zero_or_pos y1 with hz1 | hp1
   · subst hz1

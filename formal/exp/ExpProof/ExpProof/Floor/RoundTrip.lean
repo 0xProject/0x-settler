@@ -33,14 +33,12 @@ set_option maxRecDepth 100000
 
 /-! ## Strict never-over: the accumulator stays a positive distance below the target
 
-`accumReal_over` gives `accumReal x ≤ E`. With `B' = (5¹⁸/2⁴¹)·B ≈ 0.99527` the never-over
-envelope's image on the output grid, `MARGIN = 1` exceeds it strictly — the slack
-`δ = MARGIN − B' ≈ 0.0047` (worth `δ/2^s` after the closing shift). The round trip needs this
+`accumReal_over` gives `accumReal x ≤ E`. The never-over envelope's image on the output grid is
+below `0.934`, so `MARGIN = 1` exceeds it strictly. The round trip needs this
 strictness to rule out `accumReal x = w` exactly. -/
 
 /-- **Strict never-over.** On the region the real pre-floor accumulator is strictly below the
-target. The proven over bound `r0 ≤ scaleQ67·exp(rt) + (5¹⁸/2⁴¹)·B` plus `(5¹⁸/2⁴¹)·B < MARGIN`
-give a strictly negative residue. -/
+target. The proven over bound and its image below `MARGIN` give a strictly negative residue. -/
 theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
     accumReal x < expRayToWadTarget (int256 x) := by
@@ -49,14 +47,13 @@ theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < 
   have hfold := target_octave_fold s hsint
   have hover := r0_real_over_within hx hC hC0
   set Ert := Real.exp (reducedArg x) with hErt
-  -- r0 − MARGIN < scaleQ67·Ert = E·2^s, using (5¹⁸/2⁴⁰)·B < MARGIN
+  -- r0 − MARGIN < scaleQ67·Ert = E·2^s
   have hbound : (int256 (r0Tree x) : Real) - 1 <
       expRayToWadTarget (int256 x) * (2 ^ s : Real) := by
     rw [hfold]
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     rw [hwad]
-    -- (5¹⁸/2⁴⁰)·B < 1 = MARGIN, strictly
-    have hBM : (3814697265625 * 5737291786393199862 / (10000000000000000000 * 2199023255552) : Real) < 1 := by norm_num
+    have hBM := over_budget_image_lt_one
     linarith [hover, hBM]
   rw [hAeq, div_lt_iff₀ hps]; linarith [hbound]
 

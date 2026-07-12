@@ -43,9 +43,9 @@ theorem numSum_lt {W : Nat} {ev tod : Int} (hW : int256 W = ev + tod)
   rw [hW, show (2:Int)^129 = 3 * 2^127 + 2^127 from by ring]; omega
 
 /-- The `mul scale N` dividend as a plain `Nat` product when `N`'s signed value is in
-`[0, 2^128)` and `scale ≤ scaleQ67`: `evmMul scale N = scale * N` (no wrap), and `N` is its own
+`[0, 2^129)` and `scale ≤ scaleMax`: `evmMul scale N = scale * N` (no wrap), and `N` is its own
 signed value. -/
-theorem mulScale_transport {scale N : Nat} (hshi : scale ≤ scaleQ67)
+theorem mulScale_transport {scale N : Nat} (hshi : scale ≤ scaleMax)
     (hNw : N < 2 ^ 256) (hNnn : 0 ≤ int256 N)
     (hNlt : int256 N < 2 ^ 129) :
     evmMul scale N = scale * N ∧ N < 2 ^ 129 := by
@@ -53,18 +53,18 @@ theorem mulScale_transport {scale N : Nat} (hshi : scale ≤ scaleQ67)
   have hNnat : N < 2 ^ 129 := by
     have : ((N : Nat) : Int) < 2 ^ 129 := by rw [← hNi]; exact hNlt
     exact_mod_cast this
-  have hsw : scale < 2 ^ 256 := lt_of_le_of_lt hshi (by unfold scaleQ67; norm_num)
+  have hsw : scale < 2 ^ 256 := lt_of_le_of_lt hshi (by unfold scaleMax; norm_num)
   have hfit : scale * N < 2 ^ 256 := by
-    have h1 : scale * N ≤ scaleQ67 * 2 ^ 129 :=
+    have h1 : scale * N ≤ scaleMax * 2 ^ 129 :=
       Nat.mul_le_mul hshi (le_of_lt hNnat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   exact ⟨evmMul_eq_nat hsw hNw hfit, hNnat⟩
 
 /-- Abstract `r0` monotonicity from the `tod·ev` cross inequality, over opaque even/odd words.
 Given the numerator/denominator positivity and `tod1·ev2 ≤ tod2·ev1`, the two `div` quotients are
 `≤`-ordered. -/
-theorem r0_mono_of_cross {scale E1 TD1 E2 TD2 : Nat} (hshi : scale ≤ scaleQ67)
+theorem r0_mono_of_cross {scale E1 TD1 E2 TD2 : Nat} (hshi : scale ≤ scaleMax)
     (hE1 : E1 < 2 ^ 256) (hTD1 : TD1 < 2 ^ 256) (hE2 : E2 < 2 ^ 256) (hTD2 : TD2 < 2 ^ 256)
     (hev1_lo : (415147853590918758559635130244235626256 : Int) ≤ (E1 : Int))
     (hev1_hi : (E1 : Int) < 3 * 2 ^ 127)
@@ -108,16 +108,16 @@ theorem r0_mono_of_cross {scale E1 TD1 E2 TD2 : Nat} (hshi : scale ≤ scaleQ67)
     exact_mod_cast h
   have hD1nz : evmSub E1 TD1 ≠ 0 := Nat.pos_iff_ne_zero.mp hD1posN
   have hD2nz : evmSub E2 TD2 ≠ 0 := Nat.pos_iff_ne_zero.mp hD2posN
-  have hsw : scale < 2 ^ 256 := lt_of_le_of_lt hshi (by unfold scaleQ67; norm_num)
+  have hsw : scale < 2 ^ 256 := lt_of_le_of_lt hshi (by unfold scaleMax; norm_num)
   have hfit1 : scale * evmAdd E1 TD1 < 2 ^ 256 := by
-    have h1 : scale * evmAdd E1 TD1 ≤ scaleQ67 * 2 ^ 129 :=
+    have h1 : scale * evmAdd E1 TD1 ≤ scaleMax * 2 ^ 129 :=
       Nat.mul_le_mul hshi (le_of_lt hN1nat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   have hfit2 : scale * evmAdd E2 TD2 < 2 ^ 256 := by
-    have h1 : scale * evmAdd E2 TD2 ≤ scaleQ67 * 2 ^ 129 :=
+    have h1 : scale * evmAdd E2 TD2 ≤ scaleMax * 2 ^ 129 :=
       Nat.mul_le_mul hshi (le_of_lt hN2nat)
-    have h2 : scaleQ67 * 2 ^ 129 < 2 ^ 256 := by unfold scaleQ67; norm_num
+    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
     omega
   -- the two quotients as plain Nat floor divisions
   have hq1 : evmDiv (evmMul scale (evmAdd E1 TD1)) (evmSub E1 TD1) =

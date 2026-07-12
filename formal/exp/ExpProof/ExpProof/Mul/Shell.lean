@@ -196,109 +196,73 @@ theorem mulExpTree_negative {y x : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256)
 
 /-! ## The scale headroom realizes the scale exactly -/
 
-theorem mulScaleTree_spec {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleQ67) :
-    scaleShiftTree (absTree y) < 256 ∧
+theorem mulScaleTree_spec {y : Nat} (_hy : y < 2 ^ 256) (habs : absTree y ≤ scaleMax) :
+    scaleShiftTree (absTree y) ≤ 127 ∧
       mulScaleTree y = absTree y * 2 ^ scaleShiftTree (absTree y) ∧
-      mulScaleTree y ≤ scaleQ67 := by
+      mulScaleTree y ≤ scaleMax := by
   have haylt : absTree y < 2 ^ 256 := absTree_lt y
+  have hay127 : absTree y < 2 ^ 127 :=
+    lt_of_le_of_lt habs scaleMax_lt_2127
   rcases Nat.eq_zero_or_pos (absTree y) with h0 | hpos
   · have hclz : evmClz 0 = 256 := by
       unfold evmClz
       rw [u256_self (by norm_num)]
       simp
-    have hs0 : evmSub 256 scaleMaxClz = 127 := by
+    have hs : evmSub 256 scaleMaxClz = 127 := by
       rw [evmSub_small (by unfold scaleMaxClz; omega) (by norm_num)]
       unfold scaleMaxClz
       norm_num
+    have hsst : scaleShiftTree (absTree y) = 127 := by
+      rw [h0]
+      unfold scaleShiftTree
+      rw [hclz]
+      exact hs
     have hshl : evmShl 127 (0 : Nat) = 0 := by
       rw [evmShl_small (by norm_num) (by norm_num) (by norm_num)]
       ring
-    have hgt : evmGt (0 : Nat) scaleQ67 = 0 := by
-      unfold evmGt
-      rw [u256_self (by norm_num), u256_self (by unfold scaleQ67; norm_num), if_neg (by omega)]
-    have hsub : evmSub 127 (0 : Nat) = 127 := evmSub_small (by omega) (by norm_num)
-    have hsst : scaleShiftTree (absTree y) = 127 := by
-      unfold scaleShiftTree
-      simp only [h0, hclz, hs0, hshl, hgt, hsub]
     have hscale : mulScaleTree y = 0 := by
       unfold mulScaleTree
       rw [hsst, h0, hshl]
     rw [hsst, hscale, h0]
-    exact ⟨by norm_num, by ring, by unfold scaleQ67; norm_num⟩
+    exact ⟨by norm_num, by ring, Nat.zero_le _⟩
   · have hlog : Nat.log2 (absTree y) ≤ 126 := by
-      have h1 : 2 ^ Nat.log2 (absTree y) ≤ absTree y := Nat.log2_self_le (by omega)
-      have hQ : scaleQ67 < 2 ^ 127 := by unfold scaleQ67; norm_num
+      have h1 : 2 ^ Nat.log2 (absTree y) ≤ absTree y :=
+        Nat.log2_self_le (by omega)
       by_contra h
       push_neg at h
       have h2 : (2 : Nat) ^ 127 ≤ 2 ^ Nat.log2 (absTree y) :=
         Nat.pow_le_pow_right (by norm_num) h
       omega
-    have hlt : absTree y < 2 ^ (Nat.log2 (absTree y) + 1) := Nat.lt_log2_self
+    have hlt : absTree y < 2 ^ (Nat.log2 (absTree y) + 1) :=
+      Nat.lt_log2_self
     have hclz : evmClz (absTree y) = 255 - Nat.log2 (absTree y) := by
       unfold evmClz
       rw [u256_self haylt, if_neg (by omega)]
-    have hs0eq : evmSub (evmClz (absTree y)) scaleMaxClz = 126 - Nat.log2 (absTree y) := by
+    have hs : scaleShiftTree (absTree y) = 126 - Nat.log2 (absTree y) := by
+      unfold scaleShiftTree
       rw [hclz, evmSub_small (by unfold scaleMaxClz; omega) (by omega)]
       unfold scaleMaxClz
       omega
     have hfit : absTree y * 2 ^ (126 - Nat.log2 (absTree y)) < 2 ^ 127 := by
       calc absTree y * 2 ^ (126 - Nat.log2 (absTree y))
-          < 2 ^ (Nat.log2 (absTree y) + 1) * 2 ^ (126 - Nat.log2 (absTree y)) :=
+          < 2 ^ (Nat.log2 (absTree y) + 1) *
+              2 ^ (126 - Nat.log2 (absTree y)) :=
             mul_lt_mul_of_pos_right hlt (Nat.two_pow_pos _)
-        _ = 2 ^ (Nat.log2 (absTree y) + 1 + (126 - Nat.log2 (absTree y))) := by
+        _ = 2 ^ (Nat.log2 (absTree y) + 1 +
+              (126 - Nat.log2 (absTree y))) := by
             rw [← pow_add]
         _ ≤ 2 ^ 127 := Nat.pow_le_pow_right (by norm_num) (by omega)
     have hshl : evmShl (126 - Nat.log2 (absTree y)) (absTree y) =
         absTree y * 2 ^ (126 - Nat.log2 (absTree y)) :=
       evmShl_small (by omega) haylt (lt_trans hfit (by norm_num))
-    by_cases hover : absTree y * 2 ^ (126 - Nat.log2 (absTree y)) > scaleQ67
-    · have hgt : evmGt (absTree y * 2 ^ (126 - Nat.log2 (absTree y))) scaleQ67 = 1 := by
-        unfold evmGt
-        rw [u256_self (lt_trans hfit (by norm_num)),
-          u256_self (by unfold scaleQ67; norm_num), if_pos hover]
-      have hs0pos : 0 < 126 - Nat.log2 (absTree y) := by
-        rcases Nat.eq_zero_or_pos (126 - Nat.log2 (absTree y)) with h | h
-        · rw [h] at hover
-          simp at hover
-          omega
-        · exact h
-      have hsub : evmSub (126 - Nat.log2 (absTree y)) 1 = 126 - Nat.log2 (absTree y) - 1 :=
-        evmSub_small (by omega) (by omega)
-      have hsst : scaleShiftTree (absTree y) = 126 - Nat.log2 (absTree y) - 1 := by
-        unfold scaleShiftTree
-        simp only [hs0eq, hshl, hgt, hsub]
-      have hfit' : absTree y * 2 ^ (126 - Nat.log2 (absTree y) - 1) < 2 ^ 126 := by
-        calc absTree y * 2 ^ (126 - Nat.log2 (absTree y) - 1)
-            < 2 ^ (Nat.log2 (absTree y) + 1) * 2 ^ (126 - Nat.log2 (absTree y) - 1) :=
-              mul_lt_mul_of_pos_right hlt (Nat.two_pow_pos _)
-          _ = 2 ^ (Nat.log2 (absTree y) + 1 + (126 - Nat.log2 (absTree y) - 1)) := by
-              rw [← pow_add]
-          _ ≤ 2 ^ 126 := Nat.pow_le_pow_right (by norm_num) (by omega)
-      have hshl' : evmShl (126 - Nat.log2 (absTree y) - 1) (absTree y) =
-          absTree y * 2 ^ (126 - Nat.log2 (absTree y) - 1) :=
-        evmShl_small (by omega) haylt
-          (lt_trans hfit' (by norm_num : (2 : Nat) ^ 126 < 2 ^ 256))
-      have hscale : mulScaleTree y = absTree y * 2 ^ (126 - Nat.log2 (absTree y) - 1) := by
-        unfold mulScaleTree
-        rw [hsst, hshl']
-      rw [hsst, hscale]
-      have h126 : (2 : Nat) ^ 126 ≤ scaleQ67 := by unfold scaleQ67; norm_num
-      exact ⟨by omega, rfl, by omega⟩
-    · have hgt : evmGt (absTree y * 2 ^ (126 - Nat.log2 (absTree y))) scaleQ67 = 0 := by
-        unfold evmGt
-        rw [u256_self (lt_trans hfit (by norm_num)),
-          u256_self (by unfold scaleQ67; norm_num), if_neg hover]
-      have hsub : evmSub (126 - Nat.log2 (absTree y)) 0 = 126 - Nat.log2 (absTree y) :=
-        evmSub_small (by omega) (by omega)
-      have hsst : scaleShiftTree (absTree y) = 126 - Nat.log2 (absTree y) := by
-        unfold scaleShiftTree
-        simp only [hs0eq, hshl, hgt, hsub]
-      have hscale : mulScaleTree y = absTree y * 2 ^ (126 - Nat.log2 (absTree y)) := by
-        unfold mulScaleTree
-        rw [hsst, hshl]
-      rw [hsst, hscale]
-      exact ⟨by omega, rfl, by omega⟩
-
+    have hscale : mulScaleTree y =
+        absTree y * 2 ^ (126 - Nat.log2 (absTree y)) := by
+      unfold mulScaleTree
+      rw [hs, hshl]
+    rw [hs, hscale]
+    refine ⟨by omega, rfl, ?_⟩
+    rw [scaleMax_eq]
+    omega
 /-! ## The scale point `x = 0` -/
 
 private theorem kTree_zero : kTree 0 = 0 := by
@@ -331,7 +295,7 @@ private theorem todTree_zero : todTree 0 = 0 := by
   norm_num [evmSar, evmMul, u256, WORD_MOD]
 
 private theorem r0MulTree_scale_point {y : Nat} (hy : y < 2 ^ 256)
-    (habs : absTree y ≤ scaleQ67) : r0MulTree y 0 = mulScaleTree y := by
+    (habs : absTree y ≤ scaleMax) : r0MulTree y 0 = mulScaleTree y := by
   obtain ⟨_, _, hcap⟩ := mulScaleTree_spec hy habs
   unfold r0MulTree
   have hnum : evmAdd (evTree 0) (todTree 0) = ev4 := by
@@ -344,8 +308,8 @@ private theorem r0MulTree_scale_point {y : Nat} (hy : y < 2 ^ 256)
   rw [hnum, hden]
   exact evmDiv_exact (by unfold ev4; norm_num) (mulScaleTree_lt y) (by unfold ev4; norm_num)
     (by
-      calc mulScaleTree y * ev4 ≤ scaleQ67 * ev4 := Nat.mul_le_mul_right _ hcap
-        _ < 2 ^ 256 := by unfold scaleQ67 ev4; norm_num)
+      calc mulScaleTree y * ev4 ≤ scaleMax * ev4 := Nat.mul_le_mul_right _ hcap
+        _ < 2 ^ 256 := by unfold scaleMax ev4; norm_num)
 
 private theorem mulShiftTree_scale_point (y : Nat) :
     mulShiftTree y 0 = scaleShiftTree (absTree y) := by
@@ -354,10 +318,10 @@ private theorem mulShiftTree_scale_point (y : Nat) :
   omega
 
 theorem mulMagnitudeTree_scale_point {y : Nat} (hy : y < 2 ^ 256)
-    (hpos : 0 < absTree y) (habs : absTree y ≤ scaleQ67) :
+    (hpos : 0 < absTree y) (habs : absTree y ≤ scaleMax) :
     mulMagnitudeTree y 0 = absTree y := by
   obtain ⟨hs256, hscale, hcap⟩ := mulScaleTree_spec hy habs
-  have hQlt : scaleQ67 < 2 ^ 256 := by unfold scaleQ67; norm_num
+  have hQlt : scaleMax < 2 ^ 256 := by unfold scaleMax; norm_num
   have hscalepos : 0 < mulScaleTree y := by
     rw [hscale]
     exact Nat.mul_pos hpos (Nat.two_pow_pos _)
@@ -382,7 +346,7 @@ theorem mulMagnitudeTree_scale_point {y : Nat} (hy : y < 2 ^ 256)
   rw [hsub]
   have hshr : evmShr (scaleShiftTree (absTree y))
       (absTree y * 2 ^ scaleShiftTree (absTree y) - 1) = absTree y - 1 := by
-    rw [evmShr_small hs256 (by omega)]
+    rw [evmShr_small (by omega) (by omega)]
     generalize scaleShiftTree (absTree y) = S
     obtain ⟨k, hk⟩ : ∃ k, absTree y = k + 1 := ⟨absTree y - 1, by omega⟩
     rw [hk]
@@ -402,7 +366,7 @@ theorem mulMagnitudeTree_scale_point {y : Nat} (hy : y < 2 ^ 256)
   omega
 
 /-- **Scale point (tree).** At `x = 0`, the result word is the multiplier itself. -/
-theorem mulExpTree_scale_point {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleQ67) :
+theorem mulExpTree_scale_point {y : Nat} (hy : y < 2 ^ 256) (habs : absTree y ≤ scaleMax) :
     mulExpTree y 0 = y := by
   rcases Nat.eq_zero_or_pos y with h0 | hypos
   · subst h0
@@ -442,26 +406,28 @@ theorem mulExpTree_clamped {y x : Nat} (hx : x < 2 ^ 256)
 
 private theorem int256_zero_word : int256 (0 : Nat) = 0 := by unfold int256; norm_num
 
-/-- **Scale point.** `mulExpRay(y, 0)` returns `y` for every supported magnitude. -/
+/-- **Scale point.** `mulExpRay(y, 0)` returns `y` whenever the two-bit closing-shift guard accepts. -/
 theorem run_mul_exp_ray_evm_scale_point {y : Nat} (hy : y < 2 ^ 256)
-    (habs : absTree y ≤ scaleQ67) :
+    (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y 0)) :
     run_mul_exp_ray_evm y 0 = .ok y := by
+  obtain ⟨hs127, _, _⟩ := mulScaleTree_spec hy habs
   have hguard : mulExpGuardTree y 0 = 0 := by
     rw [mulExpGuardTree_eq_zero_iff (by norm_num)]
-    refine ⟨habs, ?_, Or.inl int256_zero_word⟩
+    refine ⟨hs127, ?_, hshift⟩
     rw [int256_mulExpRayHi, int256_zero_word]
     norm_num
   have h := run_mul_exp_ray_evm_eq_tree_of_guard y 0 hguard
   rwa [mulExpTree_scale_point hy habs] at h
 
-/-- **Clamp.** `mulExpRay(y, x)` returns zero at or below the zero cutoff, for every supported
-magnitude. -/
+/-- **Clamp.** An accepted `mulExpRay(y, x)` returns zero at or below the zero cutoff. -/
 theorem run_mul_exp_ray_evm_clamped {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleQ67) (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
+    (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y x))
+    (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
     run_mul_exp_ray_evm y x = .ok 0 := by
+  obtain ⟨hs127, _, _⟩ := mulScaleTree_spec hy habs
   have hguard : mulExpGuardTree y x = 0 := by
     rw [mulExpGuardTree_eq_zero_iff hx]
-    refine ⟨habs, ?_, Or.inr (Or.inl hclamp)⟩
+    refine ⟨hs127, ?_, hshift⟩
     rw [int256_mulExpRayHi]
     rw [int256_mulExpRayZeroMax] at hclamp
     omega
@@ -474,8 +440,9 @@ noncomputable section
 
 /-- **Scale-point bracket.** The exact result `y` satisfies the public bracket at `x = 0`. -/
 theorem mulExpRay_run_bracket_scale_point {y : Nat} (hy : y < 2 ^ 256)
-    (habs : absTree y ≤ scaleQ67) : MulExpRayRunBracket y 0 := by
-  refine ⟨y, run_mul_exp_ray_evm_scale_point hy habs, ?_⟩
+    (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y 0)) :
+    MulExpRayRunBracket y 0 := by
+  refine ⟨y, run_mul_exp_ray_evm_scale_point hy habs hshift, ?_⟩
   rw [int256_zero_word]
   have hA : mulExpRayMagnitudeTarget (int256 y) 0 = ((int256 y).natAbs : ℝ) := by
     unfold mulExpRayMagnitudeTarget
@@ -504,8 +471,8 @@ theorem mulExpRay_run_bracket_scale_point {y : Nat} (hy : y < 2 ^ 256)
       linarith
 
 /-- Below the zero cutoff, every supported magnitude's real target is below one. -/
-theorem clamped_target_lt_one {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleQ67) (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
+theorem clamped_target_lt_one {y x : Nat} (hy : y < 2 ^ 256) (_hx : x < 2 ^ 256)
+    (habs : absTree y ≤ scaleMax) (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
     mulExpRayMagnitudeTarget (int256 y) (int256 x) < 1 := by
   unfold mulExpRayMagnitudeTarget
   have hRAY : (RAY : ℝ) = 10 ^ 27 := by unfold RAY; push_cast; norm_num
@@ -524,11 +491,11 @@ theorem clamped_target_lt_one {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
       rw [Real.log_pow]; push_cast; ring]
     rw [Real.exp_log (by positivity)]
     ring
-  have hnat : ((int256 y).natAbs : ℝ) ≤ ((scaleQ67 : Nat) : ℝ) := by
+  have hnat : ((int256 y).natAbs : ℝ) ≤ ((scaleMax : Nat) : ℝ) := by
     have h := absTree_eq_natAbs hy
     exact_mod_cast (h ▸ habs)
-  have hQ : ((scaleQ67 : Nat) : ℝ) < (2 : ℝ) ^ (127 : ℕ) := by
-    unfold scaleQ67
+  have hQ : ((scaleMax : Nat) : ℝ) < (2 : ℝ) ^ (127 : ℕ) := by
+    unfold scaleMax
     norm_num
   calc ((int256 y).natAbs : ℝ) * Real.exp z
       ≤ (2 : ℝ) ^ (127 : ℕ) * Real.exp z := by
@@ -539,9 +506,10 @@ theorem clamped_target_lt_one {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
 
 /-- **Clamp bracket.** The zero result satisfies the public bracket at or below the cutoff. -/
 theorem mulExpRay_run_bracket_clamped {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleQ67) (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
+    (habs : absTree y ≤ scaleMax) (hshift : 2 ≤ int256 (mulShiftTree y x))
+    (hclamp : int256 x ≤ int256 mulExpRayZeroMax) :
     MulExpRayRunBracket y x := by
-  refine ⟨0, run_mul_exp_ray_evm_clamped hy hx habs hclamp, ?_⟩
+  refine ⟨0, run_mul_exp_ray_evm_clamped hy hx habs hshift hclamp, ?_⟩
   rw [int256_zero_word]
   have hlt := clamped_target_lt_one hy hx habs hclamp
   have hnn := mulExpRayMagnitudeTarget_nonneg (int256 y) (int256 x)
