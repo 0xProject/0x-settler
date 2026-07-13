@@ -60,20 +60,13 @@ library Exp {
     ///      (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to zero, either
     ///      of which is sound (A < 1 there at every supported magnitude).
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
-        // Split y into a sign mask and a magnitude:
-        //     sign = y >> 255
-        //     ay = (y ^ sign) - sign
-        uint256 sign;
-        uint256 ay;
-        assembly ("memory-safe") {
-            y := signextend(0x0f, y)
-            sign := sar(0xff, y)
-            ay := sub(xor(y, sign), sign)
-        }
-
         unchecked {
-            // The top-bit term admits abs(type(int128).min) at s = 0 while leaving every smaller
-            // magnitude's normalization unchanged.
+            // Split y into a sign mask and a magnitude:
+            uint256 sign = uint256(int256(y) >> 255);
+            uint256 ay = (uint256(int256(y)) ^ sign) - sign;
+
+            // The top-bit term admits ay = abs(type(int128).min) at s = 0 while leaving every
+            // smaller magnitude's normalization unchanged.
             uint256 s = Clz.clz(ay) - 129 + (ay >> 127);
 
             int256 k = _octave(x);
@@ -102,7 +95,7 @@ library Exp {
             uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), -88376265521393026950697095485);
             // Reapply y's sign and collapse y = 0 (whose kernel output is unspecified; the scale is
             // 0) in one branchless step:
-            //     m *= sgn(y)
+            //     m *= sign(y)
             assembly ("memory-safe") {
                 m := mul(m, or(sign, lt(0, ay)))
             }
