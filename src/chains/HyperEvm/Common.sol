@@ -20,6 +20,7 @@ import {
     hyperSwapForkId,
     IHyperswapV3SwapCallback
 } from "../../core/univ3forks/HyperSwap.sol";
+import {prjxV3Factory, prjxV3InitHash, prjxV3ForkId} from "../../core/univ3forks/PrjxV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -75,6 +76,10 @@ abstract contract HyperEvmMixin is FreeMemory, SettlerBase, Bebop {
             factory = hyperSwapFactory;
             initHash = hyperSwapInitHash;
             callbackSelector = uint32(IHyperswapV3SwapCallback.hyperswapV3SwapCallback.selector);
+        } else if (forkId == prjxV3ForkId) {
+            factory = prjxV3Factory;
+            initHash = prjxV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
