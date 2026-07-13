@@ -43,7 +43,7 @@ library Exp {
     }
 
     /// @notice Compute trunc(y * exp(x / 10**27))
-    /// @dev Let A = abs(y) ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
+    /// @dev Let A = |y| ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
     ///      with 0 ≤ m ≤ A and A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without
     ///      underflow. `mulExpRay(0, x) == 0` for every accepted x, and `mulExpRay(y, 0) == y`
     ///      exactly whenever 4⋅|y| ≤ 2¹²⁷ - 1 = 170141183460469231731687303715884105727. Among
@@ -54,16 +54,17 @@ library Exp {
     ///      ≤ 0 ≤ y₂ for any exponents.
     /// @dev Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
     ///      (regardless of y), or when round(x / (10²⁷⋅ln(2))) exceeds s - 2, with 2ˢ the scale
-    ///      headroom above abs(y); s = 0 at both maximal signed magnitudes and s = 127 at y =
-    ///      0. The accepted exponents form one interval that narrows as abs(y) grows, and every
-    ///      accepted x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the
-    ///      wrap boundary (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp
-    ///      to zero, either of which is sound (A < 1 there at every supported magnitude).
+    ///      headroom above |y|; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. The
+    ///      accepted exponents form one interval that narrows as |y| grows, and every accepted x ≤
+    ///      -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap boundary
+    ///      (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to zero, either
+    ///      of which is sound (A < 1 there at every supported magnitude).
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
-        uint256 ay;
+        // Split y into a sign mask and a magnitude:
+        //     sign = y >> 255
+        //     ay = (y ^ sign) - sign
         uint256 sign;
-        // Split y into a sign mask and a magnitude without negating `type(int128).min`:
-        //     sign = y >> 255; ay = (y ^ sign) - sign
+        uint256 ay;
         assembly ("memory-safe") {
             y := signextend(0x0f, y)
             sign := sar(0xff, y)
@@ -78,30 +79,29 @@ library Exp {
             int256 k = _octave(x);
             int256 shift = int256(s) - k;
             // Reject inputs whose two-unit magnitude bracket the kernel cannot deliver:
-            //  - x at or above ⌈(126⋅2¹⁹² - 2¹⁹¹) / CINV⌉, where k = 126 exhausts the deficit
+            //  * x at or above ⌈(126⋅2¹⁹² - 2¹⁹¹) / CINV⌉, where k = 126 exhausts the deficit
             //    envelope at even the maximal headroom, phrased as one signed comparison against
-            //    the threshold less one; its irreducible role is fencing accepted x away from
-            //    `_octave`'s positive wraparound;
-            //  - fewer than two bits of closing shift: the deficit envelope
-            //    (2993/1000 + margin)⋅2ᵏ⁻ˢ reaches one output unit at k > s - 2 (see the
-            //    kernel). This also rejects x = 0 when abs(y) leaves s ≤ 1, although the pinned
-            //    result would be exact. When `_octave`'s product wraps (x ≲ -2¹⁵²) its output
-            //    stands in for k, so those exponents revert or pass as the wrapped word falls;
-            //    the kernel's clamp zeroes every accepted one.
+            //    the threshold less one. This fences accepted x away from `_octave`'s positive
+            //    wraparound
+            //  * fewer than 2 bits of closing shift: the deficit envelope (2993/1000 + margin)⋅2ᵏ⁻ˢ
+            //    reaches one output unit at k > s - 2 (see the kernel). This also rejects x = 0
+            //    when |y| leaves s ≤ 1, although the pinned result would be exact. When `_octave`'s
+            //    product wraps (x ≲ -2¹⁵²) its output stands in for k, so those exponents revert or
+            //    pass as the wrapped word falls
             if ((x > 86989971160273136331862631243).or(shift < 2)) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
 
-            // Monotonicity in y at a fixed accepted x: within one headroom class (fixed s) the
-            // magnitude is a composition of nondecreasing maps of ay. At a bit-length boundary
-            // (ay reaching 2ᴸ), the scale ay << s does not decrease while the closing shift shrinks
-            // by one, so both effects raise the result. The x = 0 pin and zero clamp preserve order,
-            // and sign reapplication mirrors the argument to y < 0.
-            // The cutoff is ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉. At or below it,
-            // 2¹²⁷⋅exp(x/10²⁷) < 1, so every supported magnitude clamps soundly to zero.
+            // Monotonicity in `y` at a fixed accepted `x`: within one headroom class (fixed s) the
+            // magnitude is a composition of nondecreasing maps of `ay`. At a bit-length boundary
+            // (ay reaching 2ᴸ), the scale `ay << s` does not decrease while the closing shift
+            // shrinks by one, so both effects raise the result. The x = 0 pin and zero-clamp
+            // preserve order, and sign reapplication mirrors the argument to y < 0. The cutoff is
+            // ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉. At or below it, 2¹²⁷⋅exp(x/10²⁷) < 1, so every supported
+            // magnitude clamps soundly to zero.
             uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), -88376265521393026950697095485);
-            // Reapply y's sign and collapse y = 0 (whose kernel output is unspecified; the scale
-            // is zero) in one branchless step:
+            // Reapply y's sign and collapse y = 0 (whose kernel output is unspecified; the scale is
+            // 0) in one branchless step:
             //     m *= sgn(y)
             assembly ("memory-safe") {
                 m := mul(m, or(sign, lt(0, ay)))
