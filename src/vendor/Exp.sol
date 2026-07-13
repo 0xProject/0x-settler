@@ -19,15 +19,15 @@ library Exp {
     ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.22 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int128) {
         // This is ⌈(66⋅2¹⁹² - 2¹⁹¹) / CINV⌉, with CINV the Q192 reciprocal in `_octave`; here the
-        // octave count reaches 66 and the deficit envelope exceeds one output unit.
+        // octave count reaches 66 and the deficit envelope exceeds 1ulp.
         if (x >= 0x92b2f16cc66c5a4ae96e80d4) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
         int256 k = _octave(x);
         unchecked {
-            // 10¹⁸⋅2⁶⁷ carries 67 closing-headroom bits. The cutoff is
-            // ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x with 10¹⁸⋅exp(x/10²⁷) < 1.
+            // 10¹⁸⋅2⁶⁷ carries 67 closing-headroom bits. The cutoff is ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the
+            // greatest x with 10¹⁸⋅exp(x/10²⁷) < 1.
             return int128(
                 int256(
                     _expRayKernel(
@@ -97,7 +97,7 @@ library Exp {
             // 0) in one branchless step:
             //     m *= sign(y)
             assembly ("memory-safe") {
-                m := mul(m, or(sign, lt(0, ay)))
+                m := mul(or(lt(0x00, ay), sign), m)
             }
             return int128(int256(m));
         }
@@ -145,7 +145,7 @@ library Exp {
         // `exp(t) = (1 + tanh(t/2)) / (1 - tanh(t/2))`, so with the even/odd split N(t) = Ev(t²) +
         // t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational that matches
         // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln(2)/2)²]. Ev(v) is degree 5 and Od(v)
-        // degree 4; in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the
+        // degree 4; in exact arithmetic this (5,4) form approximates exp to ≈135 bits, and the
         // integer coefficients realize ≈133 of them: each coefficient's low bits are chosen
         // jointly, after rounding at the staircase bases, to re-center the ten quantization
         // residuals, holding the realized envelope at ≤ 0.0075 ulp. Ev(v) is monic, so its leading
