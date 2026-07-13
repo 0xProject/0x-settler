@@ -66,8 +66,8 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x00, 0x00)
             }
 
-            let nets := mload(0x40)
-            let tags := add(nets, shl(0x05, n))
+            let scores := mload(0x40)
+            let tags := add(scores, shl(0x05, n))
             let ret := add(tags, shl(0x05, n))
             let cd := add(0x60, ret)
             mstore(cd, selector)
@@ -97,7 +97,7 @@ abstract contract Select is SettlerSwapAbstract {
                 }
                 let score := measured(ret, tag, measuredSelector)
                 anyScore := or(anyScore, gt(score, 0x00))
-                mstore(add(nets, shl(0x05, measuredCount)), score)
+                mstore(add(scores, shl(0x05, measuredCount)), score)
                 // Cache the hash and use its high bit as the attempted-candidate marker.
                 mstore(add(tags, shl(0x05, measuredCount)), or(tag, tagMask))
             }
@@ -105,13 +105,13 @@ abstract contract Select is SettlerSwapAbstract {
             if iszero(attemptedCommit) {
                 for {} 0x01 {} {
                     let best := measuredCount
-                    let bestNet := shl(0xff, 0x01)
+                    let bestScore
                     for { let i := 0x00 } lt(i, measuredCount) { i := add(0x01, i) } {
                         if mload(add(tags, shl(0x05, i))) {
-                            let net := mload(add(nets, shl(0x05, i)))
-                            if or(eq(best, measuredCount), sgt(net, bestNet)) {
+                            let score := mload(add(scores, shl(0x05, i)))
+                            if or(eq(best, measuredCount), gt(score, bestScore)) {
                                 best := i
-                                bestNet := net
+                                bestScore := score
                             }
                         }
                     }
@@ -122,7 +122,7 @@ abstract contract Select is SettlerSwapAbstract {
 
                     let start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
-                    mstore(add(0x44, cd), mload(add(nets, shl(0x05, best))))
+                    mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
                     mstore(add(0x64, cd), or(and(mload(add(tags, shl(0x05, best))), not(tagMask)), tagFlag))
                     if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
                         break
@@ -142,18 +142,12 @@ abstract contract Select is SettlerSwapAbstract {
         }
         for (uint256 i; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
-            // `decodeCall` underflows short actions.
+            bool tooShort;
             assembly ("memory-safe") {
-                if gt(data.length, not(0x04)) {
-                    let ptr := mload(0x40)
-                    mstore(ptr, 0x3c74eed6)
-                    mstore(add(0x20, ptr), i)
-                    mstore(add(0x40, ptr), shl(0xe0, action))
-                    mstore(add(0x60, ptr), 0x60)
-                    mstore(add(0x80, ptr), 0x00)
-                    revert(add(0x1c, ptr), 0x84)
-                }
+                tooShort := gt(data.length, not(0x04))
+                if tooShort { data.length := 0x00 }
             }
+            if (tooShort) revertActionInvalid(i, action, data);
             if (vip.and(i == 0) ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }

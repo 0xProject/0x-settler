@@ -91,7 +91,7 @@ abstract contract BaseMixin is
             return true;
         } else if (action == uint32(ISettlerActions.SELECT.selector)) {
             _select(data, false);
-        } else if (action == uint32(ISettlerActions.SELECT_VIP.selector)) {
+        } else if (action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector)) {
             _select(data, true);
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
             .or(action == uint32(ISettlerActions.BALANCERV3.selector))

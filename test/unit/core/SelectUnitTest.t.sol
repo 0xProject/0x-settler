@@ -21,13 +21,18 @@ abstract contract SelectShared {
 
     function _tag(bytes[] memory c, bool vip) internal pure returns (bytes32 t) {
         bytes memory e = abi.encode(c);
-        // Hash abi.encode(c)[0x20:] and set the high-bit selector namespace: vip ? h | HIGH_BIT : h & ~HIGH_BIT.
         assembly ("memory-safe") {
-            let h := keccak256(add(e, 0x40), sub(mload(e), 0x20))
-            t := xor(
-                and(xor(and(h, not(shl(0xff, 0x01))), or(h, shl(0xff, 0x01))), sub(0x00, vip)),
-                and(h, not(shl(0xff, 0x01)))
-            )
+            t := keccak256(add(e, 0x40), sub(mload(e), 0x20))
+        }
+        uint256 tag = uint256(t);
+        uint256 highBit = 1 << 255;
+        return bytes32(vip ? tag | highBit : tag & ~highBit);
+    }
+
+    function _unreachableTargets(uint256 n) internal pure returns (uint256[] memory targets) {
+        targets = new uint256[](n);
+        for (uint256 i; i < n; i++) {
+            targets[i] = type(uint256).max;
         }
     }
 }
@@ -60,16 +65,13 @@ contract SelectUnitTest is Test, SelectShared {
     }
 
     function _bestOfTargets(uint256 belief) internal pure returns (uint256[] memory targets) {
-        targets = new uint256[](3);
+        targets = _unreachableTargets(3);
         targets[0] = belief;
-        targets[1] = type(uint256).max;
-        targets[2] = type(uint256).max;
     }
 
     function _run(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         bytes[] memory actions = new bytes[](1);
-        actions[0] =
-            abi.encodeWithSelector(ISettlerActions.SELECT.selector, uint256(0), token, targets, candidates);
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), token, targets, candidates));
         vm.prank(taker, taker);
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -89,8 +91,7 @@ contract SelectUnitTest is Test, SelectShared {
         uint256 txGas
     ) internal {
         bytes[] memory actions = new bytes[](1);
-        actions[0] =
-            abi.encodeWithSelector(ISettlerActions.SELECT.selector, gasCap, token, targets, candidates);
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (gasCap, token, targets, candidates));
         vm.prank(taker, taker);
         settler.execute{gas: txGas}(
             ISettlerBase.AllowedSlippage({
@@ -133,6 +134,18 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p0.callCount() + p1.callCount(), 0, "losing measurements rolled back");
     }
 
+    function test_measured_bestOfN_treatsScoresAsUnsigned() public {
+        uint256 highScore = 1 << 255;
+        buy.mint(address(p0), highScore);
+        p0.set(highScore, false);
+        p1.set(1 ether, false);
+        uint256[] memory targets = _bestOfTargets(type(uint256).max);
+
+        _run(address(buy), targets, _candidates3(), highScore);
+
+        assertEq(buy.balanceOf(recipient), highScore, "uint256 argmax committed");
+    }
+
     function test_measured_winsOutright_skipsMeasurements() public {
         p0.set(10 ether, false);
         uint256[] memory targets = _bestOfTargets(10 ether);
@@ -145,7 +158,7 @@ contract SelectUnitTest is Test, SelectShared {
         vm.setEnv("SELECT_SPOOF_SEEN", "false");
         p0.set(8 ether, false);
         p2.set(0, false);
-        DiscriminatingSpoofPool evil = new DiscriminatingSpoofPool();
+        SpoofPool evil = new SpoofPool("SELECT_SPOOF_SEEN");
         bytes[] memory evilCandidate = _candidate(address(evil));
         bytes32 tag = _tag(evilCandidate, false);
         evil.setTag(tag);
@@ -155,9 +168,7 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[1] = evilCandidate;
         candidates[2] = _candidate(address(p2));
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, uint256(0), address(buy), targets, candidates
-        );
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(buy), targets, candidates));
         vm.prank(taker, taker);
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -173,25 +184,19 @@ contract SelectUnitTest is Test, SelectShared {
     function test_measured_allCommitPhaseCommitsFail_bubblesLastRevert() public {
         vm.setEnv("SELECT_SPOOF_SEEN_0", "false");
         vm.setEnv("SELECT_SPOOF_SEEN_1", "false");
-        DiscriminatingSpoofPool evil0 = new DiscriminatingSpoofPool();
-        evil0.setKey("SELECT_SPOOF_SEEN_0");
+        SpoofPool evil0 = new SpoofPool("SELECT_SPOOF_SEEN_0");
         bytes[] memory evilCandidate0 = _candidate(address(evil0));
         evil0.setTag(_tag(evilCandidate0, false));
-        DiscriminatingSpoofPool evil1 = new DiscriminatingSpoofPool();
-        evil1.setKey("SELECT_SPOOF_SEEN_1");
+        SpoofPool evil1 = new SpoofPool("SELECT_SPOOF_SEEN_1");
         bytes[] memory evilCandidate1 = _candidate(address(evil1));
         bytes32 tag1 = _tag(evilCandidate1, false);
         evil1.setTag(tag1);
-        uint256[] memory targets = new uint256[](2);
-        targets[0] = type(uint256).max;
-        targets[1] = type(uint256).max;
+        uint256[] memory targets = _unreachableTargets(2);
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = evilCandidate0;
         candidates[1] = evilCandidate1;
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, uint256(0), address(buy), targets, candidates
-        );
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(buy), targets, candidates));
         vm.prank(taker, taker);
         vm.expectRevert(abi.encodeWithSelector(Measured.selector, uint256(0), tag1));
         settler.execute(
@@ -219,9 +224,7 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[1] = _candidate(address(p1));
         uint256[] memory targets = new uint256[](2);
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT.selector, uint256(300_000), address(0), targets, candidates
-        );
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(300_000), address(0), targets, candidates));
         vm.prank(taker, taker);
         settler.execute{gas: 1_500_000}(
             ISettlerBase.AllowedSlippage({
@@ -255,11 +258,7 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[1] = _candidate(address(new GasBurnerPool()));
         candidates[2] = _candidate(address(new GasBurnerPool()));
         candidates[3] = _candidate(address(p2));
-        uint256[] memory targets = new uint256[](4);
-        targets[0] = type(uint256).max;
-        targets[1] = type(uint256).max;
-        targets[2] = type(uint256).max;
-        targets[3] = type(uint256).max;
+        uint256[] memory targets = _unreachableTargets(4);
         _runWithGasCap(300_000, address(buy), targets, candidates, 8 ether, 1_150_000);
         assertEq(buy.balanceOf(recipient), 8 ether, "best measured-so-far committed");
         assertEq(p0.callCount(), 1, "measured best committed once");
@@ -318,28 +317,9 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         );
     }
 
-    function _vipSpoofCandidate(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
-        internal
-        returns (bytes[] memory c, SelectVIPSpoofPool evil)
-    {
-        evil = new SelectVIPSpoofPool();
-        c = new bytes[](2);
-        c[0] = abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig));
-        c[1] = abi.encodeCall(
-            ISettlerActions.BASIC, (address(sell), 10_000, address(evil), 4, abi.encodeCall(evil.swap, (0)))
-        );
-    }
-
     function _runVIP(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT_VIP.selector,
-            uint256(0),
-            token,
-            targets,
-            new uint256[](candidates.length),
-            candidates
-        );
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT_VIP_CANDIDATES, (uint256(0), token, targets, candidates));
         vm.prank(taker, taker);
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -350,13 +330,9 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         );
     }
 
-    function _nonceMask(uint256 nonce) internal pure returns (uint256 wordPos, uint256 mask) {
-        wordPos = nonce >> 8;
-        mask = 1 << uint8(nonce);
-    }
-
     function _assertNonceSpentOnce(uint256 nonce) internal view {
-        (uint256 wordPos, uint256 mask) = _nonceMask(nonce);
+        uint256 wordPos = nonce >> 8;
+        uint256 mask = 1 << uint8(nonce);
         assertEq(PERMIT2.nonceBitmap(taker, wordPos), mask, "Permit2 nonce bit");
     }
 
@@ -387,9 +363,7 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = _vipCandidate(address(p0), permit, sig);
         candidates[1] = _vipCandidate(address(p1), permit, sig);
-        uint256[] memory targets = new uint256[](2);
-        targets[0] = type(uint256).max;
-        targets[1] = type(uint256).max;
+        uint256[] memory targets = _unreachableTargets(2);
 
         _runVIP(address(buy), targets, candidates, 7 ether);
 
@@ -412,9 +386,8 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
 
         vm.prank(taker, taker);
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeWithSelector(
-            ISettlerActions.SELECT_VIP.selector, uint256(0), address(0), targets, new uint256[](1), candidates
-        );
+        actions[0] =
+            abi.encodeCall(ISettlerActions.SELECT_VIP_CANDIDATES, (uint256(0), address(0), targets, candidates));
         vm.expectRevert(bytes4(keccak256("InvalidNonce()")));
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -431,14 +404,13 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         p0.set(8 ether, false);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
         bytes[] memory honest = _vipCandidate(address(p0), permit, sig);
-        (bytes[] memory evilCandidate, SelectVIPSpoofPool evil) = _vipSpoofCandidate(permit, sig);
+        SpoofPool evil = new SpoofPool("SELECT_VIP_SPOOF_SEEN");
+        bytes[] memory evilCandidate = _vipCandidate(address(evil), permit, sig);
         evil.setTag(_tag(evilCandidate, true));
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = honest;
         candidates[1] = evilCandidate;
-        uint256[] memory targets = new uint256[](2);
-        targets[0] = type(uint256).max;
-        targets[1] = type(uint256).max;
+        uint256[] memory targets = _unreachableTargets(2);
 
         _runVIP(address(buy), targets, candidates, 8 ether);
 
@@ -453,8 +425,7 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
         bytes[][] memory candidates = new bytes[][](1);
         candidates[0] = _vipCandidate(address(p0), permit, sig);
-        uint256[] memory targets = new uint256[](1);
-        targets[0] = type(uint256).max;
+        uint256[] memory targets = _unreachableTargets(1);
         _runVIP(address(buy), targets, candidates, 7 ether);
     }
 
@@ -465,29 +436,35 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = _vipCandidate(address(p0), permit, sig);
         candidates[1] = _vipCandidate(address(p1), permit, sig);
-        uint256[] memory targets = new uint256[](2);
-        targets[0] = type(uint256).max;
-        targets[1] = type(uint256).max;
+        uint256[] memory targets = _unreachableTargets(2);
         _runVIP(address(buy), targets, candidates, 7 ether);
     }
 }
 
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
-contract DiscriminatingSpoofPool {
+contract SpoofPool {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     bytes32 internal tag;
-    string internal key = "SELECT_SPOOF_SEEN";
+    string internal key;
+
+    constructor(string memory _key) {
+        key = _key;
+    }
 
     function setTag(bytes32 _tag) external {
         tag = _tag;
     }
 
-    function setKey(string calldata _key) external {
-        key = _key;
+    function swap() external {
+        _spoof();
     }
 
-    function swap() external {
+    function swap(uint256) external {
+        _spoof();
+    }
+
+    function _spoof() private {
         if (!vm.envOr(key, false)) {
             vm.setEnv(key, "true");
             bytes memory b = abi.encodeWithSelector(Measured.selector, uint256(1e30), tag);
@@ -615,25 +592,5 @@ contract SelectVIPSellPool {
         sell.transferFrom(msg.sender, address(this), sellAmount);
         buy.transfer(msg.sender, buyAmount);
         if (doRevert) revert("vip leg reverted");
-    }
-}
-
-contract SelectVIPSpoofPool {
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    bytes32 internal tag;
-    string internal key = "SELECT_VIP_SPOOF_SEEN";
-
-    function setTag(bytes32 _tag) external {
-        tag = _tag;
-    }
-
-    function swap(uint256) external {
-        if (!vm.envOr(key, false)) {
-            vm.setEnv(key, "true");
-            bytes memory b = abi.encodeWithSelector(Measured.selector, uint256(1e30), tag);
-            assembly ("memory-safe") {
-                revert(add(b, 0x20), mload(b))
-            }
-        }
     }
 }

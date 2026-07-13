@@ -224,22 +224,15 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Commits the first candidate that clears its target, else the highest measured score net
-    ///      of hurdle. `token = 0` scores bare success. Zero targets are fallback.
+    /// @dev Commits the first candidate that clears its target, else the highest measured score.
+    ///      `token = 0` scores bare success. Zero targets are fallback.
     // Pre-req: Funded
-    function SELECT(
-        uint256 candidateGasLimit,
-        address token,
-        uint256[] calldata targets,
-        bytes[][] calldata candidates
-    ) external;
+    function SELECT(uint256 candidateGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
+        external;
 
-    /// @dev As `SELECT`, but each candidate's first action is VIP.
-    function SELECT_VIP(
-        uint256 candidateGasLimit,
-        address token,
-        uint256[] calldata targets,
-        bytes[][] calldata candidates
+    /// @dev Taker-submitted `SELECT` whose candidates each begin with a VIP action.
+    function SELECT_VIP_CANDIDATES(
+        uint256 candidateGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates
     ) external;
 
     function EKUBO(

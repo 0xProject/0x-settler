@@ -29,6 +29,7 @@ contract SelectBase is Test, Permit2Signature {
     uint8 internal constant AERODROME_V3_FORK_ID = 4;
     uint24 internal constant UNISWAP_V3_FEE = 500;
     uint24 internal constant AERODROME_TICK_SPACING = 100;
+    uint160 internal constant SQRT_PRICE_LIMIT_X96 = 4295128740;
 
     bytes32 private constant _PERMIT2_NAME_HASH = keccak256("Permit2");
     bytes32 private constant _PERMIT2_TYPE_HASH =
@@ -113,14 +114,7 @@ contract SelectBase is Test, Permit2Signature {
 
     function _runSelect(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         bytes[] memory actions = ActionDataBuilder.build(
-            _permit2FundingAction(),
-            abi.encodeWithSelector(
-                ISettlerActions.SELECT.selector,
-                uint256(0),
-                token,
-                targets,
-                candidates
-            )
+            _permit2FundingAction(), abi.encodeCall(ISettlerActions.SELECT, (uint256(0), token, targets, candidates))
         );
 
         _execute(actions, minOut);
@@ -156,8 +150,8 @@ contract SelectBase is Test, Permit2Signature {
         returns (bytes[][] memory candidates)
     {
         candidates = new bytes[][](2);
-        candidates[0] = _candidate(_uniswapPath(), uniswapMinOut);
-        candidates[1] = _candidate(_aerodromePath(), aerodromeMinOut);
+        candidates[0] = _candidate(_path(UNISWAP_V3_FORK_ID, UNISWAP_V3_FEE), uniswapMinOut);
+        candidates[1] = _candidate(_path(AERODROME_V3_FORK_ID, AERODROME_TICK_SPACING), aerodromeMinOut);
     }
 
     function _candidate(bytes memory path, uint256 minOut) internal view returns (bytes[] memory candidate) {
@@ -165,19 +159,7 @@ contract SelectBase is Test, Permit2Signature {
         candidate[0] = abi.encodeCall(ISettlerActions.UNISWAPV3, (address(settler), 10_000, path, minOut));
     }
 
-    function _uniswapPath() internal pure returns (bytes memory) {
-        return _path(UNISWAP_V3_FORK_ID, UNISWAP_V3_FEE);
-    }
-
-    function _aerodromePath() internal pure returns (bytes memory) {
-        return _path(AERODROME_V3_FORK_ID, AERODROME_TICK_SPACING);
-    }
-
     function _path(uint8 forkId, uint24 poolId) internal pure returns (bytes memory) {
-        return abi.encodePacked(address(WETH), forkId, poolId, _sqrtPriceLimitX96(), address(USDC));
-    }
-
-    function _sqrtPriceLimitX96() internal pure returns (uint160) {
-        return 4295128740;
+        return abi.encodePacked(address(WETH), forkId, poolId, SQRT_PRICE_LIMIT_X96, address(USDC));
     }
 }
