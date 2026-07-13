@@ -158,7 +158,7 @@ theorem clz_bounds {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
 positive, so the output cannot be negative. -/
 theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 160) :
     0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 := by
+      116873961749927929127912020551516294209054209107914 := by
   have hX1 := x1_nonneg_geF h1 h2
   have hx0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 :=
     Int.mul_nonneg hX1 (by omega)
@@ -195,7 +195,7 @@ theorem lnWadToRayBody_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
   · obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
     have hbr2' : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
-        ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
+        ln2kInt (evmClz x) + 116873961749927929127912020551516294209054209107914 <
         (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
       have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
           int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by

@@ -24,7 +24,7 @@ attribute [local irreducible] lnWadToRayBody
 theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r ≤ -2)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB (lnErrNegArg r) lnErrQ wadRayStrictDen (wadRayNum x) := by
@@ -38,11 +38,11 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := Int.mul_le_mul_of_nonneg_right
       (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516294209054209107914 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (by decide : (0 : Int) ≤ 2 ^ 27)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from
@@ -275,7 +275,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r ≤ -2)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB (lnErrNegArg r) lnErrQ wadRayStrictDen (wadRayNum x) := by
@@ -289,11 +289,11 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := Int.mul_le_mul_of_nonneg_right
       (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516294209054209107914 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (by decide : (0 : Int) ≤ 2 ^ 27)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from

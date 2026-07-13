@@ -22,10 +22,10 @@ open LnYul Common.Poly Common.Exp LnFloor
 /-- `V·2^27` splits into the three cap exponents (positive binade shift). -/
 theorem v_scale_pos (X1v : Int) (c : Nat) (hc : c ≤ 160) :
     (X1v * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 =
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 =
       X1v * 1000000000000000000000000000 +
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) +
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
   have hl : ln2kInt c = (LN2c : Int) * ((160 - c : Nat) : Int) := by
     unfold ln2kInt
     rw [if_pos hc]
@@ -40,10 +40,10 @@ theorem v_scale_pos (X1v : Int) (c : Nat) (hc : c ≤ 160) :
 /-- `V·2^27` splits with the `ln 2` term on the other side (negative shift). -/
 theorem v_scale_neg (X1v : Int) (c : Nat) (hc : 160 < c) :
     (X1v * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 +
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 +
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) =
       X1v * 1000000000000000000000000000 +
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
   have hl : ln2kInt c = -((LN2c : Int) * ((c - 160 : Nat) : Int)) := by
     unfold ln2kInt
     rw [if_neg (by omega)]
@@ -70,7 +70,7 @@ theorem v_scale_neg (X1v : Int) (c : Nat) (hc : 160 < c) :
 theorem up_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc1 : 1 ≤ c) (hc : c ≤ 160)
     (hr : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : 0 ≤ r)
     (hmx : m * 2 ^ (160 - c) ≤ x) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
@@ -85,13 +85,13 @@ theorem up_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       (int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 +
         (160 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 := by
     have hsc : r * 2 ^ 72 * 2 ^ 27 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 +
-        ln2kInt c + 116873961749927929127912020551516284764321243411868) * 2 ^ 27 :=
+        ln2kInt c + 116873961749927929127912020551516294209054209107914) * 2 ^ 27 :=
       mul_le_mul_right_nonneg hr (by omega)
     rw [hVs] at hsc
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -200,7 +200,7 @@ strictness slack. -/
 theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc1 : 1 ≤ c) (hc : c ≤ 160)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r)
     (hxm : x < (m + 1) * 2 ^ (160 - c)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 31) (10 ^ 18 * (10 ^ 31 - 10)) := by
@@ -216,14 +216,14 @@ theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       (160 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99 ≤
       (r + 2).toNat * 2 ^ 99 := by
     have hsc : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
         ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 :=
       mul_le_mul_right_nonneg (by omega) (by omega)
     rw [hVs] at hsc
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -326,7 +326,7 @@ theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
@@ -344,24 +344,24 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
       have hm := mul_le_mul_right_nonneg hr (show (0 : Int) ≤ 2 ^ 27 by omega)
       have h0 : 0 ≤ r * 2 ^ 72 * 2 ^ 27 :=
         Int.mul_nonneg (Int.mul_nonneg hr0 (by omega)) (by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hm ⊢
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hm ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R27 at hm h0
       clear cap1 cap1B hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc2 hr hr0
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hV0 hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hV0 hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -380,17 +380,17 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         BIASc * 2 ^ 27 - (c - 160) * (LN2c * 2 ^ 27) := by
     have hsc : r * 2 ^ 72 * 2 ^ 27 + ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) ≤
         int256 (x1W (zWord m)) * 1000000000000000000000000000 +
-          116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+          116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       have h := mul_le_mul_right_nonneg hr (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgL : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = L at hVs ⊢
       generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs ⊢
       generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hVs h
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hVs h
       omega
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -466,9 +466,9 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : -1 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 31) (10 ^ 18 * (10 ^ 31 - 10)) := by
@@ -478,20 +478,20 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hVnn : -(2 ^ 99) ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
     have h0 : -(2 ^ 72) ≤ r * 2 ^ 72 := by
       have := mul_le_mul_right_nonneg (show (-1 : Int) ≤ r from hr0)
         (show (0 : Int) ≤ 2 ^ 72 by omega)
       generalize hgT : r * 2 ^ 72 = T at this ⊢
       omega
     have hg : -(2 ^ 72) ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 := by
+        116873961749927929127912020551516294209054209107914 := by
       generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
+        116873961749927929127912020551516294209054209107914 = V at hrlo ⊢
       omega
     have := mul_le_mul_right_nonneg hg (show (0 : Int) ≤ 2 ^ 27 by omega)
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at this ⊢
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at this ⊢
     have e : (-(2 ^ 72) : Int) * 2 ^ 27 = -(2 ^ 99) := by decide
     omega
   have hsplit : (int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -502,14 +502,14 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hVnn hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hVnn hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -526,7 +526,7 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       BIASc * 2 ^ 27 + 2 ^ 99 - (c - 160) * (LN2c * 2 ^ 27) ≤
       (r + 2).toNat * 2 ^ 99 := by
     have hsc : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
         ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 :=
       mul_le_mul_right_nonneg (by omega) (by omega)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
@@ -537,14 +537,14 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs hVnn
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs hVnn
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -604,7 +604,7 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 160)
     (hr : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : 0 ≤ r)
     (hmx : m * 2 ^ (160 - c) ≤ x) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
@@ -620,24 +620,24 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
       have hm := mul_le_mul_right_nonneg hr (show (0 : Int) ≤ 2 ^ 27 by omega)
       have h0 : 0 ≤ r * 2 ^ 72 * 2 ^ 27 :=
         Int.mul_nonneg (Int.mul_nonneg hr0 (by omega)) (by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hm ⊢
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hm ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R27 at hm h0
       clear cap1 hsum hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc1 hr hr0
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hV0 hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hV0 hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -657,7 +657,7 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       (160 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 -
         (-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 := by
     have hsc : r * 2 ^ 72 * 2 ^ 27 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 +
-        ln2kInt c + 116873961749927929127912020551516284764321243411868) * 2 ^ 27 :=
+        ln2kInt c + 116873961749927929127912020551516294209054209107914) * 2 ^ 27 :=
       mul_le_mul_right_nonneg hr (by omega)
     have e99 : r * 2 ^ 72 * 2 ^ 27 = r * 2 ^ 99 := by
       rw [Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from by decide]
@@ -665,14 +665,14 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -741,9 +741,9 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 160)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : -1 ≤ r)
     (hxm : x < (m + 1) * 2 ^ (160 - c)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 31) (10 ^ 18 * (10 ^ 31 - 10)) := by
@@ -752,20 +752,20 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   have hVnn : -(2 ^ 99) ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
     have h0 : -(2 ^ 72) ≤ r * 2 ^ 72 := by
       have := mul_le_mul_right_nonneg (show (-1 : Int) ≤ r from hr0)
         (show (0 : Int) ≤ 2 ^ 72 by omega)
       generalize hgT : r * 2 ^ 72 = T at this ⊢
       omega
     have hg : -(2 ^ 72) ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 := by
+        116873961749927929127912020551516294209054209107914 := by
       generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
+        116873961749927929127912020551516294209054209107914 = V at hrlo ⊢
       omega
     have := mul_le_mul_right_nonneg hg (show (0 : Int) ≤ 2 ^ 27 by omega)
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at this ⊢
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at this ⊢
     have e : (-(2 ^ 72) : Int) * 2 ^ 27 = -(2 ^ 99) := by decide
     omega
   have hsplit : (160 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99 =
@@ -775,14 +775,14 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hVnn hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hVnn hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -802,7 +802,7 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       (-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 ≤
       (r + 2).toNat * 2 ^ 99 := by
     have hsc : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
         ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 :=
       mul_le_mul_right_nonneg (by omega) (by omega)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
@@ -813,14 +813,14 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs hVnn
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs hVnn
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -911,7 +911,7 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
@@ -928,24 +928,24 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
       have hm := mul_le_mul_right_nonneg hr (show (0 : Int) ≤ 2 ^ 27 by omega)
       have h0 : 0 ≤ r * 2 ^ 72 * 2 ^ 27 :=
         Int.mul_nonneg (Int.mul_nonneg hr0 (by omega)) (by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hm ⊢
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hm ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R27 at hm h0
       clear cap1 hb hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc2 hr hr0
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hV0 hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hV0 hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -967,7 +967,7 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       BIASc * 2 ^ 27 - ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 +
         (c - 160) * (LN2c * 2 ^ 27)) := by
     have hsc : r * 2 ^ 72 * 2 ^ 27 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 +
-        ln2kInt c + 116873961749927929127912020551516284764321243411868) * 2 ^ 27 :=
+        ln2kInt c + 116873961749927929127912020551516294209054209107914) * 2 ^ 27 :=
       mul_le_mul_right_nonneg hr (by omega)
     have e99 : r * 2 ^ 72 * 2 ^ 27 = r * 2 ^ 99 := by
       rw [Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from by decide]
@@ -975,14 +975,14 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1043,9 +1043,9 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr0 : -1 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 31) (10 ^ 18 * (10 ^ 31 - 10)) := by
@@ -1055,20 +1055,20 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hVnn : -(2 ^ 99) ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
     have h0 : -(2 ^ 72) ≤ r * 2 ^ 72 := by
       have := mul_le_mul_right_nonneg (show (-1 : Int) ≤ r from hr0)
         (show (0 : Int) ≤ 2 ^ 72 by omega)
       generalize hgT : r * 2 ^ 72 = T at this ⊢
       omega
     have hg : -(2 ^ 72) ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 := by
+        116873961749927929127912020551516294209054209107914 := by
       generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
+        116873961749927929127912020551516294209054209107914 = V at hrlo ⊢
       omega
     have := mul_le_mul_right_nonneg hg (show (0 : Int) ≤ 2 ^ 27 by omega)
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at this ⊢
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at this ⊢
     have e : (-(2 ^ 72) : Int) * 2 ^ 27 = -(2 ^ 99) := by decide
     omega
   have hsplit : BIASc * 2 ^ 27 + 2 ^ 99 =
@@ -1080,14 +1080,14 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hVnn hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hVnn hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1108,7 +1108,7 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         (c - 160) * (LN2c * 2 ^ 27)) ≤
       (r + 2).toNat * 2 ^ 99 := by
     have hsc : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
         ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 :=
       mul_le_mul_right_nonneg (by omega) (by omega)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
@@ -1119,14 +1119,14 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs hVnn
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs hVnn
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1199,9 +1199,9 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 160)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r < 0)
     (hmx : m * 2 ^ (160 - c) ≤ x) :
     capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
@@ -1217,19 +1217,19 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hV0 : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤ 0 := by
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤ 0 := by
       have hm := mul_le_mul_right_nonneg (show int256 (x1W (zWord m)) *
         7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 ≤ 0 from by
+        116873961749927929127912020551516294209054209107914 ≤ 0 from by
           generalize hgV' : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-            116873961749927929127912020551516284764321243411868 = V at hr ⊢
+            116873961749927929127912020551516294209054209107914 = V at hr ⊢
           generalize hgR : (r + 1) * 2 ^ 72 = R at hr
           have : R ≤ 0 := by
             rw [← hgR]
@@ -1239,11 +1239,11 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
             omega
           omega) (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hm ⊢
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hm ⊢
       clear cap1 hb hX1 hVs hrlo hr h1 h2 hmx hX1n hBc hLc
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hV0 hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hV0 hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1262,10 +1262,10 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hple : (-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 -
       ((160 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27) ≤ (-r).toNat * 2 ^ 99 := by
     have hsc : (-r) * 2 ^ 72 * 2 ^ 27 ≥ -(int256 (x1W (zWord m)) * 7450580596923828125 +
-        ln2kInt c + 116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+        ln2kInt c + 116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
       have h := mul_le_mul_right_nonneg hrlo (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) = V at h ⊢
+        116873961749927929127912020551516294209054209107914) = V at h ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R at h
       have e1 : (-r) * 2 ^ 72 * 2 ^ 27 = -(r * 2 ^ 72 * 2 ^ 27) := by
         rw [Int.neg_mul, Int.neg_mul]
@@ -1278,20 +1278,20 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hnegV : -(int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 =
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 =
         -((int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-          116873961749927929127912020551516284764321243411868) * 2 ^ 27) :=
+          116873961749927929127912020551516294209054209107914) * 2 ^ 27) :=
       Int.neg_mul _ _
     rw [hnegV] at hsc
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1362,9 +1362,9 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r < 0)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
@@ -1383,32 +1383,32 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hV0 : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤ 0 := by
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤ 0 := by
       have hVle : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-          116873961749927929127912020551516284764321243411868 ≤ 0 := by
+          116873961749927929127912020551516294209054209107914 ≤ 0 := by
         have hR : (r + 1) * 2 ^ 72 ≤ 0 := by
           have hle : r + 1 ≤ 0 := by omega
           have := mul_le_mul_right_nonneg hle (show (0 : Int) ≤ 2 ^ 72 by omega)
           generalize hgT : (r + 1) * 2 ^ 72 = T at this ⊢
           omega
         generalize hgV' : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-          116873961749927929127912020551516284764321243411868 = V at hr ⊢
+          116873961749927929127912020551516294209054209107914 = V at hr ⊢
         clear cap1 hb hsum hX1 hVs hrlo h1 h2 hmx hX1n hBc hLc
         omega
       have := mul_le_mul_right_nonneg hVle (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at this ⊢
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at this ⊢
       clear cap1 hb hsum hX1 hVs hrlo hr h1 h2 hmx hX1n hBc hLc
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hV0 hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hV0 hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1428,7 +1428,7 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -1438,7 +1438,7 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       rw [Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from by decide]
     rw [er] at hsc
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1495,9 +1495,9 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r < 0)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
@@ -1512,32 +1512,32 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     have hV0 : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤ 0 := by
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤ 0 := by
       have hVle : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-          116873961749927929127912020551516284764321243411868 ≤ 0 := by
+          116873961749927929127912020551516294209054209107914 ≤ 0 := by
         have hR : (r + 1) * 2 ^ 72 ≤ 0 := by
           have hle : r + 1 ≤ 0 := by omega
           have := mul_le_mul_right_nonneg hle (show (0 : Int) ≤ 2 ^ 72 by omega)
           generalize hgT : (r + 1) * 2 ^ 72 = T at this ⊢
           omega
         generalize hgV' : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-          116873961749927929127912020551516284764321243411868 = V at hr ⊢
+          116873961749927929127912020551516294209054209107914 = V at hr ⊢
         clear cap1 hsum hX1 hVs hrlo h1 h2 hmx hX1n hBc hLc
         omega
       have := mul_le_mul_right_nonneg hVle (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at this ⊢
+        116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at this ⊢
       clear cap1 hsum hX1 hVs hrlo hr h1 h2 hmx hX1n hBc hLc
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hV0 hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hV0 hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1559,7 +1559,7 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -1569,7 +1569,7 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       rw [Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from by decide]
     rw [er] at hsc
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hsc hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hsc hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1658,7 +1658,7 @@ theorem budgetB_fold {m k : Nat} (hm : 2 ^ 95 ≤ m) (hk : k ≤ 159) :
 theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 160)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r + 2 ≤ 0)
     (hxm : x < (m + 1) * 2 ^ (160 - c)) :
     capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 31 - 10)) (x * 10 ^ 31) := by
@@ -1668,11 +1668,11 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   -- the exponent gap: -V·2^27 ≥ (|r+2|+1)·2^99 + 2^27
   have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := mul_le_mul_right_nonneg
       (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516294209054209107914 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (show (0 : Int) ≤ 2 ^ 27 by omega)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from
@@ -1687,7 +1687,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -1699,7 +1699,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       generalize hgT : (r + 1) * 2 ^ 99 = T at this ⊢
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hgap hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hgap hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1722,14 +1722,14 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((160 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hgap hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hgap hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((160 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (160 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1818,7 +1818,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r + 2 ≤ 0)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 31 - 10)) (x * 10 ^ 31) := by
@@ -1828,11 +1828,11 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := mul_le_mul_right_nonneg
       (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516294209054209107914 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (show (0 : Int) ≤ 2 ^ 27 by omega)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from
@@ -1849,7 +1849,7 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -1861,7 +1861,7 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       generalize hgT : (r + 1) * 2 ^ 99 = T at this ⊢
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hgap hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hgap hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1882,14 +1882,14 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hgap hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hgap hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -1950,7 +1950,7 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hrneg : r + 2 ≤ 0)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 31 - 10)) (x * 10 ^ 31) := by
@@ -1960,11 +1960,11 @@ theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := mul_le_mul_right_nonneg
       (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516294209054209107914 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (show (0 : Int) ≤ 2 ^ 27 by omega)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from
@@ -1980,7 +1980,7 @@ theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
@@ -1992,7 +1992,7 @@ theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       generalize hgT : (r + 1) * 2 ^ 99 = T at this ⊢
       omega
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hgap hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hgap hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
@@ -2015,14 +2015,14 @@ theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
-        116873961749927929127912020551516284764321243411868 * 2 ^ 27 := by
+        116873961749927929127912020551516294209054209107914 * 2 ^ 27 := by
       decide +kernel
     have hLc : (((c - 160) * (LN2c * 2 ^ 27) : Nat) : Int) =
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
       simp only [Int.natCast_mul]
       rfl
     generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 = V27 at hgap hVs
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 = V27 at hgap hVs
     generalize hgA : int256 (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
     generalize hgC : (c - 160) * (LN2c * 2 ^ 27) = Cn at hLc ⊢

@@ -62,12 +62,9 @@ def ltTD2b : List Int := polyScale (2 ^ 99) ltTD2
 
 def KF : Int := 1124000727777607680000
 def KF1 : Int := 25852016738884976640000
-/-- Never-overshoot margin floor (the +form certs `certGeUp`, `certLtUp`): the
-bias keeps at least this much of its `1e-31`-unit margin.  Lowered to `3382`
-when the bias is raised. -/
+/-- Never-overshoot margin floor for the +form certificates. -/
 def EUN : Int := 3382
-/-- Not-too-low margin ceiling (the −form certs `certGeLo`, `certLtLo`): an upper
-bound on the bias margin.  Unchanged by raising the bias. -/
+/-- Not-too-low margin ceiling for the −form certificates. -/
 def EUNl : Int := 3385
 def EUD : Int := 10 ^ 31
 

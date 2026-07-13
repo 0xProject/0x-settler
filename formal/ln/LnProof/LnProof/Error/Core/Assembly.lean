@@ -32,9 +32,9 @@ attribute [local irreducible] lnWadToRayBody
 
 theorem r_nonneg_of_c160_v_nonneg {m : Nat} {R : Int}
     (hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868)
+      116873961749927929127912020551516294209054209107914)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 < (R + 1) * 2 ^ 72) :
+      116873961749927929127912020551516294209054209107914 < (R + 1) * 2 ^ 72) :
     0 ≤ R := by
   rcases Int.lt_or_le R 0 with hneg | hnon
   · exfalso
@@ -76,7 +76,7 @@ theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x <
   obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
   have hbr2' : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
+      ln2kInt (evmClz x) + 116873961749927929127912020551516294209054209107914 <
       (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
     have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
         int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
@@ -98,7 +98,7 @@ theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x <
     rw [hc160] at hw2
     simpa only [Nat.sub_self, Nat.pow_zero, Nat.mul_one] using hw2
   have hbr2c : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt 160 + 116873961749927929127912020551516284764321243411868 <
+      ln2kInt 160 + 116873961749927929127912020551516294209054209107914 <
       (R + 1) * 2 ^ 72 := by
     simpa [hc160] using hbr2'
   apply CutLogWadRayLtRational_of_strict (by omega)
@@ -113,7 +113,7 @@ theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x <
     · have hmhi : mant x < MHI := hmant_hi
       have hV0I := v_c160_nonneg hmant_lo hmhi
       have hV0 : 0 ≤ int256 (x1W (zWord (mant x))) * 7450580596923828125 +
-          ln2kInt 160 + 116873961749927929127912020551516284764321243411868 := by
+          ln2kInt 160 + 116873961749927929127912020551516294209054209107914 := by
         simpa [lnBiasI] using hV0I
       have hr0 := r_nonneg_of_c160_v_nonneg hV0 hbr2c
       unfold lnErrorBoundDen lnErrorBoundNum
@@ -130,7 +130,7 @@ theorem lnWadToRayBody_error_bound_upper_neg_shift_nonneg {x : Nat}
   obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
   have hbr2' : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
+      ln2kInt (evmClz x) + 116873961749927929127912020551516294209054209107914 <
       (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
     have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
         int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
@@ -163,7 +163,7 @@ theorem lnWadToRayBody_error_bound_upper_neg_shift_rec_ge {x : Nat}
   obtain ⟨_hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr2
   have hbrHi : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
+      ln2kInt (evmClz x) + 116873961749927929127912020551516294209054209107914 <
       (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
     have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
         int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by

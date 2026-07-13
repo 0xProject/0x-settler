@@ -88,7 +88,7 @@ def c160R : Nat := Sc * (c160R0 * c160R1 * c160R2 * c160R3 * c160R4)
 
 theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hx : x = m := by omega
@@ -169,7 +169,7 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 
 theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
     (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hx : x = m := by omega
@@ -179,7 +179,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     omega
   have hV0I := v_c160_nonneg h1 hmhi
   have hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 := by
+      116873961749927929127912020551516294209054209107914 := by
     simpa [lnBiasI] using hV0I
   have hr0 : -1 ≤ r := by
     rcases Int.lt_or_le r (-1) with hlt | hle

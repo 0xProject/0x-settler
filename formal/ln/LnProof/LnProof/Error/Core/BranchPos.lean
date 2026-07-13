@@ -382,7 +382,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
 theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c < 160)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 +
-      ln2kInt c + 116873961749927929127912020551516284764321243411868)
+      ln2kInt c + 116873961749927929127912020551516294209054209107914)
     (hr0 : 0 ≤ r)
     (hres : PosShiftResidueOk m c r)
     (hxm : x < (m + 1) * 2 ^ (160 - c)) :
@@ -398,12 +398,12 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
   have hX1 := x1_nonpos_ltF hmlo h2
   have hVs := v_scale_pos (int256 (x1W (zWord m))) c (by omega : c ≤ 160)
   have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
+      116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
     have hg : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 := by
+        116873961749927929127912020551516294209054209107914 := by
       generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
+        116873961749927929127912020551516294209054209107914 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
