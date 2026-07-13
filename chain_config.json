@@ -993,11 +993,21 @@
     "minGasPriceGwei": 1,
     "wnative": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
     "safe": {
-      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
+        "migration": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+      },
       "apiUrl": "https://api.safe.global/tx-service/aeth/api"
     },
     "governance": {

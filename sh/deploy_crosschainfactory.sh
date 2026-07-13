@@ -173,7 +173,7 @@ wnative_storage="$(cast to-check-sum-address "$wnative_storage")"
 declare -r wnative_storage
 
 declare non_forwarding_multicall
-non_forwarding_multicall="$(get_config safe.multiCall)"
+non_forwarding_multicall="$(get_config 'safe."v1.3.0".multiCall')"
 declare -r non_forwarding_multicall
 
 declare deploy_shim_calldata

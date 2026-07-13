@@ -16,8 +16,6 @@ contract RedeploySettlers is SafeMultisend {
     // Canonical Safe `SafeMigration` (v1.4.1) contract, deployed deterministically across non-EraVm chains.
     bytes32 internal constant safeMigrationCodehash =
         0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99;
-    // keccak256("fallback_manager.handler.address")
-    bytes32 internal constant fallbackSlot = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
 
     // Switch the upgrade Safe's singleton (and fallback handler) from Safe v1.3.0 to v1.4.1 by `DelegateCall`ing
     // the `SafeMigration` contract. The migration contract is pinned by codehash and cross-checked to target
@@ -138,9 +136,10 @@ contract RedeploySettlers is SafeMultisend {
             safeSingleton: safeSingleton,
             safeFallback: safeFallback,
             safeMulticall: safeMulticall,
-            safeBytecodes: SafeBytecodes("", "", "", "", "", "")
+            safeBytecodes: SafeBytecodes("", "", "", "", "", "", "", "")
         });
         safeCompatConfig.safeBytecodes.load(vm);
+        if (safeCompatConfig.isEraVm) safeCompatConfig.safeBytecodes.loadV141(vm);
 
         require(isEraVm == safeCompatConfig.isEraVm, "isEraVm mismatch");
         _assertSafeInfraCodehashes(safeCompatConfig);

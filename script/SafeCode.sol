@@ -7,6 +7,8 @@ struct SafeBytecodes {
     bytes factoryCode;
     bytes singletonCode;
     bytes fallbackCode;
+    bytes singletonCodeV141;
+    bytes fallbackCodeV141;
     bytes multicallCode;
     bytes proxyCode;
     bytes proxyCodeEraVm;
@@ -27,4 +29,11 @@ function load(SafeBytecodes memory self, VmSafe vm) view {
     assert(keccak256(self.proxyCodeEraVm) == 0x3d70c4a51cf0b92f04e5e281833aeece55198933569c08f5d11fcc45c495253e);
 }
 
-using {load} for SafeBytecodes global;
+function loadV141(SafeBytecodes memory self, VmSafe vm) view {
+    self.singletonCodeV141 = vm.readFileBinary("script/singleton_v141.bin");
+    assert(keccak256(self.singletonCodeV141) == 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff);
+    self.fallbackCodeV141 = vm.readFileBinary("script/fallback_v141.bin");
+    assert(keccak256(self.fallbackCodeV141) == 0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9);
+}
+
+using {load, loadV141} for SafeBytecodes global;

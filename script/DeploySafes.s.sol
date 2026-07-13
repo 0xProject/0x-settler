@@ -113,7 +113,7 @@ contract DeploySafes is SafeMultisend {
             safeSingleton: safeSingleton,
             safeFallback: safeFallback,
             safeMulticall: safeMulticall,
-            safeBytecodes: SafeBytecodes("", "", "", "", "", "")
+            safeBytecodes: SafeBytecodes("", "", "", "", "", "", "", "")
         });
         safeCompatConfig.safeBytecodes.load(vm);
 

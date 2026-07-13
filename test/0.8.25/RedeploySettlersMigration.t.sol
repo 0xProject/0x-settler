@@ -4,7 +4,8 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 
 import {RedeploySettlers} from "script/RedeploySettlers.s.sol";
-import {SafeMultisend} from "script/SafeMultisend.sol";
+import {SafeMultisend, ISafeFactory, ISafeOwners} from "script/SafeMultisend.sol";
+import {SafeBytecodes, load} from "script/SafeCode.sol";
 
 interface ISafe {
     function addOwnerWithThreshold(address owner, uint256 threshold) external;
@@ -30,6 +31,13 @@ contract RedeploySettlersHarness is RedeploySettlers {
             safeCompatConfig, upgradeSafe, safeMigration, safeSingletonV141, safeFallbackV141, upgradeSignature
         );
     }
+
+    function exposed_getOwners(SafeCompatConfig memory safeCompatConfig, address safe)
+        external
+        returns (address[] memory)
+    {
+        return _getOwners(safeCompatConfig, ISafeOwners(safe));
+    }
 }
 
 // Fork test of `RedeploySettlers._migrateUpgradeSafe` against the real Safe v1.3.0 upgrade Safe and the real
@@ -47,7 +55,9 @@ contract RedeploySettlersMigrationTest is Test {
 
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 23183520);
-        harness = new RedeploySettlersHarness();
+        harness = RedeploySettlersHarness(address(0xdeadbeef));
+        vm.etch(address(harness), vm.getDeployedCode("RedeploySettlersMigration.t.sol:RedeploySettlersHarness"));
+        vm.allowCheatcodes(address(harness));
 
         // Reproduce the revive precondition: the upgrade Safe is sole-owned by the caller (here the harness,
         // which is what `execTransaction`s the migration), threshold 1. `addOwnerWithThreshold` prepends the
@@ -114,5 +124,37 @@ contract RedeploySettlersMigrationTest is Test {
         harness.exposed_migrateUpgradeSafe(
             safeCompatConfig, UPGRADE_SAFE, SAFE_MIGRATION, address(0xdead), V141_FALLBACK, _signature()
         );
+    }
+}
+
+// Fork test of the EraVm compatibility wrapper against Abstract's real v1.4.1 upgrade Safe.
+contract RedeploySettlersEraVmCompatTest is Test {
+    address internal constant UPGRADE_SAFE = 0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A;
+    address internal constant V130_SINGLETON = 0x1727c2c531cf966f902E5927b98490fDFb3b2b70;
+    address internal constant V130_FACTORY = 0xDAec33641865E4651fB43181C6DB6f7232Ee91c2;
+    address internal constant V130_FALLBACK = 0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A;
+    address internal constant V130_MULTICALL = 0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F;
+
+    function test_getOwners_supportsV141SafeOnEraVm() external {
+        vm.createSelectFork(vm.envString("ABSTRACT_MAINNET_RPC_URL"));
+
+        SafeBytecodes memory safeBytecodes;
+        safeBytecodes.load(vm);
+        safeBytecodes.loadV141(vm);
+        SafeMultisend.SafeCompatConfig memory safeCompatConfig = SafeMultisend.SafeCompatConfig({
+            isEraVm: true,
+            privateKey: 0,
+            safeFactory: ISafeFactory(V130_FACTORY),
+            safeSingleton: V130_SINGLETON,
+            safeFallback: V130_FALLBACK,
+            safeMulticall: V130_MULTICALL,
+            safeBytecodes: safeBytecodes
+        });
+
+        RedeploySettlersHarness harness = RedeploySettlersHarness(address(0xdeadbeef));
+        vm.etch(address(harness), vm.getDeployedCode("RedeploySettlersMigration.t.sol:RedeploySettlersHarness"));
+        vm.allowCheatcodes(address(harness));
+        address[] memory owners = harness.exposed_getOwners(safeCompatConfig, UPGRADE_SAFE);
+        assertGt(owners.length, 0);
     }
 }

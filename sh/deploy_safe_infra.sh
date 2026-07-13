@@ -139,16 +139,16 @@ declare -r fallback_hash='0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87
 declare -r multicall_hash='0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad'
 
 declare singleton
-singleton="$(get_config safe.singleton)"
+singleton="$(get_config 'safe."v1.3.0".singleton')"
 declare -r singleton
 declare factory
-factory="$(get_config safe.factory)"
+factory="$(get_config 'safe."v1.3.0".factory')"
 declare -r factory
 declare fallback
-fallback="$(get_config safe.fallback)"
+fallback="$(get_config 'safe."v1.3.0".fallback')"
 declare -r fallback
 declare multicall
-multicall="$(get_config safe.multiCall)"
+multicall="$(get_config 'safe."v1.3.0".multiCall')"
 declare -r multicall
 
 if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$deployer")") != "$deployer_hash" ]] ; then

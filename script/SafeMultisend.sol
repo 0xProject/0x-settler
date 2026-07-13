@@ -43,12 +43,18 @@ interface ISafeOwners {
 }
 
 abstract contract SafeMultisend is Script {
+    // keccak256("fallback_manager.handler.address")
+    bytes32 internal constant fallbackSlot = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
     bytes32 internal constant singletonHash = 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
     bytes32 internal constant singletonHashEraVm = 0xe2ca068330339d608367d83a0b25545efe39e619098597699ab8ff828cb1ddd8;
+    bytes32 internal constant singletonHashV141EraVm =
+        0x520462ebe1156cd2d37b1d470c57f23e12fe0c4cda4c62502d96e03fa0cb44da;
     bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
     bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
     bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
     bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
+    bytes32 internal constant fallbackHashV141EraVm =
+        0x331ff834e83e6e1596325f04eb7d16614155e324010af21f14e9c945e7669d5f;
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
     bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
 
@@ -196,12 +202,31 @@ abstract contract SafeMultisend is Script {
                 vm.stopBroadcast();
             }
 
+            address compatSingleton = safeSingleton;
+            address compatFallback = safeFallback;
+            bytes memory singletonCode = safeBytecodes.singletonCode;
+            bytes memory fallbackCode = safeBytecodes.fallbackCode;
+            if (address(safe) != address(0)) {
+                compatSingleton = address(uint160(uint256(vm.load(address(safe), bytes32(0)))));
+                compatFallback = address(uint160(uint256(vm.load(address(safe), fallbackSlot))));
+
+                bytes32 liveSingletonHash = compatSingleton.codehash;
+                bytes32 liveFallbackHash = compatFallback.codehash;
+                bool isSingletonV141 = liveSingletonHash == singletonHashV141EraVm;
+                bool isFallbackV141 = liveFallbackHash == fallbackHashV141EraVm;
+                require(isSingletonV141 || liveSingletonHash == singletonHashEraVm, "unsupported Safe singleton");
+                require(isFallbackV141 || liveFallbackHash == fallbackHashEraVm, "unsupported Safe fallback");
+
+                if (isSingletonV141) singletonCode = safeBytecodes.singletonCodeV141;
+                if (isFallbackV141) fallbackCode = safeBytecodes.fallbackCodeV141;
+            }
+
             bytes memory oldFactoryCode = address(safeFactory).code;
             vm.etch(address(safeFactory), safeBytecodes.factoryCode);
-            bytes memory oldSingletonCode = safeSingleton.code;
-            vm.etch(safeSingleton, safeBytecodes.singletonCode);
-            bytes memory oldFallbackCode = safeFallback.code;
-            vm.etch(safeFallback, safeBytecodes.fallbackCode);
+            bytes memory oldSingletonCode = compatSingleton.code;
+            vm.etch(compatSingleton, singletonCode);
+            bytes memory oldFallbackCode = compatFallback.code;
+            vm.etch(compatFallback, fallbackCode);
             bytes memory oldMulticallCode = safeMulticall.code;
             vm.etch(safeMulticall, safeBytecodes.multicallCode);
 
@@ -235,8 +260,8 @@ abstract contract SafeMultisend is Script {
             }
 
             vm.etch(address(safeFactory), oldFactoryCode);
-            vm.etch(safeSingleton, oldSingletonCode);
-            vm.etch(safeFallback, oldFallbackCode);
+            vm.etch(compatSingleton, oldSingletonCode);
+            vm.etch(compatFallback, oldFallbackCode);
             vm.etch(safeMulticall, oldMulticallCode);
 
             if (address(safe) != address(0)) {

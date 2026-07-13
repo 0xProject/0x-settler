@@ -3,7 +3,7 @@ safe_url="$(get_config safe.apiUrl)"
 declare -r safe_url
 
 declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
+multicall_address="$(get_config 'safe."v1.3.0".multiCall')"
 declare -r multicall_address
 
 declare deployer_address
