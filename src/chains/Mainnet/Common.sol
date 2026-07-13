@@ -17,6 +17,7 @@ import {EkuboV2} from "../../core/EkuboV2.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {Select} from "../../core/Select.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -60,7 +61,8 @@ abstract contract MainnetMixin is
     EkuboV2,
     EkuboV3,
     EulerSwap,
-    Bebop
+    Bebop,
+    Select
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
@@ -81,7 +83,11 @@ abstract contract MainnetMixin is
         //// NOTICE: we re-implement the base `_dispatch` implementation here so that we can remove
         //// the `VELODROME` action JUST on this chain because it does little-to-no volume.
 
-        if (action == uint32(ISettlerActions.RFQ.selector)) {
+        if (action == uint32(ISettlerActions.SELECT.selector)) {
+            _select(data, false);
+        } else if (action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector)) {
+            _select(data, true);
+        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -147,7 +153,8 @@ abstract contract MainnetMixin is
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
                 sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+            } else {
+                // if (action == uint32(ISettlerActions.EKUBOV3.selector))
                 sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
