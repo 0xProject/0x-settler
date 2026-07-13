@@ -130,23 +130,37 @@ if [[ ${safe:-null} == [nN][uU][lL][lL] ]] || [[ -z ${safe:-} ]] ; then
     exit 1
 fi
 
+declare safe_codehash
+if [[ $era_vm = [Tt]rue ]] ; then
+    safe_codehash="$(cast call --rpc-url "$rpc_url" 0x0000000000000000000000000000000000008002 'getCodeHash(uint256)(bytes32)' "$safe")"
+else
+    safe_codehash="$(cast keccak "$(cast code --rpc-url "$rpc_url" "$safe")")"
+fi
+declare -r safe_codehash
+case "$safe_codehash" in
+    0xaea7d4252f6245f301e540cfbee27d3a88de543af8e49c5c62405d5499fab7e5|\
+    0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000|\
+    0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c|\
+    0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d|\
+    0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f) ;;
+    *)
+        echo 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')' >&2
+        exit 1
+        ;;
+esac
+
 declare onchain_singleton
 onchain_singleton="$(cast call --rpc-url "$rpc_url" "$safe" 'masterCopy()(address)')"
 onchain_singleton="$(cast to-check-sum-address "$onchain_singleton")"
 declare -r onchain_singleton
 
-declare -a candidate_factories candidate_variants
-declare -A singleton_inithash=(
-    [ZeroExSettlerDeployerSafeGuardOnePointThree]=0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438
-    [ZeroExSettlerDeployerSafeGuardOnePointFourPointOne]=0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd
-    [ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm]=0x0100080f935a1a562e892e1e71d9a0ca8cd349d19a413e0b7e7172c5e8c83ed1
-    [ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm]=0x010006c19437ff25b448f038f7ea0a4c910e0ae9cd8e55f2d199b7916b72eb1e
-)
-if [[ $era_vm != [Ff]alse ]] ; then
+declare -a candidate_factories
+declare -A singleton_inithash
+if [[ $era_vm = [Tt]rue ]] ; then
     candidate_factories=(0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD)
-    candidate_variants=(
-        ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm
-        ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm
+    singleton_inithash=(
+        [ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm]=0x0100080f935a1a562e892e1e71d9a0ca8cd349d19a413e0b7e7172c5e8c83ed1
+        [ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm]=0x010006c19437ff25b448f038f7ea0a4c910e0ae9cd8e55f2d199b7916b72eb1e
     )
 else
     candidate_factories=(
@@ -155,16 +169,16 @@ else
         0xC0DEb853af168215879d284cc8B4d0A645fA9b0E # ERC-7955
         0x0000000000000000000000000000000000000012 # EIP-7997
     )
-    candidate_variants=(
-        ZeroExSettlerDeployerSafeGuardOnePointThree
-        ZeroExSettlerDeployerSafeGuardOnePointFourPointOne
+    singleton_inithash=(
+        [ZeroExSettlerDeployerSafeGuardOnePointThree]=0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438
+        [ZeroExSettlerDeployerSafeGuardOnePointFourPointOne]=0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd
     )
 fi
 
 function predict_create2 {
     declare _predict_out
-    _predict_out="$(cast keccak "$(cast concat-hex 0xff "$1" "$(cast hash-zero)" "$2")")"
-    cast to-check-sum-address "0x${_predict_out:26:40}"
+    _predict_out="$(cast compute-address "$1" --salt "$(cast hash-zero)" --init-code-hash "$2")"
+    echo "${_predict_out##* }"
 }
 
 function predict_create2_era_vm {
@@ -174,17 +188,17 @@ function predict_create2_era_vm {
 }
 
 function predict_singleton {
-    if [[ $era_vm = [Ff]alse ]] ; then
-        predict_create2 "$1" "$2"
-    else
+    if [[ $era_vm = [Tt]rue ]] ; then
         predict_create2_era_vm "$1" "$2" "$(cast keccak '')"
+    else
+        predict_create2 "$1" "$2"
     fi
 }
 
 declare guard_contract='' factory=''
 declare _f _v
 for _f in "${candidate_factories[@]}" ; do
-    for _v in "${candidate_variants[@]}" ; do
+    for _v in "${!singleton_inithash[@]}" ; do
         if [[ "$(predict_singleton "$_f" "${singleton_inithash[$_v]}")" == "$onchain_singleton" ]] ; then
             guard_contract="$_v"
             factory="$_f"
@@ -227,15 +241,7 @@ constructor_args="$(cast abi-encode 'constructor(address)' "$safe")"
 declare -r constructor_args
 
 declare predicted
-if [[ $era_vm = [Ff]alse ]] ; then
-    forge clean
-    forge build src/deployer/SafeGuard.sol
-    declare guard_bytecode initcode
-    guard_bytecode="$(forge inspect src/deployer/SafeGuard.sol:"$guard_contract" bytecode)"
-    initcode="$(cast concat-hex "$guard_bytecode" "$constructor_args")"
-    declare -r guard_bytecode initcode
-    predicted="$(predict_create2 "$factory" "$(cast keccak "$initcode")")"
-else
+if [[ $era_vm = [Tt]rue ]] ; then
     # EraVM needs zkSync artifacts so we switch to the zksync aware foundry version
     foundryup-zksync -u foundry-zksync-v0.1.9 || true
     if [[ $(forge --version) != *14afc70e251c89b7e2af6e6ac02e9ac6f095b5cc* ]] ; then
@@ -254,6 +260,14 @@ else
     guard_bytecode="0x$(jq -Mr '.bytecode.object' "$art")"
     declare -r bytecode_hash guard_bytecode
     predicted="$(predict_create2_era_vm "$factory" "$bytecode_hash" "$(cast keccak "$constructor_args")")"
+else
+    forge clean
+    forge build src/deployer/SafeGuard.sol
+    declare guard_bytecode initcode
+    guard_bytecode="$(forge inspect src/deployer/SafeGuard.sol:"$guard_contract" bytecode)"
+    initcode="$(cast concat-hex "$guard_bytecode" "$constructor_args")"
+    declare -r guard_bytecode initcode
+    predicted="$(predict_create2 "$factory" "$(cast keccak "$initcode")")"
 fi
 declare -r predicted
 
@@ -267,13 +281,13 @@ if [[ "$(cast code --rpc-url "$rpc_url" "$predicted")" != '0x' ]] ; then
 fi
 
 declare -a deploy_args zk_tx_flags=()
-if [[ $era_vm = [Ff]alse ]] ; then
-    deploy_args=("$factory" "$(cast concat-hex "$(cast hash-zero)" "$initcode")")
-else
+if [[ $era_vm = [Tt]rue ]] ; then
     declare _create2_calldata
     _create2_calldata="$(cast calldata 'create2(bytes32,bytes32,bytes)' "$(cast hash-zero)" "$bytecode_hash" "$constructor_args")"
     deploy_args=("$factory" "$(cast concat-hex "$(cast hash-zero)" "$_create2_calldata")")
     zk_tx_flags=(--zksync --zk-factory-deps "$guard_bytecode")
+else
+    deploy_args=("$factory" "$(cast concat-hex "$(cast hash-zero)" "$initcode")")
 fi
 declare -r -a deploy_args zk_tx_flags
 
