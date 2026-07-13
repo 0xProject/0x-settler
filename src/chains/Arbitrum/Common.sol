@@ -141,12 +141,24 @@ abstract contract ArbitrumMixin is
             (
                 address recipient,
                 IERC20 sellToken,
+                IERC20 buyToken,
                 uint256 maxSellAmount,
+                bool refundNativeEth,
+                uint256 maxRefundAmount,
                 bytes memory renegadeData,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, IERC20, uint256, bool, uint256, bytes, uint256));
 
-            sellToRenegade(recipient, sellToken, maxSellAmount, renegadeData, minBuyAmount);
+            sellToRenegade(
+                recipient,
+                sellToken,
+                buyToken,
+                maxSellAmount,
+                refundNativeEth,
+                maxRefundAmount,
+                renegadeData,
+                minBuyAmount
+            );
         } else {
             return false;
         }

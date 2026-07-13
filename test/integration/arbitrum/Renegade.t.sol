@@ -49,4 +49,17 @@ contract RenegadeArbitrumIntegrationTest is RenegadeIntegrationTest {
     function _txnCalldata() internal pure virtual override returns (bytes memory) {
         return ARBITRUM_TXN_CALLDATA;
     }
+
+    function testPerLegSlippageExcludesThirdPartyRefund() public {
+        uint256 snapshot = vm.snapshotState();
+        uint256 balanceBefore = balanceOf(toToken(), address(this));
+        _exec(_buildExecData(_txnCalldata(), address(this), type(uint256).max, 0, IERC20(address(0)), 0));
+        uint256 received = balanceOf(toToken(), address(this)) - balanceBefore;
+        assertTrue(vm.revertToState(snapshot));
+
+        bytes memory ahData = _buildExecData(
+            _txnCalldata(), address(this), type(uint256).max, received + 1, IERC20(address(0)), 0
+        );
+        _expectTooMuchSlippage(ahData, toToken());
+    }
 }

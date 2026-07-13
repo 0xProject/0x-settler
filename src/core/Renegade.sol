@@ -17,33 +17,45 @@ abstract contract Renegade is SettlerSwapAbstract {
     /// @dev Chain-specific `GasSponsorV2` proxy. Adding a chain requires source change + redeploy.
     function _renegadeGasSponsorV2() internal pure virtual returns (address);
 
-    /// @dev Checks the amount Renegade returns for the external party. Central slippage still backstops
-    /// settler-custody routes.
+    /// @dev `maxRefundAmount` is the signed requested refund. Subtracting included refunds conservatively
+    /// undercounts trade proceeds when sponsorship is skipped or underfunded.
     function sellToRenegade(
         address recipient,
         IERC20 sellToken,
+        IERC20 buyToken,
         uint256 maxSellAmount,
+        bool refundNativeEth,
+        uint256 maxRefundAmount,
         bytes memory data,
         uint256 minBuyAmount
     ) internal {
-        if (data.length < 0x140) revertInvalidRenegadeData(); // full static head: 8 words + 2 tail offsets
+        if (data.length < 0x1a0) revertInvalidRenegadeData(); // static head plus the required options fields
 
         uint256 sellAmt = sellToken.fastBalanceOf(address(this));
         if (sellAmt > maxSellAmount) sellAmt = maxSellAmount;
         address target = _renegadeGasSponsorV2();
         sellToken.safeApproveIfBelow(target, sellAmt);
 
-        IERC20 buyToken;
         uint256 buyAmt;
+        // Equivalent Solidity: validate and patch the ABI payload, call the sponsor, bubble failures,
+        // and decode its uint256 return. Assembly avoids re-encoding the signed dynamic payload.
         assembly ("memory-safe") {
-            // Patch caller-malleable args and force the approved sell token into the proof-bound match.
+            let len := mload(data)
+            let optionsOffset := mload(add(0x140, data))
+            if or(and(optionsOffset, 0x1f), or(lt(optionsOffset, 0x140), gt(optionsOffset, sub(len, 0x60)))) {
+                mstore(0x00, 0xaa81f37c) // selector for `InvalidRenegadeData()`
+                revert(0x1c, 0x04)
+            }
+
+            // Patch caller-malleable args and bind typed fields into proof-authenticated data.
             mstore(add(0x20, data), sellAmt)
             mstore(add(0x40, data), recipient)
-            buyToken := mload(add(0x60, data))
+            mstore(add(0x60, data), buyToken)
             mstore(add(0x80, data), sellToken)
+            mstore(add(0x40, add(data, optionsOffset)), refundNativeEth)
+            mstore(add(0x60, add(data, optionsOffset)), maxRefundAmount)
 
             // Stash the length and overwrite its slot with the selector; calldata starts at data + 0x1c.
-            let len := mload(data)
             mstore(data, RENEGADE_SELECTOR)
 
             if iszero(call(gas(), target, 0x00, add(0x1c, data), add(0x04, len), 0x00, 0x20)) {
@@ -62,6 +74,10 @@ abstract contract Renegade is SettlerSwapAbstract {
             buyAmt := mload(0x00)
         }
 
+        if (!refundNativeEth || buyToken == ETH_ADDRESS) {
+            if (buyAmt > maxRefundAmount) buyAmt -= maxRefundAmount;
+            else buyAmt = 0;
+        }
         if (buyAmt < minBuyAmount) revertTooMuchSlippage(buyToken, minBuyAmount, buyAmt);
     }
 }
