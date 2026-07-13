@@ -119,7 +119,6 @@ contract SelectBase is Test, Permit2Signature {
                 uint256(0),
                 token,
                 targets,
-                new uint256[](candidates.length),
                 candidates
             )
         );

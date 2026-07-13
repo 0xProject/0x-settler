@@ -231,7 +231,6 @@ interface ISettlerActions {
         uint256 candidateGasLimit,
         address token,
         uint256[] calldata targets,
-        uint256[] calldata hurdles,
         bytes[][] calldata candidates
     ) external;
 
@@ -240,7 +239,6 @@ interface ISettlerActions {
         uint256 candidateGasLimit,
         address token,
         uint256[] calldata targets,
-        uint256[] calldata hurdles,
         bytes[][] calldata candidates
     ) external;
 

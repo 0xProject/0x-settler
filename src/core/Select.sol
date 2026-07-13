@@ -58,15 +58,11 @@ abstract contract Select is SettlerSwapAbstract {
             let gasCap := calldataload(data.offset)
             let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x20, data.offset)))
             let targetsData := add(0x20, add(data.offset, calldataload(add(0x40, data.offset))))
-            let hurdlesData := add(0x20, add(data.offset, calldataload(add(0x60, data.offset))))
-            let base := add(data.offset, calldataload(add(0x80, data.offset)))
+            let base := add(data.offset, calldataload(add(0x60, data.offset)))
             let n := calldataload(base)
             let candsData := add(0x20, base)
             let dataEnd := add(data.offset, data.length)
-            if or(
-                iszero(n),
-                or(lt(calldataload(sub(targetsData, 0x20)), n), lt(calldataload(sub(hurdlesData, 0x20)), n))
-            ) {
+            if or(iszero(n), lt(calldataload(sub(targetsData, 0x20)), n)) {
                 revert(0x00, 0x00)
             }
 
@@ -101,10 +97,7 @@ abstract contract Select is SettlerSwapAbstract {
                 }
                 let score := measured(ret, tag, measuredSelector)
                 anyScore := or(anyScore, gt(score, 0x00))
-                mstore(
-                    add(nets, shl(0x05, measuredCount)),
-                    sub(score, calldataload(add(hurdlesData, shl(0x05, measuredCount))))
-                )
+                mstore(add(nets, shl(0x05, measuredCount)), score)
                 // Cache the hash and use its high bit as the attempted-candidate marker.
                 mstore(add(tags, shl(0x05, measuredCount)), or(tag, tagMask))
             }
@@ -129,10 +122,7 @@ abstract contract Select is SettlerSwapAbstract {
 
                     let start, len := blob(candsData, n, dataEnd, best)
                     calldatacopy(dst, start, len)
-                    mstore(
-                        add(0x44, cd),
-                        add(mload(add(nets, shl(0x05, best))), calldataload(add(hurdlesData, shl(0x05, best))))
-                    )
+                    mstore(add(0x44, cd), mload(add(nets, shl(0x05, best))))
                     mstore(add(0x64, cd), or(and(mload(add(tags, shl(0x05, best))), not(tagMask)), tagFlag))
                     if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
                         break
