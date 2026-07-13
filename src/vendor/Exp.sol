@@ -42,28 +42,23 @@ library Exp {
         }
     }
 
-    /// @notice Compute y * exp(x / 10**27), with y's sign reapplied after magnitude evaluation.
+    /// @notice Compute trunc(y * exp(x / 10**27))
     /// @dev Let A = abs(y) ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
-    ///      with 0 ≤ m ≤ A and A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, except that when
-    ///      A < 1 the lower bound pins m = 0. `mulExpRay(0, x) == 0` for every accepted x, and
-    ///      `mulExpRay(y, 0) == y` exactly whenever 4⋅abs(y) ≤ 2¹²⁷ - 1 =
-    ///      170141183460469231731687303715884105727 (larger magnitudes leave fewer than two bits
-    ///      of closing shift, so x = 0 reverts there). Among accepted inputs, the result is
-    ///      monotone in x: nondecreasing if y ≥ 0 and nonincreasing if y < 0. For a fixed x,
-    ///      among accepted inputs, the result is nondecreasing in y. Jointly, for accepted pairs
-    ///      (y₁, x₁) and (y₂, x₂), the first result is no greater than the second when 0 ≤ y₁ ≤ y₂
-    ///      and x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 and x₂ ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any exponents.
-    ///
-    ///      Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
-    ///      (regardless of y), or when the octave word — `_octave`'s output, which is
-    ///      round(x / (10²⁷⋅ln(2))) wherever its product does not wrap (|x| ≲ 2¹⁵²) — exceeds
-    ///      s - 2, with 2ˢ the scale headroom above abs(y). The normalized scale is at most
-    ///      2¹²⁷; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. Within the
-    ///      wrap-free range the accepted exponents form one interval that narrows as abs(y)
-    ///      grows, and every accepted
-    ///      x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap
-    ///      boundary (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to
-    ///      zero, either of which is sound (A < 1 there at every supported magnitude).
+    ///      with 0 ≤ m ≤ A and A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without
+    ///      underflow. `mulExpRay(0, x) == 0` for every accepted x, and `mulExpRay(y, 0) == y`
+    ///      exactly whenever 4⋅|y| ≤ 2¹²⁷ - 1 = 170141183460469231731687303715884105727. Among
+    ///      accepted inputs, the result is monotone in x: nondecreasing if y ≥ 0 and nonincreasing
+    ///      if y < 0. For a fixed x, among accepted inputs, the result is nondecreasing in
+    ///      y. Jointly, for accepted pairs (y₁, x₁) and (y₂, x₂), the first result is no greater
+    ///      than the second when 0 ≤ y₁ ≤ y₂ and x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 and x₂ ≤ x₁, and when y₁
+    ///      ≤ 0 ≤ y₂ for any exponents.
+    /// @dev Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
+    ///      (regardless of y), or when round(x / (10²⁷⋅ln(2))) exceeds s - 2, with 2ˢ the scale
+    ///      headroom above abs(y); s = 0 at both maximal signed magnitudes and s = 127 at y =
+    ///      0. The accepted exponents form one interval that narrows as abs(y) grows, and every
+    ///      accepted x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the
+    ///      wrap boundary (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp
+    ///      to zero, either of which is sound (A < 1 there at every supported magnitude).
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
         uint256 ay;
         uint256 sign;
