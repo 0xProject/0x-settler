@@ -37,8 +37,16 @@ abstract contract Renegade is SettlerSwapAbstract {
         sellToken.safeApproveIfBelow(target, sellAmt);
 
         uint256 buyAmt;
-        // Equivalent Solidity: validate and patch the ABI payload, call the sponsor, bubble failures,
-        // and decode its uint256 return. Assembly avoids re-encoding the signed dynamic payload.
+        // Assembly avoids decoding and re-encoding the opaque signed structs in `data`.
+        // Equivalent Solidity pseudocode:
+        // (amountIn, requestRecipient, matchResult, bundle, options) = abi.decode(data, (...));
+        // matchResult.internalPartyInputToken = buyToken;
+        // matchResult.internalPartyOutputToken = sellToken;
+        // options.refundNativeEth = refundNativeEth;
+        // options.refundAmount = maxRefundAmount;
+        // buyAmt = GasSponsorV2(target).sponsorExternalMatch(
+        //     sellAmt, recipient, matchResult, bundle, options
+        // );
         assembly ("memory-safe") {
             let len := mload(data)
             let optionsOffset := mload(add(0x140, data))

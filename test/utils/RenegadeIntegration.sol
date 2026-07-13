@@ -87,7 +87,10 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
     }
 
     function _refund(bytes memory txnCalldata) internal pure returns (bool refundNativeEth, uint256 maxRefundAmount) {
-        // Equivalent Solidity: decode the refund fields from the captured sponsor calldata fixture.
+        // Assembly avoids declaring the complete Renegade ABI structs in the test harness.
+        // Equivalent Solidity pseudocode:
+        // (, , , , GasSponsorOptions memory options) = abi.decode(txnCalldata[4:], (...));
+        // return (options.refundNativeEth, options.refundAmount);
         assembly ("memory-safe") {
             let optionsOffset := mload(add(0x144, txnCalldata))
             refundNativeEth := mload(add(0x44, add(txnCalldata, optionsOffset)))
