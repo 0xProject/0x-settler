@@ -72,8 +72,6 @@ def functionPrefixes : ModelKind → List String
        "fun_wrap_expRayToWad_", "fun_wrap_mulExpRay_",
        "fun_expRayToWad_", "fun_mulExpRay_",
        "fun__octave_", "fun__expRayKernel_",
-       "constant__EXP_RAY_TO_WAD_HI_", "constant__SCALE_CLZ_BIAS_",
-       "constant__WAD_SCALE_", "constant__WAD_ZERO_MAX_",
        "constant_ARITHMETIC_OVERFLOW_", "fun_panic_",
        "fun_or_", "fun_clz_"]
 
@@ -754,12 +752,6 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
         aliasByPrefix functions "fun_mulExpRay" "fun_mulExpRay_",
         aliasByPrefix functions "fun__octave" "fun__octave_",
         aliasByPrefix functions "fun__expRayKernel" "fun__expRayKernel_",
-        aliasByPrefix functions "constant__EXP_RAY_TO_WAD_HI" "constant__EXP_RAY_TO_WAD_HI_",
-        aliasByPrefix functions "constant__SCALE_CLZ_BIAS" "constant__SCALE_CLZ_BIAS_",
-        aliasByPrefix functions "constant__WAD_SCALE" "constant__WAD_SCALE_",
-        aliasByPrefix functions "constant__WAD_ZERO_MAX" "constant__WAD_ZERO_MAX_",
-        aliasByPrefix functions "constant__MUL_EXP_RAY_HI" "constant__MUL_EXP_RAY_HI_",
-        aliasByPrefix functions "constant__MUL_EXP_RAY_ZERO_MAX" "constant__MUL_EXP_RAY_ZERO_MAX_",
         aliasByPrefix functions "constant_ARITHMETIC_OVERFLOW" "constant_ARITHMETIC_OVERFLOW_",
         aliasByPrefix functions "fun_panic" "fun_panic_",
         aliasByPrefix functions "fun_or" "fun_or_",

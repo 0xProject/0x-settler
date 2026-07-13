@@ -8,35 +8,6 @@ import {Clz} from "./Clz.sol";
 library Exp {
     using FastLogic for bool;
 
-    uint256 private constant _SCALE_CLZ_BIAS = 129;
-    // 10¹⁸ ⋅ 2⁶⁷ < 2¹²⁷: `expRayToWad`'s scale — the wad output basis carrying 67 bits of
-    // closing headroom.
-    uint256 private constant _WAD_SCALE = 0x6f05b59d3b2000000000000000000000;
-    // The least x whose octave count k = round(x / (10²⁷⋅ln(2))) reaches 66, i.e.
-    // ⌈(66⋅2¹⁹² - 2¹⁹¹) / CINV⌉ ≈ 65.5⋅ln(2)⋅10²⁷ ≈ 45.40⋅10²⁷ (CINV is `_octave`'s
-    // reciprocal): at `expRayToWad`'s fixed headroom s = 67 the deficit envelope reaches one
-    // output unit at k = 66.
-    int256 private constant _EXP_RAY_TO_WAD_HI = 0x92b2f16cc66c5a4ae96e80d4;
-    // ⌊10²⁷ ⋅ ln(10⁻¹⁸)⌋: the greatest x with 10¹⁸⋅exp(x / 10²⁷) < 1. At or below it
-    // `expRayToWad` clamps to zero; the clamp consults only x, so it also discards the
-    // reduction garbage for x ≲ -2¹⁵¹ where `_octave`'s product wraps.
-    int256 private constant _WAD_ZERO_MAX = -41446531673892822312323846185;
-    // The least x whose octave count reaches 126, i.e. ⌈(126⋅2¹⁹² - 2¹⁹¹) / CINV⌉ ≈
-    // 125.5⋅ln(2)⋅10²⁷ ≈ 87.00⋅10²⁷: the first octave past the deficit envelope at even the
-    // maximal scale headroom (s = 127, at y = 0). Within the wrap-free octave range the
-    // closing-shift guard already rejects these inputs; this comparison's irreducible role is
-    // the fence that keeps accepted x clear of the region (x ≳ 2¹⁵¹) where `_octave`'s product
-    // wraps and the octave word is garbage; without it, a wrapped word could pass the accuracy
-    // guard and the kernel would return an unflagged wrong value.
-    int256 private constant _MUL_EXP_RAY_HI = 86989971160273136331862631244;
-    // The least x whose octave count reaches -127, i.e. ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉ ≈
-    // -127.5⋅ln(2)⋅10²⁷ ≈ -88.38⋅10²⁷. At or below it the kernel clamps `mulExpRay` to zero,
-    // which is within the bracket at every supported scale (2¹²⁷⋅exp(x/10²⁷) < 1); the
-    // clamp consults only x, so it also zeroes every accepted x inside `_octave`'s negative
-    // wraparound region (x ≲ -2¹⁵²). Above it, k ≥ -127 keeps the closing shift below 256 and
-    // the reduced argument on the certified domain.
-    int256 private constant _MUL_EXP_RAY_ZERO_MAX = -88376265521393026950697095485;
-
     /// @notice Compute the natural exponential of a fixnum with 10**27 (ray) basis, returning the
     ///         result as a fixnum with 10**18 (wad) basis.
     /// @dev Let E = 10¹⁸ ⋅ exp(x / 10²⁷) be the exact, infinite-precision result. This function
@@ -47,15 +18,27 @@ library Exp {
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.22 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int128) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 66, where the deficit
-        // envelope below exceeds 1ulp.
-        if (x >= _EXP_RAY_TO_WAD_HI) {
+        // This is ⌈(66⋅2¹⁹² - 2¹⁹¹) / CINV⌉, with CINV the Q192 reciprocal in `_octave`; here the
+        // octave count reaches 66 and the deficit envelope exceeds one output unit.
+        if (x >= 0x92b2f16cc66c5a4ae96e80d4) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
         int256 k = _octave(x);
         unchecked {
-            return int128(int256(_expRayKernel(x, k, _WAD_SCALE, uint256(int256(67) - k), _WAD_ZERO_MAX)));
+            // 10¹⁸⋅2⁶⁷ carries 67 closing-headroom bits. The cutoff is
+            // ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x with 10¹⁸⋅exp(x/10²⁷) < 1.
+            return int128(
+                int256(
+                    _expRayKernel(
+                        x,
+                        k,
+                        0x6f05b59d3b2000000000000000000000,
+                        uint256(int256(67) - k),
+                        -41446531673892822312323846185
+                    )
+                )
+            );
         }
     }
 
@@ -95,22 +78,22 @@ library Exp {
         unchecked {
             // The top-bit term admits abs(type(int128).min) at s = 0 while leaving every smaller
             // magnitude's normalization unchanged.
-            uint256 s = Clz.clz(ay) - _SCALE_CLZ_BIAS + (ay >> 127);
+            uint256 s = Clz.clz(ay) - 129 + (ay >> 127);
 
             int256 k = _octave(x);
             int256 shift = int256(s) - k;
             // Reject inputs whose two-unit magnitude bracket the kernel cannot deliver:
-            //  - x at or above the octave (k = 126) that exhausts the deficit envelope at even
-            //    the maximal headroom, phrased as one signed comparison against the constant
-            //    less one; its irreducible role is fencing accepted x away from `_octave`'s
-            //    positive wraparound (see `_MUL_EXP_RAY_HI`);
+            //  - x at or above ⌈(126⋅2¹⁹² - 2¹⁹¹) / CINV⌉, where k = 126 exhausts the deficit
+            //    envelope at even the maximal headroom, phrased as one signed comparison against
+            //    the threshold less one; its irreducible role is fencing accepted x away from
+            //    `_octave`'s positive wraparound;
             //  - fewer than two bits of closing shift: the deficit envelope
             //    (2993/1000 + margin)⋅2ᵏ⁻ˢ reaches one output unit at k > s - 2 (see the
             //    kernel). This also rejects x = 0 when abs(y) leaves s ≤ 1, although the pinned
             //    result would be exact. When `_octave`'s product wraps (x ≲ -2¹⁵²) its output
             //    stands in for k, so those exponents revert or pass as the wrapped word falls;
             //    the kernel's clamp zeroes every accepted one.
-            if ((x > _MUL_EXP_RAY_HI - 1).or(shift < 2)) {
+            if ((x > 86989971160273136331862631243).or(shift < 2)) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
 
@@ -119,7 +102,9 @@ library Exp {
             // (ay reaching 2ᴸ), the scale ay << s does not decrease while the closing shift shrinks
             // by one, so both effects raise the result. The x = 0 pin and zero clamp preserve order,
             // and sign reapplication mirrors the argument to y < 0.
-            uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), _MUL_EXP_RAY_ZERO_MAX);
+            // The cutoff is ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉. At or below it,
+            // 2¹²⁷⋅exp(x/10²⁷) < 1, so every supported magnitude clamps soundly to zero.
+            uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), -88376265521393026950697095485);
             // Reapply y's sign and collapse y = 0 (whose kernel output is unspecified; the scale
             // is zero) in one branchless step:
             //     m *= sgn(y)

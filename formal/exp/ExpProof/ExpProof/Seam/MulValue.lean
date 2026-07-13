@@ -65,7 +65,7 @@ theorem call_fun_mulExpRay_direct
     call_fun_clz_direct (x := ay) (fuel := fuel + extra) (extra := 2104)
       (shared := shared) (hlookup := hlookup)
   have hscaleClzBias :=
-    call_constant__SCALE_CLZ_BIAS_direct (fuel := fuel + extra) (extra := 2023)
+    call_convert_129_to_uint256_direct (fuel := fuel + extra) (extra := 2060)
       (shared := shared) (hlookup := hlookup)
   have hwrapS :=
     call_wrapping_sub_t_uint256_direct (x := evmClz ay) (y := scaleClzBias)
@@ -90,53 +90,46 @@ theorem call_fun_mulExpRay_direct
     call_wrapping_sub_t_int256_direct (x := s) (y := k) (fuel := fuel + extra) (extra := 2084)
       (shared := shared) (hlookup := hlookup)
   have hHi :=
-    call_constant__MUL_EXP_RAY_HI_direct (fuel := fuel + extra) (extra := 2000)
+    call_convert_MUL_EXP_RAY_HI_MINUS_ONE_to_int256_direct
+      (fuel := fuel + extra) (extra := 2037)
       (shared := shared) (hlookup := hlookup)
-  have hconvertOne :=
-    call_convert_1_to_int256_direct (fuel := fuel + extra) (extra := 2036)
-      (shared := shared) (hlookup := hlookup)
-  have hsubHi :=
-    call_wrapping_sub_t_int256_direct (x := mulExpRayHi) (y := 1)
-      (fuel := fuel + extra) (extra := 2078) (shared := shared) (hlookup := hlookup)
-  have hcleanupHiMinusOne :=
-    call_cleanup_t_int256_direct (v := evmSub mulExpRayHi 1)
-      (fuel := fuel + extra) (extra := 2135) (shared := shared) (hlookup := hlookup)
   have hcleanupXForHi :=
-    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2133)
+    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2135)
       (shared := shared) (hlookup := hlookup)
   have hconvertTwo :=
-    call_convert_2_to_int256_direct (fuel := fuel + extra) (extra := 2029)
+    call_convert_2_to_int256_direct (fuel := fuel + extra) (extra := 2031)
       (shared := shared) (hlookup := hlookup)
   have hcleanupShift :=
-    call_cleanup_t_int256_direct (v := shift) (fuel := fuel + extra) (extra := 2127)
+    call_cleanup_t_int256_direct (v := shift) (fuel := fuel + extra) (extra := 2129)
       (shared := shared) (hlookup := hlookup)
   have hOrGuard :=
     call_fun_or_direct
-      (a := evmSgt x (evmSub mulExpRayHi 1))
+      (a := evmSgt x 86989971160273136331862631243)
       (b := evmSlt shift 2)
-      (fuel := fuel + extra) (extra := 2070) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 2072) (shared := shared) (hlookup := hlookup)
   have hscaleShift :=
     call_shift_left_t_uint256_t_uint256_direct (value := ay) (bits := s)
-      (fuel := fuel + extra) (extra := 1960) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 1962) (shared := shared) (hlookup := hlookup)
   have hconvertShiftOut :=
-    call_convert_int256_to_uint256_direct (v := shift) (fuel := fuel + extra) (extra := 2017)
+    call_convert_int256_to_uint256_direct (v := shift) (fuel := fuel + extra) (extra := 2019)
       (shared := shared) (hlookup := hlookup)
   have hZM :=
-    call_constant__MUL_EXP_RAY_ZERO_MAX_direct (fuel := fuel + extra) (extra := 1976)
+    call_convert_MUL_EXP_RAY_ZERO_MAX_to_int256_direct
+      (fuel := fuel + extra) (extra := 2017)
       (shared := shared) (hlookup := hlookup)
   have hkernel :=
     call_fun__expRayKernel_direct (x := x) (k := k) (scale := scale) (shift := shift)
-      (zeroCutoff := mulExpRayZeroMax) (fuel := fuel + extra) (extra := 1435)
+      (zeroCutoff := mulExpRayZeroMax) (fuel := fuel + extra) (extra := 1436)
       (shared := shared) (hlookup := hlookup)
   have hconvertInt256 :=
     call_convert_uint256_to_int256_direct (v := mulExpTree y x) (fuel := fuel + extra)
-      (extra := 2010) (shared := shared) (hlookup := hlookup)
+      (extra := 2011) (shared := shared) (hlookup := hlookup)
   have hconvertNarrow :=
     call_convert_int256_to_int128_direct (v := mulExpTree y x) (fuel := fuel + extra)
-      (extra := 2009) (shared := shared) (hlookup := hlookup)
+      (extra := 2010) (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hzeroInit hzeroUint1 hzeroUint2
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_clz, ay, absTree, signTree] at hclz
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__SCALE_CLZ_BIAS] at hscaleClzBias
+  simp only [Nat.reduceAdd, FormalYul.word] at hscaleClzBias
   simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleClzBias] at hwrapS
   simp only [Nat.reduceAdd, FormalYul.word] at hconvert127
   simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree] at hshrAy
@@ -147,22 +140,18 @@ theorem call_fun_mulExpRay_direct
   simp only [Nat.reduceAdd, FormalYul.word, k, kTree, s, ay, absTree, signTree,
     scaleShiftTree, scaleClzBias]
     at hwrapShift
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__MUL_EXP_RAY_HI,
-    mulExpRayHi] at hHi
-  simp only [Nat.reduceAdd, FormalYul.word] at hconvertOne
-  simp only [Nat.reduceAdd, FormalYul.word, mulExpRayHi] at hsubHi hcleanupHiMinusOne
+  simp only [Nat.reduceAdd, FormalYul.word] at hHi
   simp only [Nat.reduceAdd, FormalYul.word] at hcleanupXForHi
   simp only [Nat.reduceAdd, FormalYul.word] at hconvertTwo
   simp only [Nat.reduceAdd, FormalYul.word, shift, k, kTree, s, ay, absTree, signTree,
     scaleShiftTree, scaleClzBias] at hcleanupShift
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_or, k, kTree, shift, s, ay, absTree,
-    signTree, scaleShiftTree, scaleClzBias, mulExpRayHi] at hOrGuard
+    signTree, scaleShiftTree, scaleClzBias] at hOrGuard
   simp only [Nat.reduceAdd, FormalYul.word, s, ay, absTree, signTree, scaleShiftTree,
     scaleClzBias] at hscaleShift
   simp only [Nat.reduceAdd, FormalYul.word, shift, k, kTree, s, ay, absTree, signTree,
     scaleShiftTree, scaleClzBias] at hconvertShiftOut
-  simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__MUL_EXP_RAY_ZERO_MAX,
-    mulExpRayZeroMax] at hZM
+  simp only [Nat.reduceAdd, FormalYul.word, mulExpRayZeroMax] at hZM
   simp only [Nat.reduceAdd, FormalYul.word, k, kTree, scale, shift, s, ay, absTree,
     signTree, scaleShiftTree, scaleClzBias, mulExpRayZeroMax, evmShl_one_c0] at hkernel
   simp only [Nat.reduceAdd, FormalYul.word,
@@ -172,9 +161,11 @@ theorem call_fun_mulExpRay_direct
     ev0, ev1, ev2, ev3, ev4, evShift1, evShift2, evShift3, evShift4,
     od0, od1, od2, od3, od4, odShift1, odShift2, odShift3, odShift4,
     todShift, marginWord, scaleClzBias, mulExpRayZeroMax] at hconvertInt256 hconvertNarrow
+  have hhiMinusOne : evmSub mulExpRayHi 1 = 86989971160273136331862631243 := by
+    norm_num [evmSub, mulExpRayHi, u256, WORD_MOD]
   have hguardUnfold :
       evmOr
-        (evmSgt x (evmSub 86989971160273136331862631244 1))
+        (evmSgt x 86989971160273136331862631243)
         (evmSlt
           (evmSub
             (evmAdd
@@ -183,7 +174,7 @@ theorem call_fun_mulExpRay_direct
             (evmSar kRoundShift (evmAdd (evmShl kHalfShift 1) (evmMul cInvQ192 x))))
           2) = 0 := by
     simpa [mulExpGuardTree, mulShiftTree, scaleShiftTree, absTree, signTree, kTree,
-      scaleClzBias, mulExpRayHi] using hguard
+      scaleClzBias, hhiMinusOne] using hguard
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
@@ -196,7 +187,7 @@ theorem call_fun_mulExpRay_direct
     hguardUnfold,
     hzeroInit, hzeroUint1, hzeroUint2, hclz, hscaleClzBias, hwrapS,
     hconvert127, hshrAy, hwrapAdd, hoctave, hconvertS, hwrapShift,
-    hHi, hconvertOne, hsubHi, hcleanupHiMinusOne, hcleanupXForHi,
+    hHi, hcleanupXForHi,
     hconvertTwo, hcleanupShift, hOrGuard, hscaleShift,
     hconvertShiftOut, hZM, hkernel, hconvertInt256, hconvertNarrow,
     FormalYul.Preservation.uint256_ofNat_lt_eq_word_evmLt,

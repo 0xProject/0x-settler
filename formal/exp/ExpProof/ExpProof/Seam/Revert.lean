@@ -78,11 +78,8 @@ theorem call_fun_expRayToWad_revert_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hconstHi :=
-    call_constant__EXP_RAY_TO_WAD_HI_direct (fuel := fuel + extra) (extra := 832)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupHi :=
-    call_cleanup_t_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4) (fuel := fuel + extra)
-      (extra := 967) (shared := shared) (hlookup := hlookup)
+    call_convert_44_to_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4)
+      (fuel := fuel + extra) (extra := 867) (shared := shared) (hlookup := hlookup)
   have hcleanup :=
     call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 965)
       (shared := shared) (hlookup := hlookup)
@@ -92,7 +89,7 @@ theorem call_fun_expRayToWad_revert_direct
   have hpanic :=
     call_fun_panic_revert_direct (code := 0x11) (fuel := fuel + extra) (extra := 384)
       (shared := shared) (hlookup := hlookup)
-  simp only [Nat.reduceAdd, FormalYul.word] at hconstHi hcleanupHi hcleanup hconvu hpanic
+  simp only [Nat.reduceAdd, FormalYul.word] at hconstHi hcleanup hconvu hpanic
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
@@ -105,7 +102,7 @@ theorem call_fun_expRayToWad_revert_direct
       (shared := shared) (hlookup := hlookup),
     call_constant_ARITHMETIC_OVERFLOW_direct (fuel := fuel + extra) (extra := 826)
       (shared := shared) (hlookup := hlookup),
-    hcleanupHi, hcleanup, hconstHi, hconvu, hpanic]
+    hcleanup, hconstHi, hconvu, hpanic]
 
 set_option maxHeartbeats 8000000 in
 /-- The thin wrapper `fun_wrap_expRayToWad` just forwards to `fun_expRayToWad`, so it reverts

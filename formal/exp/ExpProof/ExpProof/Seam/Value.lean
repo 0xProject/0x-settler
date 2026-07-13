@@ -82,11 +82,8 @@ theorem call_fun_expRayToWad_zero_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hconstHi :=
-    call_constant__EXP_RAY_TO_WAD_HI_direct (fuel := fuel + extra) (extra := 732)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupHi :=
-    call_cleanup_t_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4) (fuel := fuel + extra)
-      (extra := 867) (shared := shared) (hlookup := hlookup)
+    call_convert_44_to_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4)
+      (fuel := fuel + extra) (extra := 767) (shared := shared) (hlookup := hlookup)
   have hcleanup :=
     call_cleanup_t_int256_direct (v := 0) (fuel := fuel + extra) (extra := 865)
       (shared := shared) (hlookup := hlookup)
@@ -95,7 +92,7 @@ theorem call_fun_expRayToWad_zero_direct
     call_fun__octave_direct (x := 0) (fuel := fuel + extra) (extra := 767)
       (shared := shared) (hlookup := hlookup)
   have hscale :=
-    call_constant__WAD_SCALE_direct (fuel := fuel + extra) (extra := 721)
+    call_convert_WAD_SCALE_to_uint256_direct (fuel := fuel + extra) (extra := 753)
       (shared := shared) (hlookup := hlookup)
   have hconv67 :=
     call_convert_67_to_int256_direct (fuel := fuel + extra) (extra := 759)
@@ -107,18 +104,18 @@ theorem call_fun_expRayToWad_zero_direct
     call_convert_int256_to_uint256_direct (v := evmSub 0x43 k) (fuel := fuel + extra)
       (extra := 755) (shared := shared) (hlookup := hlookup)
   have hzeroCutoff :=
-    call_constant__WAD_ZERO_MAX_direct (fuel := fuel + extra) (extra := 714)
+    call_convert_WAD_ZERO_MAX_to_int256_direct (fuel := fuel + extra) (extra := 752)
       (shared := shared) (hlookup := hlookup)
   have hkernel :=
-    call_fun__expRayKernel_zero_direct (fuel := fuel + extra) (extra := 173)
+    call_fun__expRayKernel_zero_direct (fuel := fuel + extra) (extra := 171)
       (shared := shared) (hlookup := hlookup)
   have hconvertInt256 :=
     call_convert_uint256_to_int256_direct (v := 1000000000000000000) (fuel := fuel + extra)
-      (extra := 752) (shared := shared) (hlookup := hlookup)
+      (extra := 750) (shared := shared) (hlookup := hlookup)
   have hconvertNarrow :=
     call_convert_int256_to_int128_direct (v := 1000000000000000000) (fuel := fuel + extra)
-      (extra := 751) (shared := shared) (hlookup := hlookup)
-  simp only [Nat.reduceAdd, FormalYul.word] at hconstHi hcleanupHi hcleanup hoctave hscale hconv67
+      (extra := 749) (shared := shared) (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at hconstHi hcleanup hoctave hscale hconv67
   simp only [Nat.reduceAdd, FormalYul.word] at hwrapSub hshift hzeroCutoff hkernel hconvertInt256 hconvertNarrow
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
@@ -131,7 +128,7 @@ theorem call_fun_expRayToWad_zero_direct
     Finmap.lookup_insert, FormalYul.word,
     call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 876)
       (shared := shared) (hlookup := hlookup),
-    hconstHi, hcleanupHi, hcleanup, hoctave, hscale, hconv67, hwrapSub, hshift,
+    hconstHi, hcleanup, hoctave, hscale, hconv67, hwrapSub, hshift,
     hzeroCutoff, hkernel, hconvertInt256, hconvertNarrow, k]
 
 set_option maxHeartbeats 8000000 in
@@ -578,11 +575,8 @@ theorem call_fun_expRayToWad_direct
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   let k := evmSar 0xc0 (evmAdd (evmShl 0xbf 1) (evmMul 0x724d54edbacbebbb95c52a0f60 x))
   have hconstHi :=
-    call_constant__EXP_RAY_TO_WAD_HI_direct (fuel := fuel + extra) (extra := 732)
-      (shared := shared) (hlookup := hlookup)
-  have hcleanupHi :=
-    call_cleanup_t_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4) (fuel := fuel + extra)
-      (extra := 867) (shared := shared) (hlookup := hlookup)
+    call_convert_44_to_int256_direct (v := 0x92b2f16cc66c5a4ae96e80d4)
+      (fuel := fuel + extra) (extra := 767) (shared := shared) (hlookup := hlookup)
   have hcleanup :=
     call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 865)
       (shared := shared) (hlookup := hlookup)
@@ -590,7 +584,7 @@ theorem call_fun_expRayToWad_direct
     call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 767)
       (shared := shared) (hlookup := hlookup)
   have hscale :=
-    call_constant__WAD_SCALE_direct (fuel := fuel + extra) (extra := 721)
+    call_convert_WAD_SCALE_to_uint256_direct (fuel := fuel + extra) (extra := 753)
       (shared := shared) (hlookup := hlookup)
   have hconv67 :=
     call_convert_67_to_int256_direct (fuel := fuel + extra) (extra := 759)
@@ -602,13 +596,13 @@ theorem call_fun_expRayToWad_direct
     call_convert_int256_to_uint256_direct (v := evmSub 0x43 k) (fuel := fuel + extra)
       (extra := 755) (shared := shared) (hlookup := hlookup)
   have hzeroCutoff :=
-    call_constant__WAD_ZERO_MAX_direct (fuel := fuel + extra) (extra := 714)
+    call_convert_WAD_ZERO_MAX_to_int256_direct (fuel := fuel + extra) (extra := 752)
       (shared := shared) (hlookup := hlookup)
   have hkernel :=
     call_fun__expRayKernel_direct (x := x) (k := k)
       (scale := 0x6f05b59d3b2000000000000000000000) (shift := evmSub 0x43 k)
       (zeroCutoff := 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7)
-      (fuel := fuel + extra) (extra := 173)
+      (fuel := fuel + extra) (extra := 171)
       (shared := shared) (hlookup := hlookup)
   have hconvertInt256 :=
     call_convert_uint256_to_int256_direct
@@ -632,7 +626,7 @@ theorem call_fun_expRayToWad_direct
         let r1 := evmShr (evmSub 0x43 k) (evmSub r0 0x1)
         evmAdd (evmIszero x)
           (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
-      (fuel := fuel + extra) (extra := 752) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 750) (shared := shared) (hlookup := hlookup)
   have hconvertNarrow :=
     call_convert_int256_to_int128_direct
       (v :=
@@ -655,8 +649,8 @@ theorem call_fun_expRayToWad_direct
         let r1 := evmShr (evmSub 0x43 k) (evmSub r0 0x1)
         evmAdd (evmIszero x)
           (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
-      (fuel := fuel + extra) (extra := 751) (shared := shared) (hlookup := hlookup)
-  simp only [Nat.reduceAdd, FormalYul.word] at hconstHi hcleanupHi hcleanup hoctave hscale hconv67
+      (fuel := fuel + extra) (extra := 749) (shared := shared) (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at hconstHi hcleanup hoctave hscale hconv67
   simp only [Nat.reduceAdd, FormalYul.word] at hwrapSub hshift hzeroCutoff hkernel hconvertInt256 hconvertNarrow
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
     EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
@@ -670,7 +664,7 @@ theorem call_fun_expRayToWad_direct
     slt_thresh_lt hval,
     call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 876)
       (shared := shared) (hlookup := hlookup),
-    hconstHi, hcleanupHi, hcleanup, hoctave, hscale, hconv67, hwrapSub, hshift,
+    hconstHi, hcleanup, hoctave, hscale, hconv67, hwrapSub, hshift,
     hzeroCutoff, hkernel, hconvertInt256, hconvertNarrow, k]
   simpa only [FormalYul.word] using hresultClean
 
