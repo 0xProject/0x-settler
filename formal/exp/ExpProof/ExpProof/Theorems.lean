@@ -109,9 +109,10 @@ Every documented `mulExpRay` property holds for the compiled runtime, axiom-clea
 | Monotone in `x`, direction following `sign(y)`         | `run_mul_exp_ray_evm_mono_x`         |
 | Nondecreasing in `y` at a fixed `x`                    | `run_mul_exp_ray_evm_mono_y`         |
 | Joint sign-aware monotonicity (three cases)            | `run_mul_exp_ray_evm_mono_joint`     |
-| Reverts exactly when magnitude, upper-fence, or closing-shift guard fails | `mulExpRay_value_iff_not_panic`, `run_mul_exp_ray_evm_revert`, `panicDomain_iff_magnitude_guard`, `run_mul_exp_ray_evm_revert_int128_min` |
-| The 127-bit magnitude guard is exact                    | `scaleShiftTree_le_127_iff`          |
-| The maximal magnitude is live at closing shift two     | `scaleMax_octave_neg_two_run_bracket` |
+| Reverts exactly when the upper-fence or closing-shift guard fails | `mulExpRay_value_iff_not_panic`, `run_mul_exp_ray_evm_revert`, `panicDomain_iff_guard_eq_one` |
+| The inclusive `2^127` kernel scale has zero headroom shift | `scaleShiftTree_kernelScaleMax`   |
+| `int128.min` is accepted exactly below the fence with octave at most `-2` | `int128Min_valueDomain_iff` |
+| The positive `int128` maximum is live at closing shift two | `int128Max_octave_neg_two_run_bracket` |
 
 Supporting rows: the exact value/panic partition of canonical calldata
 (`mulExpRay_value_or_panic_of_canonical`), the guard word ↔ domain bridge
@@ -120,7 +121,7 @@ Supporting rows: the exact value/panic partition of canonical calldata
 
 The proof chain: the scale-symbolic per-point certificates
 (`r0Scaled_real_over_within`/`r0Scaled_real_under_within`) instantiate at the dynamic scale
-`abs(y)·2ˢ ∈ [2¹²⁵, 2¹²⁷ − 1]`; the accumulator fold (`Mul.Accum`) closes the live-region
+`abs(y)·2ˢ ∈ [2¹²⁵, 2¹²⁷]`; the accumulator fold (`Mul.Accum`) closes the live-region
 bracket; the unit-step induction with the scaled seam doubling (`Mul.XMono`) closes the
 sign-directed exponent monotonicity; the headroom-step induction (`Mul.YMono`) closes the
 multiplier monotonicity; and the corner composition with the antitone headroom (`Mul.Joint`)
@@ -133,56 +134,81 @@ example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
     MulExpRayValueDomain y x ∨ MulExpRayPanicDomain y x :=
   mulExpRay_value_or_panic_of_canonical hcanon
 
-/-- The magnitude cap is the largest signed 127-bit value. -/
-example : scaleMax = 2 ^ 127 - 1 := scaleMax_eq
+/-- The analytic kernel scale includes the absolute magnitude of `int128.min`. -/
+example : kernelScaleMax = 2 ^ 127 := kernelScaleMax_eq
 
-/-- The headroom comparison accepts exactly the magnitudes at or below the cap. -/
-example {y : Nat} :
-    scaleShiftTree (absTree y) ≤ 127 ↔ absTree y ≤ scaleMax :=
-  scaleShiftTree_le_127_iff (absTree_lt y)
+/-- The inclusive endpoint is already normalized and therefore needs no headroom shift. -/
+example : scaleShiftTree kernelScaleMax = 0 :=
+  scaleShiftTree_kernelScaleMax
 
 /-- The panic predicate is exactly the compiled guard word being one. -/
 example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
     MulExpRayPanicDomain y x ↔ mulExpGuardTree y x = 1 :=
   panicDomain_iff_guard_eq_one hcanon
 
-/-- The never-over certificate holds at the maximal dynamic scale. -/
+/-- The compiled guard rejects exactly at the upper fence or below closing shift two. -/
+example {y x : Nat} (hx : x < 2 ^ 256) :
+    mulExpGuardTree y x = 1 ↔
+      FormalYul.Preservation.int256 mulExpRayHi ≤ FormalYul.Preservation.int256 x ∨
+        FormalYul.Preservation.int256 (mulShiftTree y x) < 2 :=
+  mulExpGuardTree_eq_one_iff hx
+
+/-- The never-over certificate holds at the inclusive maximal dynamic scale. -/
 example {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
-    (FormalYul.Preservation.int256 (r0ScaledTree scaleMax x) : Real) ≤
-      (scaleMax : Real) * Real.exp (reducedArg x) +
+    (FormalYul.Preservation.int256 (r0ScaledTree kernelScaleMax x) : Real) ≤
+      (kernelScaleMax : Real) * Real.exp (reducedArg x) +
         2 * 4668745981919039833 / 10000000000000000000 :=
-  r0Scaled_real_over_within (by norm_num [scaleMax]) (le_refl _) hx hW
+  r0Scaled_real_over_within (by norm_num [kernelScaleMax]) (le_refl _) hx hW
 
-/-- The deficit certificate holds at the maximal dynamic scale. -/
+/-- The deficit certificate holds at the inclusive maximal dynamic scale. -/
 example {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
-    (scaleMax : Real) * Real.exp (reducedArg x) ≤
-      (FormalYul.Preservation.int256 (r0ScaledTree scaleMax x) : Real) + 2993 / 1000 :=
-  r0Scaled_real_under_within (by norm_num [scaleMax]) (le_refl _) hx hW
+    (kernelScaleMax : Real) * Real.exp (reducedArg x) ≤
+      (FormalYul.Preservation.int256 (r0ScaledTree kernelScaleMax x) : Real) + 2993 / 1000 :=
+  r0Scaled_real_under_within (by norm_num [kernelScaleMax]) (le_refl _) hx hW
 
-/-- At the maximal magnitude, octave `-2` attains the minimum accepted closing shift and the
-compiled runtime satisfies its signed bracket. -/
-theorem scaleMax_octave_neg_two_run_bracket {x : Nat} (hx : x < 2 ^ 256)
+/-- At the positive `int128` maximum, octave `-2` attains the minimum accepted closing shift and
+the compiled runtime satisfies its signed bracket. -/
+theorem int128Max_octave_neg_two_run_bracket {x : Nat} (hx : x < 2 ^ 256)
     (hxhi : FormalYul.Preservation.int256 x <
       FormalYul.Preservation.int256 mulExpRayHi)
     (hk : FormalYul.Preservation.int256 (kTree x) = -2) :
-    scaleShiftTree (absTree scaleMax) = 0 ∧
-      FormalYul.Preservation.int256 (mulShiftTree scaleMax x) = 2 ∧
-        MulExpRayRunBracket scaleMax x := by
-  obtain ⟨hs, hshift, hdom⟩ := scaleMax_octave_neg_two_valueDomain hx hxhi hk
+    scaleShiftTree (absTree int128Max) = 0 ∧
+      FormalYul.Preservation.int256 (mulShiftTree int128Max x) = 2 ∧
+        MulExpRayRunBracket int128Max x := by
+  obtain ⟨hs, hshift, hdom⟩ := int128Max_octave_neg_two_valueDomain hx hxhi hk
   exact ⟨hs, hshift, mulExpRay_run_bracket hdom⟩
 
-/-- A concrete exponent word in octave `-2` witnesses the live maximal-magnitude boundary. -/
-theorem scaleMax_concrete_neg_three_halves_run_bracket :
-    scaleShiftTree (absTree scaleMax) = 0 ∧
+/-- A concrete exponent word in octave `-2` witnesses the live positive-magnitude boundary. -/
+theorem int128Max_concrete_neg_three_halves_run_bracket :
+    scaleShiftTree (absTree int128Max) = 0 ∧
       FormalYul.Preservation.int256
-          (mulShiftTree scaleMax
+          (mulShiftTree int128Max
             (2 ^ 256 - 1500000000000000000000000000)) = 2 ∧
-        MulExpRayRunBracket scaleMax
+        MulExpRayRunBracket int128Max
           (2 ^ 256 - 1500000000000000000000000000) := by
-  apply scaleMax_octave_neg_two_run_bracket
+  apply int128Max_octave_neg_two_run_bracket
   · norm_num
   · norm_num [FormalYul.Preservation.int256, mulExpRayHi]
   · decide +kernel
+
+/-- At `int128.min`, octave `-2` attains the minimum accepted closing shift and lies in the value
+domain below the unconditional upper fence. -/
+example {x : Nat} (hx : x < 2 ^ 256)
+    (hxhi : FormalYul.Preservation.int256 x <
+      FormalYul.Preservation.int256 mulExpRayHi)
+    (hk : FormalYul.Preservation.int256 (kTree x) = -2) :
+    scaleShiftTree (absTree (2 ^ 256 - 2 ^ 127)) = 0 ∧
+      FormalYul.Preservation.int256 (mulShiftTree (2 ^ 256 - 2 ^ 127) x) = 2 ∧
+        MulExpRayValueDomain (2 ^ 256 - 2 ^ 127) x :=
+  int128Min_octave_neg_two_valueDomain hx hxhi hk
+
+/-- `int128.min` is accepted exactly below the unconditional upper fence while the octave is at
+most `-2`. -/
+example {x : Nat} (hx : x < 2 ^ 256) :
+    MulExpRayValueDomain (2 ^ 256 - 2 ^ 127) x ↔
+      FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 mulExpRayHi ∧
+        FormalYul.Preservation.int256 (kTree x) ≤ -2 :=
+  int128Min_valueDomain_iff hx
 
 /-- **The signed bracket on the whole value domain.** Every accepted input returns a result whose
 magnitude `m` satisfies `0 ≤ m ≤ A ∧ A < m + 2` for `A = abs(y)·exp(x/10²⁷)`. -/
@@ -213,21 +239,6 @@ example {y1 y2 x1 x2 : Nat}
       (FormalYul.Preservation.int256 y1 ≤ 0 ∧ 0 ≤ FormalYul.Preservation.int256 y2)) :
     MulExpRayRunJointMonotone y1 y2 x1 x2 :=
   run_mul_exp_ray_evm_mono_joint h1 h2 hcond
-
-/-- **The panic domain in magnitude/guard vocabulary**: too-large magnitude, exponent at or beyond
-the unconditional fence, or a closing shift below two. -/
-example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
-    MulExpRayPanicDomain y x ↔
-      scaleMax < absTree y ∨
-        FormalYul.Preservation.int256 mulExpRayHi ≤ FormalYul.Preservation.int256 x ∨
-        FormalYul.Preservation.int256 (mulShiftTree y x) < 2 :=
-  panicDomain_iff_magnitude_guard hcanon
-
-/-- **`type(int128).min` always reverts**: its magnitude `2^127` exceeds the maximal
-scale. -/
-example {x : Nat} (hx : x < 2 ^ 256) :
-    run_mul_exp_ray_evm (2 ^ 256 - 2 ^ 127) x = .error "revert" :=
-  run_mul_exp_ray_evm_revert_int128_min hx
 
 /-- **Floor membership.** Every accepted input's result magnitude is `⌊A⌋` or `⌊A⌋ − 1`. -/
 example {y x : Nat} (h : MulExpRayValueDomain y x) :
@@ -283,28 +294,27 @@ example {y x : Nat} (h : MulExpRayPanicDomain y x) :
   run_mul_exp_ray_evm_revert h
 
 /-- The accepted scale point returns the multiplier exactly. -/
-example {y : Nat} (hy : Int128Word y) (habs : absTree y ≤ scaleMax)
+example {y : Nat} (hy : Int128Word y) (habs : absTree y ≤ kernelScaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y 0)) :
     run_mul_exp_ray_evm y 0 = .ok y :=
   run_mul_exp_ray_evm_scale_point hy habs hshift
 
 /-- The scale-point result satisfies the public bracket. -/
-example {y : Nat} (hy : Int128Word y) (habs : absTree y ≤ scaleMax)
+example {y : Nat} (hy : Int128Word y) (habs : absTree y ≤ kernelScaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y 0)) :
     MulExpRayRunBracket y 0 :=
   mulExpRay_run_bracket_scale_point hy habs hshift
 
 /-- At or below the zero cutoff, every accepted magnitude returns zero. -/
 example {y x : Nat} (hy : Int128Word y) (hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y x))
     (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
     run_mul_exp_ray_evm y x = .ok 0 :=
-  run_mul_exp_ray_evm_clamped hy hx habs hshift hclamp
+  run_mul_exp_ray_evm_clamped hy hx hshift hclamp
 
 /-- The clamped result satisfies the public bracket. -/
 example {y x : Nat} (hy : Int128Word y) (hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleMax)
+    (habs : absTree y ≤ kernelScaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y x))
     (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
     MulExpRayRunBracket y x :=
@@ -363,17 +373,21 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms mulExpRay_run_bracket
 
-/-- info: 'ExpYul.scaleMax_eq' depends on axioms: [propext] -/
+/-- info: 'ExpYul.kernelScaleMax_eq' depends on axioms: [propext] -/
 #guard_msgs in
-#print axioms scaleMax_eq
+#print axioms kernelScaleMax_eq
 
-/-- info: 'ExpYul.scaleShiftTree_le_127_iff' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.scaleShiftTree_kernelScaleMax' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms scaleShiftTree_le_127_iff
+#print axioms scaleShiftTree_kernelScaleMax
 
 /-- info: 'ExpYul.panicDomain_iff_guard_eq_one' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms panicDomain_iff_guard_eq_one
+
+/-- info: 'ExpYul.mulExpGuardTree_eq_one_iff' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms mulExpGuardTree_eq_one_iff
 
 /-- info: 'ExpYul.r0Scaled_real_over_within' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -383,13 +397,13 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms r0Scaled_real_under_within
 
-/-- info: 'ExpYul.scaleMax_octave_neg_two_run_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.int128Max_octave_neg_two_run_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms scaleMax_octave_neg_two_run_bracket
+#print axioms int128Max_octave_neg_two_run_bracket
 
-/-- info: 'ExpYul.scaleMax_concrete_neg_three_halves_run_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.int128Max_concrete_neg_three_halves_run_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms scaleMax_concrete_neg_three_halves_run_bracket
+#print axioms int128Max_concrete_neg_three_halves_run_bracket
 
 /-- info: 'ExpYul.run_mul_exp_ray_evm_mono_x' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
@@ -411,13 +425,13 @@ example {y1 y2 x1 x2 : Int}
 #guard_msgs in
 #print axioms run_mul_exp_ray_evm_mono_joint
 
-/-- info: 'ExpYul.panicDomain_iff_magnitude_guard' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.int128Min_octave_neg_two_valueDomain' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms panicDomain_iff_magnitude_guard
+#print axioms int128Min_octave_neg_two_valueDomain
 
-/-- info: 'ExpYul.run_mul_exp_ray_evm_revert_int128_min' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.int128Min_valueDomain_iff' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms run_mul_exp_ray_evm_revert_int128_min
+#print axioms int128Min_valueDomain_iff
 
 /-- info: 'ExpYul.mulExpRay_value_or_panic_of_canonical' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in

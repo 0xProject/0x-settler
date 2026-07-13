@@ -51,7 +51,7 @@ private theorem mulShift_word_eq {y x1 x2 : Nat}
 /-- The signed shift is antitone in the exponent (the octave index is monotone). -/
 theorem mulShift_antitone {y x1 x2 : Nat} (hy : y < 2 ^ 256)
     (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
-    (habs : absTree y ≤ scaleMax) (hW1 : WideRegion x1) (hW2 : WideRegion x2)
+    (habs : absTree y ≤ kernelScaleMax) (hW1 : WideRegion x1) (hW2 : WideRegion x2)
     (hle : int256 x1 ≤ int256 x2) :
     int256 (mulShiftTree y x2) ≤ int256 (mulShiftTree y x1) := by
   rw [mulShiftTree_transport hy hx1 habs hW1, mulShiftTree_transport hy hx2 habs hW2]
@@ -60,7 +60,7 @@ theorem mulShift_antitone {y x1 x2 : Nat} (hy : y < 2 ^ 256)
 
 /-- The decremented quotient word: transport and range at the dynamic scale. -/
 theorem mulShiftArg_facts {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleMax) (hW : WideRegion x) :
+    (hx : x < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax) (hW : WideRegion x) :
     int256 (evmSub (r0MulTree y x) marginWord) = int256 (r0MulTree y x) - 1 ∧
       0 ≤ int256 (r0MulTree y x) - 1 ∧ int256 (r0MulTree y x) - 1 < 2 ^ 129 := by
   have hpos : 1 ≤ absTree y := absTree_pos hy hy0
@@ -91,7 +91,7 @@ theorem mulShiftArg_facts {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
 
 /-- Adjacent same-octave quotient monotonicity at the dynamic scale. -/
 theorem r0Mul_mono_adjacent {y x1 x2 : Nat} (hy : y < 2 ^ 256)
-    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax)
     (hW1 : WideRegion x1) (hW2 : WideRegion x2)
     (hk : int256 (kTree x1) = int256 (kTree x2))
     (hadj : int256 x2 = int256 x1 + 1) :
@@ -122,7 +122,7 @@ theorem r0Mul_mono_adjacent {y x1 x2 : Nat} (hy : y < 2 ^ 256)
 
 /-- **The live unit step**: for adjacent live exponents the kernel magnitude is nondecreasing. -/
 theorem mulMagnitude_step {y x1 x2 : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax)
     (hW1 : WideRegion x1) (hW2 : WideRegion x2)
     (hx10 : int256 x1 ≠ 0) (hx20 : int256 x2 ≠ 0)
     (hlive1 : 2 ≤ int256 (mulShiftTree y x1)) (hlive2 : 2 ≤ int256 (mulShiftTree y x2))
@@ -201,7 +201,7 @@ theorem mulMagnitude_step {y x1 x2 : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
 (the endpoint's live shift bounds every intermediate through octave monotonicity, and the sign
 condition keeps the scale point outside the range). -/
 theorem mulMagnitude_mono_steps {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (habs : absTree y ≤ scaleMax) (n : Nat) :
+    (habs : absTree y ≤ kernelScaleMax) (n : Nat) :
     ∀ x1 : Nat, x1 < 2 ^ 256 →
     int256 mulExpRayZeroMax < int256 x1 →
     int256 x1 + n < int256 mulExpRayHi →
@@ -300,7 +300,7 @@ theorem mulMagnitude_mono_steps {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
 /-- **Region monotonicity of the live magnitude**: for live exponents `x1 ≤ x2` on a common sign
 side, the kernel magnitude is nondecreasing. -/
 theorem mulMagnitude_region_mono {y x1 x2 : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (habs : absTree y ≤ scaleMax)
+    (habs : absTree y ≤ kernelScaleMax)
     (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hW1 : WideRegion x1) (hW2 : WideRegion x2)
     (hle : int256 x1 ≤ int256 x2)
@@ -355,18 +355,18 @@ private theorem kTree_one : int256 (kTree 1) = 0 := by
 
 /-- The magnitude at the scale point is the multiplier's magnitude. -/
 theorem int256_mulMagnitude_zero {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (habs : absTree y ≤ scaleMax) :
+    (habs : absTree y ≤ kernelScaleMax) :
     int256 (mulMagnitudeTree y 0) = (absTree y : Int) := by
   have hpos : 0 < absTree y := absTree_pos hy hy0
   rw [mulMagnitudeTree_scale_point hy hpos habs]
-  exact int256_of_lt (lt_of_le_of_lt habs (lt_trans scaleMax_lt_2127 (by norm_num)))
+  exact int256_of_lt (lt_of_le_of_lt habs (by unfold kernelScaleMax; norm_num))
 
 /-- **The analytic pin step.** At `x = 1` the live magnitude is at least the multiplier's
 magnitude: one exponent unit is worth `scale/10²⁷ ≥ 2⁹⁸` quotient units, far above the deficit
 envelope, so the decremented quotient still clears `scale` and its closing shift clears
 `abs(y)`. -/
 theorem mulMagnitude_pin_step {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (habs : absTree y ≤ scaleMax)
+    (habs : absTree y ≤ kernelScaleMax)
     (hlive1 : 2 ≤ int256 (mulShiftTree y 1)) :
     (absTree y : Int) ≤ int256 (mulMagnitudeTree y 1) := by
   have hx1 : (1 : Nat) < 2 ^ 256 := by norm_num
@@ -465,7 +465,7 @@ theorem mulMagnitude_pin_step {y : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
 /-- A negative live exponent's magnitude never exceeds the multiplier's magnitude: its real
 target is already below it. -/
 theorem mulMagnitude_le_abs_of_neg {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+    (hx : x < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax)
     (hW : WideRegion x) (hxneg : int256 x < 0)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     int256 (mulMagnitudeTree y x) ≤ (absTree y : Int) := by
@@ -547,7 +547,7 @@ theorem int256_tree_neg {y x : Nat} (hlo : 2 ^ 255 ≤ y) (hy : y < 2 ^ 256)
 
 /-- The live magnitude word stays below `2^255`. -/
 theorem mag_word_small {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+    (hx : x < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax)
     (hx0 : int256 x ≠ 0) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     mulMagnitudeTree y x < 2 ^ 255 := by
@@ -563,7 +563,7 @@ theorem mag_word_small {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
 /-- A positive live exponent's magnitude is at least the multiplier's magnitude (through the
 analytic pin step at `x = 1`). -/
 theorem mulMagnitude_ge_abs_of_pos {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+    (hx : x < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax)
     (hW : WideRegion x) (hxpos : 0 < int256 x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     (absTree y : Int) ≤ int256 (mulMagnitudeTree y x) := by
@@ -589,7 +589,7 @@ theorem mulMagnitude_ge_abs_of_pos {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0
 
 /-- **Magnitude monotonicity over the live region**, both sign sides, through the scale point. -/
 theorem mulMagnitude_mono_pair {y x1 x2 : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
-    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256) (habs : absTree y ≤ scaleMax)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256) (habs : absTree y ≤ kernelScaleMax)
     (hW1 : WideRegion x1) (hW2 : WideRegion x2)
     (hx10 : int256 x1 ≠ 0) (hx20 : int256 x2 ≠ 0)
     (hlive1 : 2 ≤ int256 (mulShiftTree y x1)) (hlive2 : 2 ≤ int256 (mulShiftTree y x2))
@@ -619,8 +619,8 @@ theorem run_mul_exp_ray_evm_mono_x {y x1 x2 : Nat}
     run_mul_exp_ray_evm_eq_tree h1
   have hrun2 : run_mul_exp_ray_evm y x2 = .ok (mulExpTree y x2) :=
     run_mul_exp_ray_evm_eq_tree h2
-  obtain ⟨⟨hy, hx1w⟩, hscale1, hxhi1, hshift1⟩ := h1
-  obtain ⟨⟨_, hx2w⟩, _, hxhi2, hshift2⟩ := h2
+  obtain ⟨⟨hy, hx1w⟩, hxhi1, hshift1⟩ := h1
+  obtain ⟨⟨_, hx2w⟩, hxhi2, hshift2⟩ := h2
   refine ⟨mulExpTree y x1, mulExpTree y x2, hrun1, hrun2, hle, ?_⟩
   rcases Nat.eq_zero_or_pos y with hy0 | hypos
   · subst hy0
@@ -628,8 +628,7 @@ theorem run_mul_exp_ray_evm_mono_x {y x1 x2 : Nat}
     split <;> exact le_refl 0
   have hy0 : y ≠ 0 := Nat.pos_iff_ne_zero.mp hypos
   -- the signed magnitude of each accepted result
-  have habs : absTree y ≤ scaleMax :=
-    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale1
+  have habs : absTree y ≤ kernelScaleMax := absTree_le_kernelScaleMax_of_int128Word hy
   -- classify each exponent: clamp, scale point, or live
   have hclass : ∀ x : Nat, x < 2 ^ 256 → 2 ≤ int256 (mulShiftTree y x) →
       int256 x ≤ int256 mulExpRayZeroMax ∨ x = 0 ∨

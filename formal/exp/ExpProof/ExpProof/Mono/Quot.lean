@@ -266,10 +266,11 @@ theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
 
 /-! ## The scaled quotient at a symbolic scale -/
 
-/-- Abstract scaled-quotient bounds at a symbolic scale `2^125 ≤ scale ≤ scaleMax`: `⌊scale·N/D⌋`
+/-- Abstract scaled-quotient bounds at a symbolic scale `2^125 ≤ scale ≤ kernelScaleMax`: `⌊scale·N/D⌋`
 lies in `[2^123, 2^129)`. The lower bound is tight at the minimal scale:
 `2^123·D < 2^123·2^129 = 2^125·2^127 ≤ scale·N`. -/
-theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleMax)
+theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale)
+    (hshi : scale ≤ kernelScaleMax)
     (hN : N < 2 ^ 129) (hDlt : D < 2 ^ 129) (hD : D < 2 ^ 256)
     (hDi : int256 D = (D : Int))
     (hNpos : 0 < (N : Int)) (hDpos : 0 < (D : Int))
@@ -280,11 +281,10 @@ theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : 
   have hNw : N < 2 ^ 256 := by
     have : (2:Nat) ^ 128 < 2 ^ 256 := by norm_num
     omega
-  have hsw : scale < 2 ^ 256 := lt_of_le_of_lt hshi (by unfold scaleMax; norm_num)
-  have hfit : scale * N < 2 ^ 256 := by
-    have h1 : scale * N ≤ scaleMax * 2 ^ 129 := Nat.mul_le_mul hshi (le_of_lt hN)
-    have h2 : scaleMax * 2 ^ 129 < 2 ^ 256 := by unfold scaleMax; norm_num
-    omega
+  have hsw : scale < 2 ^ 256 :=
+    lt_of_le_of_lt hshi (by unfold kernelScaleMax; norm_num)
+  have hfit : scale * N < 2 ^ 256 :=
+    mul_lt_2256_of_scale_le_kernelScaleMax hshi hN
   have hmul : evmMul scale N = scale * N := evmMul_eq_nat hsw hNw hfit
   have hDnat_pos : 0 < D := by exact_mod_cast hDpos
   have hdiv : evmDiv (evmMul scale N) D = scale * N / D := by
@@ -297,10 +297,12 @@ theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : 
       have h4 : ((4 * D : Nat) : Int) = 4 * (D : Int) := by push_cast; ring
       rw [← h4] at hND; exact_mod_cast hND
     have h1 : scale * N < scale * (4 * D) := (Nat.mul_lt_mul_left hspos).mpr hND'
-    have h2 : scale * (4 * D) ≤ scaleMax * (4 * D) := Nat.mul_le_mul_right _ hshi
-    have h3 : scaleMax * (4 * D) ≤ 2 ^ 129 * D := by
-      have h4S : (4:Nat) * scaleMax ≤ 2 ^ 129 := by unfold scaleMax; norm_num
-      calc scaleMax * (4 * D) = (4 * scaleMax) * D := by ring
+    have h2 : scale * (4 * D) ≤ kernelScaleMax * (4 * D) := Nat.mul_le_mul_right _ hshi
+    have h3 : kernelScaleMax * (4 * D) ≤ 2 ^ 129 * D := by
+      have h4S : (4 : Nat) * kernelScaleMax ≤ 2 ^ 129 := by
+        unfold kernelScaleMax
+        norm_num
+      calc kernelScaleMax * (4 * D) = (4 * kernelScaleMax) * D := by ring
         _ ≤ 2 ^ 129 * D := Nat.mul_le_mul_right _ h4S
     omega
   have hq_ge : 2 ^ 123 ≤ q := by
@@ -318,9 +320,9 @@ theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : 
   exact ⟨by exact_mod_cast hq_ge, by exact_mod_cast hq_lt⟩
 
 /-- Abstract scaled `r0` bounds over opaque even/odd words: `2^123 ≤ r0 < 2^129` with
-`r0 = div(scale·(E+TD), E−TD)` at any `2^125 ≤ scale ≤ scaleMax`. -/
+`r0 = div(scale·(E+TD), E−TD)` at any `2^125 ≤ scale ≤ kernelScaleMax`. -/
 theorem r0Scaled_bounds_ofEvTod {scale E TD : Nat} (hslo : 2 ^ 125 ≤ scale)
-    (hshi : scale ≤ scaleMax) (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
+    (hshi : scale ≤ kernelScaleMax) (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
     (hev_lo : (415147853590918758559635130244235626256 : Int) ≤ (E : Int))
     (hev_hi : (E : Int) < 3 * 2 ^ 127)
     (htod_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD)
@@ -352,8 +354,10 @@ theorem r0Scaled_bounds_ofEvTod {scale E TD : Nat} (hslo : 2 ^ 125 ≤ scale)
   have hDpos : 0 < ((evmSub E TD : Nat) : Int) := by rw [← hDi, hsub]; omega
   exact r0Scaled_bounds_of hslo hshi hNlt129 hDlt129 hDwlt hDi hNpos hDpos hNlo hND
 
-/-- `2^123 ≤ r0ScaledTree scale x < 2^129` on the wide region, for `2^125 ≤ scale ≤ scaleMax`. -/
-theorem r0Scaled_bounds {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleMax)
+/-- `2^123 ≤ r0ScaledTree scale x < 2^129` on the wide region, for
+`2^125 ≤ scale ≤ kernelScaleMax`. -/
+theorem r0Scaled_bounds {scale x : Nat} (hslo : 2 ^ 125 ≤ scale)
+    (hshi : scale ≤ kernelScaleMax)
     (hx : x < 2 ^ 256) (hW : WideRegion x) :
     2 ^ 123 ≤ int256 (r0ScaledTree scale x) ∧ int256 (r0ScaledTree scale x) < 2 ^ 129 := by
   obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW

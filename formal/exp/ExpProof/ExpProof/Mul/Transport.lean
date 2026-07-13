@@ -11,8 +11,9 @@ shift `S − k`. This module transports those words to arithmetic facts the accu
 monotonicity arguments consume:
 
 * the headroom shift `S` is at most `127`, and for a nonzero magnitude the scale is *maximal* —
-  the all-ones 127-bit cap aligns every nonzero supported magnitude into `[2^126, 2^127)`, so every
-  live scale satisfies `2^125 ≤ scale ≤ scaleMax`;
+  every supported magnitude is normalized at or immediately below bit 126, except the inclusive
+  `2^127` endpoint, which stays at that endpoint, so every live scale satisfies
+  `2^125 ≤ scale ≤ kernelScaleMax`;
 * the closing-shift word is the signed difference `S − k` on the wide region, and on the live
   region (`2 ≤ shift` from the guard) it is a plain small `Nat` in `[2, 254]`;
 * the closing `shr` keeps nonnegative small values small for any shift below the word size.
@@ -46,111 +47,107 @@ private theorem evmShl_small {s v : Nat} (hs : s < 256) (hv : v < 2 ^ 256)
 
 /-! ## The headroom shift and normalized scale -/
 
-/-- Every positive supported magnitude aligns its highest set bit with bit 126. -/
-private theorem scaleShiftTree_pos {ay : Nat} (hy : ay < 2 ^ 256)
-    (hpos : 1 ≤ ay) (habs : ay ≤ scaleMax) :
+/-- Every positive supported magnitude aligns its highest set bit with bit 126, except the
+inclusive endpoint, whose normalization shift is zero. -/
+theorem scaleShiftTree_pos {ay : Nat} (hy : ay < 2 ^ 256)
+    (hpos : 1 ≤ ay) (habs : ay ≤ kernelScaleMax) :
     scaleShiftTree ay = 126 - Nat.log2 ay := by
-  have hay127 : ay < 2 ^ 127 := lt_of_le_of_lt habs scaleMax_lt_2127
-  have hlog : Nat.log2 ay ≤ 126 := by
-    have h1 : 2 ^ Nat.log2 ay ≤ ay := Nat.log2_self_le (by omega)
-    by_contra h
-    push_neg at h
-    have h2 : (2 : Nat) ^ 127 ≤ 2 ^ Nat.log2 ay :=
-      Nat.pow_le_pow_right (by norm_num) h
-    omega
-  have hclz : evmClz ay = 255 - Nat.log2 ay := by
-    unfold evmClz
-    rw [u256_self hy, if_neg (by omega)]
-  unfold scaleShiftTree
-  rw [hclz, evmSub_small (by unfold scaleMaxClz; omega) (by omega)]
-  unfold scaleMaxClz
-  omega
+  by_cases hend : ay = kernelScaleMax
+  · rw [hend, kernelScaleMax_eq]
+    have hloglo : 127 ≤ Nat.log2 (2 ^ 127) :=
+      (Nat.le_log2 (by norm_num)).2 (by norm_num)
+    have hloghi : Nat.log2 (2 ^ 127) < 128 :=
+      (Nat.log2_lt (by norm_num)).2 (by norm_num)
+    have hlog : Nat.log2 (2 ^ 127) = 127 := by omega
+    have hclz : evmClz (2 ^ 127) = 128 := by
+      unfold evmClz
+      rw [u256_self (by norm_num), if_neg (by norm_num), hlog]
+    have hsub : evmSub 128 scaleClzBias = 2 ^ 256 - 1 := by
+      norm_num [evmSub, scaleClzBias, u256, WORD_MOD]
+    have hshr : evmShr 127 (2 ^ 127) = 1 := by
+      norm_num [evmShr, u256, WORD_MOD]
+    unfold scaleShiftTree
+    rw [hclz, hsub, hshr]
+    have hadd : evmAdd (2 ^ 256 - 1) 1 = 0 := by
+      norm_num [evmAdd, u256, WORD_MOD]
+    rw [hadd]
+    change 0 = 126 - Nat.log2 (2 ^ 127)
+    rw [hlog]
+  · have hay127 : ay < 2 ^ 127 := by rw [← kernelScaleMax_eq]; omega
+    have hlog : Nat.log2 ay ≤ 126 := by
+      have h1 : 2 ^ Nat.log2 ay ≤ ay := Nat.log2_self_le (by omega)
+      by_contra h
+      push_neg at h
+      have h2 : (2 : Nat) ^ 127 ≤ 2 ^ Nat.log2 ay :=
+        Nat.pow_le_pow_right (by norm_num) h
+      omega
+    have hclz : evmClz ay = 255 - Nat.log2 ay := by
+      unfold evmClz
+      rw [u256_self hy, if_neg (by omega)]
+    have hshr : evmShr 127 ay = 0 := by
+      unfold evmShr
+      rw [u256_self (by norm_num), u256_self hy, if_pos (by norm_num)]
+      exact Nat.div_eq_of_lt hay127
+    have hsub : evmSub (255 - Nat.log2 ay) scaleClzBias = 126 - Nat.log2 ay := by
+      rw [evmSub_small (by unfold scaleClzBias; omega) (by omega)]
+      unfold scaleClzBias
+      omega
+    unfold scaleShiftTree
+    rw [hclz, hshr, hsub]
+    unfold evmAdd
+    have hshiftlt : 126 - Nat.log2 ay < 2 ^ 256 :=
+      lt_of_le_of_lt (Nat.sub_le _ _) (by norm_num)
+    rw [show u256 (126 - Nat.log2 ay) = 126 - Nat.log2 ay from u256_self hshiftlt,
+      show u256 0 = 0 from u256_self (by norm_num)]
+    rw [Nat.add_zero, u256_self hshiftlt]
 
-/-- The zero magnitude takes the maximal headroom shift. -/
 theorem scaleShiftTree_zero : scaleShiftTree 0 = 127 := by
   have hclz : evmClz 0 = 256 := by
     unfold evmClz
     rw [u256_self (by norm_num)]
     simp
   unfold scaleShiftTree
-  rw [hclz, evmSub_small (by unfold scaleMaxClz; omega) (by norm_num)]
-  unfold scaleMaxClz
-  norm_num
+  rw [hclz, evmSub_small (by unfold scaleClzBias; omega) (by norm_num)]
+  norm_num [scaleClzBias, evmShr, evmAdd, u256, WORD_MOD]
 
-/-- The maximal supported magnitude has no normalization headroom. -/
-theorem scaleShiftTree_scaleMax : scaleShiftTree scaleMax = 0 := by
-  have hscaleMax : scaleMax ≠ 0 := by unfold scaleMax; norm_num
-  have hloglo : 126 ≤ Nat.log2 scaleMax :=
-    (Nat.le_log2 hscaleMax).2 (by unfold scaleMax; norm_num)
-  have hloghi : Nat.log2 scaleMax < 127 :=
-    (Nat.log2_lt hscaleMax).2 (by unfold scaleMax; norm_num)
-  have hlog : Nat.log2 scaleMax = 126 := by omega
-  rw [scaleShiftTree_pos (by unfold scaleMax; norm_num) (by unfold scaleMax; norm_num)
-    (le_refl _), hlog]
+theorem scaleShiftTree_int128Max : scaleShiftTree int128Max = 0 := by
+  have hmax : int128Max ≠ 0 := by unfold int128Max; norm_num
+  have hloglo : 126 ≤ Nat.log2 int128Max :=
+    (Nat.le_log2 hmax).2 (by unfold int128Max; norm_num)
+  have hloghi : Nat.log2 int128Max < 127 :=
+    (Nat.log2_lt hmax).2 (by unfold int128Max; norm_num)
+  have hlog : Nat.log2 int128Max = 126 := by omega
+  rw [scaleShiftTree_pos (by unfold int128Max; norm_num) (by unfold int128Max; norm_num)
+    (by rw [int128Max_eq, kernelScaleMax_eq]; omega), hlog]
 
-/-- The headroom shift never exceeds 127 on supported magnitudes. -/
-theorem scaleShiftTree_le_127 {y : Nat} (habs : absTree y ≤ scaleMax) :
+theorem scaleShiftTree_kernelScaleMax : scaleShiftTree kernelScaleMax = 0 := by
+  rw [scaleShiftTree_pos (by unfold kernelScaleMax; norm_num)
+    (by unfold kernelScaleMax; norm_num) (le_refl _), kernelScaleMax_eq]
+  have hloglo : 127 ≤ Nat.log2 (2 ^ 127) :=
+    (Nat.le_log2 (by norm_num)).2 (by norm_num)
+  have hloghi : Nat.log2 (2 ^ 127) < 128 :=
+    (Nat.log2_lt (by norm_num)).2 (by norm_num)
+  omega
+
+theorem scaleShiftTree_le_127 {y : Nat} (habs : absTree y ≤ kernelScaleMax) :
     scaleShiftTree (absTree y) ≤ 127 := by
   rcases Nat.eq_zero_or_pos (absTree y) with h0 | hpos
   · rw [h0, scaleShiftTree_zero]
   · rw [scaleShiftTree_pos (absTree_lt y) hpos habs]
     omega
 
-/-- The derived headroom guard is exactly the 127-bit magnitude cap. -/
-theorem scaleShiftTree_le_127_iff {ay : Nat} (hay : ay < 2 ^ 256) :
-    scaleShiftTree ay ≤ 127 ↔ ay ≤ scaleMax := by
-  constructor
-  · intro hs
-    by_contra hcap
-    push_neg at hcap
-    have haylo : 2 ^ 127 ≤ ay := by
-      rw [scaleMax_eq] at hcap
-      omega
-    have hpos : 1 ≤ ay := by omega
-    have hloglo : 127 ≤ Nat.log2 ay := by
-      by_contra h
-      push_neg at h
-      have hlt := Nat.lt_log2_self (n := ay)
-      have hp : (2 : Nat) ^ (Nat.log2 ay + 1) ≤ 2 ^ 127 :=
-        Nat.pow_le_pow_right (by norm_num) (by omega)
-      omega
-    have hloghi : Nat.log2 ay ≤ 255 := by
-      have hp := Nat.log2_self_le (by omega : ay ≠ 0)
-      by_contra h
-      push_neg at h
-      have hpow : (2 : Nat) ^ 256 ≤ 2 ^ Nat.log2 ay :=
-        Nat.pow_le_pow_right (by norm_num) h
-      omega
-    have hclz : evmClz ay = 255 - Nat.log2 ay := by
-      unfold evmClz
-      rw [u256_self hay, if_neg (by omega)]
-    have hc : 255 - Nat.log2 ay < 129 := by omega
-    have hraw : 255 - Nat.log2 ay + 2 ^ 256 - 129 < 2 ^ 256 := by
-      omega
-    have hsub : scaleShiftTree ay = 255 - Nat.log2 ay + 2 ^ 256 - 129 := by
-      unfold scaleShiftTree
-      rw [hclz, evmSub_eq_mod_pow256 (by omega) (by unfold scaleMaxClz; norm_num)]
-      unfold scaleMaxClz
-      rw [Nat.mod_eq_of_lt hraw]
-    rw [hsub] at hs
-    omega
-  · intro hcap
-    rcases Nat.eq_zero_or_pos ay with h0 | hpos
-    · rw [h0, scaleShiftTree_zero]
-    · rw [scaleShiftTree_pos hay hpos hcap]
-      omega
-
-/-- Scale maximality: for a nonzero supported magnitude, one more doubling of the normalized
-scale exceeds the 127-bit cap. -/
+/-- One more doubling of every nonzero normalized scale reaches the inclusive analytic cap. -/
 theorem mulScaleTree_max {y : Nat} (hy : y < 2 ^ 256) (hpos : 1 ≤ absTree y)
-    (habs : absTree y ≤ scaleMax) : scaleMax < 2 * mulScaleTree y := by
+    (habs : absTree y ≤ kernelScaleMax) : kernelScaleMax ≤ 2 * mulScaleTree y := by
   obtain ⟨_, hscale, _⟩ := mulScaleTree_spec hy habs
+  by_cases hend : absTree y = kernelScaleMax
+  · rw [hscale, hend, scaleShiftTree_kernelScaleMax, kernelScaleMax_eq]
+    norm_num
   have hs := scaleShiftTree_pos (absTree_lt y) hpos habs
   have hloglo : 2 ^ Nat.log2 (absTree y) ≤ absTree y :=
     Nat.log2_self_le (by omega)
   have hlog : Nat.log2 (absTree y) ≤ 126 := by
-    have hay127 : absTree y < 2 ^ 127 :=
-      lt_of_le_of_lt habs scaleMax_lt_2127
+    have hay127 : absTree y < 2 ^ 127 := by rw [← kernelScaleMax_eq]; omega
     by_contra h
     push_neg at h
     have h2 : (2 : Nat) ^ 127 ≤ 2 ^ Nat.log2 (absTree y) :=
@@ -165,15 +162,15 @@ theorem mulScaleTree_max {y : Nat} (hy : y < 2 ^ 256) (hpos : 1 ≤ absTree y)
           exact Nat.pow_le_pow_right (by norm_num) (by omega)
       _ ≤ absTree y * 2 ^ (126 - Nat.log2 (absTree y)) :=
         Nat.mul_le_mul_right _ hloglo
-  rw [hscale, hs, scaleMax_eq]
+  rw [hscale, hs, kernelScaleMax_eq]
   omega
 
 /-- Every nonzero supported magnitude's normalized scale is at least 2^125. -/
 theorem mulScaleTree_lower {y : Nat} (hy : y < 2 ^ 256) (hpos : 1 ≤ absTree y)
-    (habs : absTree y ≤ scaleMax) : 2 ^ 125 ≤ mulScaleTree y := by
+    (habs : absTree y ≤ kernelScaleMax) : 2 ^ 125 ≤ mulScaleTree y := by
   have hmax := mulScaleTree_max hy hpos habs
-  have hQ : (2 : Nat) ^ 126 ≤ scaleMax := by
-    unfold scaleMax
+  have hQ : (2 : Nat) ^ 126 ≤ kernelScaleMax := by
+    unfold kernelScaleMax
     norm_num
   omega
 /-! ## The closing-shift word -/
@@ -199,7 +196,7 @@ theorem kTree_global_bounds (x : Nat) :
 /-- The closing shift carries the signed difference globally on supported magnitudes. The octave
 word's signed 64-bit range leaves ample room for the headroom shift in `[0, 127]`, so the EVM
 subtraction cannot cross either signed boundary. -/
-theorem mulShiftTree_transport_global {y x : Nat} (habs : absTree y ≤ scaleMax) :
+theorem mulShiftTree_transport_global {y x : Nat} (habs : absTree y ≤ kernelScaleMax) :
     int256 (mulShiftTree y x) =
       (scaleShiftTree (absTree y) : Int) - int256 (kTree x) := by
   have hs127 := scaleShiftTree_le_127 habs
@@ -223,25 +220,64 @@ theorem mulShiftTree_transport_global {y x : Nat} (habs : absTree y ≤ scaleMax
 
 /-- At the magnitude cap, an exponent in octave `-2` has exactly the minimum accepted closing
 shift and lies in the value domain whenever it is below the unconditional upper fence. -/
-theorem scaleMax_octave_neg_two_valueDomain {x : Nat} (hx : x < 2 ^ 256)
+theorem int128Max_octave_neg_two_valueDomain {x : Nat} (hx : x < 2 ^ 256)
     (hxhi : int256 x < int256 mulExpRayHi) (hk : int256 (kTree x) = -2) :
-    scaleShiftTree (absTree scaleMax) = 0 ∧
-      int256 (mulShiftTree scaleMax x) = 2 ∧
-        MulExpRayValueDomain scaleMax x := by
-  have hy : scaleMax < 2 ^ 256 := by unfold scaleMax; norm_num
-  have habs : absTree scaleMax = scaleMax :=
-    absTree_nonneg (by unfold scaleMax; norm_num)
-  have hcap : absTree scaleMax ≤ scaleMax := by rw [habs]
-  have hs : scaleShiftTree (absTree scaleMax) = 0 := by rw [habs, scaleShiftTree_scaleMax]
-  have hshift : int256 (mulShiftTree scaleMax x) = 2 := by
+    scaleShiftTree (absTree int128Max) = 0 ∧
+      int256 (mulShiftTree int128Max x) = 2 ∧
+        MulExpRayValueDomain int128Max x := by
+  have hy : int128Max < 2 ^ 256 := by unfold int128Max; norm_num
+  have habs : absTree int128Max = int128Max :=
+    absTree_nonneg (by unfold int128Max; norm_num)
+  have hcap : absTree int128Max ≤ kernelScaleMax := by
+    rw [habs, int128Max_eq, kernelScaleMax_eq]
+    omega
+  have hs : scaleShiftTree (absTree int128Max) = 0 := by rw [habs, scaleShiftTree_int128Max]
+  have hshift : int256 (mulShiftTree int128Max x) = 2 := by
     rw [mulShiftTree_transport_global hcap, hs, hk]
     norm_num
   exact ⟨hs, hshift,
-    ⟨⟨int128Word_scaleMax, hx⟩, by rw [hs]; norm_num, hxhi, by omega⟩⟩
+    ⟨⟨int128Word_max, hx⟩, hxhi, by omega⟩⟩
+
+theorem int128Min_octave_neg_two_valueDomain {x : Nat} (hx : x < 2 ^ 256)
+    (hxhi : int256 x < int256 mulExpRayHi) (hk : int256 (kTree x) = -2) :
+    scaleShiftTree (absTree (2 ^ 256 - 2 ^ 127)) = 0 ∧
+      int256 (mulShiftTree (2 ^ 256 - 2 ^ 127) x) = 2 ∧
+        MulExpRayValueDomain (2 ^ 256 - 2 ^ 127) x := by
+  have hy : 2 ^ 256 - 2 ^ 127 < 2 ^ 256 := by norm_num
+  have habs : absTree (2 ^ 256 - 2 ^ 127) = kernelScaleMax := by
+    rw [absTree_neg (by norm_num) hy, kernelScaleMax_eq]
+    omega
+  have hcap : absTree (2 ^ 256 - 2 ^ 127) ≤ kernelScaleMax := by rw [habs]
+  have hs : scaleShiftTree (absTree (2 ^ 256 - 2 ^ 127)) = 0 := by
+    rw [habs, scaleShiftTree_kernelScaleMax]
+  have hshift : int256 (mulShiftTree (2 ^ 256 - 2 ^ 127) x) = 2 := by
+    rw [mulShiftTree_transport_global hcap, hs, hk]
+    norm_num
+  exact ⟨hs, hshift, ⟨⟨int128Word_min, hx⟩, hxhi, by omega⟩⟩
+
+theorem int128Min_valueDomain_iff {x : Nat} (hx : x < 2 ^ 256) :
+    MulExpRayValueDomain (2 ^ 256 - 2 ^ 127) x ↔
+      int256 x < int256 mulExpRayHi ∧ int256 (kTree x) ≤ -2 := by
+  have hy : 2 ^ 256 - 2 ^ 127 < 2 ^ 256 := by norm_num
+  have habs : absTree (2 ^ 256 - 2 ^ 127) = kernelScaleMax := by
+    rw [absTree_neg (by norm_num) hy, kernelScaleMax_eq]
+    omega
+  have hcap : absTree (2 ^ 256 - 2 ^ 127) ≤ kernelScaleMax := by rw [habs]
+  have hshift : int256 (mulShiftTree (2 ^ 256 - 2 ^ 127) x) = -int256 (kTree x) := by
+    rw [mulShiftTree_transport_global hcap, habs, scaleShiftTree_kernelScaleMax]
+    ring
+  constructor
+  · rintro ⟨_, hxhi, hlive⟩
+    rw [hshift] at hlive
+    omega
+  · rintro ⟨hxhi, hk⟩
+    refine ⟨⟨int128Word_min, hx⟩, hxhi, ?_⟩
+    rw [hshift]
+    omega
 
 /-- The closing-shift word carries the signed difference `S − k` on the wide region. -/
 theorem mulShiftTree_transport {y x : Nat} (_hy : y < 2 ^ 256) (_hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleMax) (_hW : WideRegion x) :
+    (habs : absTree y ≤ kernelScaleMax) (_hW : WideRegion x) :
     int256 (mulShiftTree y x) =
       (scaleShiftTree (absTree y) : Int) - int256 (kTree x) :=
   mulShiftTree_transport_global habs
@@ -249,7 +285,7 @@ theorem mulShiftTree_transport {y x : Nat} (_hy : y < 2 ^ 256) (_hx : x < 2 ^ 25
 /-- On the live region the closing-shift word is a plain small `Nat` in `[2, 254]`, equal to
 `S − k` on the signed side. -/
 theorem mulShift_word_facts {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (habs : absTree y ≤ scaleMax) (hW : WideRegion x)
+    (habs : absTree y ≤ kernelScaleMax) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     2 ≤ mulShiftTree y x ∧ mulShiftTree y x < 256 ∧
       (mulShiftTree y x : Int) = int256 (mulShiftTree y x) := by

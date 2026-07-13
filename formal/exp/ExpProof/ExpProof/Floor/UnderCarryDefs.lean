@@ -2,7 +2,7 @@ import ExpProof.Floor.CertDefsV
 import ExpProof.Floor.GranPieces
 
 /-!
-# Positive-under carry certificates at the signed 128-bit magnitude bound
+# Positive-under carry certificates at the inclusive kernel scale bound
 
 The carry budget is reduced to one degree-ten integer polynomial on each
 granularity interval.  Every row records the interval, its argument cap, and
@@ -13,7 +13,7 @@ namespace ExpCertV
 
 open Common.Poly
 
-def S2 : Int := 2 ^ 127 - 1
+def S2 : Int := 2 ^ 127
 
 def denAtCap (T : Int) : List Int :=
   polySub (polyScale (2 ^ 111) evVPoly) (polyScale T odVPoly)

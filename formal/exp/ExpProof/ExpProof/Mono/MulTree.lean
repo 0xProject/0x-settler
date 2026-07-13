@@ -26,9 +26,10 @@ def signTree (y : Nat) : Nat :=
 def absTree (y : Nat) : Nat :=
   evmSub (evmXor y (signTree y)) (signTree y)
 
-/-- The scale headroom computed from the magnitude's bit length. -/
+/-- The scale headroom computed from the magnitude's bit length, with the `int128.min`
+magnitude's wrapping subtraction saturated back to zero. -/
 def scaleShiftTree (ay : Nat) : Nat :=
-  evmSub (evmClz ay) scaleMaxClz
+  evmAdd (evmSub (evmClz ay) scaleClzBias) (evmShr 127 ay)
 
 /-- Dynamic pre-shift scale `abs(y) << S`. -/
 def mulScaleTree (y : Nat) : Nat :=
@@ -40,9 +41,7 @@ def mulShiftTree (y x : Nat) : Nat :=
 
 /-- The branch word for the `Panic(17)` guard. -/
 def mulExpGuardTree (y x : Nat) : Nat :=
-  let outOfRange := evmOr (evmGt (scaleShiftTree (absTree y)) 127)
-    (evmSgt x (evmSub mulExpRayHi 1))
-  evmOr outOfRange (evmSlt (mulShiftTree y x) 2)
+  evmOr (evmSgt x (evmSub mulExpRayHi 1)) (evmSlt (mulShiftTree y x) 2)
 
 /-- The dynamic-scaled quotient before the closing shift. -/
 def r0MulTree (y x : Nat) : Nat :=
@@ -73,7 +72,7 @@ theorem absTree_lt (y : Nat) : absTree y < 2 ^ 256 := by
 
 theorem scaleShiftTree_lt (ay : Nat) : scaleShiftTree ay < 2 ^ 256 := by
   unfold scaleShiftTree
-  exact evmSub_lt _ _
+  exact evmAdd_lt _ _
 
 theorem mulScaleTree_lt (y : Nat) : mulScaleTree y < 2 ^ 256 := by
   unfold mulScaleTree

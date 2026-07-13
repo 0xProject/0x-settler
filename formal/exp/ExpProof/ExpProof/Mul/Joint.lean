@@ -9,9 +9,8 @@ in the magnitude: shrinking the magnitude only grows the accepted exponent set. 
 case needs no intermediate — a nonpositive multiplier's result is nonpositive and a nonnegative
 multiplier's is nonnegative, directly from the signed bracket's shape.
 
-The guard also admits the magnitude vocabulary of the natspec: on canonical inputs, rejection
-is exactly a magnitude above `scaleMax`, an exponent at or beyond the unconditional fence, or
-an unconditional closing shift below two.
+The guard rejects at the unconditional exponent fence or when fewer than two closing-shift bits
+remain. Canonical `int128` multipliers already bound every magnitude by the inclusive analytic cap.
 -/
 
 namespace ExpYul
@@ -26,13 +25,13 @@ set_option maxHeartbeats 1600000
 /-! ## Acceptance transfers along the antitone headroom -/
 
 /-- The headroom shift is antitone in the magnitude, including the zero magnitude. -/
-theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleMax) :
+theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ kernelScaleMax) :
     scaleShiftTree b ≤ scaleShiftTree a := by
   rcases Nat.eq_zero_or_pos a with h0 | hpos
   · subst h0
     rw [scaleShiftTree_zero]
     have hb' : absTree b = b :=
-      absTree_nonneg (lt_of_le_of_lt hb (by unfold scaleMax; norm_num))
+      absTree_nonneg (lt_of_le_of_lt hb (by unfold kernelScaleMax; norm_num))
     have h := scaleShiftTree_le_127 (y := b) (by rw [hb']; exact hb)
     rw [hb'] at h
     exact h
@@ -42,13 +41,10 @@ theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleMax) :
 theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : Int128Word y1)
     (h2 : MulExpRayValueDomain y2 x) (hab : absTree y1 ≤ absTree y2) :
     MulExpRayValueDomain y1 x := by
-  obtain ⟨⟨_, hx⟩, hscale2, hxhi, hlv2⟩ := h2
-  have habs2 : absTree y2 ≤ scaleMax :=
-    (scaleShiftTree_le_127_iff (absTree_lt y2)).mp hscale2
-  have habs1 : absTree y1 ≤ scaleMax := le_trans hab habs2
-  have hscale1 : scaleShiftTree (absTree y1) ≤ 127 :=
-    (scaleShiftTree_le_127_iff (absTree_lt y1)).mpr habs1
-  refine ⟨⟨hy1, hx⟩, hscale1, hxhi, ?_⟩
+  obtain ⟨⟨hy2, hx⟩, hxhi, hlv2⟩ := h2
+  have habs2 : absTree y2 ≤ kernelScaleMax := absTree_le_kernelScaleMax_of_int128Word hy2
+  have habs1 : absTree y1 ≤ kernelScaleMax := le_trans hab habs2
+  refine ⟨⟨hy1, hx⟩, hxhi, ?_⟩
   have ht1 := mulShiftTree_transport_global (y := y1) (x := x) habs1
   have ht2 := mulShiftTree_transport_global (y := y2) (x := x) habs2
   have hanti : scaleShiftTree (absTree y2) ≤ scaleShiftTree (absTree y1) :=
@@ -64,9 +60,8 @@ theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : Int128Word y1)
 /-- A nonnegative multiplier's accepted result is nonnegative. -/
 theorem mulExpTree_result_nonneg {y x : Nat} (h : MulExpRayValueDomain y x)
     (hyw : y < 2 ^ 255) : 0 ≤ int256 (mulExpTree y x) := by
-  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlv⟩ := h
-  have habs : absTree y ≤ scaleMax :=
-    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
+  obtain ⟨⟨hy, hx⟩, hxhi, hlv⟩ := h
+  have habs : absTree y ≤ kernelScaleMax := absTree_le_kernelScaleMax_of_int128Word hy
   rcases Nat.eq_zero_or_pos y with h0 | hpos
   · subst h0
     rw [mulExpTree_zero, int256_zero_word']
@@ -86,9 +81,8 @@ theorem mulExpTree_result_nonneg {y x : Nat} (h : MulExpRayValueDomain y x)
 /-- A nonpositive multiplier's accepted result is nonpositive. -/
 theorem mulExpTree_result_nonpos {y x : Nat} (h : MulExpRayValueDomain y x)
     (hyneg : int256 y ≤ 0) : int256 (mulExpTree y x) ≤ 0 := by
-  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlv⟩ := h
-  have habs : absTree y ≤ scaleMax :=
-    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
+  obtain ⟨⟨hy, hx⟩, hxhi, hlv⟩ := h
+  have habs : absTree y ≤ kernelScaleMax := absTree_le_kernelScaleMax_of_int128Word hy
   rcases Nat.eq_zero_or_pos y with h0 | hpos
   · subst h0
     rw [mulExpTree_zero, int256_zero_word']
@@ -217,48 +211,5 @@ theorem run_mul_exp_ray_evm_mono_joint {y1 y2 x1 x2 : Nat}
     have h1np := mulExpTree_result_nonpos h1 hy1np
     have h2nn := mulExpTree_result_nonneg h2 hy2small
     linarith [h1np, h2nn]
-
-/-! ## The guard in magnitude vocabulary -/
-
-/-- **The panic domain in magnitude language.** On canonical inputs, `mulExpRay` rejects exactly
-when the magnitude exceeds `scaleMax`, the exponent reaches the unconditional upper fence, or
-the unconditional closing-shift guard fails. -/
-theorem panicDomain_iff_magnitude_guard {y x : Nat} (hcanon : MulExpRayCanonical y x) :
-    MulExpRayPanicDomain y x ↔
-      scaleMax < absTree y ∨ int256 mulExpRayHi ≤ int256 x ∨
-        int256 (mulShiftTree y x) < 2 := by
-  obtain ⟨hy, hx⟩ := hcanon
-  constructor
-  · rintro ⟨_, hbad⟩
-    rcases hbad with h | h | h
-    · have hiff := scaleShiftTree_le_127_iff (absTree_lt y)
-      exact Or.inl (by
-        by_contra hcap
-        have := hiff.mpr (by omega : absTree y ≤ scaleMax)
-        omega)
-    · exact Or.inr (Or.inl h)
-    · exact Or.inr (Or.inr h)
-  · rintro (h | h | h)
-    · have hiff := scaleShiftTree_le_127_iff (absTree_lt y)
-      refine ⟨⟨hy, hx⟩, Or.inl ?_⟩
-      by_contra hshift
-      have := hiff.mp (by omega : scaleShiftTree (absTree y) ≤ 127)
-      omega
-    · exact ⟨⟨hy, hx⟩, Or.inr (Or.inl h)⟩
-    · exact ⟨⟨hy, hx⟩, Or.inr (Or.inr h)⟩
-
-/-- **The `type(int128).min` multiplier always reverts**: its magnitude is `2^127`, above
-the maximal scale. -/
-theorem run_mul_exp_ray_evm_revert_int128_min {x : Nat} (hx : x < 2 ^ 256) :
-    run_mul_exp_ray_evm (2 ^ 256 - 2 ^ 127) x = .error "revert" := by
-  apply run_mul_exp_ray_evm_revert
-  refine ⟨⟨int128Word_min, hx⟩, Or.inl ?_⟩
-  have hiff := scaleShiftTree_le_127_iff (absTree_lt (2 ^ 256 - 2 ^ 127))
-  by_contra hshift
-  have hcap := hiff.mp
-    (by omega : scaleShiftTree (absTree (2 ^ 256 - 2 ^ 127)) ≤ 127)
-  rw [absTree_neg (by norm_num) (by norm_num)] at hcap
-  unfold scaleMax at hcap
-  norm_num at hcap
 
 end ExpYul

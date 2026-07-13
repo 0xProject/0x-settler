@@ -41,8 +41,9 @@ abbrev odShift4 : Nat := 0x80
 abbrev todShift : Nat := 0x81
 abbrev foldShift : Nat := 0x43
 abbrev scaleQ67 : Nat := 0x6f05b59d3b2000000000000000000000
-abbrev scaleMax : Nat := 0x7fffffffffffffffffffffffffffffff
-abbrev scaleMaxClz : Nat := 0x81
+abbrev int128Max : Nat := 0x7fffffffffffffffffffffffffffffff
+abbrev kernelScaleMax : Nat := 0x80000000000000000000000000000000
+abbrev scaleClzBias : Nat := 0x81
 abbrev marginWord : Nat := 0x1
 abbrev mulExpRayHi : Nat := 0x119146ae9d22b7454e84ce34c
 abbrev mulExpRayZeroMax : Nat := 0xfffffffffffffffffffffffffffffffffffffffee270ddd64709e8aac2676ec3
@@ -52,17 +53,26 @@ theorem scaleQ67_eq : (scaleQ67 : Int) = 3814697265625 * 2 ^ 85 := by
 
 theorem scaleQ67_lt_2127 : scaleQ67 < 2 ^ 127 := by unfold scaleQ67; norm_num
 
-theorem scaleMax_eq : scaleMax = 2 ^ 127 - 1 := by
-  unfold scaleMax
+theorem int128Max_eq : int128Max = 2 ^ 127 - 1 := by
+  unfold int128Max
   norm_num
 
-theorem scaleMax_lt_2127 : scaleMax < 2 ^ 127 := by
-  unfold scaleMax
+theorem kernelScaleMax_eq : kernelScaleMax = 2 ^ 127 := by
+  unfold kernelScaleMax
   norm_num
 
-theorem scaleQ67_le_scaleMax : scaleQ67 ≤ scaleMax := by
-  unfold scaleQ67 scaleMax
+theorem scaleQ67_le_kernelScaleMax : scaleQ67 ≤ kernelScaleMax := by
+  unfold scaleQ67 kernelScaleMax
   norm_num
+
+theorem mul_lt_2256_of_scale_le_kernelScaleMax {scale n : Nat}
+    (hscale : scale ≤ kernelScaleMax) (hn : n < 2 ^ 129) : scale * n < 2 ^ 256 := by
+  calc
+    scale * n ≤ kernelScaleMax * n := Nat.mul_le_mul_right n hscale
+    _ < kernelScaleMax * 2 ^ 129 := Nat.mul_lt_mul_of_pos_left hn (by
+      unfold kernelScaleMax
+      norm_num)
+    _ = 2 ^ 256 := by rw [kernelScaleMax_eq, ← pow_add]
 
 theorem int256_Cmask : int256 Cmask = -41446531673892822312323846185 := by
   unfold Cmask int256

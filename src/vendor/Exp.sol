@@ -8,8 +8,7 @@ import {Clz} from "./Clz.sol";
 library Exp {
     using FastLogic for bool;
 
-    // With s = clz(abs(y)) - 129, the s ≤ 127 guard admits exactly magnitudes through 2¹²⁷ − 1.
-    uint256 private constant _SCALE_MAX_CLZ = 129;
+    uint256 private constant _SCALE_CLZ_BIAS = 129;
     // 10¹⁸ ⋅ 2⁶⁷ < 2¹²⁷: `expRayToWad`'s scale — the wad output basis carrying 67 bits of
     // closing headroom.
     uint256 private constant _WAD_SCALE = 0x6f05b59d3b2000000000000000000000;
@@ -32,7 +31,7 @@ library Exp {
     int256 private constant _MUL_EXP_RAY_HI = 86989971160273136331862631244;
     // The least x whose octave count reaches -127, i.e. ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉ ≈
     // -127.5⋅ln(2)⋅10²⁷ ≈ -88.38⋅10²⁷. At or below it the kernel clamps `mulExpRay` to zero,
-    // which is within the bracket at every supported scale ((2¹²⁷ - 1)⋅exp(x/10²⁷) < 1); the
+    // which is within the bracket at every supported scale (2¹²⁷⋅exp(x/10²⁷) < 1); the
     // clamp consults only x, so it also zeroes every accepted x inside `_octave`'s negative
     // wraparound region (x ≲ -2¹⁵²). Above it, k ≥ -127 keeps the closing shift below 256 and
     // the reduced argument on the certified domain.
@@ -72,13 +71,13 @@ library Exp {
     ///      (y₁, x₁) and (y₂, x₂), the first result is no greater than the second when 0 ≤ y₁ ≤ y₂
     ///      and x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 and x₂ ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any exponents.
     ///
-    ///      Reverts with `Panic(17)` in exactly three cases:
-    ///      y = type(int128).min; x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷ (regardless of
-    ///      y); or the octave word — `_octave`'s output, which is round(x / (10²⁷⋅ln(2))) wherever
-    ///      its product does not wrap (|x| ≲ 2¹⁵²) — exceeding s - 2, with 2ˢ the scale headroom
-    ///      above abs(y) (the largest power of two with abs(y)⋅2ˢ < 2¹²⁷;
-    ///      s = 127 at y = 0). Within the wrap-free range the accepted exponents form one
-    ///      interval that narrows as abs(y) grows, and every accepted
+    ///      Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
+    ///      (regardless of y), or when the octave word — `_octave`'s output, which is
+    ///      round(x / (10²⁷⋅ln(2))) wherever its product does not wrap (|x| ≲ 2¹⁵²) — exceeds
+    ///      s - 2, with 2ˢ the scale headroom above abs(y). The normalized scale is at most
+    ///      2¹²⁷; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. Within the
+    ///      wrap-free range the accepted exponents form one interval that narrows as abs(y)
+    ///      grows, and every accepted
     ///      x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap
     ///      boundary (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to
     ///      zero, either of which is sound (A < 1 there at every supported magnitude).
@@ -94,17 +93,13 @@ library Exp {
         }
 
         unchecked {
-            // The scale headroom aligns ay's top bit with bit 126 (127 at ay = 0), keeping every
-            // supported pre-scale below 2¹²⁷ without a value comparison. For a 128-bit or larger
-            // ay, clz comes up short of _SCALE_MAX_CLZ and the subtraction
-            // underflows to a word whose int256 value is in [-129, -1]. The magnitude guard below
-            // rejects every such ay after FastLogic eagerly evaluates the garbage shift comparison.
-            uint256 s = Clz.clz(ay) - _SCALE_MAX_CLZ;
+            // The top-bit term admits abs(type(int128).min) at s = 0 while leaving every smaller
+            // magnitude's normalization unchanged.
+            uint256 s = Clz.clz(ay) - _SCALE_CLZ_BIAS + (ay >> 127);
 
             int256 k = _octave(x);
             int256 shift = int256(s) - k;
             // Reject inputs whose two-unit magnitude bracket the kernel cannot deliver:
-            //  - abs(y) requiring at least 128 bits;
             //  - x at or above the octave (k = 126) that exhausts the deficit envelope at even
             //    the maximal headroom, phrased as one signed comparison against the constant
             //    less one; its irreducible role is fencing accepted x away from `_octave`'s
@@ -115,7 +110,7 @@ library Exp {
             //    result would be exact. When `_octave`'s product wraps (x ≲ -2¹⁵²) its output
             //    stands in for k, so those exponents revert or pass as the wrapped word falls;
             //    the kernel's clamp zeroes every accepted one.
-            if ((s > 127).or(x > _MUL_EXP_RAY_HI - 1).or(shift < 2)) {
+            if ((x > _MUL_EXP_RAY_HI - 1).or(shift < 2)) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
 
@@ -148,7 +143,7 @@ library Exp {
     /// @dev The rational polynomial approximation kernel, shared by `expRayToWad`
     ///      (scale = 10¹⁸⋅2⁶⁷, shift = 67 - k) and `mulExpRay` (scale = abs(y)⋅2ˢ, shift = s - k).
     ///      The caller must maintain:
-    ///       - `k == _octave(x)` and `scale < 2¹²⁷`: the margin and deficit budgets below
+    ///       - `k == _octave(x)` and `scale ≤ 2¹²⁷`: the margin and deficit budgets below
     ///         hold throughout this range, and smaller scales only shrink them;
     ///       - `scale == base << s` for the caller's magnitude base, with `shift == s - k`;
     ///       - for every accepted x with `zeroCutoff` < x and x ≠ 0: `shift ≥ 2` (the deficit
@@ -195,7 +190,8 @@ library Exp {
         //         product stays inside 256 bits
         //     dividend: Q156 the widest basis that fits in 256 bits before the single truncating
         //         `DIV` by Q89 divisor. < 2¹²⁹
-        //     r: the pre-scale is below 2¹²⁷ to avoid overflowing the dividend.
+        //     r: the pre-scale is at most 2¹²⁷; the strict numerator bound keeps the dividend
+        //         below 2²⁵⁶ at the endpoint.
         //     output: the closing `shr(shift, …)` is the output-rounding floor, with the 2ᵏ octave
         //         scaling folded into the caller's scale/shift pair.
         //
@@ -221,7 +217,7 @@ library Exp {
         //         grid term below 2⁻²²⁸), lifting ê by ≤ 0.0055242717280199026 (≈ √2/256).
         //
         // The quotient `r` carries the scaled rational on a dynamic output grid, where one grid unit
-        // is worth 2ᵏ⁻ˢ ulp (1 ulp = 1 in the caller's magnitude). Because scale < 2¹²⁷ and
+        // is worth 2ᵏ⁻ˢ ulp (1 ulp = 1 in the caller's magnitude). Because scale ≤ 2¹²⁷ and
         // Δ < 1/2, its image scale⋅Δ/2¹²⁶ is below one grid unit. The margin dominates the image:
         // 0x01, worth 0.25 ulp at the supported edge. The `DIV` floor only lowers the quotient, so
         // the pre-floor accumulator A = q - margin satisfies A⋅2ᵏ⁻ˢ ≤ E. The under side is
@@ -288,9 +284,9 @@ library Exp {
             // both positive.
             let tod := sar(0x81, mul(t, od))
 
-            // The scaled rational: the caller keeps scale < 2¹²⁷, so one `DIV` scales, widens,
-            // and floors at once. The numerator stays below 2¹²⁹ and scale < 2¹²⁷, so the
-            // dividend stays inside 256 bits; the denominator > 0.
+            // The scaled rational: one `DIV` scales, widens, and floors at once. The numerator
+            // stays strictly below 2¹²⁹ and scale ≤ 2¹²⁷, so the dividend stays inside 256 bits;
+            // the denominator > 0.
             r := div(mul(scale, add(ev, tod)), sub(ev, tod))
 
             // Less the one-sided margin (0x01; see the budget above), then floored by

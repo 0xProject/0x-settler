@@ -9,7 +9,8 @@ magnitude, and at least two bits of closing shift — the kernel magnitude is th
 the decremented dynamic-scale quotient. The scale-symbolic per-point brackets
 (`r0Scaled_real_over_within`/`r0Scaled_real_under_within`) confine that quotient to
 `(scale·exp(rt) − 2993/1000 − 1, scale·exp(rt) + 1)` at `scale = mulScaleTree y ∈
-[2^125, scaleMax]`, and the target fold `A·2^shift = scale·exp(rt)` (`A = abs(y)·exp(x/10²⁷)`)
+[2^125, kernelScaleMax]`, and the target fold `A·2^shift = scale·exp(rt)`
+(`A = abs(y)·exp(x/10²⁷)`)
 turns the `shr` floor sandwich into the two-unit magnitude bracket `0 ≤ m ≤ A < m + 2`. Sign
 reapplication then yields the public signed bracket on the whole value domain, with the floor
 membership `m ∈ {⌊A⌋, ⌊A⌋ − 1}` and the `A < 1 → m = 0` pin as corollaries.
@@ -81,7 +82,7 @@ noncomputable section
 /-- **Live-region magnitude bracket.** On the live region the kernel magnitude `m` is a
 nonnegative value below `2^127` with `m ≤ A < m + 2`. -/
 theorem mulMagnitude_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (hy0 : y ≠ 0) (habs : absTree y ≤ scaleMax)
+    (hy0 : y ≠ 0) (habs : absTree y ≤ kernelScaleMax)
     (hx0 : int256 x ≠ 0) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     0 ≤ int256 (mulMagnitudeTree y x) ∧
@@ -89,7 +90,7 @@ theorem mulMagnitude_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 2
       (int256 (mulMagnitudeTree y x) : Real) ≤ mulExpRayMagnitudeTarget (int256 y) (int256 x) ∧
       mulExpRayMagnitudeTarget (int256 y) (int256 x) <
         (int256 (mulMagnitudeTree y x) : Real) + 2 := by
-  -- the dynamic scale is live: 2^125 ≤ scale ≤ scaleMax
+  -- the dynamic scale is live: 2^125 ≤ scale ≤ kernelScaleMax
   have hpos : 1 ≤ absTree y := absTree_pos hy hy0
   have hslo : 2 ^ 125 ≤ mulScaleTree y := mulScaleTree_lower hy hpos habs
   obtain ⟨hs256, hscale_eq, hshi⟩ := mulScaleTree_spec hy habs
@@ -210,7 +211,7 @@ theorem mulMagnitude_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 2
 
 /-- Live-region signed bracket for the tree result. -/
 theorem mulExpTree_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (hy0 : y ≠ 0) (habs : absTree y ≤ scaleMax)
+    (hy0 : y ≠ 0) (habs : absTree y ≤ kernelScaleMax)
     (hx0 : int256 x ≠ 0) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     MulExpRayBracket (int256 y) (int256 x) (int256 (mulExpTree y x)) := by
@@ -269,7 +270,7 @@ theorem mulExpTree_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256
 /-! ## Result range -/
 
 theorem mulExpTree_int128_range_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
-    (hy0 : y ≠ 0) (habs : absTree y ≤ scaleMax)
+    (hy0 : y ≠ 0) (habs : absTree y ≤ kernelScaleMax)
     (hx0 : int256 x ≠ 0) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     -(2 ^ 127 : Int) ≤ int256 (mulExpTree y x) ∧
@@ -309,9 +310,8 @@ theorem mulExpTree_int128_range_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 
 theorem mulExpTree_int128_range {y x : Nat} (h : MulExpRayValueDomain y x) :
     -(2 ^ 127 : Int) ≤ int256 (mulExpTree y x) ∧
       int256 (mulExpTree y x) < 2 ^ 127 := by
-  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlive⟩ := h
-  have habs : absTree y ≤ scaleMax :=
-    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
+  obtain ⟨⟨hy, hx⟩, hxhi, hlive⟩ := h
+  have habs : absTree y ≤ kernelScaleMax := absTree_le_kernelScaleMax_of_int128Word hy
   rcases Nat.eq_zero_or_pos y with hy0 | hypos
   · subst hy0
     rw [mulExpTree_zero, int256_zero_word]
@@ -323,16 +323,7 @@ theorem mulExpTree_int128_range {y x : Nat} (h : MulExpRayValueDomain y x) :
   · have hxw0 : x = 0 := (int256_zero_iff_of_canonical hx).mp hx0
     subst hxw0
     rw [mulExpTree_scale_point hy.1 habs]
-    have habsNat : (int256 y).natAbs < 2 ^ 127 := by
-      rw [← absTree_eq_natAbs hy.1]
-      exact lt_of_le_of_lt habs scaleMax_lt_2127
-    have habsInt : (((int256 y).natAbs : Nat) : Int) < 2 ^ 127 := by
-      exact_mod_cast habsNat
-    by_cases hyneg : int256 y < 0
-    · rw [Int.ofNat_natAbs_of_nonpos (le_of_lt hyneg)] at habsInt
-      omega
-    · rw [Int.natAbs_of_nonneg (not_lt.mp hyneg)] at habsInt
-      omega
+    exact int256_range_of_signextend_15_eq_self hy.1 hy.2
   · exact mulExpTree_int128_range_live hy.1 hx (by omega) habs hx0
       ⟨by omega, hxhi⟩ hlive
 
@@ -353,13 +344,12 @@ theorem run_mul_exp_ray_evm_eq_tree {y x : Nat} (h : MulExpRayValueDomain y x) :
 satisfying the signed two-unit magnitude bracket. -/
 theorem mulExpRay_run_bracket {y x : Nat} (h : MulExpRayValueDomain y x) :
     MulExpRayRunBracket y x := by
-  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlive⟩ := h
-  have habs : absTree y ≤ scaleMax :=
-    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
+  obtain ⟨⟨hy, hx⟩, hxhi, hlive⟩ := h
+  have habs : absTree y ≤ kernelScaleMax := absTree_le_kernelScaleMax_of_int128Word hy
   rcases Nat.eq_zero_or_pos y with hy0 | hypos
   · subst hy0
     exact mulExpRay_run_bracket_zero x
-      ((valueDomain_iff_guard_eq_zero ⟨hy, hx⟩).mp ⟨⟨hy, hx⟩, hscale, hxhi, hlive⟩)
+      ((valueDomain_iff_guard_eq_zero ⟨hy, hx⟩).mp ⟨⟨hy, hx⟩, hxhi, hlive⟩)
   by_cases hclamp : int256 x ≤ int256 mulExpRayZeroMax
   · exact mulExpRay_run_bracket_clamped hy hx habs hlive hclamp
   by_cases hx0 : int256 x = 0
@@ -371,7 +361,7 @@ theorem mulExpRay_run_bracket {y x : Nat} (h : MulExpRayValueDomain y x) :
   · -- the live region
     have hWx : WideRegion x := ⟨by omega, hxhi⟩
     have hrun : run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
-      run_mul_exp_ray_evm_eq_tree ⟨⟨hy, hx⟩, hscale, hxhi, hlive⟩
+      run_mul_exp_ray_evm_eq_tree ⟨⟨hy, hx⟩, hxhi, hlive⟩
     exact ⟨mulExpTree y x, hrun,
       mulExpTree_bracket_live hy.1 hx (by omega) habs hx0 hWx hlive⟩
 

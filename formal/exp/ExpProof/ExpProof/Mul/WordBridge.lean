@@ -204,4 +204,48 @@ theorem signextend_15_eq_self_of_int256_range {w : Nat} (hw : w < 2 ^ 256)
       exact_mod_cast hwloInt
     refine ⟨2 ^ 256 - w, by omega, by omega, by omega⟩
 
+theorem int256_range_of_signextend_15_eq_self {w : Nat} (hw : w < 2 ^ 256)
+    (hclean : EvmYul.UInt256.signextend (word 15) (word w) = word w) :
+    -(2 ^ 127 : Int) ≤ int256 w ∧ int256 w < 2 ^ 127 := by
+  by_cases hsign : word w &&& word (2 ^ 127) ≠ word 0
+  · rw [signextend_15_eq_ite, if_pos hsign] at hclean
+    rw [word_or] at hclean
+    have hnat := congrArg wordNat hclean
+    simp only [wordNat_word] at hnat
+    have hmask : 2 ^ 256 - 2 ^ 127 < 2 ^ 256 := by norm_num
+    rw [u256_of_lt_pow256 (evmOr_lt_WORD_MOD _ _), u256_of_lt_pow256 hw] at hnat
+    unfold evmOr at hnat
+    rw [u256_of_lt_pow256 hw, u256_of_lt_pow256 hmask] at hnat
+    have hlo : 2 ^ 256 - 2 ^ 127 ≤ w := by
+      rw [← hnat]
+      exact Nat.right_le_or
+    have hneg : ¬w < 2 ^ 255 := by omega
+    unfold int256
+    rw [if_neg hneg]
+    have hwI : (w : Int) < 2 ^ 256 := by exact_mod_cast hw
+    have hbaseCast : ((2 ^ 256 - 2 ^ 127 : Nat) : Int) =
+        (2 ^ 256 : Int) - 2 ^ 127 := by norm_num
+    have hloI : (2 ^ 256 : Int) - 2 ^ 127 ≤ (w : Int) := by
+      rw [← hbaseCast]
+      exact_mod_cast hlo
+    omega
+  · rw [signextend_15_eq_ite, if_neg hsign] at hclean
+    rw [word_and] at hclean
+    have hnat := congrArg wordNat hclean
+    simp only [wordNat_word] at hnat
+    have hmask : 2 ^ 127 - 1 < 2 ^ 256 := by norm_num
+    rw [u256_of_lt_pow256 (evmAnd_lt_WORD_MOD _ _), u256_of_lt_pow256 hw] at hnat
+    unfold evmAnd at hnat
+    rw [u256_of_lt_pow256 hw, u256_of_lt_pow256 hmask] at hnat
+    have hhi : w < 2 ^ 127 := by
+      have : w ≤ 2 ^ 127 - 1 := by
+        rw [← hnat]
+        exact Nat.and_le_right
+      omega
+    have hpos : w < 2 ^ 255 := lt_trans hhi (by norm_num)
+    rw [int256_of_lt hpos]
+    constructor
+    · exact le_trans (by norm_num) (Int.natCast_nonneg w)
+    · exact_mod_cast hhi
+
 end ExpYul
