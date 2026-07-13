@@ -47,3 +47,5 @@
    37. Thena (Algebra-like)
    <!-- -->
    38. SquadSwapV3
+   <!-- -->
+   39. PrjxV3 (Project X)
