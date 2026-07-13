@@ -39,7 +39,7 @@ theorem scaleShift_antitone' {a b : Nat} (hab : a ≤ b) (hb : b ≤ scaleMax) :
   · exact scaleShift_antitone hpos hab hb
 
 /-- Shrinking the magnitude keeps an accepted input accepted: the headroom shift only grows. -/
-theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : Int128CalldataWord y1)
+theorem valueDomain_of_abs_le {y1 y2 x : Nat} (hy1 : Int128Word y1)
     (h2 : MulExpRayValueDomain y2 x) (hab : absTree y1 ≤ absTree y2) :
     MulExpRayValueDomain y1 x := by
   obtain ⟨⟨_, hx⟩, hscale2, hxhi, hlv2⟩ := h2
@@ -252,7 +252,7 @@ the maximal scale. -/
 theorem run_mul_exp_ray_evm_revert_int128_min {x : Nat} (hx : x < 2 ^ 256) :
     run_mul_exp_ray_evm (2 ^ 256 - 2 ^ 127) x = .error "revert" := by
   apply run_mul_exp_ray_evm_revert
-  refine ⟨⟨int128CalldataWord_min, hx⟩, Or.inl ?_⟩
+  refine ⟨⟨int128Word_min, hx⟩, Or.inl ?_⟩
   have hiff := scaleShiftTree_le_127_iff (absTree_lt (2 ^ 256 - 2 ^ 127))
   by_contra hshift
   have hcap := hiff.mp

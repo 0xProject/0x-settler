@@ -7,11 +7,11 @@ import {Exp} from "src/vendor/Exp.sol";
 /// Function names are prefixed with `wrap_` to avoid Yul name collisions with the
 /// library functions, keeping the IR unambiguous for the formal-proof code generator.
 contract ExpWrapper {
-    function wrap_expRayToWad(int256 x) external pure returns (int256) {
+    function wrap_expRayToWad(int256 x) external pure returns (int128) {
         return Exp.expRayToWad(x);
     }
 
-    function wrap_mulExpRay(int128 y, int256 x) external pure returns (int256) {
+    function wrap_mulExpRay(int128 y, int256 x) external pure returns (int128) {
         return Exp.mulExpRay(y, x);
     }
 }

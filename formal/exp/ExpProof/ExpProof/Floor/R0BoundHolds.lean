@@ -64,11 +64,11 @@ theorem accumReal_under (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256
       ((int256 (r0Tree x) : Real) - 1) + (2 ^ s : Real) := by
     rw [hfold]
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
-    have hs4 : (2 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
-    have hs4n : 2 ≤ s := by exact_mod_cast hs4
-    have hpow : (2 ^ 2 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs4n
+    have hs2 : (2 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
+    have hs2n : 2 ≤ s := by exact_mod_cast hs2
+    have hpow : (2 ^ 2 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs2n
     rw [hwad]
-    -- U + MARGIN < 2⁴
+    -- U + MARGIN < 2²
     have hbudget : (2993 / 1000 : Real) + 1 < (2 ^ 2 : Real) := by
       norm_num
     linarith [hunder, hbudget, hpow]

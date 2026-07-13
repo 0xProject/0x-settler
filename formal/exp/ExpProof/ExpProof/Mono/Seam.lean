@@ -70,7 +70,7 @@ theorem seam_close {arg1 arg2 s1 s2 : Nat}
   rw [int256_of_lt hq1lt, int256_of_lt hq2lt]
   exact_mod_cast hqle
 
-/-- The closing shifts at a seam differ by one (`s2 = s1 − 1`), both in `[4, 129]`. -/
+/-- The closing shifts at a seam differ by one (`s2 = s1 − 1`), both in `[2, 128]`. -/
 theorem seam_closing_shifts {x1 x2 : Nat}
     (hx1 : x1 < 2 ^ 256) (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
     (hx2 : x2 < 2 ^ 256) (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
@@ -80,7 +80,7 @@ theorem seam_closing_shifts {x1 x2 : Nat}
   obtain ⟨s1, hs1eq, _, hs1hi, hs1int⟩ := closing_shift hx1 hC1 hC01
   obtain ⟨s2, hs2eq, hs2lo, _, hs2int⟩ := closing_shift hx2 hC2 hC02
   refine ⟨s1, s2, hs1eq, hs2eq, by omega, by omega, ?_⟩
-  -- `(s2 : Int) + 1 = 68 − k2 + 1 = 68 − k1 = (s1 : Int)`
+  -- `(s2 : Int) + 1 = 67 − k2 + 1 = 67 − k1 = (s1 : Int)`
   have : (s2 : Int) + 1 = (s1 : Int) := by rw [hs1int, hs2int, hk]; ring
   omega
 

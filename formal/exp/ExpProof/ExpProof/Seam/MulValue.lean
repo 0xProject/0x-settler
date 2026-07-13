@@ -30,6 +30,9 @@ theorem call_fun_mulExpRay_direct
       some (FormalYul.accountFor yulContract))
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     EvmYul.Yul.call (fuel + (extra + 2200)) [FormalYul.word y, FormalYul.word x]
       (.some yulName_fun_mulExpRay) (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
@@ -50,7 +53,7 @@ theorem call_fun_mulExpRay_direct
   let shift := evmSub s k
   let scale := evmShl s ay
   have hzeroInit :=
-    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 2176)
+    call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 2176)
       (shared := shared) (hlookup := hlookup)
   have hzeroUint1 :=
     call_zero_value_for_split_t_uint256_direct (fuel := fuel + extra) (extra := 2173)
@@ -124,9 +127,12 @@ theorem call_fun_mulExpRay_direct
     call_fun__expRayKernel_direct (x := x) (k := k) (scale := scale) (shift := shift)
       (zeroCutoff := mulExpRayZeroMax) (fuel := fuel + extra) (extra := 1436)
       (shared := shared) (hlookup := hlookup)
-  have hconvertOut :=
+  have hconvertInt256 :=
     call_convert_uint256_to_int256_direct (v := mulExpTree y x) (fuel := fuel + extra)
       (extra := 2011) (shared := shared) (hlookup := hlookup)
+  have hconvertNarrow :=
+    call_convert_int256_to_int128_direct (v := mulExpTree y x) (fuel := fuel + extra)
+      (extra := 2010) (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hzeroInit hzeroUint1 hzeroUint2
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_clz, ay, absTree, signTree] at hclz
   simp only [Nat.reduceAdd, FormalYul.word, yulName_constant__SCALE_MAX_CLZ] at hscaleMaxClz
@@ -163,7 +169,7 @@ theorem call_fun_mulExpRay_direct
     tArgShift, k27Q235, ln2Q235, squareShift,
     ev0, ev1, ev2, ev3, ev4, evShift1, evShift2, evShift3, evShift4,
     od0, od1, od2, od3, od4, odShift1, odShift2, odShift3, odShift4,
-    todShift, marginWord, scaleMaxClz, mulExpRayZeroMax] at hconvertOut
+    todShift, marginWord, scaleMaxClz, mulExpRayZeroMax] at hconvertInt256 hconvertNarrow
   have hguardUnfold :
       evmOr
         (evmOr
@@ -192,7 +198,7 @@ theorem call_fun_mulExpRay_direct
     hoctave, hconvertS, hwrapShift, hconvert127, hcleanupSGuard,
     hHi, hconvertOne, hsubHi, hcleanupHiMinusOne, hcleanupXForHi, hOrOut,
     hconvertTwo, hcleanupShift, hOrGuard, hscaleShift,
-    hconvertShiftOut, hZM, hkernel, hconvertOut,
+    hconvertShiftOut, hZM, hkernel, hconvertInt256, hconvertNarrow,
     FormalYul.Preservation.uint256_ofNat_gt_eq_word_evmGt,
     FormalYul.Preservation.uint256_ofNat_lt_eq_word_evmLt,
     FormalYul.Preservation.uint256_ofNat_sub_eq_word_evmSub,
@@ -210,6 +216,7 @@ theorem call_fun_mulExpRay_direct
     todShift, marginWord,
     scaleShiftTree, absTree, signTree, kTree,
     scaleMaxClz, mulExpRayZeroMax, hclean]
+  simpa only [FormalYul.word] using hresultClean
 
 set_option maxHeartbeats 12000000 in
 /-- `fun_wrap_mulExpRay(y, x)` forwards to the value path. -/
@@ -219,6 +226,9 @@ theorem call_fun_wrap_mulExpRay_direct
       some (FormalYul.accountFor yulContract))
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     EvmYul.Yul.call (fuel + (extra + 2300)) [FormalYul.word y, FormalYul.word x]
       (.some yulName_fun_wrap_mulExpRay) (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
@@ -233,7 +243,8 @@ theorem call_fun_wrap_mulExpRay_direct
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hinner :=
     call_fun_mulExpRay_direct (y := y) (x := x) (fuel := fuel + extra) (extra := 89)
-      (shared := shared) (hlookup := hlookup) (hclean := hclean) (hguard := hguard)
+      (shared := shared) (hlookup := hlookup) (hclean := hclean)
+      (hresultClean := hresultClean) (hguard := hguard)
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_mulExpRay] at hinner
   simp +decide [EvmYul.Yul.execCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
@@ -243,7 +254,7 @@ theorem call_fun_wrap_mulExpRay_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
     EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 2276)
+    call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 2276)
       (shared := shared) (hlookup := hlookup),
     hinner]
 
@@ -253,6 +264,9 @@ theorem external_fun_wrap_mulExpRay_calldata_result
     (y x : Nat) (store : EvmYul.Yul.VarStore)
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     ((match
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_mulExpRay) (.some yulContract)
@@ -300,14 +314,15 @@ theorem external_fun_wrap_mulExpRay_calldata_result
       (store := Finmap.insert "param_0" (FormalYul.word y)
         (Finmap.insert "param_1" (FormalYul.word x)
           (Inhabited.default : EvmYul.Yul.VarStore)))
-      (hlookup := mulExpSharedAfterFreePtr_lookup y x) (hclean := hclean) (hguard := hguard)
+      (hlookup := mulExpSharedAfterFreePtr_lookup y x) (hclean := hclean)
+      (hresultClean := hresultClean) (hguard := hguard)
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_wrap_mulExpRay] at hwrap
   have halloc :=
     call_allocate_unbounded_direct (fuel := 999962) (shared := mulExpSharedAfterFreePtr y x)
       (store := baseStore) (hlookup := mulExpSharedAfterFreePtr_lookup y x)
   simp only [FormalYul.word, baseStore] at halloc
   have hencode :=
-    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
+    call_abi_encode_tuple_t_int128__to_t_int128__fromStack_direct
       (headStart := memPos) (v := mulExpTree y x) (fuel := 999831)
       (shared := memShared) (store := encStore)
       (hlookup := by simp [memShared, mulExpSharedAfterFreePtr_lookup y x])
@@ -341,7 +356,7 @@ theorem external_fun_wrap_mulExpRay_calldata_result
     change FormalYul.wordNat (EvmYul.UInt256.ofNat (mulExpTree y x)) = mulExpTree y x
     exact (FormalYul.Preservation.wordNat_ofNat (mulExpTree y x)).trans
       (FormalYul.Preservation.u256_eq_of_lt _ (mulExpTree_lt y x))
-  rw [hnat]
+  exact (congrArg (fun w => Except.ok w.toNat) hresultClean).trans (congrArg Except.ok hnat)
 
 set_option maxHeartbeats 12000000 in
 /-- The external `mulExpRay` entrypoint on the value path halts (returns). -/
@@ -349,6 +364,9 @@ theorem external_fun_wrap_mulExpRay_calldata_halts
     (y x : Nat) (store : EvmYul.Yul.VarStore)
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     ∃ state value,
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_mulExpRay) (.some yulContract)
@@ -390,14 +408,15 @@ theorem external_fun_wrap_mulExpRay_calldata_halts
       (store := Finmap.insert "param_0" (FormalYul.word y)
         (Finmap.insert "param_1" (FormalYul.word x)
           (Inhabited.default : EvmYul.Yul.VarStore)))
-      (hlookup := mulExpSharedAfterFreePtr_lookup y x) (hclean := hclean) (hguard := hguard)
+      (hlookup := mulExpSharedAfterFreePtr_lookup y x) (hclean := hclean)
+      (hresultClean := hresultClean) (hguard := hguard)
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_wrap_mulExpRay] at hwrap
   have halloc :=
     call_allocate_unbounded_direct (fuel := 999962) (shared := mulExpSharedAfterFreePtr y x)
       (store := baseStore) (hlookup := mulExpSharedAfterFreePtr_lookup y x)
   simp only [FormalYul.word, baseStore] at halloc
   have hencode :=
-    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
+    call_abi_encode_tuple_t_int128__to_t_int128__fromStack_direct
       (headStart := memPos) (v := mulExpTree y x) (fuel := 999831)
       (shared := memShared) (store := encStore)
       (hlookup := by simp [memShared, mulExpSharedAfterFreePtr_lookup y x])
@@ -424,6 +443,9 @@ theorem external_fun_wrap_mulExpRay_dispatcher_state_result
     (y x : Nat)
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     ((match
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_mulExpRay) (.some yulContract)
@@ -465,7 +487,7 @@ theorem external_fun_wrap_mulExpRay_dispatcher_state_result
           (EvmYul.UInt256.ofNat 0))
         (EvmYul.UInt256.ofNat 224))
       (Inhabited.default : EvmYul.Yul.VarStore))
-    hclean hguard
+    hclean hresultClean hguard
 
 set_option maxHeartbeats 12000000 in
 /-- Halt, starting from the exact state the dispatcher hands the external `mulExpRay`
@@ -474,6 +496,9 @@ theorem external_fun_wrap_mulExpRay_dispatcher_state_halts
     (y x : Nat)
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     ∃ state value,
       EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_mulExpRay) (.some yulContract)
@@ -509,19 +534,23 @@ theorem external_fun_wrap_mulExpRay_dispatcher_state_halts
             (EvmYul.UInt256.ofNat 0))
           (EvmYul.UInt256.ofNat 224))
         (Inhabited.default : EvmYul.Yul.VarStore))
-    hclean hguard
+    hclean hresultClean hguard
 
 set_option maxHeartbeats 12000000 in
-/-- **Value path.** When the guard word is zero, the compiled runtime returns the signed
-dynamic-scale arithmetic tree — for every multiplier, including zero. -/
+/-- **Value path.** With canonical input and result words, a zero guard makes the compiled runtime
+return the signed dynamic-scale arithmetic tree — for every multiplier, including zero. -/
 theorem run_mul_exp_ray_evm_eq_tree_of_guard (y x : Nat)
     (hclean : EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word y) =
       FormalYul.word y)
+    (hresultClean :
+      EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (mulExpTree y x)) =
+        FormalYul.word (mulExpTree y x))
     (hguard : mulExpGuardTree y x = 0) :
     run_mul_exp_ray_evm y x = .ok (mulExpTree y x) := by
   obtain ⟨haltState, _haltValue, hhalt⟩ :=
-    external_fun_wrap_mulExpRay_dispatcher_state_halts y x hclean hguard
-  have hresult := external_fun_wrap_mulExpRay_dispatcher_state_result y x hclean hguard
+    external_fun_wrap_mulExpRay_dispatcher_state_halts y x hclean hresultClean hguard
+  have hresult :=
+    external_fun_wrap_mulExpRay_dispatcher_state_result y x hclean hresultClean hguard
   rw [hhalt] at hresult
   have hReturn :
       FormalYul.Preservation.DispatcherReturn yulContract

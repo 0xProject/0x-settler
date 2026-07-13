@@ -44,6 +44,28 @@ theorem call_zero_value_for_split_t_int256_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word]
 
+/-- `zero_value_for_split_t_int128()` returns the word `0`. -/
+theorem call_zero_value_for_split_t_int128_direct
+    (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [] (.some "zero_value_for_split_t_int128")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 0]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_zero_value_for_split_t_int128]
+  simp only [yulFunction_zero_value_for_split_t_int128,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
 /-- `zero_value_for_split_t_uint256()` returns the word `0`. -/
 theorem call_zero_value_for_split_t_uint256_direct
     (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
@@ -655,6 +677,47 @@ theorem call_convert_uint256_to_int256_direct
       (hlookup := hlookup)
   have h3 :=
     call_cleanup_t_int256_direct (v := v) (fuel := fuel + extra) (extra := 96) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  simp [FormalYul.word] at h1 h2 h3
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, h1, h2, h3]
+
+/-- `convert_t_int256_to_t_int128(value)` returns the signed-128 cleanup of `value`. -/
+theorem call_convert_int256_to_int128_direct
+    (v fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 120)) [FormalYul.word v]
+      (.some "convert_t_int256_to_t_int128") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word v)]) := by
+  rw [show fuel + (extra + 120) = (fuel + extra) + 120 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_convert_t_int256_to_t_int128]
+  simp only [yulFunction_convert_t_int256_to_t_int128,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have h1 :=
+    call_cleanup_t_int256_direct (v := v) (fuel := fuel + extra) (extra := 92) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h2 :=
+    call_identity_direct (v := v) (fuel := fuel + extra) (extra := 94) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)
+  have h3 :=
+    call_cleanup_t_int128_direct (v := v) (fuel := fuel + extra) (extra := 96) (shared := shared)
       (store := Finmap.insert "value" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))
       (hlookup := hlookup)
   simp [FormalYul.word] at h1 h2 h3

@@ -60,20 +60,19 @@ theorem mulExpRay_run_bracket_zero_of_run {x : Nat}
 theorem run_mul_exp_ray_evm_zero_of_guard (x : Nat)
     (hguard : mulExpGuardTree 0 x = 0) :
     run_mul_exp_ray_evm 0 x = .ok 0 := by
+  have hresultClean :
+      EvmYul.UInt256.signextend (word 15) (word (mulExpTree 0 x)) =
+        word (mulExpTree 0 x) := by
+    rw [mulExpTree_zero]
+    exact int128Word_zero.2
   simpa [mulExpTree_zero] using
-    run_mul_exp_ray_evm_eq_tree_of_guard 0 x int128CalldataWord_zero.2 hguard
+    run_mul_exp_ray_evm_eq_tree_of_guard 0 x int128Word_zero.2 hresultClean hguard
 
 /-- The compiled runtime satisfies the public bracket spec at zero magnitude whenever the guard
 accepts. -/
 theorem mulExpRay_run_bracket_zero (x : Nat) (hguard : mulExpGuardTree 0 x = 0) :
     MulExpRayRunBracket 0 x :=
   mulExpRay_run_bracket_zero_of_run (run_mul_exp_ray_evm_zero_of_guard x hguard)
-
-/-- **Value path on the domain.** Accepted inputs return the compiled arithmetic tree. -/
-theorem run_mul_exp_ray_evm_eq_tree {y x : Nat} (h : MulExpRayValueDomain y x) :
-    run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
-  run_mul_exp_ray_evm_eq_tree_of_guard y x h.1.1.2
-    ((valueDomain_iff_guard_eq_zero h.1).mp h)
 
 /-- **Panic revert.** Rejected inputs revert. -/
 theorem run_mul_exp_ray_evm_revert {y x : Nat} (h : MulExpRayPanicDomain y x) :

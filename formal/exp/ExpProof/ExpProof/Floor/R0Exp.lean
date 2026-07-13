@@ -266,15 +266,15 @@ theorem link1_over_tight {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scal
   set Op := (odNumV (vTree x) : Int) with hOpdef
   have hr0m : (0:Int) ≤ r0 - (scale : Int) := by linarith [hr0ge]
   have hr0p : (0:Int) ≤ r0 + (scale : Int) := by linarith [hr0ge]
-  -- Ep·2^110·(r0−2^126) ≤ (2^637·ev + Wev·2^590)·(r0−2^126)
+  -- Ep·2^111·(r0−scale) ≤ (2^637·ev + Wev·2^591)·(r0−scale)
   have hterm1 : Ep * 2 ^ 111 * (r0 - (scale : Int)) ≤
       (2 ^ 637 * ev + 72572599271425 * 2 ^ 591) * (r0 - (scale : Int)) := by
     apply mul_le_mul_of_nonneg_right _ hr0m
     nlinarith [hEp_hi]
-  -- −(t·Op)·(r0+2^126) ≤ −(2^637·tod)·(r0+2^126)
+  -- −(t·Op)·(r0+scale) ≤ −(2^637·tod)·(r0+scale)
   have hterm2 : 2 ^ 637 * tod * (r0 + (scale : Int)) ≤ t * Op * (r0 + (scale : Int)) :=
     mul_le_mul_of_nonneg_right (by linarith [htOp_lo]) hr0p
-  -- floor: r0·den − 2^126·num ≤ 0, scaled by 2^637
+  -- floor: r0·den − scale·num ≤ 0, scaled by 2^637
   have hfloor : r0 * (ev - tod) - (scale : Int) * (ev + tod) ≤ 0 := by linarith [hfloor_lo]
   have hfloor638 : (2:Int) ^ 637 * (r0 * (ev - tod) - (scale : Int) * (ev + tod)) ≤ 0 :=
     mul_nonpos_of_nonneg_of_nonpos (by positivity) hfloor
@@ -1197,12 +1197,12 @@ theorem r0_real_over_within {x : Nat} (hx : x < 2 ^ 256)
       2 * 4668745981919039833 / 10000000000000000000 :=
   r0_real_over_within_wide hx (wideRegion_of_wad hC hC0)
 
-/-! ## The octave real identity `E·2^(68−k) = WAD·2⁶⁸·exp(rt)`
+/-! ## The octave real identity `E·2^(67−k) = WAD·2⁶⁷·exp(rt)`
 
 The target `E = WAD·exp(X/RAY)`. With `rt = X/RAY − k·ln2` the reduced argument, `exp(X/RAY) =
-exp(rt)·2^k`, so the closing-shift fold `E·2^(68−k) = WAD·2⁶⁸·exp(rt)` (and `WAD·2⁶⁸ = scaleQ67`,
+exp(rt)·2^k`, so the closing-shift fold `E·2^(67−k) = WAD·2⁶⁷·exp(rt)` (and `WAD·2⁶⁷ = scaleQ67`,
 the quotient's own scale). This collapses the never-over/deficit inequalities (stated against
-`E·2^s`, `s = 68 − k`) onto the clean octave-independent relation `r0 ≈ scaleQ67·exp(rt)`. -/
+`E·2^s`, `s = 67 − k`) onto the clean octave-independent relation `r0 ≈ scaleQ67·exp(rt)`. -/
 
 /-- `exp(X/RAY) = exp(rt)·2^k` (`k = int256 (kTree x)`, possibly negative; `2^k` is a real `zpow`). -/
 theorem exp_X_over_RAY (x : Nat) :

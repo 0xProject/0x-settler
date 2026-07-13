@@ -25,15 +25,15 @@ contract ExpTest is Test {
     uint256 private constant _W_LO = 707106781186547525;
     uint256 private constant _W_HI = 1414213562373095048;
 
-    function expRayToWadExternal(int256 x) external pure returns (int256) {
+    function expRayToWadExternal(int256 x) external pure returns (int128) {
         return Exp.expRayToWad(x);
     }
 
-    function mulExpRayExternal(int128 y, int256 x) external pure returns (int256) {
+    function mulExpRayExternal(int128 y, int256 x) external pure returns (int128) {
         return Exp.mulExpRay(y, x);
     }
 
-    function mulExpRayDirtyY(uint256 dirtyY, int256 x) public pure returns (int256) {
+    function mulExpRayDirtyY(uint256 dirtyY, int256 x) public pure returns (int128) {
         int128 y;
         // Solidity cannot construct a narrow signed value with dirty upper bits.
         // Equivalent value: y = int128(uint128(dirtyY)).
@@ -136,7 +136,7 @@ contract ExpTest is Test {
             31034722391555079924522474771845545397
         ];
         for (uint256 i; i < xs.length; ++i) {
-            int256 r = Exp.expRayToWad(xs[i]);
+            int128 r = Exp.expRayToWad(xs[i]);
             assertLe(r, floors[i], "overestimates exp");
             assertGe(r, floors[i] - 1, "below floor minus one");
         }
@@ -169,7 +169,7 @@ contract ExpTest is Test {
     /// k = 64, frac(E) ~= 0.52 exceeds that octave's envelope (~0.50) and the floor is exact.
     function testExpRayToWadSupportedEdge() external pure {
         int256 floorE = 52175271301331128849398287198371155181;
-        int256 r = Exp.expRayToWad(_TOO_BIG - 1);
+        int128 r = Exp.expRayToWad(_TOO_BIG - 1);
         assertLe(r, floorE, "overestimates exp");
         assertGe(r, floorE - 1, "below floor minus one");
         assertEq(
@@ -195,7 +195,7 @@ contract ExpTest is Test {
     /// interiors and the clamp seam without an external reference.
     function testFuzzExpRayToWadMonotoneNonNegative(int256 x) external pure {
         x = bound(x, _ZERO_MAX - 1e27, _TOO_BIG - 2);
-        int256 r = Exp.expRayToWad(x);
+        int128 r = Exp.expRayToWad(x);
         assertGe(r, 0, "negative result");
         assertGe(Exp.expRayToWad(x + 1), r, "adjacent monotonicity");
     }
@@ -239,7 +239,7 @@ contract ExpTest is Test {
     function testMulExpRayScaleCapLive() external pure {
         int256 x = _octaveStart(-2);
         int256 floorA = 30076996146000563943129221579116071223;
-        int256 r = Exp.mulExpRay(_Y_MAX, x);
+        int128 r = Exp.mulExpRay(_Y_MAX, x);
         assertLe(r, floorA, "overestimates");
         assertGe(r, floorA - 1, "below floor minus one");
         assertEq(Exp.mulExpRay(-_Y_MAX, x), -r, "negative mirror");

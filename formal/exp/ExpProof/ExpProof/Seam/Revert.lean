@@ -101,7 +101,7 @@ theorem call_fun_expRayToWad_revert_direct
     EvmYul.Yul.State.setStore,
     FormalYul.word,
     slt_thresh_ge h1 h2,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 976)
+    call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 976)
       (shared := shared) (hlookup := hlookup),
     call_constant_ARITHMETIC_OVERFLOW_direct (fuel := fuel + extra) (extra := 826)
       (shared := shared) (hlookup := hlookup),
@@ -137,7 +137,7 @@ theorem call_fun_wrap_expRayToWad_revert_direct
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
     FormalYul.word,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 1176)
+    call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 1176)
       (shared := shared) (hlookup := hlookup),
     h70]
 

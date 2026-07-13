@@ -62,7 +62,7 @@ theorem mulShift_antitone {y x1 x2 : Nat} (hy : y < 2 ^ 256)
 theorem mulShiftArg_facts {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
     (hx : x < 2 ^ 256) (habs : absTree y ≤ scaleMax) (hW : WideRegion x) :
     int256 (evmSub (r0MulTree y x) marginWord) = int256 (r0MulTree y x) - 1 ∧
-      0 ≤ int256 (r0MulTree y x) - 1 ∧ int256 (r0MulTree y x) - 1 < 2 ^ 130 := by
+      0 ≤ int256 (r0MulTree y x) - 1 ∧ int256 (r0MulTree y x) - 1 < 2 ^ 129 := by
   have hpos : 1 ≤ absTree y := absTree_pos hy hy0
   have hslo : 2 ^ 125 ≤ mulScaleTree y := mulScaleTree_lower hy hpos habs
   obtain ⟨_, _, hshi⟩ := mulScaleTree_spec hy habs
@@ -76,9 +76,9 @@ theorem mulShiftArg_facts {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
     rw [int256_of_lt (by norm_num)]
     norm_num
   have hp123 : (2:Int)^123 = 10633823966279326983230456482242756608 := by norm_num
-  have hp130 : (2:Int)^130 = 1361129467683753853853498429727072845824 := by norm_num
+  have hp129 : (2:Int)^129 = 680564733841876926926749214863536422912 := by norm_num
   rw [hp123] at hr0lo
-  rw [hp130] at hr0hi
+  rw [hp129] at hr0hi
   have hsub : int256 (evmSub (r0MulTree y x) marginWord) = int256 (r0MulTree y x) - 1 := by
     have := evmSub_transport hr0w hmarlt
       (by rw [hmari]; simp only [ipow255]; linarith [hr0lo, hr0hi])
@@ -553,9 +553,9 @@ theorem mag_word_small {y x : Nat} (hy : y < 2 ^ 256) (hy0 : y ≠ 0)
     mulMagnitudeTree y x < 2 ^ 255 := by
   obtain ⟨hm0, hmlt, _, _⟩ := mulMagnitude_bracket_live hy hx hy0 habs hx0 hW hlive
   obtain ⟨hmi, _⟩ := int256_eq_of_nonneg (mulMagnitudeTree_lt y x) hm0
-  have h : ((mulMagnitudeTree y x : Nat) : Int) < 2 ^ 128 := by rw [← hmi]; exact hmlt
-  have h' : mulMagnitudeTree y x < 2 ^ 128 := by exact_mod_cast h
-  have : (2:Nat) ^ 128 < 2 ^ 255 := by norm_num
+  have h : ((mulMagnitudeTree y x : Nat) : Int) < 2 ^ 127 := by rw [← hmi]; exact hmlt
+  have h' : mulMagnitudeTree y x < 2 ^ 127 := by exact_mod_cast h
+  have : (2:Nat) ^ 127 < 2 ^ 255 := by norm_num
   omega
 
 /-! ## Magnitude monotonicity over the live region -/

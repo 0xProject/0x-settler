@@ -47,7 +47,7 @@ library Exp {
     ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.22 ⋅ 10³⁷).
-    function expRayToWad(int256 x) internal pure returns (int256) {
+    function expRayToWad(int256 x) internal pure returns (int128) {
         // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 66, where the deficit
         // envelope below exceeds 1ulp.
         if (x >= _EXP_RAY_TO_WAD_HI) {
@@ -56,7 +56,7 @@ library Exp {
 
         int256 k = _octave(x);
         unchecked {
-            return int256(_expRayKernel(x, k, _WAD_SCALE, uint256(int256(67) - k), _WAD_ZERO_MAX));
+            return int128(int256(_expRayKernel(x, k, _WAD_SCALE, uint256(int256(67) - k), _WAD_ZERO_MAX)));
         }
     }
 
@@ -82,7 +82,7 @@ library Exp {
     ///      x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap
     ///      boundary (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to
     ///      zero, either of which is sound (A < 1 there at every supported magnitude).
-    function mulExpRay(int128 y, int256 x) internal pure returns (int256) {
+    function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
         uint256 ay;
         uint256 sign;
         // Split y into a sign mask and a magnitude without negating `type(int128).min`:
@@ -131,7 +131,7 @@ library Exp {
             assembly ("memory-safe") {
                 m := mul(m, or(sign, lt(0, ay)))
             }
-            return int256(m);
+            return int128(int256(m));
         }
     }
 

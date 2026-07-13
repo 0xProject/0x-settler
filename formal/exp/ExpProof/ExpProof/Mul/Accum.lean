@@ -79,13 +79,13 @@ noncomputable section
 /-! ## The live-region magnitude bracket -/
 
 /-- **Live-region magnitude bracket.** On the live region the kernel magnitude `m` is a
-nonnegative value below `2^128` with `m ≤ A < m + 2`. -/
+nonnegative value below `2^127` with `m ≤ A < m + 2`. -/
 theorem mulMagnitude_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
     (hy0 : y ≠ 0) (habs : absTree y ≤ scaleMax)
     (hx0 : int256 x ≠ 0) (hW : WideRegion x)
     (hlive : 2 ≤ int256 (mulShiftTree y x)) :
     0 ≤ int256 (mulMagnitudeTree y x) ∧
-      int256 (mulMagnitudeTree y x) < 2 ^ 128 ∧
+      int256 (mulMagnitudeTree y x) < 2 ^ 127 ∧
       (int256 (mulMagnitudeTree y x) : Real) ≤ mulExpRayMagnitudeTarget (int256 y) (int256 x) ∧
       mulExpRayMagnitudeTarget (int256 y) (int256 x) <
         (int256 (mulMagnitudeTree y x) : Real) + 2 := by
@@ -110,17 +110,17 @@ theorem mulMagnitude_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 2
   have hsub : evmSub (r0MulTree y x) marginWord = r0MulTree y x - 1 := by
     unfold marginWord
     exact evmSub_small hr0nat1 hr0w
-  have hr0nat130 : r0MulTree y x < 2 ^ 130 := by
-    have h : ((r0MulTree y x : Nat) : Int) < 2 ^ 130 := by rw [← hr0i]; exact hr0hi
+  have hr0nat129 : r0MulTree y x < 2 ^ 129 := by
+    have h : ((r0MulTree y x : Nat) : Int) < 2 ^ 129 := by rw [← hr0i]; exact hr0hi
     exact_mod_cast h
   set W := r0MulTree y x - 1 with hWdef
-  have hWnat130 : W < 2 ^ 130 := lt_of_le_of_lt (Nat.sub_le _ _) hr0nat130
-  have hWw : W < 2 ^ 256 := lt_trans hWnat130 (by norm_num)
-  have hWi : int256 W = (W : Int) := int256_of_lt (lt_trans hWnat130 (by norm_num))
+  have hWnat129 : W < 2 ^ 129 := lt_of_le_of_lt (Nat.sub_le _ _) hr0nat129
+  have hWw : W < 2 ^ 256 := lt_trans hWnat129 (by norm_num)
+  have hWi : int256 W = (W : Int) := int256_of_lt (lt_trans hWnat129 (by norm_num))
   have hWnn : 0 ≤ int256 W := by rw [hWi]; exact Int.natCast_nonneg _
-  have hWhi : int256 W < 2 ^ 130 := by
+  have hWhi : int256 W < 2 ^ 129 := by
     rw [hWi]
-    exact_mod_cast hWnat130
+    exact_mod_cast hWnat129
   -- the closing-shift word
   obtain ⟨hsh2, hsh256, hsheq⟩ := mulShift_word_facts hy hx habs hW hlive
   set sh := mulShiftTree y x with hshdef
@@ -248,9 +248,9 @@ theorem mulExpTree_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256
       exact ⟨le_refl 0, by simpa using hmle, by rw [neg_zero]; simpa using hmlt2⟩
     · rw [mulExpTree_negative hlo hy hmpos]
       have hmnat255 : mulMagnitudeTree y x < 2 ^ 255 := by
-        have h : ((mulMagnitudeTree y x : Nat) : Int) < 2 ^ 128 := by rw [← hmi]; exact hmlt
-        have h' : mulMagnitudeTree y x < 2 ^ 128 := by exact_mod_cast h
-        have : (2:Nat) ^ 128 < 2 ^ 255 := by norm_num
+        have h : ((mulMagnitudeTree y x : Nat) : Int) < 2 ^ 127 := by rw [← hmi]; exact hmlt
+        have h' : mulMagnitudeTree y x < 2 ^ 127 := by exact_mod_cast h
+        have : (2:Nat) ^ 127 < 2 ^ 255 := by norm_num
         omega
       have hres : int256 (2 ^ 256 - mulMagnitudeTree y x) = -(int256 (mulMagnitudeTree y x)) := by
         unfold int256
@@ -265,6 +265,87 @@ theorem mulExpTree_bracket_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256
       unfold MulExpRayBracket
       rw [if_pos hyneg, neg_neg]
       exact ⟨hm0, hmle, hmlt2⟩
+
+/-! ## Result range -/
+
+theorem mulExpTree_int128_range_live {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
+    (hy0 : y ≠ 0) (habs : absTree y ≤ scaleMax)
+    (hx0 : int256 x ≠ 0) (hW : WideRegion x)
+    (hlive : 2 ≤ int256 (mulShiftTree y x)) :
+    -(2 ^ 127 : Int) ≤ int256 (mulExpTree y x) ∧
+      int256 (mulExpTree y x) < 2 ^ 127 := by
+  obtain ⟨hm0, hmlt, _, _⟩ := mulMagnitude_bracket_live hy hx hy0 habs hx0 hW hlive
+  have hmagw : mulMagnitudeTree y x < 2 ^ 256 := mulMagnitudeTree_lt y x
+  obtain ⟨hmi, _⟩ := int256_eq_of_nonneg hmagw hm0
+  have hmnat127 : mulMagnitudeTree y x < 2 ^ 127 := by
+    have h : ((mulMagnitudeTree y x : Nat) : Int) < 2 ^ 127 := by
+      rw [← hmi]
+      exact hmlt
+    exact_mod_cast h
+  by_cases hneg : y < 2 ^ 255
+  · rw [mulExpTree_pos (Nat.pos_of_ne_zero hy0) hneg]
+    exact ⟨by omega, hmlt⟩
+  · have hlo : 2 ^ 255 ≤ y := by omega
+    rcases Nat.eq_zero_or_pos (mulMagnitudeTree y x) with hmz | hmpos
+    · have hzero : mulExpTree y x = 0 := by
+        unfold mulExpTree
+        rw [hmz]
+        unfold evmMul
+        rw [u256_self (by norm_num : (0 : Nat) < 2 ^ 256)]
+        simp [u256, WORD_MOD]
+      rw [hzero, int256_zero_word]
+      norm_num
+    · rw [mulExpTree_negative hlo hy hmpos]
+      have hres : int256 (2 ^ 256 - mulMagnitudeTree y x) =
+          -(int256 (mulMagnitudeTree y x)) := by
+        unfold int256
+        rw [if_neg (by omega), if_pos (lt_trans hmnat127 (by norm_num))]
+        omega
+      rw [hres]
+      constructor
+      · exact neg_le_neg (le_of_lt hmlt)
+      · exact lt_of_le_of_lt (neg_nonpos.mpr hm0) (by norm_num)
+
+theorem mulExpTree_int128_range {y x : Nat} (h : MulExpRayValueDomain y x) :
+    -(2 ^ 127 : Int) ≤ int256 (mulExpTree y x) ∧
+      int256 (mulExpTree y x) < 2 ^ 127 := by
+  obtain ⟨⟨hy, hx⟩, hscale, hxhi, hlive⟩ := h
+  have habs : absTree y ≤ scaleMax :=
+    (scaleShiftTree_le_127_iff (absTree_lt y)).mp hscale
+  rcases Nat.eq_zero_or_pos y with hy0 | hypos
+  · subst hy0
+    rw [mulExpTree_zero, int256_zero_word]
+    norm_num
+  by_cases hclamp : int256 x ≤ int256 mulExpRayZeroMax
+  · rw [mulExpTree_clamped hx hclamp, int256_zero_word]
+    norm_num
+  by_cases hx0 : int256 x = 0
+  · have hxw0 : x = 0 := (int256_zero_iff_of_canonical hx).mp hx0
+    subst hxw0
+    rw [mulExpTree_scale_point hy.1 habs]
+    have habsNat : (int256 y).natAbs < 2 ^ 127 := by
+      rw [← absTree_eq_natAbs hy.1]
+      exact lt_of_le_of_lt habs scaleMax_lt_2127
+    have habsInt : (((int256 y).natAbs : Nat) : Int) < 2 ^ 127 := by
+      exact_mod_cast habsNat
+    by_cases hyneg : int256 y < 0
+    · rw [Int.ofNat_natAbs_of_nonpos (le_of_lt hyneg)] at habsInt
+      omega
+    · rw [Int.natAbs_of_nonneg (not_lt.mp hyneg)] at habsInt
+      omega
+  · exact mulExpTree_int128_range_live hy.1 hx (by omega) habs hx0
+      ⟨by omega, hxhi⟩ hlive
+
+theorem mulExpTree_int128_word {y x : Nat} (h : MulExpRayValueDomain y x) :
+    Int128Word (mulExpTree y x) := by
+  have hrange := mulExpTree_int128_range h
+  have hword := mulExpTree_lt y x
+  exact ⟨hword, signextend_15_eq_self_of_int256_range hword hrange.1 hrange.2⟩
+
+theorem run_mul_exp_ray_evm_eq_tree {y x : Nat} (h : MulExpRayValueDomain y x) :
+    run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
+  run_mul_exp_ray_evm_eq_tree_of_guard y x h.1.1.2 (mulExpTree_int128_word h).2
+    ((valueDomain_iff_guard_eq_zero h.1).mp h)
 
 /-! ## The bracket on the whole value domain -/
 

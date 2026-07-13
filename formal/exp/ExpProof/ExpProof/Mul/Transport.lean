@@ -237,7 +237,7 @@ theorem scaleMax_octave_neg_two_valueDomain {x : Nat} (hx : x < 2 ^ 256)
     rw [mulShiftTree_transport_global hcap, hs, hk]
     norm_num
   exact ⟨hs, hshift,
-    ⟨⟨int128CalldataWord_scaleMax, hx⟩, by rw [hs]; norm_num, hxhi, by omega⟩⟩
+    ⟨⟨int128Word_scaleMax, hx⟩, by rw [hs]; norm_num, hxhi, by omega⟩⟩
 
 /-- The closing-shift word carries the signed difference `S − k` on the wide region. -/
 theorem mulShiftTree_transport {y x : Nat} (_hy : y < 2 ^ 256) (_hx : x < 2 ^ 256)
@@ -270,26 +270,26 @@ theorem mulShift_word_facts {y x : Nat} (hy : y < 2 ^ 256) (hx : x < 2 ^ 256)
     have h254 : mulShiftTree y x ≤ 254 := by exact_mod_cast this
     omega
 
-/-- Closing `shr` at any shift `s ∈ [2, 255]`: a nonnegative argument below `2^130` floors to a
-nonnegative value below `2^128`. -/
+/-- Closing `shr` at any shift `s ∈ [2, 255]`: a nonnegative argument below `2^129` floors to a
+nonnegative value below `2^127`. -/
 theorem mulShr_facts {W s : Nat} (hWw : W < 2 ^ 256) (hslo : 2 ≤ s) (hshi : s ≤ 255)
-    (hWnn : 0 ≤ int256 W) (hWhi : int256 W < 2 ^ 130) :
-    0 ≤ int256 (evmShr s W) ∧ int256 (evmShr s W) < 2 ^ 128 := by
+    (hWnn : 0 ≤ int256 W) (hWhi : int256 W < 2 ^ 129) :
+    0 ≤ int256 (evmShr s W) ∧ int256 (evmShr s W) < 2 ^ 127 := by
   obtain ⟨hWi, _⟩ := int256_eq_of_nonneg hWw hWnn
-  have hWnat : W < 2 ^ 130 := by
-    have : ((W : Nat) : Int) < 2 ^ 130 := by rw [← hWi]; exact hWhi
+  have hWnat : W < 2 ^ 129 := by
+    have : ((W : Nat) : Int) < 2 ^ 129 := by rw [← hWi]; exact hWhi
     exact_mod_cast this
   rw [evmShr_eq_div (by omega) hWw]
-  have hqlt : W / 2 ^ s < 2 ^ 128 := by
+  have hqlt : W / 2 ^ s < 2 ^ 127 := by
     have h4 : (2:Nat) ^ 2 ≤ 2 ^ s := Nat.pow_le_pow_right (by norm_num) hslo
     have h1 : W / 2 ^ s ≤ W / 2 ^ 2 := Nat.div_le_div_left h4 (Nat.two_pow_pos _)
-    have h2 : W / 2 ^ 2 < 2 ^ 128 := by
+    have h2 : W / 2 ^ 2 < 2 ^ 127 := by
       rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
-      calc W < 2 ^ 130 := hWnat
-        _ = 2 ^ 128 * 2 ^ 2 := by rw [← Nat.pow_add]
+      calc W < 2 ^ 129 := hWnat
+        _ = 2 ^ 127 * 2 ^ 2 := by rw [← Nat.pow_add]
     omega
   rw [int256_of_lt (by
-    have : (2:Nat) ^ 128 < 2 ^ 255 := by norm_num
+    have : (2:Nat) ^ 127 < 2 ^ 255 := by norm_num
     omega)]
   constructor
   · positivity

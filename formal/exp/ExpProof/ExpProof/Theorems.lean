@@ -75,7 +75,7 @@ example : run_exp_ray_to_wad_evm 0 = .ok 1000000000000000000 :=
 /-! ## Monotonicity
 
 The octave-seam `r0`-doubling bound `SeamR0Bound` is discharged (`seamR0Bound_holds`, via the
-per-point real bracket `r0Tree x ≈ (10¹⁸·2⁶⁸)·exp(rt)` and the seam relation `exp(rt1) =
+per-point real bracket `r0Tree x ≈ (10¹⁸·2⁶⁷)·exp(rt)` and the seam relation `exp(rt1) =
 2·exp(rt2)·exp(−1/RAY)`), so monotonicity holds over the whole supported domain with no analytic
 hypothesis. -/
 
@@ -251,11 +251,12 @@ example {y x : Nat} (hcanon : MulExpRayCanonical y x) :
 example (x : Int) : ExpRealSpec.MulExpRayBracket 0 x 0 :=
   mulExpRayBracket_zero_result x
 
-/-- The value path returns the compiled arithmetic tree whenever the ABI word is canonical and the
-guard word is zero. -/
-example (y x : Nat) (hy : Int128CalldataWord y) (hguard : mulExpGuardTree y x = 0) :
+/-- The value path returns the compiled arithmetic tree whenever the input and result words are
+canonical and the guard word is zero. -/
+example (y x : Nat) (hy : Int128Word y)
+    (hresult : Int128Word (mulExpTree y x)) (hguard : mulExpGuardTree y x = 0) :
     run_mul_exp_ray_evm y x = .ok (mulExpTree y x) :=
-  run_mul_exp_ray_evm_eq_tree_of_guard y x hy.2 hguard
+  run_mul_exp_ray_evm_eq_tree_of_guard y x hy.2 hresult.2 hguard
 
 /-- The compiled runtime returns zero for a zero multiplier whenever the guard accepts. -/
 example (x : Nat) (hguard : mulExpGuardTree 0 x = 0) : run_mul_exp_ray_evm 0 x = .ok 0 :=
@@ -282,19 +283,19 @@ example {y x : Nat} (h : MulExpRayPanicDomain y x) :
   run_mul_exp_ray_evm_revert h
 
 /-- The accepted scale point returns the multiplier exactly. -/
-example {y : Nat} (hy : Int128CalldataWord y) (habs : absTree y ≤ scaleMax)
+example {y : Nat} (hy : Int128Word y) (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y 0)) :
     run_mul_exp_ray_evm y 0 = .ok y :=
   run_mul_exp_ray_evm_scale_point hy habs hshift
 
 /-- The scale-point result satisfies the public bracket. -/
-example {y : Nat} (hy : Int128CalldataWord y) (habs : absTree y ≤ scaleMax)
+example {y : Nat} (hy : Int128Word y) (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y 0)) :
     MulExpRayRunBracket y 0 :=
   mulExpRay_run_bracket_scale_point hy habs hshift
 
 /-- At or below the zero cutoff, every accepted magnitude returns zero. -/
-example {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
+example {y x : Nat} (hy : Int128Word y) (hx : x < 2 ^ 256)
     (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y x))
     (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :
@@ -302,7 +303,7 @@ example {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
   run_mul_exp_ray_evm_clamped hy hx habs hshift hclamp
 
 /-- The clamped result satisfies the public bracket. -/
-example {y x : Nat} (hy : Int128CalldataWord y) (hx : x < 2 ^ 256)
+example {y x : Nat} (hy : Int128Word y) (hx : x < 2 ^ 256)
     (habs : absTree y ≤ scaleMax)
     (hshift : 2 ≤ FormalYul.Preservation.int256 (mulShiftTree y x))
     (hclamp : FormalYul.Preservation.int256 x ≤ FormalYul.Preservation.int256 mulExpRayZeroMax) :

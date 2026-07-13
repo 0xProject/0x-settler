@@ -49,7 +49,7 @@ theorem call_fun_mulExpRay_revert_direct
   let k := kTree x
   let shift := evmSub s k
   have hzeroInit :=
-    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 2176)
+    call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 2176)
       (shared := shared) (hlookup := hlookup)
   have hzeroUint1 :=
     call_zero_value_for_split_t_uint256_direct (fuel := fuel + extra) (extra := 2173)
@@ -210,7 +210,7 @@ theorem call_fun_wrap_mulExpRay_revert_direct
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
     FormalYul.word,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 2276)
+    call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 2276)
       (shared := shared) (hlookup := hlookup),
     hinner]
 

@@ -50,13 +50,16 @@ threshold the runtime result `r` satisfies the 2-wide never-over bracket `r ≤ 
 theorem run_exp_ray_to_wad_evm_floorOrOneLess_uncond (x : Nat) (hx : x < 2 ^ 256)
     (hC0 : int256 x < int256 C0thresh) :
     ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ FloorOrOneLessBracket (int256 x) (int256 r) := by
-  refine ⟨expTree x, run_exp_ray_to_wad_evm_eq_expTree x (domain_of_below_C0 hx hC0), ?_⟩
+  refine ⟨expTree x,
+    run_exp_ray_to_wad_evm_eq_expTree x (domain_of_below_C0 hx hC0)
+      (expTree_int128_word hx hC0), ?_⟩
   by_cases hC : int256 Cmask < int256 x
   · by_cases hz : x = 0
     · subst hz
       have he : expTree 0 = 1000000000000000000 := by
         have := run_exp_ray_to_wad_evm_zero
-        rw [run_exp_ray_to_wad_evm_eq_expTree 0 (domain_of_below_C0 hx hC0)] at this
+        rw [run_exp_ray_to_wad_evm_eq_expTree 0 (domain_of_below_C0 hx hC0)
+          (expTree_int128_word hx hC0)] at this
         exact Except.ok.inj this.symm
       rw [he]
       have h0 : int256 (1000000000000000000 : Nat) = (10 ^ 18 : Int) := by

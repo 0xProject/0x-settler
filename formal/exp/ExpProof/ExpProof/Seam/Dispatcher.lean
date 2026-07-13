@@ -409,28 +409,29 @@ theorem call_allocate_unbounded_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word]
 
-/-- `abi_encode_t_int256_to_t_int256_fromStack(value, pos) := mstore(pos, cleanup(value))`,
-specialized to a literal `value = word v` (the only shape the return path needs). -/
-theorem call_abi_encode_t_int256_to_t_int256_fromStack_direct
+/-- `abi_encode_t_int128_to_t_int128_fromStack(value, pos)` stores the signed-128 cleanup of
+`value`. -/
+theorem call_abi_encode_t_int128_to_t_int128_fromStack_direct
     (v : Nat) (pos : EvmYul.UInt256) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 90) [FormalYul.word v, pos]
-      (.some "abi_encode_t_int256_to_t_int256_fromStack")
+      (.some "abi_encode_t_int128_to_t_int128_fromStack")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok ((EvmYul.Yul.State.Ok shared store).setMachineState
-      ((EvmYul.Yul.State.Ok shared store).toMachineState.mstore pos (FormalYul.word v)), []) := by
+      ((EvmYul.Yul.State.Ok shared store).toMachineState.mstore pos
+        (EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word v))), []) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions,
-    lookup_abi_encode_t_int256_to_t_int256_fromStack]
-  simp only [yulFunction_abi_encode_t_int256_to_t_int256_fromStack,
+    lookup_abi_encode_t_int128_to_t_int128_fromStack]
+  simp only [yulFunction_abi_encode_t_int128_to_t_int128_fromStack,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hcleanup :=
-    call_cleanup_t_int256_direct (v := v) (fuel := fuel) (extra := 64) (shared := shared)
+    call_cleanup_t_int128_direct (v := v) (fuel := fuel) (extra := 64) (shared := shared)
       (store := Finmap.insert "value" (FormalYul.word v)
         (Finmap.insert "pos" pos (Inhabited.default : EvmYul.Yul.VarStore)))
       (hlookup := hlookup)
@@ -444,29 +445,30 @@ theorem call_abi_encode_t_int256_to_t_int256_fromStack_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     FormalYul.word, hcleanup]
 
-/-- `abi_encode_tuple_t_int256__to_t_int256__fromStack(headStart, value)` encodes a single `int256`
-return value (`value = word v`) and returns the tail pointer `headStart + 32`. -/
-theorem call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
+/-- `abi_encode_tuple_t_int128__to_t_int128__fromStack(headStart, value)` encodes one signed-128
+return value and returns the tail pointer `headStart + 32`. -/
+theorem call_abi_encode_tuple_t_int128__to_t_int128__fromStack_direct
     (headStart : EvmYul.UInt256) (v : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 150) [headStart, FormalYul.word v]
-      (.some "abi_encode_tuple_t_int256__to_t_int256__fromStack")
+      (.some "abi_encode_tuple_t_int128__to_t_int128__fromStack")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .ok ((EvmYul.Yul.State.Ok shared store).setMachineState
-      ((EvmYul.Yul.State.Ok shared store).toMachineState.mstore headStart (FormalYul.word v)),
+      ((EvmYul.Yul.State.Ok shared store).toMachineState.mstore headStart
+        (EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word v))),
       [headStart + FormalYul.word 32]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions,
-    lookup_abi_encode_tuple_t_int256__to_t_int256__fromStack]
-  simp only [yulFunction_abi_encode_tuple_t_int256__to_t_int256__fromStack,
+    lookup_abi_encode_tuple_t_int128__to_t_int128__fromStack]
+  simp only [yulFunction_abi_encode_tuple_t_int128__to_t_int128__fromStack,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hencode :=
-    call_abi_encode_t_int256_to_t_int256_fromStack_direct
+    call_abi_encode_t_int128_to_t_int128_fromStack_direct
       (v := v) (pos := headStart + FormalYul.word 0) (fuel := fuel + 55)
       (shared := shared)
       (store := Finmap.insert "tail" (headStart + FormalYul.word 32)

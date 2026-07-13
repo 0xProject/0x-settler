@@ -3,13 +3,13 @@ import ExpProof.Mono.Stages
 /-!
 # The reciprocal-symmetric quotient stage
 
-From the stage bounds this file assembles the closing quotient `r0 = ⌊scaleQ67·exp(t)⌋`:
+From the stage bounds this file assembles the closing quotient
+`r0 = ⌊scaleQ67·num/den⌋`:
 
 * `tod = ⌊t·Od / 2^129⌋` transported to `Int`, with `|tod| < 2^126`;
 * the numerator `num = ev + tod` and denominator `den = ev − tod` are strictly positive (the
   reduced argument keeps `|tod|` well below `ev`);
-* `r0 = div(2^126·num, den)` — a plain `Nat` floor division — is at least `2^123` and below
-  `2^128`.
+* the plain `Nat` floor division is at least `2^123` and below `2^129`.
 
 These give the range and nonnegativity obligations directly, and (via the cross-multiplication
 identity) reduce the within-octave monotonicity to a fact about `tod·ev`.
@@ -156,17 +156,17 @@ theorem numden_pos {x : Nat} (hx : x < 2 ^ 256)
 /-! ## The runtime quotient `r0 = ⌊(10¹⁸·2⁶⁷)·num/den⌋` -/
 
 /-- Abstract scaled-quotient bounds over opaque numerator/denominator words: `⌊scaleQ67·N/D⌋`
-lies in `[2^124, 2^130)`. The dividend `scaleQ67·N` fits a word (`N < 2^129`,
+lies in `[2^124, 2^129)`. The dividend `scaleQ67·N` fits a word (`N < 2^129`,
 `scaleQ67 < 2^127`); `2^124·D < 2^253 ≤ scaleQ67·N` keeps the quotient `≥ 2^124` (comfortably
-clearing the closing stage's `r0 > MARGIN`), and `N < 4·D` with `4·scaleQ67 ≤ 2^130` keeps it
-below `2^130`. -/
+clearing the closing stage's `r0 > MARGIN`), and `N < 4·D` with `4·scaleQ67 ≤ 2^129` keeps it
+below `2^129`. -/
 theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 129) (hDlt : D < 2 ^ 129) (hD : D < 2 ^ 256)
     (hDi : int256 D = (D : Int))
     (hNpos : 0 < (N : Int)) (hDpos : 0 < (D : Int))
     (hNlo : 2 ^ 127 ≤ N)
     (hND : (N : Int) < 4 * (D : Int)) :
     2 ^ 124 ≤ int256 (evmDiv (evmMul scaleQ67 N) D) ∧
-      int256 (evmDiv (evmMul scaleQ67 N) D) < 2 ^ 130 := by
+      int256 (evmDiv (evmMul scaleQ67 N) D) < 2 ^ 129 := by
   have hNw : N < 2 ^ 256 := by
     have : (2:Nat) ^ 128 < 2 ^ 256 := by norm_num
     omega
@@ -181,14 +181,14 @@ theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 129) (hDlt : D < 2 ^ 129) (hD
     rw [hmul, evmDiv_eq hfit hD (by omega)]
   set q := scaleQ67 * N / D with hq
   have hspos : 0 < scaleQ67 := by unfold scaleQ67; norm_num
-  have hq_lt : q < 2 ^ 130 := by
+  have hq_lt : q < 2 ^ 129 := by
     rw [hq, Nat.div_lt_iff_lt_mul hDnat_pos]
     have hND' : N < 4 * D := by
       have h4 : ((4 * D : Nat) : Int) = 4 * (D : Int) := by push_cast; ring
       rw [← h4] at hND; exact_mod_cast hND
     have h1 : scaleQ67 * N < scaleQ67 * (4 * D) := (Nat.mul_lt_mul_left hspos).mpr hND'
     have h2 : scaleQ67 * (4 * D) = (4 * scaleQ67) * D := by ring
-    have h3 : (4 * scaleQ67) * D ≤ 2 ^ 130 * D :=
+    have h3 : (4 * scaleQ67) * D ≤ 2 ^ 129 * D :=
       Nat.mul_le_mul_right _ (by unfold scaleQ67; norm_num)
     omega
   have hq_ge : 2 ^ 124 ≤ q := by
@@ -200,12 +200,12 @@ theorem r0Tree_bounds_of {N D : Nat} (hN : N < 2 ^ 129) (hDlt : D < 2 ^ 129) (hD
   have hqi : int256 (evmDiv (evmMul scaleQ67 N) D) = (q : Int) := by
     rw [hdiv]
     exact int256_of_lt (by
-      have : (2:Nat) ^ 130 < 2 ^ 255 := by norm_num
+      have : (2:Nat) ^ 129 < 2 ^ 255 := by norm_num
       omega)
   rw [hqi]
   exact ⟨by exact_mod_cast hq_ge, by exact_mod_cast hq_lt⟩
 
-/-- Abstract runtime `r0` bounds over opaque even/odd words: `2^124 ≤ r0 < 2^130` with
+/-- Abstract runtime `r0` bounds over opaque even/odd words: `2^124 ≤ r0 < 2^129` with
 `r0 = div(scaleQ67·(E+TD), E−TD)`. -/
 theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
     (hev_lo : (415147853590918758559635130244235626256 : Int) ≤ (E : Int))
@@ -213,20 +213,20 @@ theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 
     (htod_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD)
     (htod_hi : int256 TD < 85070591730234615865843651857942052864) :
     2 ^ 124 ≤ int256 (evmDiv (evmMul scaleQ67 (evmAdd E TD)) (evmSub E TD)) ∧
-      int256 (evmDiv (evmMul scaleQ67 (evmAdd E TD)) (evmSub E TD)) < 2 ^ 130 := by
+      int256 (evmDiv (evmMul scaleQ67 (evmAdd E TD)) (evmSub E TD)) < 2 ^ 129 := by
   obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_of hevw htodw hev_lo hev_hi htod_lo htod_hi
   have hNwlt : evmAdd E TD < 2 ^ 256 := evmAdd_lt _ _
   have hDwlt : evmSub E TD < 2 ^ 256 := evmSub_lt _ _
-  have h128 : (2:Int)^129 = 680564733841876926926749214863536422912 := by norm_num
+  have h129 : (2:Int)^129 = 680564733841876926926749214863536422912 := by norm_num
   have h127 : (3:Int) * 2 ^ 127 = 510423550381407695195061911147652317184 := by norm_num
   rw [h127] at hev_hi
   obtain ⟨hNi, hNlt255⟩ := int256_eq_of_nonneg hNwlt (by rw [hadd]; omega)
   obtain ⟨hDi, hDlt255⟩ := int256_eq_of_nonneg hDwlt (by rw [hsub]; omega)
-  have hNlt128 : evmAdd E TD < 2 ^ 129 := by
-    have : ((evmAdd E TD : Nat) : Int) < 2 ^ 129 := by rw [← hNi, hadd, h128]; omega
+  have hNlt129 : evmAdd E TD < 2 ^ 129 := by
+    have : ((evmAdd E TD : Nat) : Int) < 2 ^ 129 := by rw [← hNi, hadd, h129]; omega
     exact_mod_cast this
-  have hDlt128 : evmSub E TD < 2 ^ 129 := by
-    have : ((evmSub E TD : Nat) : Int) < 2 ^ 129 := by rw [← hDi, hsub, h128]; omega
+  have hDlt129 : evmSub E TD < 2 ^ 129 := by
+    have : ((evmSub E TD : Nat) : Int) < 2 ^ 129 := by rw [← hDi, hsub, h129]; omega
     exact_mod_cast this
   have hNlo : 2 ^ 127 ≤ evmAdd E TD := by
     have : (2 ^ 127 : Int) ≤ ((evmAdd E TD : Nat) : Int) := by
@@ -237,11 +237,11 @@ theorem r0Tree_bounds_ofEvTod {E TD : Nat} (hevw : E < 2 ^ 256) (htodw : TD < 2 
     rw [← hNi, ← hDi, hadd, hsub]; omega
   have hNpos : 0 < ((evmAdd E TD : Nat) : Int) := by rw [← hNi, hadd]; omega
   have hDpos : 0 < ((evmSub E TD : Nat) : Int) := by rw [← hDi, hsub]; omega
-  exact r0Tree_bounds_of hNlt128 hDlt128 hDwlt hDi hNpos hDpos hNlo hND
+  exact r0Tree_bounds_of hNlt129 hDlt129 hDwlt hDi hNpos hDpos hNlo hND
 
-/-- `2^124 ≤ r0Tree x < 2^130` on the wide region. -/
+/-- `2^124 ≤ r0Tree x < 2^129` on the wide region. -/
 theorem r0Tree_bounds_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
-    2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 130 := by
+    2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 129 := by
   obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW
   obtain ⟨hev_lo, hev_hi⟩ := evTree_facts hvlt
   obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound_wide hx hW
@@ -261,13 +261,13 @@ theorem r0Tree_bounds_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
 
 theorem r0Tree_bounds {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 130 :=
+    2 ^ 124 ≤ int256 (r0Tree x) ∧ int256 (r0Tree x) < 2 ^ 129 :=
   r0Tree_bounds_wide hx (wideRegion_of_wad hC hC0)
 
 /-! ## The scaled quotient at a symbolic scale -/
 
 /-- Abstract scaled-quotient bounds at a symbolic scale `2^125 ≤ scale ≤ scaleMax`: `⌊scale·N/D⌋`
-lies in `[2^123, 2^130)`. The lower bound is tight at the minimal scale:
+lies in `[2^123, 2^129)`. The lower bound is tight at the minimal scale:
 `2^123·D < 2^123·2^129 = 2^125·2^127 ≤ scale·N`. -/
 theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleMax)
     (hN : N < 2 ^ 129) (hDlt : D < 2 ^ 129) (hD : D < 2 ^ 256)
@@ -276,7 +276,7 @@ theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : 
     (hNlo : 2 ^ 127 ≤ N)
     (hND : (N : Int) < 4 * (D : Int)) :
     2 ^ 123 ≤ int256 (evmDiv (evmMul scale N) D) ∧
-      int256 (evmDiv (evmMul scale N) D) < 2 ^ 130 := by
+      int256 (evmDiv (evmMul scale N) D) < 2 ^ 129 := by
   have hNw : N < 2 ^ 256 := by
     have : (2:Nat) ^ 128 < 2 ^ 256 := by norm_num
     omega
@@ -291,17 +291,17 @@ theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : 
     rw [hmul, evmDiv_eq hfit hD (by omega)]
   set q := scale * N / D with hq
   have hspos : 0 < scale := lt_of_lt_of_le (by norm_num) hslo
-  have hq_lt : q < 2 ^ 130 := by
+  have hq_lt : q < 2 ^ 129 := by
     rw [hq, Nat.div_lt_iff_lt_mul hDnat_pos]
     have hND' : N < 4 * D := by
       have h4 : ((4 * D : Nat) : Int) = 4 * (D : Int) := by push_cast; ring
       rw [← h4] at hND; exact_mod_cast hND
     have h1 : scale * N < scale * (4 * D) := (Nat.mul_lt_mul_left hspos).mpr hND'
     have h2 : scale * (4 * D) ≤ scaleMax * (4 * D) := Nat.mul_le_mul_right _ hshi
-    have h3 : scaleMax * (4 * D) ≤ 2 ^ 130 * D := by
-      have h4S : (4:Nat) * scaleMax ≤ 2 ^ 130 := by unfold scaleMax; norm_num
+    have h3 : scaleMax * (4 * D) ≤ 2 ^ 129 * D := by
+      have h4S : (4:Nat) * scaleMax ≤ 2 ^ 129 := by unfold scaleMax; norm_num
       calc scaleMax * (4 * D) = (4 * scaleMax) * D := by ring
-        _ ≤ 2 ^ 130 * D := Nat.mul_le_mul_right _ h4S
+        _ ≤ 2 ^ 129 * D := Nat.mul_le_mul_right _ h4S
     omega
   have hq_ge : 2 ^ 123 ≤ q := by
     rw [hq, Nat.le_div_iff_mul_le hDnat_pos]
@@ -312,12 +312,12 @@ theorem r0Scaled_bounds_of {scale N D : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : 
   have hqi : int256 (evmDiv (evmMul scale N) D) = (q : Int) := by
     rw [hdiv]
     exact int256_of_lt (by
-      have : (2:Nat) ^ 130 < 2 ^ 255 := by norm_num
+      have : (2:Nat) ^ 129 < 2 ^ 255 := by norm_num
       omega)
   rw [hqi]
   exact ⟨by exact_mod_cast hq_ge, by exact_mod_cast hq_lt⟩
 
-/-- Abstract scaled `r0` bounds over opaque even/odd words: `2^123 ≤ r0 < 2^130` with
+/-- Abstract scaled `r0` bounds over opaque even/odd words: `2^123 ≤ r0 < 2^129` with
 `r0 = div(scale·(E+TD), E−TD)` at any `2^125 ≤ scale ≤ scaleMax`. -/
 theorem r0Scaled_bounds_ofEvTod {scale E TD : Nat} (hslo : 2 ^ 125 ≤ scale)
     (hshi : scale ≤ scaleMax) (hevw : E < 2 ^ 256) (htodw : TD < 2 ^ 256)
@@ -326,20 +326,20 @@ theorem r0Scaled_bounds_ofEvTod {scale E TD : Nat} (hslo : 2 ^ 125 ≤ scale)
     (htod_lo : -(85070591730234615865843651857942052864 : Int) ≤ int256 TD)
     (htod_hi : int256 TD < 85070591730234615865843651857942052864) :
     2 ^ 123 ≤ int256 (evmDiv (evmMul scale (evmAdd E TD)) (evmSub E TD)) ∧
-      int256 (evmDiv (evmMul scale (evmAdd E TD)) (evmSub E TD)) < 2 ^ 130 := by
+      int256 (evmDiv (evmMul scale (evmAdd E TD)) (evmSub E TD)) < 2 ^ 129 := by
   obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos_of hevw htodw hev_lo hev_hi htod_lo htod_hi
   have hNwlt : evmAdd E TD < 2 ^ 256 := evmAdd_lt _ _
   have hDwlt : evmSub E TD < 2 ^ 256 := evmSub_lt _ _
-  have h128 : (2:Int)^129 = 680564733841876926926749214863536422912 := by norm_num
+  have h129 : (2:Int)^129 = 680564733841876926926749214863536422912 := by norm_num
   have h127 : (3:Int) * 2 ^ 127 = 510423550381407695195061911147652317184 := by norm_num
   rw [h127] at hev_hi
   obtain ⟨hNi, hNlt255⟩ := int256_eq_of_nonneg hNwlt (by rw [hadd]; omega)
   obtain ⟨hDi, hDlt255⟩ := int256_eq_of_nonneg hDwlt (by rw [hsub]; omega)
-  have hNlt128 : evmAdd E TD < 2 ^ 129 := by
-    have : ((evmAdd E TD : Nat) : Int) < 2 ^ 129 := by rw [← hNi, hadd, h128]; omega
+  have hNlt129 : evmAdd E TD < 2 ^ 129 := by
+    have : ((evmAdd E TD : Nat) : Int) < 2 ^ 129 := by rw [← hNi, hadd, h129]; omega
     exact_mod_cast this
-  have hDlt128 : evmSub E TD < 2 ^ 129 := by
-    have : ((evmSub E TD : Nat) : Int) < 2 ^ 129 := by rw [← hDi, hsub, h128]; omega
+  have hDlt129 : evmSub E TD < 2 ^ 129 := by
+    have : ((evmSub E TD : Nat) : Int) < 2 ^ 129 := by rw [← hDi, hsub, h129]; omega
     exact_mod_cast this
   have hNlo : 2 ^ 127 ≤ evmAdd E TD := by
     have : (2 ^ 127 : Int) ≤ ((evmAdd E TD : Nat) : Int) := by
@@ -350,12 +350,12 @@ theorem r0Scaled_bounds_ofEvTod {scale E TD : Nat} (hslo : 2 ^ 125 ≤ scale)
     rw [← hNi, ← hDi, hadd, hsub]; omega
   have hNpos : 0 < ((evmAdd E TD : Nat) : Int) := by rw [← hNi, hadd]; omega
   have hDpos : 0 < ((evmSub E TD : Nat) : Int) := by rw [← hDi, hsub]; omega
-  exact r0Scaled_bounds_of hslo hshi hNlt128 hDlt128 hDwlt hDi hNpos hDpos hNlo hND
+  exact r0Scaled_bounds_of hslo hshi hNlt129 hDlt129 hDwlt hDi hNpos hDpos hNlo hND
 
-/-- `2^123 ≤ r0ScaledTree scale x < 2^130` on the wide region, for `2^125 ≤ scale ≤ scaleMax`. -/
+/-- `2^123 ≤ r0ScaledTree scale x < 2^129` on the wide region, for `2^125 ≤ scale ≤ scaleMax`. -/
 theorem r0Scaled_bounds {scale x : Nat} (hslo : 2 ^ 125 ≤ scale) (hshi : scale ≤ scaleMax)
     (hx : x < 2 ^ 256) (hW : WideRegion x) :
-    2 ^ 123 ≤ int256 (r0ScaledTree scale x) ∧ int256 (r0ScaledTree scale x) < 2 ^ 130 := by
+    2 ^ 123 ≤ int256 (r0ScaledTree scale x) ∧ int256 (r0ScaledTree scale x) < 2 ^ 129 := by
   obtain ⟨_, hvlt⟩ := vTree_eq_wide hx hW
   obtain ⟨hev_lo, hev_hi⟩ := evTree_facts hvlt
   obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound_wide hx hW
