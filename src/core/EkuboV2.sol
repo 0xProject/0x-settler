@@ -79,7 +79,7 @@ library UnsafeEkuboCore {
             mcopy(poolKeyPtr, poolKey, 0x60)
             // ABI decoding in Ekubo will check if amount fits in int128
             mstore(add(0x80, ptr), amount)
-            mstore(add(0xa0, ptr), isToken1)
+            mstore(add(0xa0, ptr), lt(0x00, isToken1))
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xe0, ptr), 0x00)
 
@@ -110,7 +110,7 @@ library UnsafeEkuboCore {
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
             mstore(add(0x94, ptr), amount)
-            mstore(add(0xb4, ptr), isToken1)
+            mstore(add(0xb4, ptr), lt(0x00, isToken1))
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xf4, ptr), 0x00)
 
