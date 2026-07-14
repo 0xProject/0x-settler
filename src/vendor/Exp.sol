@@ -51,7 +51,7 @@ library Exp {
     ///      nonincreasing if y < 0. For a fixed `x`, among accepted inputs, the result is
     ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
     ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
-    ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any (x₁, x₂).
+    ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ (for any x₁, x₂).
     /// @dev Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
     ///      (regardless of y), or when round(x / (10²⁷⋅ln(2))) exceeds s - 2, with 2ˢ the scale
     ///      headroom above |y|; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. The
