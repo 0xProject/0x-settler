@@ -166,31 +166,29 @@ library Exp {
         //
         // Error budget. Let ê = N/D be the exact value of the integer rational (N = Ev + t⋅Od, D =
         // Ev - t⋅Od; the closing `DIV` floor is counted on the output grid below) and write its
-        // excess over exp(t) as Δ = (ê - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The
-        // budget bounds Δ ≤ 0.4668745981919039833, the sum
-        // of four one-sided contributions:
+        // excess over exp(t) as Δ = (ê - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The budget
+        // bounds Δ ≤ 0.4668745981919039833, the sum of four one-sided contributions:
         //     integer Horner truncation: the shared Ev cancels to first order in the quotient, so
-        //         its truncation barely perturbs ê; this jitter stays ≤ 0.1102011232081646123.
+        //         its truncation barely perturbs ê; this jitter stays ≤ 0.1103.
         //     argument granularity: v carries t² on the Q123 grid, and its floor only lowers the
-        //         polynomials' shared argument, which lifts ê on the t > 0 half by
-        //         ≤ 0.3290521163436398582: one v-grain moves the quotient by
-        //         2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose one-signed numerator is maximal at each
-        //         piece's upper edge and whose denominator, analyzed over 32 domain pieces, has
+        //         polynomials' shared argument, which lifts ê on the t > 0 half by ≤ 0.3291: one
+        //         v-grain moves the quotient by 2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose one-signed
+        //         numerator is maximal at each piece's upper edge and whose denominator has
         //         pointwise supremum ≈ 0.3287 at t = ln(2)/2. The t < 0 direction is budgeted on
         //         the under side.
         //     rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
-        //         ≤ 0.0220970869120796102 (its supremum is √2⋅2¹²⁶/(2¹³²-1)).
-        //     reduced-argument gap: the Q129 floor of t only pushes ê downward (that direction is
+        //         ≤ 0.0221 (its supremum is √2⋅2¹²⁶/(2¹³²-1)).
+        //     reduced-argument gap: the Q129 floor of `t` only pushes ê downward (that direction is
         //         budgeted on the under side); the over side is the K27/LN2 constant-grid residue
-        //         (the K27 coefficient-grid term is below 2⁻¹³³ over |x| < 2⁹⁷ and the k⋅ln(2)
-        //         grid term below 2⁻²²⁸), lifting ê by ≤ 0.0055242717280199026 (≈ √2/256).
+        //         (the K27 coefficient-grid term is below 2⁻¹³³ over |x| < 2⁹⁷ and the k⋅ln(2) grid
+        //         term below 2⁻²²⁸), lifting ê by ≤ 0.0055 (≈ √2/256).
         //
         // The quotient `r` carries the scaled rational on a dynamic output grid, where one grid
         // unit is worth 2ᵏ⁻ˢ ulp (1ulp = 1 in the caller's magnitude). Because scale ≤ 2¹²⁷ and Δ <
         // 1/2, its image scale⋅Δ/2¹²⁶ is below one grid unit. The margin dominates the image: 0x01,
         // worth 0.25 ulp at the supported edge. The `DIV` floor only lowers the quotient, so the
         // pre-floor accumulator A = q - margin satisfies A⋅2ᵏ⁻ˢ ≤ E. The under side is certified
-        // directly on the output grid. The `DIV` floor costs one unit at any scale. On the positive
+        // directly on the output grid. The `DIV` floor costs 1ulp at any scale. On the positive
         // half, the integer-rational carry is certified similarly, while the scale-dependent 2⁻¹³²
         // and reduced-argument terms remain exact. On the negative half, the one-grain direction
         // and reduced-argument bound shrink.
@@ -202,16 +200,16 @@ library Exp {
         // leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
         // ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
-        // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
-        // pre-floor accumulator by at least scale⋅10⁻²⁷/√2 > 5.2⋅10¹⁰ grid units (every live scale
-        // is at least 2¹²⁶ > 10¹⁸⋅2⁶⁶). The error terms above confine the accumulator to a band of
-        // width scale⋅Δ/2¹²⁶ + 2993/1000 < 4.0 grid units just below E's grid image at every octave
-        // (in grid units the band is k-independent; an octave seam rescales E and the band
-        // together), so the per-step gain exceeds any adverse swing within the band by more than 9
-        // orders of magnitude, and the pre-floor accumulator strictly increases at every step; its
-        // floor is non-decreasing. The zeroing clamp and the +1 pin at x = 0 preserve order: below
-        // C the result is 0 while just above it ⌊E⌋ ≥ 0, and the adjacent runtime values around x =
-        // 0 bracket the pinned scale-point value.
+        // Monotonicity: one unit step in `x` multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves
+        // the pre-floor accumulator by at least scale⋅10⁻²⁷/√2 > 5.2⋅10¹⁰ grid units (every live
+        // scale is at least 2¹²⁶ > 10¹⁸⋅2⁶⁶). The error terms above confine the accumulator to a
+        // band of width scale⋅Δ/2¹²⁶ + 2993/1000 < 4.0 grid units just below E's grid image at
+        // every octave (in grid units the band is k-independent; an octave seam rescales E and the
+        // band together), so the per-step gain exceeds any adverse swing within the band by more
+        // than 9 orders of magnitude, and the pre-floor accumulator strictly increases at every
+        // step; its floor is non-decreasing. The zeroing clamp and the +1 pin at x = 0 preserve
+        // order: below C the result is 0 while just above it ⌊E⌋ ≥ 0, and the adjacent runtime
+        // values around x = 0 bracket the pinned scale-point value.
         assembly ("memory-safe") {
             // t in Q129. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k⋅LN2
             // from K27⋅x at the Q235 product basis (so the k⋅ln(2) rounding error stays below
@@ -256,8 +254,8 @@ library Exp {
             // the denominator > 0.
             r := div(mul(scale, add(ev, tod)), sub(ev, tod))
 
-            // Less the one-sided margin (0x01; see the budget above), then floored by
-            // `shr(shift, …)` which folds in the 2ᵏ octave scaling.
+            // Less the one-sided margin (0x01; see the budget above), then floored by `shr(shift,
+            // …)` which folds in the 2ᵏ octave scaling.
             r := shr(shift, sub(r, 0x01))
 
             // Zero results whose exact magnitude is below one output unit. For very negative x,
