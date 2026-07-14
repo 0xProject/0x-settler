@@ -7,11 +7,26 @@
 ### Non-breaking changes
 
 * Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
-* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Base
+* Add PrjxV3 (Project X) UniV3 fork to HyperEVM with fork ID 39
+* Add Up UniV3 fork to RobinHood with fork ID 40
+* Add Sheriff (Algebra-like) UniV3 fork to RobinHood with fork ID 41
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Monad
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
   * Fix slippage checking for EkuboV2
+* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
+  (contract is not deployed; no funds at risk) after a report in
+  Immunefi bug 78645
+
+## 2026-06-30
+
+### Non-breaking changes
+
+* Add UniswapV3 UniV3 fork on RobinHood chain
+* Add UniswapV4 actions to RobinHood chain
+* Add EkuboV3 actions on RobinHood chain
+* Add PancakeSwapV3 UniV3 fork on RobinHood chain
 
 ## 2026-06-03
 
@@ -28,6 +43,7 @@
 
 ### Non-breaking changes
 
+* Deploy Settler to RobinHood chain
 * Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
   `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
   through Nucleus Teller

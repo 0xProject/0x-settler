@@ -33,6 +33,39 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
+library FastUniswapV3Pool {
+    function fastEncodeSwap(
+        address recipient,
+        bool zeroForOne,
+        uint256 sellAmount,
+        uint160 sqrtPriceLimitX96,
+        bytes memory swapCallbackData
+    ) internal pure returns (bytes memory data, uint256 freeMemPtr) {
+        // Equivalent to `abi.encodeCall(IUniswapV3Pool.swap, (..., swapCallbackData))`,
+        // but keeps the dynamic bytes tail tightly packed and canonicalizes `zeroForOne`.
+        assembly ("memory-safe") {
+            freeMemPtr := mload(0x40)
+            data := freeMemPtr
+
+            // encode the call to pool.swap
+            let callbackLen := mload(swapCallbackData)
+            mcopy(add(0xc4, data), swapCallbackData, add(0x20, callbackLen))
+            mstore(add(0xa4, data), 0xa0)
+            mstore(add(0x84, data), and(0xffffffffffffffffffffffffffffffffffffffff, sqrtPriceLimitX96))
+            mstore(add(0x64, data), sellAmount)
+            mstore(add(0x44, data), lt(0x00, zeroForOne))
+            mstore(add(0x24, data), recipient)
+            mstore(add(0x10, data), 0x128acb08000000000000000000000000) // selector for `swap(address,bool,int256,uint160,bytes)` with `recipient`'s padding
+
+            // set data.length
+            mstore(data, add(0xc4, callbackLen))
+
+            // advance the free memory pointer (we'll put it back later)
+            mstore(0x40, add(add(0xe4, callbackLen), data))
+        }
+    }
+}
+
 abstract contract UniswapV3Fork is SettlerSwapAbstract {
     using Ternary for bool;
     using UnsafeMath for uint256;
@@ -146,28 +179,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             // Intermediate tokens go to this contract. Final tokens go to `recipient`.
             address to = isPathMultiHop.ternary(address(this), recipient);
 
-            uint256 freeMemPtr;
-            bytes memory data;
-            assembly ("memory-safe") {
-                freeMemPtr := mload(0x40)
-                data := freeMemPtr
-
-                // encode the call to pool.swap
-                let callbackLen := mload(swapCallbackData)
-                mcopy(add(0xc4, data), swapCallbackData, add(0x20, callbackLen))
-                mstore(add(0xa4, data), 0xa0)
-                mstore(add(0x84, data), and(0xffffffffffffffffffffffffffffffffffffffff, sqrtPriceLimitX96))
-                mstore(add(0x64, data), sellAmount)
-                mstore(add(0x44, data), zeroForOne)
-                mstore(add(0x24, data), to)
-                mstore(add(0x10, data), 0x128acb08000000000000000000000000) // selector for `swap(address,bool,int256,uint160,bytes)` with `to`'s padding
-
-                // set data.length
-                mstore(data, add(0xc4, callbackLen))
-
-                // advance the free memory pointer (we'll put it back later)
-                mstore(0x40, add(add(0xe4, callbackLen), data))
-            }
+            (bytes memory data, uint256 freeMemPtr) =
+                FastUniswapV3Pool.fastEncodeSwap(to, zeroForOne, sellAmount, sqrtPriceLimitX96, swapCallbackData);
 
             (int256 amount0, int256 amount1) = abi.decode(
                 _setOperatorAndCall(address(pool), data, callbackSelector, _uniV3ForkCallback), (int256, int256)
@@ -248,7 +261,10 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         assembly ("memory-safe") {
             mstore(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(add(0x20, mload(permit))))
             mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20), swapCallbackData), add(0x20, permit), 0x40)
-            mstore8(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), isForwarded)
+            mstore8(
+                add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData),
+                lt(0x00, isForwarded)
+            )
             mcopy(
                 add(
                     add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), ISFORWARDED_DATA_SIZE),
@@ -362,7 +378,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := and(0x01, calldataload(add(0x55, permit2Data.offset)))
+                isForwarded := lt(0x00, shr(0xf8, calldataload(add(0x74, permit2Data.offset))))
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
