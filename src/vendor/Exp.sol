@@ -42,23 +42,23 @@ library Exp {
         }
     }
 
-    /// @notice Compute trunc(y * exp(x / 10**27))
+    /// @notice Compute `trunc(y * exp(x / 10**27))` with up to 1ulp of error, towards zero
     /// @dev Let A = |y| ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
-    ///      with 0 ≤ m ≤ A and A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without
+    ///      with 0 ≤ m ≤ A ∧ A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without
     ///      underflow. `mulExpRay(0, x) == 0` for every accepted x, and `mulExpRay(y, 0) == y`
     ///      exactly whenever 4⋅|y| ≤ 2¹²⁷ - 1 = 170141183460469231731687303715884105727. Among
-    ///      accepted inputs, the result is monotone in x: nondecreasing if y ≥ 0 and nonincreasing
-    ///      if y < 0. For a fixed x, among accepted inputs, the result is nondecreasing in
-    ///      y. Jointly, for accepted pairs (y₁, x₁) and (y₂, x₂), the first result is no greater
-    ///      than the second when 0 ≤ y₁ ≤ y₂ and x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 and x₂ ≤ x₁, and when y₁
-    ///      ≤ 0 ≤ y₂ for any exponents.
+    ///      accepted inputs, the result is monotone in `x`: nondecreasing if y ≥ 0 and
+    ///      nonincreasing if y < 0. For a fixed `x`, among accepted inputs, the result is
+    ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
+    ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
+    ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any exponents.
     /// @dev Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
     ///      (regardless of y), or when round(x / (10²⁷⋅ln(2))) exceeds s - 2, with 2ˢ the scale
     ///      headroom above |y|; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. The
     ///      accepted exponents form one interval that narrows as |y| grows, and every accepted x ≤
     ///      -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap boundary
-    ///      (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such x revert or clamp to zero, either
-    ///      of which is sound (A < 1 there at every supported magnitude).
+    ///      (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such `x` revert or clamp to zero, (A <
+    ///      1 there at every supported magnitude).
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
         unchecked {
             // Split y into a sign mask and a magnitude:
@@ -73,14 +73,12 @@ library Exp {
             int256 shift = int256(s) - k;
             // Reject inputs whose two-unit magnitude bracket the kernel cannot deliver:
             //  * x at or above ⌈(126⋅2¹⁹² - 2¹⁹¹) / CINV⌉, where k = 126 exhausts the deficit
-            //    envelope at even the maximal headroom, phrased as one signed comparison against
-            //    the threshold less one. This fences accepted x away from `_octave`'s positive
-            //    wraparound
+            //    envelope at even the maximal headroom. This fences accepted x away from
+            //    `_octave`'s positive wraparound
             //  * fewer than 2 bits of closing shift: the deficit envelope (2993/1000 + margin)⋅2ᵏ⁻ˢ
-            //    reaches one output unit at k > s - 2 (see the kernel). This also rejects x = 0
-            //    when |y| leaves s ≤ 1, although the pinned result would be exact. When `_octave`'s
-            //    product wraps (x ≲ -2¹⁵²) its output stands in for k, so those exponents revert or
-            //    pass as the wrapped word falls
+            //    reaches 1ulp at k > s - 2 (see the kernel). When `_octave`'s product wraps (x ≲
+            //    -2¹⁵²) its output stands in for k, so those exponents revert or pass as the
+            //    wrapped word falls
             if ((x > 86989971160273136331862631243).or(shift < 2)) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
@@ -93,8 +91,7 @@ library Exp {
             // ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉. At or below it, 2¹²⁷⋅exp(x/10²⁷) < 1, so every supported
             // magnitude clamps soundly to zero.
             uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), -88376265521393026950697095485);
-            // Reapply y's sign and collapse y = 0 (whose kernel output is unspecified; the scale is
-            // 0) in one branchless step:
+            // Reapply `y`'s sign and collapse y = 0 (kernel output is unspecified; scale is 0):
             //     m *= sign(y)
             assembly ("memory-safe") {
                 m := mul(or(lt(0x00, ay), sign), m)
@@ -104,8 +101,6 @@ library Exp {
     }
 
     function _octave(int256 x) private pure returns (int256 k) {
-        // Round to the nearest octave:
-        //     k = round(x / (10**27 * ln(2)))
         assembly ("memory-safe") {
             // k = round(x / (10²⁷⋅ln(2))), half-open. CINV = round(2¹⁹² / (10²⁷⋅ln(2))); the +2¹⁹¹
             // and `sar(192, …)` round to nearest with ties resolved toward +∞.
@@ -113,19 +108,19 @@ library Exp {
         }
     }
 
-    /// @dev The rational polynomial approximation kernel, shared by `expRayToWad`
-    ///      (scale = 10¹⁸⋅2⁶⁷, shift = 67 - k) and `mulExpRay` (scale = abs(y)⋅2ˢ, shift = s - k).
-    ///      The caller must maintain:
-    ///       - `k == _octave(x)` and `scale ≤ 2¹²⁷`: the margin and deficit budgets below
-    ///         hold throughout this range, and smaller scales only shrink them;
-    ///       - `scale == base << s` for the caller's magnitude base, with `shift == s - k`;
-    ///       - for every accepted x with `zeroCutoff` < x and x ≠ 0: `shift ≥ 2` (the deficit
-    ///         envelope reaches one output unit below that), `_octave`'s product must not wrap
-    ///         (x ≲ 2¹⁵¹), and `shift < 256`. At x = 0 the result is exact for any shift;
-    ///       - for every x ≤ `zeroCutoff`: base⋅exp(x / 10²⁷) < 1, so the clamped-to-zero result
-    ///         satisfies the bracket. The clamp consults only x, so `_octave` wraparound garbage
-    ///         (x ≲ -2¹⁵¹) in k, t, and shift is discarded.
-    ///      When `scale == 0` the returned value is unspecified and the caller must discard it.
+    /// @dev The rational polynomial approximation kernel, shared by `expRayToWad` (scale =
+    ///      10¹⁸⋅2⁶⁷, shift = 67 - k) and `mulExpRay` (scale = |y|⋅2ˢ, shift = s - k).
+    /// @dev The caller must maintain:
+    ///       * `k == _octave(x)` and `scale <= 2**127`: the margin and deficit budgets below hold
+    ///         throughout this range, and smaller scales only shrink them
+    ///       * `scale == base << s` for the caller's magnitude `base`, with `shift == s - k`
+    ///       * for every accepted `x` with `zeroCutoff < x` and `x != 0`: `shift >= 2` (the deficit
+    ///         envelope reaches 1ulp below that), `_octave`'s product must not wrap (x ≲ 2¹⁵¹), and
+    ///         `shift < 256`. At x = 0 the result is exact for any shift
+    ///       * for every x ≤ zeroCutoff: base⋅exp(x / 10²⁷) < 1, so the clamped-to-zero result
+    ///         satisfies the bracket. The clamp consults only `x`, so `_octave` wraparound garbage
+    ///         (x ≲ -2¹⁵¹) in `k`, `t`, and `shift` is discarded
+    /// @dev When `scale == 0` the returned value is unspecified and the caller must discard it.
     function _expRayKernel(int256 x, int256 k, uint256 scale, uint256 shift, int256 zeroCutoff)
         private
         pure
@@ -152,8 +147,9 @@ library Exp {
         // stage is just an add.
         //
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
-        // its chosen byte width. A coefficient followed by more multiplies by v tolerates a shorter
-        // basis. Each renormalizing shift lands a value directly at the basis its consumer needs.
+        // its chosen byte width. A coefficient followed by more multiplies by `v` tolerates a
+        // shorter basis. Each renormalizing shift lands a value directly at the basis its consumer
+        // needs.
         //     v = t²: Q123 the widest basis whose monic-stage product stays inside 256 bits, so
         //         Ev(v)'s leading stage consumes v with no renormalizing shift. t's Q129 basis (|t|
         //         ≤ ln(2)/2) means that pre-reduction t² fits 256 bits.
