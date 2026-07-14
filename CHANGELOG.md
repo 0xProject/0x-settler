@@ -8,6 +8,7 @@
 
 * Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
 * Add PrjxV3 (Project X) UniV3 fork to HyperEVM with fork ID 39
+* Add Up UniV3 fork to RobinHood with fork ID 40
 * Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Base
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
