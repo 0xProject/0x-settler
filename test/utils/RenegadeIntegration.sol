@@ -35,7 +35,7 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
     ) internal view returns (bytes memory) {
         (bool refundNativeEth, uint256 maxRefundAmount) = _refund(txnCalldata);
         return _buildExecDataFromPayload(
-            _withoutSelector(txnCalldata),
+            _compactPayload(txnCalldata),
             recipient,
             maxSellAmount,
             refundNativeEth,
@@ -98,12 +98,12 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
         }
     }
 
-    function _withoutSelector(bytes memory txnCalldata) internal pure returns (bytes memory data) {
+    function _compactPayload(bytes memory txnCalldata) internal pure returns (bytes memory data) {
         data = txnCalldata;
         assembly ("memory-safe") {
             let len := mload(data)
-            data := add(0x04, data)
-            mstore(data, sub(len, 4))
+            data := add(0x84, data)
+            mstore(data, sub(len, 0x84))
         }
     }
 
@@ -216,7 +216,7 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
     }
 
     function testUnalignedOptionsOffsetReverts() public {
-        bytes memory renegadeData = _withoutSelector(_mutate(_txnCalldata(), OPTIONS_OFFSET_ARG, 0x141));
+        bytes memory renegadeData = _compactPayload(_mutate(_txnCalldata(), OPTIONS_OFFSET_ARG, 0x141));
         bytes memory ahData =
             _buildExecDataFromPayload(renegadeData, address(settler), type(uint256).max, false, 0, 0, toToken(), 0);
         deal(address(fromToken()), address(this), amount());

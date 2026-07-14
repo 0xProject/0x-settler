@@ -10,8 +10,7 @@ abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
 
     // selector for `sponsorExternalMatch(uint256,address,(address,address,(uint256),uint256,uint256,uint256),(bool,uint8,bytes),(address,bool,uint256,uint256,bytes))`
-    // `data` excludes the selector. Its static head starts at `data + 0x20`:
-    // 0x20 amountIn, 0x40 recipient, 0x60 external-party buy token, 0x80 external-party sell token.
+    // `data` excludes the selector and the first four ABI words (amount, recipient, buy token, sell token).
     uint32 private constant RENEGADE_SELECTOR = 0x54ea46d4;
 
     /// @dev Chain-specific `GasSponsorV2` proxy. Adding a chain requires source change + redeploy.
@@ -29,7 +28,7 @@ abstract contract Renegade is SettlerSwapAbstract {
         bytes memory data,
         uint256 minBuyAmount
     ) internal {
-        if (data.length < 0x1a0) revertInvalidRenegadeData(); // static head plus the required options fields
+        if (data.length < 0x120) revertInvalidRenegadeData(); // remaining static head plus required options fields
 
         uint256 sellAmt = sellToken.fastBalanceOf(address(this));
         if (sellAmt > maxSellAmount) sellAmt = maxSellAmount;
@@ -39,7 +38,8 @@ abstract contract Renegade is SettlerSwapAbstract {
         uint256 buyAmt;
         // Assembly avoids decoding and re-encoding the opaque signed structs in `data`.
         // Equivalent Solidity pseudocode:
-        // (amountIn, requestRecipient, matchResult, bundle, options) = abi.decode(data, (...));
+        // fullData = bytes.concat(abi.encode(sellAmt, recipient, buyToken, sellToken), data);
+        // (amountIn, requestRecipient, matchResult, bundle, options) = abi.decode(fullData, (...));
         // matchResult.internalPartyInputToken = buyToken;
         // matchResult.internalPartyOutputToken = sellToken;
         // options.refundNativeEth = refundNativeEth;
@@ -49,31 +49,30 @@ abstract contract Renegade is SettlerSwapAbstract {
         // );
         assembly ("memory-safe") {
             let len := mload(data)
-            let optionsOffset := mload(add(0x140, data))
-            if or(and(optionsOffset, 0x1f), or(lt(optionsOffset, 0x140), gt(optionsOffset, sub(len, 0x60)))) {
+            let fullLen := add(0x80, len)
+            let optionsOffset := mload(add(0xc0, data))
+            if or(and(optionsOffset, 0x1f), or(lt(optionsOffset, 0x140), gt(optionsOffset, sub(fullLen, 0x60)))) {
                 mstore(0x00, 0xaa81f37c) // selector for `InvalidRenegadeData()`
                 revert(0x1c, 0x04)
             }
 
-            // Patch caller-malleable args and bind typed fields into proof-authenticated data.
-            mstore(add(0x20, data), sellAmt)
-            mstore(add(0x40, data), recipient)
-            mstore(add(0x60, data), buyToken)
-            mstore(add(0x80, data), sellToken)
-            mstore(add(0x40, add(data, optionsOffset)), refundNativeEth)
-            mstore(add(0x60, add(data, optionsOffset)), maxRefundAmount)
+            // Reconstruct the sponsor calldata from the typed prefix and opaque suffix.
+            let callData := mload(0x40)
+            mstore(0x40, and(add(add(0xbf, callData), len), not(0x1f)))
+            mstore(callData, RENEGADE_SELECTOR)
+            mstore(add(0x20, callData), sellAmt)
+            mstore(add(0x40, callData), recipient)
+            mstore(add(0x60, callData), buyToken)
+            mstore(add(0x80, callData), sellToken)
+            mcopy(add(0xa0, callData), add(0x20, data), len)
+            mstore(add(0x40, add(callData, optionsOffset)), refundNativeEth)
+            mstore(add(0x60, add(callData, optionsOffset)), maxRefundAmount)
 
-            // Stash the length and overwrite its slot with the selector; calldata starts at data + 0x1c.
-            mstore(data, RENEGADE_SELECTOR)
-
-            if iszero(call(gas(), target, 0x00, add(0x1c, data), add(0x04, len), 0x00, 0x20)) {
+            if iszero(call(gas(), target, 0x00, add(0x1c, callData), add(0x84, len), 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-
-            // Restore the clobbered length word before leaving memory-safe assembly.
-            mstore(data, len)
 
             if lt(returndatasize(), 0x20) {
                 mstore(0x00, 0xaa81f37c) // selector for `InvalidRenegadeData()`
