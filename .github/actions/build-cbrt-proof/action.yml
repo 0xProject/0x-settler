@@ -20,11 +20,6 @@ runs:
           python3 formal/python/cbrt/generate_cbrt_cert.py \
             --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
 
-    - name: Fetch Cbrt proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
-      with:
-        working-directory: formal/cbrt/CbrtProof
-
     - name: Build Cbrt proof package
       shell: bash
       working-directory: formal/cbrt/CbrtProof

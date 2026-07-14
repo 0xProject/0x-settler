@@ -1,8 +1,9 @@
 name: Set up the formal toolchain
 description: >-
   Install Foundry and the pinned Lean toolchain, restore separate dependency
-  and formal-tool caches, install solc 0.8.34, fetch the Yul importer's
-  Mathlib cache, and build the Yul importer. Proof packages cache separately.
+  and formal-tool caches, install solc 0.8.34, materialize the Yul importer's
+  Mathlib dependencies after a cache miss, and build the Yul importer. Proof
+  packages cache separately.
 
 inputs:
   lean-toolchain-files:
@@ -57,18 +58,18 @@ runs:
       if: inputs.publish == 'true'
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
-        path: formal/yul/.lake/packages/*/.lake/build
-        key: ${{ runner.os }}-formal-dependencies-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'lib/EVMYulLean/lean-toolchain', 'lib/EVMYulLean/lakefile.lean', 'lib/EVMYulLean/lake-manifest.json') }}
+        path: formal/yul/.lake/packages
+        key: ${{ runner.os }}-formal-packages-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'lib/EVMYulLean/lean-toolchain', 'lib/EVMYulLean/lakefile.lean', 'lib/EVMYulLean/lake-manifest.json') }}
         restore-keys: |
-          ${{ runner.os }}-formal-dependencies-
+          ${{ runner.os }}-formal-packages-
 
     - name: Restore formal dependency cache without publishing
       id: dependency-restore
       if: inputs.publish != 'true'
       uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
-        path: formal/yul/.lake/packages/*/.lake/build
-        key: ${{ runner.os }}-formal-dependencies-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'lib/EVMYulLean/lean-toolchain', 'lib/EVMYulLean/lakefile.lean', 'lib/EVMYulLean/lake-manifest.json') }}
+        path: formal/yul/.lake/packages
+        key: ${{ runner.os }}-formal-packages-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'lib/EVMYulLean/lean-toolchain', 'lib/EVMYulLean/lakefile.lean', 'lib/EVMYulLean/lake-manifest.json') }}
 
     - name: Require exact formal dependency cache from its publisher
       if: inputs.publish != 'true' && steps.dependency-restore.outputs.cache-hit != 'true'
@@ -114,6 +115,7 @@ runs:
         FOUNDRY_SOLC_VERSION: 0.8.34
 
     - name: Fetch Mathlib cache
+      if: steps.dependency-cache.outputs.cache-hit != 'true' && steps.dependency-restore.outputs.cache-hit != 'true'
       uses: ./.github/actions/fetch-lean-cache
       with:
         working-directory: formal/yul

@@ -17,11 +17,6 @@ runs:
             formal/exp/ExpProof/ExpProof/ExpYul.lean \
             0.8.34
 
-    - name: Fetch Exp proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
-      with:
-        working-directory: formal/exp/ExpProof
-
     - name: Generate Exp certificates
       uses: ./.github/actions/check-generated-sources
       with:

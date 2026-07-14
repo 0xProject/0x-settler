@@ -20,11 +20,6 @@ runs:
           python3 formal/python/sqrt/generate_sqrt_cert.py \
             --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
 
-    - name: Fetch Sqrt proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
-      with:
-        working-directory: formal/sqrt/SqrtProof
-
     - name: Build Sqrt proof package
       shell: bash
       working-directory: formal/sqrt/SqrtProof

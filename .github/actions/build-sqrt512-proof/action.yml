@@ -17,11 +17,6 @@ runs:
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean \
             0.8.34
 
-    - name: Fetch Sqrt512 proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
-      with:
-        working-directory: formal/sqrt/Sqrt512Proof
-
     - name: Build Sqrt512 proof package
       shell: bash
       working-directory: formal/sqrt/Sqrt512Proof

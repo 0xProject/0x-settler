@@ -17,11 +17,6 @@ runs:
             formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
             0.8.34
 
-    - name: Fetch Cbrt512 proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
-      with:
-        working-directory: formal/cbrt/Cbrt512Proof
-
     - name: Build Cbrt512 proof package
       shell: bash
       working-directory: formal/cbrt/Cbrt512Proof
