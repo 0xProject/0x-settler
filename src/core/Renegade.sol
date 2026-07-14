@@ -83,8 +83,10 @@ abstract contract Renegade is SettlerSwapAbstract {
         }
 
         if (!refundNativeEth || buyToken == ETH_ADDRESS) {
-            if (buyAmt > maxRefundAmount) buyAmt -= maxRefundAmount;
-            else buyAmt = 0;
+            unchecked {
+                if (buyAmt > maxRefundAmount) buyAmt -= maxRefundAmount;
+                else buyAmt = 0;
+            }
         }
         if (buyAmt < minBuyAmount) revertTooMuchSlippage(buyToken, minBuyAmount, buyAmt);
     }
