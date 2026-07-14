@@ -55,6 +55,8 @@ abstract contract Select is SettlerSwapAbstract {
                 len_ := sub(e_, start_)
             }
 
+            // EIP-150: trials get min(gasCap, 63/64 of remaining). Provision ~2*gasCap or early
+            // candidates starve. gasCap == 0 lets one trial starve the rest.
             let gasCap := calldataload(data.offset)
             let token := and(0xffffffffffffffffffffffffffffffffffffffff, calldataload(add(0x20, data.offset)))
             let targetsData := add(0x20, add(data.offset, calldataload(add(0x40, data.offset))))
@@ -81,9 +83,11 @@ abstract contract Select is SettlerSwapAbstract {
             let measuredCount
             for {} lt(measuredCount, n) { measuredCount := add(0x01, measuredCount) } {
                 // Preserve a commit reserve once at least one candidate has measured positive.
-                if and(and(iszero(iszero(gasCap)), anyScore), lt(gas(), add(add(gasCap, gasCap), 0x10000))) {
-                    break
-                }
+                // gasCap >> 0x05 covers the commit call's 63/64 shave.
+                if and(
+                    and(iszero(iszero(gasCap)), anyScore),
+                    lt(gas(), add(add(gasCap, gasCap), add(shr(0x05, gasCap), 0x10000)))
+                ) { break }
                 let start, len := blob(candsData, n, dataEnd, measuredCount)
                 calldatacopy(dst, start, len)
                 let tag := or(and(keccak256(dst, len), not(tagMask)), tagFlag)
