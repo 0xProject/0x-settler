@@ -188,10 +188,10 @@ declare -r dao_description
 
 # safe constants
 declare safe_factory
-safe_factory="$(get_config safe.factory)"
+safe_factory="$(get_config 'safe."v1.3.0".factory')"
 declare -r safe_factory
 declare safe_singleton
-safe_singleton="$(get_config safe.singleton)"
+safe_singleton="$(get_config 'safe."v1.3.0".singleton')"
 declare -r safe_singleton
 declare safe_creation_sig
 safe_creation_sig='proxyCreationCode()(bytes)'
@@ -213,10 +213,10 @@ else
 fi
 declare -r safe_inithash
 declare safe_fallback
-safe_fallback="$(get_config safe.fallback)"
+safe_fallback="$(get_config 'safe."v1.3.0".fallback')"
 declare -r safe_fallback
 declare safe_multicall
-safe_multicall="$(get_config safe.multiCall)"
+safe_multicall="$(get_config 'safe."v1.3.0".multiCall')"
 declare -r safe_multicall
 
 # compute deployment safe
