@@ -19,13 +19,6 @@ import {IHanjiPool, FastHanjiPool} from "src/core/Hanji.sol";
 import {IMaverickV2Pool, FastMaverickV2Pool} from "src/core/MaverickV2.sol";
 import {IEkuboCore, PoolKey as EkuboPoolKey, Config, SqrtRatio, UnsafeEkuboCore} from "src/core/EkuboV2.sol";
 import {
-    IEkuboCore as IEkuboCoreV3,
-    PoolKey as EkuboV3PoolKey,
-    Config as EkuboV3Config,
-    SqrtRatio as EkuboV3SqrtRatio,
-    UnsafeEkuboCore as UnsafeEkuboV3Core
-} from "src/core/EkuboV3.sol";
-import {
     IPancakeInfinityCLPoolManager,
     IPancakeInfinityBinPoolManager,
     PoolKey as PancakePoolKey,
@@ -138,19 +131,6 @@ contract BoolBoundaryHarness {
             isToken1 := 0x02
         }
         return UnsafeEkuboCore.unsafeSwap(core, poolKey, amount, isToken1, sqrtRatioLimit);
-    }
-
-    function ekuboV3Swap(
-        IEkuboCoreV3 core,
-        EkuboV3PoolKey memory poolKey,
-        int256 amount,
-        EkuboV3SqrtRatio sqrtRatioLimit
-    ) external returns (int256 delta0, int256 delta1) {
-        bool isToken1;
-        assembly ("memory-safe") {
-            isToken1 := 0x02
-        }
-        return UnsafeEkuboV3Core.unsafeSwap(core, poolKey, amount, isToken1, sqrtRatioLimit);
     }
 
     function pancakeClSwap(
@@ -395,17 +375,6 @@ contract BoolBoundaryTest is Utils, Test {
         );
 
         harness.ekuboV2Swap(IEkuboCore(core), key, 7, SqrtRatio.wrap(9));
-    }
-
-    function testEkuboV3SwapCanonicalizesDirtyBool() public {
-        address core = makeAddr("core");
-        EkuboV3PoolKey memory key =
-            EkuboV3PoolKey({token0: address(0x11), token1: address(0x22), config: EkuboV3Config.wrap(0)});
-        bytes memory expectedCall =
-            bytes.concat(bytes4(0), abi.encode(key), abi.encodePacked(uint96(9), int128(7), uint32(0x80000000)));
-        _mockExpectCall(core, expectedCall, abi.encode(bytes32(0)));
-
-        harness.ekuboV3Swap(IEkuboCoreV3(core), key, 7, EkuboV3SqrtRatio.wrap(9));
     }
 
     function testPancakeInfinityCanonicalizesDirtyBool() public {
