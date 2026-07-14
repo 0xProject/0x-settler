@@ -51,7 +51,7 @@ library Exp {
     ///      nonincreasing if y < 0. For a fixed `x`, among accepted inputs, the result is
     ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
     ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
-    ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any exponents.
+    ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ for any (x₁, x₂).
     /// @dev Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
     ///      (regardless of y), or when round(x / (10²⁷⋅ln(2))) exceeds s - 2, with 2ˢ the scale
     ///      headroom above |y|; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. The
@@ -61,7 +61,7 @@ library Exp {
     ///      1 there at every supported magnitude).
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
         unchecked {
-            // Split y into a sign mask and a magnitude:
+            // Split `y` into a sign mask and a magnitude
             uint256 sign = uint256(int256(y) >> 255);
             uint256 ay = (uint256(int256(y)) ^ sign) - sign;
 
@@ -185,16 +185,15 @@ library Exp {
         //         (the K27 coefficient-grid term is below 2⁻¹³³ over |x| < 2⁹⁷ and the k⋅ln(2)
         //         grid term below 2⁻²²⁸), lifting ê by ≤ 0.0055242717280199026 (≈ √2/256).
         //
-        // The quotient `r` carries the scaled rational on a dynamic output grid, where one grid unit
-        // is worth 2ᵏ⁻ˢ ulp (1 ulp = 1 in the caller's magnitude). Because scale ≤ 2¹²⁷ and
-        // Δ < 1/2, its image scale⋅Δ/2¹²⁶ is below one grid unit. The margin dominates the image:
-        // 0x01, worth 0.25 ulp at the supported edge. The `DIV` floor only lowers the quotient, so
-        // the pre-floor accumulator A = q - margin satisfies A⋅2ᵏ⁻ˢ ≤ E. The under side is
-        // certified directly on the output grid, piecewise over the 32 domain pieces: q ≥
-        // scale⋅exp(t) - 2993/1000. The `DIV` floor costs one unit at any scale. On the positive
-        // half, the integer-rational carry is certified over the same 32 pieces used for the
-        // denominator floors, while the scale-dependent 2⁻¹³² and reduced-argument terms remain
-        // exact. On the negative half, the one-grain direction and reduced-argument bound shrink.
+        // The quotient `r` carries the scaled rational on a dynamic output grid, where one grid
+        // unit is worth 2ᵏ⁻ˢ ulp (1ulp = 1 in the caller's magnitude). Because scale ≤ 2¹²⁷ and Δ <
+        // 1/2, its image scale⋅Δ/2¹²⁶ is below one grid unit. The margin dominates the image: 0x01,
+        // worth 0.25 ulp at the supported edge. The `DIV` floor only lowers the quotient, so the
+        // pre-floor accumulator A = q - margin satisfies A⋅2ᵏ⁻ˢ ≤ E. The under side is certified
+        // directly on the output grid. The `DIV` floor costs one unit at any scale. On the positive
+        // half, the integer-rational carry is certified similarly, while the scale-dependent 2⁻¹³²
+        // and reduced-argument terms remain exact. On the negative half, the one-grain direction
+        // and reduced-argument bound shrink.
         //
         // Hence the maximum underestimation is E - A⋅2ᵏ⁻ˢ ≤ (2993/1000 + margin)⋅2ᵏ⁻ˢ. The caller
         // keeps k ≤ s - 2, where this is < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. For the wad
@@ -204,16 +203,15 @@ library Exp {
         // ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
-        // pre-floor accumulator by at least scale⋅10⁻²⁷/√2 > 5.2⋅10¹⁰ grid units (every live
-        // scale is at least 2¹²⁶ > 10¹⁸⋅2⁶⁶). The error
-        // terms above confine the accumulator to a band of width scale⋅Δ/2¹²⁶ + 2993/1000 < 4.0 grid
-        // units just below E's grid image at every octave (in grid units the band is k-independent;
-        // an octave seam rescales E and the band together), so the per-step gain exceeds any
-        // adverse swing within the band by more than 9 orders of magnitude, and the pre-floor
-        // accumulator strictly increases at every step; its floor is non-decreasing. The zeroing
-        // clamp and the +1 pin at x = 0 preserve order: below C the result is 0 while just above it
-        // ⌊E⌋ ≥ 0, and the adjacent runtime values around x = 0 bracket the pinned scale-point
-        // value.
+        // pre-floor accumulator by at least scale⋅10⁻²⁷/√2 > 5.2⋅10¹⁰ grid units (every live scale
+        // is at least 2¹²⁶ > 10¹⁸⋅2⁶⁶). The error terms above confine the accumulator to a band of
+        // width scale⋅Δ/2¹²⁶ + 2993/1000 < 4.0 grid units just below E's grid image at every octave
+        // (in grid units the band is k-independent; an octave seam rescales E and the band
+        // together), so the per-step gain exceeds any adverse swing within the band by more than 9
+        // orders of magnitude, and the pre-floor accumulator strictly increases at every step; its
+        // floor is non-decreasing. The zeroing clamp and the +1 pin at x = 0 preserve order: below
+        // C the result is 0 while just above it ⌊E⌋ ≥ 0, and the adjacent runtime values around x =
+        // 0 bracket the pinned scale-point value.
         assembly ("memory-safe") {
             // t in Q129. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k⋅LN2
             // from K27⋅x at the Q235 product basis (so the k⋅ln(2) rounding error stays below
