@@ -62,8 +62,9 @@ library Exp {
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
         unchecked {
             // Split `y` into a sign mask and a magnitude
-            int256 sign = int256(y) >> 255;
-            uint256 ay = uint256((int256(y) ^ sign) - sign);
+            int256 y_ = int256(y);
+            int256 sign = y_ >> 255;
+            uint256 ay = uint256((y_ ^ sign) - sign);
 
             // The top-bit term admits ay = abs(type(int128).min) at s = 0 while leaving every
             // smaller magnitude's normalization unchanged.
