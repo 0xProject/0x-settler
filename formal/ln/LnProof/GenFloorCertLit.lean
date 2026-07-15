@@ -11,20 +11,10 @@ def fileText (body : String) : String :=
     body ++
     "end LnFloorCert\n"
 
-def geUpText : String := fileText <|
-    litText "geTNLit" geTN ++
-    litText "geTDLit" geTD ++
-    litText "certGeUpLit" (ptrim certGeUp)
-
 def geLoText : String := fileText <|
     litText "geTN2bLit" geTN2b ++
     litText "geTD2bLit" geTD2b ++
     litText "certGeLoLit" (ptrim certGeLo)
-
-def ltUpText : String := fileText <|
-    litText "ltTN2bLit" ltTN2b ++
-    litText "ltTD2bLit" ltTD2b ++
-    litText "certLtUpLit" (ptrim certLtUp)
 
 def ltLoText : String := fileText <|
     litText "ltTNLit" ltTN ++
@@ -35,11 +25,7 @@ end GenFloorCertLit
 
 #eval do
   reconcileOutputs "LnProof/Cert"
-    ["FloorCertLit", "FloorCertGeUpLit", "FloorCertGeLoLit", "FloorCertLtUpLit",
-      "FloorCertLtLoLit"]
-    ["FloorCertGeUpLit.lean", "FloorCertGeLoLit.lean", "FloorCertLtUpLit.lean",
-      "FloorCertLtLoLit.lean"]
-  IO.FS.writeFile "LnProof/Cert/FloorCertGeUpLit.lean" GenFloorCertLit.geUpText
+    ["FloorCertGeLoLit", "FloorCertLtLoLit"]
+    ["FloorCertGeLoLit.lean", "FloorCertLtLoLit.lean"]
   IO.FS.writeFile "LnProof/Cert/FloorCertGeLoLit.lean" GenFloorCertLit.geLoText
-  IO.FS.writeFile "LnProof/Cert/FloorCertLtUpLit.lean" GenFloorCertLit.ltUpText
   IO.FS.writeFile "LnProof/Cert/FloorCertLtLoLit.lean" GenFloorCertLit.ltLoText

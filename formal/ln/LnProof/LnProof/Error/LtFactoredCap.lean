@@ -1,15 +1,18 @@
-import LnProof.Error.FactoredCap
+import LnProof.Floor.CertLtLo
+import LnProof.Error.Core.Residue
+import LnProof.Error.Core.Budget
+import LnProof.Error.Core.CutDefs
+import LnProof.Cert.BiasCapNum
 
 open FormalYul
 open FormalYul.Preservation
 
 /-!
-# Factored-octave cap primitive for the LT branch (capUB / error-bound direction)
+# Factored-octave upper cap
 
-The LT-branch error-bound cut needs an *upper* cap on `e^(|H|·part)` (because
-`acc = −K·|H| + …`, so lower-bounding `acc` upper-bounds `|H|`).  This is the
-`capUB` mirror of `ge_x1_cap_d22`: the tight degree-22 upper cap (with the
-`2·tn^23` remainder tail) from `capUB22_of_int`, transported along
+The LT-branch error-bound cut needs an upper cap on `e^(|H|·part)` because
+`acc = −K·|H| + …`. The tight degree-22 cap, including the `2·tn^23`
+remainder tail, is transported along
 `bracket_lt_up` to the true argument `(−x1W)·10^27 / QS`.
 -/
 
@@ -19,8 +22,130 @@ open LnYul LnFloor Common.Exp Common.Poly
 
 set_option maxRecDepth 100000
 
+theorem capBLtight :
+    capLB (BIASc * 2 ^ 27) QS
+      biasCapNum
+      (10 ^ 18 * 10 ^ 42) :=
+  ⟨130, by decide⟩
+
+theorem posConstNat_cast (c : Nat) :
+    ((posConstNat c : Nat) : Int) =
+      (((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
+        lnBiasI * twoPow27I) * (lnErrorBoundDen : Int) := by
+  have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
+    unfold twoPow27N twoPow27I lnBiasI
+    decide +kernel
+  have hLc : (((160 - c) * (LN2c * twoPow27N) : Nat) : Int) =
+      ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) := by
+    simp only [Int.natCast_mul]
+    unfold twoPow27N twoPow27I
+    rfl
+  have hden : ((lnErrorBoundDen : Nat) : Int) = (1000000000 : Int) := by
+    unfold lnErrorBoundDen
+    rfl
+  have hN : (((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) : Nat) : Int) =
+      (((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I)) *
+        (1000000000 : Int) := by
+    rw [show (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) =
+        ((160 - c) * (LN2c * twoPow27N)) * lnErrorBoundDen by
+          simp only [Nat.mul_assoc]]
+    simp only [Int.natCast_mul, hLc, hden]
+  unfold posConstNat
+  simp only [Int.natCast_add, Int.natCast_mul, hBc, hN, hden]
+  rw [Int.add_mul]
+
+theorem posNegXNat_cast {m : Nat}
+    (hX : int256 (x1W (zWord m)) ≤ 0) :
+    ((posNegXNat m : Nat) : Int) =
+      (-int256 (x1W (zWord m)) * lnPhaseScaleI) * (lnErrorBoundDen : Int) := by
+  have hXn : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+      -int256 (x1W (zWord m)) :=
+    Int.toNat_of_nonneg (by omega)
+  have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
+  unfold posNegXNat
+  simp only [Int.natCast_mul, hXn, hscale]
+
+theorem posNegXNat_le_posConstNat {m c : Nat}
+    (hX : int256 (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
+    (hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      lnBiasI) :
+    posNegXNat m ≤ posConstNat c := by
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
+  have hV0s : 0 ≤ posPhaseI m c := by
+    have hmul := Int.mul_nonneg hV0
+      (by unfold twoPow27I; decide : 0 ≤ twoPow27I)
+    change 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      lnBiasI) * twoPow27I at hmul
+    have hVs' :
+        (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+            lnBiasI) * twoPow27I =
+          int256 (x1W (zWord m)) * lnPhaseScaleI +
+            ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
+              lnBiasI * twoPow27I := by
+      simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
+    rw [hVs'] at hmul
+    simpa [posPhaseI, lnPhaseScaleI, twoPow27I, lnBiasI] using hmul
+  apply Int.ofNat_le.mp
+  rw [posNegXNat_cast hX, posConstNat_cast c]
+  unfold posPhaseI at hV0s
+  have hmain :
+      -int256 (x1W (zWord m)) * lnPhaseScaleI ≤
+        ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
+          lnBiasI * twoPow27I := by
+    rw [show -int256 (x1W (zWord m)) * lnPhaseScaleI =
+        -(int256 (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]]
+    generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hV0s ⊢
+    omega
+  exact Int.mul_le_mul_of_nonneg_right hmain (Int.natCast_nonneg _)
+
+theorem capLB_first_order_self (p q : Nat) :
+    capLB p q (q + p) q := by
+  refine ⟨1, ?_⟩
+  simp only [fact, expNum, Nat.pow_one, Nat.mul_one, Nat.one_mul, Nat.zero_add]
+  exact Nat.le_refl _
+
+theorem capLB_cancel_first_order_budget {arg const neg q C W G V yT wT : Nat}
+    (hq : 0 < q)
+    (hconst : capLB const q C W)
+    (hneg : capUB neg q G V)
+    (hneg_le : neg ≤ const)
+    (hphase : const - neg ≤ arg)
+    (hW : 0 < W)
+    (hG : 0 < G)
+    (hbudget : yT * ((W * q) * G) ≤
+      ((C * (q + (arg - (const - neg)))) * V) * wT) :
+    capLB arg q yT wT := by
+  have capE := capLB_first_order_self (arg - (const - neg)) q
+  have hsum0 := capLB_mul hconst capE
+  have hsplit : const + (arg - (const - neg)) =
+      ((const - neg) + (arg - (const - neg))) + neg := by
+    calc
+      const + (arg - (const - neg)) =
+          (const - neg + neg) + (arg - (const - neg)) := by
+            rw [Nat.sub_add_cancel hneg_le]
+      _ = ((const - neg) + (arg - (const - neg))) + neg := by
+            omega
+  rw [hsplit] at hsum0
+  have capV := capLB_cancel (q := q) hq hsum0 hneg
+  have harg : (const - neg) + (arg - (const - neg)) = arg := by
+    exact Nat.add_sub_of_le hphase
+  rw [harg] at capV
+  refine capLB_weaken ?_ capV hbudget
+  exact Nat.mul_pos (Nat.mul_pos hW hq) hG
+
+theorem octaveBound_all :
+    (List.range 160).all
+      (fun k => decide (10 ^ 40 * (10 ^ 40) ^ k ≤ (10 ^ 40 + 160) * (10 ^ 40 - 1) ^ k))
+      = true := by decide +kernel
+
+theorem octaveBound {k : Nat} (hk : k ≤ 159) :
+    10 ^ 40 * (10 ^ 40) ^ k ≤ (10 ^ 40 + 160) * (10 ^ 40 - 1) ^ k := by
+  have h := List.all_eq_true.mp octaveBound_all k (List.mem_range.mpr (by omega))
+  simp only [decide_eq_true_eq] at h
+  exact h
+
 /-- Degree-22 curved upper cap for the LT x1/H part, transported along the floor
-bracket `(−X1)·ltTD ≤ ltTN·2^99`.  capUB analog of `ge_x1_cap_d22`. -/
+bracket `(−X1)·ltTD ≤ ltTN·2^99`. -/
 theorem lt_x1_cap_d22 {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     capUB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
@@ -78,12 +203,10 @@ theorem lt_x1_cap_d22 {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     _ = TN.toNat * QS := by
         rw [hQSe]; simp only [Nat.mul_assoc, Nat.mul_comm]
 
-/-- Factored LT positive-shift cut (capUB / error-bound direction).  capUB analog
-of `ge_pos_cut_factored`: the curved degree-22 upper cap `lt_x1_cap_d22` (`G/V`)
-and the sharp bias `capBLtight` are cancelled reciprocally via
+/-- The curved degree-22 upper cap (`G/V`) and sharp bias cap are cancelled via
 `capLB_cancel_first_order_budget`, producing the upper-cut
-`capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen`.  The surviving
-`hbudget` is the per-`c` closing inequality; the octave power cancels in
+`capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen`.  The `hbudget`
+hypothesis is the per-`c` closing inequality; the octave power cancels in
 `lt_pos_cut_reduced`. -/
 theorem lt_pos_cut_factored {m c x : Nat} {r : Int}
     (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) (_hc : c < 160)
@@ -146,8 +269,8 @@ theorem lt_pos_cut_factored {m c x : Nat} {r : Int}
       (Nat.le_add_right _ _))
     hbudget
 
-/-- C-independent reduction of `lt_pos_cut_factored`'s `hbudget` (capUB mirror of
-`ge_pos_cut_reduced`).  The same monotone substitutions fold all `c`/`r`/`x`
+/-- C-independent reduction of `lt_pos_cut_factored`'s closing budget. The
+monotone substitutions fold all `c`/`r`/`x`
 dependence into a single inequality checked by the Kronecker cell cover.  The
 curved cap numerator `G` sits on the `(m+1)` side and its denominator
 `V = fact 23 · ltTD^23` on the bias side. -/
@@ -175,7 +298,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
   have hphase : posPhaseNatLt m c ≤ lnErrArg r :=
     Nat.le_trans (Nat.le_add_right _ _) hmin
   have hmineq : minPosAvail ≤ posAvailLt m c r := by unfold posAvailLt; omega
-  have hoct := octaveGeBound (k := 160 - c) (by omega)
+  have hoct := octaveBound (k := 160 - c) (by omega)
   -- Chain the octave bound with the reduced inequality, then cancel the common `10^40`.
   have keyineq :
       ((m + 1) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *

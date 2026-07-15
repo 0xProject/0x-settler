@@ -8,10 +8,9 @@ open FormalYul.Preservation
 /-!
 # From cell certificates to exponential caps
 
-Converts the kernel-checked nonnegativity of the four main certificate
-polynomials into `capUB`/`capLB` facts about the pipeline value `X1`:
-integer-scaled statements of `e^(X1/2^99) ≤ (m/S)(1+ε)` and the three
-mirrors, with `ε = 42/10^29`, over the common denominator `10^27 · 2^99`.
+Converts the kernel-checked lower certificate polynomials into the
+`capLB`/`capUB` facts about the pipeline value used by the floor and error
+proofs, over the common denominator `10^27 · 2^99`.
 -/
 
 namespace LnFloorCert
@@ -19,31 +18,12 @@ open LnYul Common.Poly Common.Exp
 
 set_option maxRecDepth 100000
 
-theorem evalCertGeUp (m : Nat) :
-    evalPoly certGeUp (m : Int) =
-      (EUD + EUN) * KF1 * ((m : Int) * evalPoly geTD (m : Int) ^ 23) +
-        -(Sc : Int) * EUD *
-          (23 * (expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
-            evalPoly geTD (m : Int)) + 2 * evalPoly geTN (m : Int) ^ 23) := by
-  unfold certGeUp
-  simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul, evalPoly_polyPow,
-    evalPoly_expPolyNum, eval01]
-
 theorem evalCertGeLo (m : Nat) :
     evalPoly certGeLo (m : Int) =
       EUD * (Sc : Int) *
           expNumI 22 (evalPoly geTN2b (m : Int)) (evalPoly geTD2b (m : Int)) +
         -(EUD - EUNl) * KF * ((m : Int) * evalPoly geTD2b (m : Int) ^ 22) := by
   unfold certGeLo
-  simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul, evalPoly_polyPow,
-    evalPoly_expPolyNum, eval01]
-
-theorem evalCertLtUp (m : Nat) :
-    evalPoly certLtUp (m : Int) =
-      (EUD + EUN) * ((m : Int) *
-          expNumI 22 (evalPoly ltTN2b (m : Int)) (evalPoly ltTD2b (m : Int))) +
-        -EUD * (Sc : Int) * KF * evalPoly ltTD2b (m : Int) ^ 22 := by
-  unfold certLtUp
   simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul, evalPoly_polyPow,
     evalPoly_expPolyNum, eval01]
 
@@ -57,24 +37,11 @@ theorem evalCertLtLo (m : Nat) :
   simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul, evalPoly_polyPow,
     evalPoly_expPolyNum, eval01]
 
-theorem evalCertGeH (m : Nat) :
-    evalPoly certGeH (m : Int) =
-      24 * evalPoly geTD (m : Int) + -2 * evalPoly geTN (m : Int) := by
-  show evalPoly (polyAdd (polyScale 24 geTD) (polyScale (-2) geTN)) (m : Int) = _
-  simp only [evalPoly_polyAdd, evalPoly_polyScale]
-
 theorem evalCertLtH (m : Nat) :
     evalPoly certLtH (m : Int) =
       24 * evalPoly ltTD (m : Int) + -2 * evalPoly ltTN (m : Int) := by
   show evalPoly (polyAdd (polyScale 24 ltTD) (polyScale (-2) ltTN)) (m : Int) = _
   simp only [evalPoly_polyAdd, evalPoly_polyScale]
-
-theorem evalCertGeTD (m : Nat) :
-    evalPoly certGeTD (m : Int) = evalPoly geTD (m : Int) + -1 := by
-  show evalPoly (polyAdd geTD [-1]) (m : Int) = _
-  rw [evalPoly_polyAdd]
-  show _ + ((-1 : Int) + (m : Int) * 0) = _
-  omega
 
 theorem evalCertGeTD2 (m : Nat) :
     evalPoly certGeTD2 (m : Int) = evalPoly geTD2b (m : Int) + -1 := by
@@ -125,53 +92,6 @@ theorem capLB22_of_int {tn td y w : Nat}
 
 /-! ## Certificate nonnegativity to caps at the certificate rationals -/
 
-theorem capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
-    (hup : 0 ≤ evalPoly certGeUp (m : Int)) :
-    capUB (evalPoly geTN (m : Int)).toNat (evalPoly geTD (m : Int)).toNat
-      (m * 10000000000000000000000000003382)
-      560227709747861399187319382270000000000000000000000000000000 := by
-  have hw1 : (56022770974786139918731938273 : Int) ≤ (m : Int) := by
-    simp only [Sc] at h1; omega
-  have hw2 : (m : Int) ≤ 79228162514264337593543950335 := by
-    simp only [MHI] at h2; omega
-  have hTN0 : 0 ≤ evalPoly geTN (m : Int) := geTN_nonneg hw1 hw2
-  have hTD1 : 1 ≤ evalPoly geTD (m : Int) := by
-    have h := geTD_nonneg hw1 hw2
-    rw [evalCertGeTD] at h
-    omega
-  have hHc : 2 * evalPoly geTN (m : Int) ≤ 24 * evalPoly geTD (m : Int) := by
-    have h := geH_nonneg hw1 hw2
-    rw [evalCertGeH] at h
-    omega
-  have htn : ((evalPoly geTN (m : Int)).toNat : Int) = evalPoly geTN (m : Int) :=
-    Int.toNat_of_nonneg hTN0
-  have htd : ((evalPoly geTD (m : Int)).toNat : Int) = evalPoly geTD (m : Int) :=
-    Int.toNat_of_nonneg (by omega)
-  refine capUB22_of_int (by omega) (by omega) ?_
-  rw [htn, htd]
-  rw [evalCertGeUp] at hup
-  simp only [EUD, EUN, KF1, Sc] at hup
-  simp only [Int.natCast_mul]
-  rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
-      show ((10000000000000000000000000003382 : Nat) : Int) = 10000000000000000000000000003382 from rfl]
-  have eS : expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
-      (23 * evalPoly geTD (m : Int)) =
-      23 * (expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
-        evalPoly geTD (m : Int)) := by
-    simp only [Int.mul_assoc, Int.mul_comm]
-  rw [eS]
-  have eR : (m : Int) * 10000000000000000000000000003382 *
-      (25852016738884976640000 * evalPoly geTD (m : Int) ^ 23) =
-      10000000000000000000000000003382 * 25852016738884976640000 *
-        ((m : Int) * evalPoly geTD (m : Int) ^ 23) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-  rw [eR]
-  generalize hgET : expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
-    evalPoly geTD (m : Int) = ET at hup ⊢
-  generalize hgN23 : evalPoly geTN (m : Int) ^ 23 = N23 at hup ⊢
-  generalize hgMT : (m : Int) * evalPoly geTD (m : Int) ^ 23 = MT at hup ⊢
-  omega
-
 theorem capGeLo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hlo : 0 ≤ evalPoly certGeLo (m : Int)) :
     capLB (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat
@@ -206,42 +126,6 @@ theorem capGeLo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   generalize hgE : expNumI 22 (evalPoly geTN2b (m : Int)) (evalPoly geTD2b (m : Int)) =
     E at hlo ⊢
   generalize hgMT : (m : Int) * evalPoly geTD2b (m : Int) ^ 22 = MT at hlo ⊢
-  omega
-
-theorem capLtUp {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
-    (hup : 0 ≤ evalPoly certLtUp (m : Int)) :
-    capLB (evalPoly ltTN2b (m : Int)).toNat (evalPoly ltTD2b (m : Int)).toNat
-      560227709747861399187319382270000000000000000000000000000000
-      (m * 10000000000000000000000000003382) := by
-  have hw1 : (39614081257132168796771975168 : Int) ≤ (m : Int) := by
-    simp only [MLO] at h1; omega
-  have hw2 : (m : Int) ≤ 56022770974786139918731938181 := by
-    simp only [Sc] at h2; omega
-  have hTN0 : 0 ≤ evalPoly ltTN2b (m : Int) := ltTN2_nonneg hw1 hw2
-  have hTD1 : 1 ≤ evalPoly ltTD2b (m : Int) := by
-    have h := ltTD2_nonneg hw1 hw2
-    rw [evalCertLtTD2] at h
-    omega
-  have htn : ((evalPoly ltTN2b (m : Int)).toNat : Int) = evalPoly ltTN2b (m : Int) :=
-    Int.toNat_of_nonneg hTN0
-  have htd : ((evalPoly ltTD2b (m : Int)).toNat : Int) = evalPoly ltTD2b (m : Int) :=
-    Int.toNat_of_nonneg (by omega)
-  refine capLB22_of_int ?_
-  rw [htn, htd]
-  rw [evalCertLtUp] at hup
-  simp only [EUD, EUN, KF, Sc] at hup
-  simp only [Int.natCast_mul]
-  rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
-      show ((10000000000000000000000000003382 : Nat) : Int) = 10000000000000000000000000003382 from rfl]
-  have eR : expNumI 22 (evalPoly ltTN2b (m : Int)) (evalPoly ltTD2b (m : Int)) *
-      ((m : Int) * 10000000000000000000000000003382) =
-      10000000000000000000000000003382 *
-        ((m : Int) * expNumI 22 (evalPoly ltTN2b (m : Int)) (evalPoly ltTD2b (m : Int))) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-  rw [eR]
-  generalize hgME : (m : Int) * expNumI 22 (evalPoly ltTN2b (m : Int))
-    (evalPoly ltTD2b (m : Int)) = ME at hup ⊢
-  generalize hgT22 : evalPoly ltTD2b (m : Int) ^ 22 = T22 at hup ⊢
   omega
 
 theorem capLtLo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
@@ -353,63 +237,6 @@ theorem x1_nonpos_lt {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
 
 /-! ## Caps at the pipeline value over the common denominator 10^27 · 2^99 -/
 
-theorem x1capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
-    (hup : 0 ≤ evalPoly certGeUp (m : Int)) :
-    capUB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000)
-      633825300114114700748351602688000000000000000000000000000
-      (m * 10000000000000000000000000003382)
-      560227709747861399187319382270000000000000000000000000000000 := by
-  have hw1 : (56022770974786139918731938273 : Int) ≤ (m : Int) := by
-    simp only [Sc] at h1; omega
-  have hw2 : (m : Int) ≤ 79228162514264337593543950335 := by
-    simp only [MHI] at h2; omega
-  have hTN0 : 0 ≤ evalPoly geTN (m : Int) := geTN_nonneg hw1 hw2
-  have hTD1 : 1 ≤ evalPoly geTD (m : Int) := by
-    have h := geTD_nonneg hw1 hw2
-    rw [evalCertGeTD] at h
-    omega
-  refine capUB_arg (q' := (evalPoly geTD (m : Int)).toNat) (by omega) ?_
-    (capGeUp h1 h2 hup)
-  rcases Int.lt_or_le (int256 (x1W (zWord m))) 0 with hneg | hpos
-  · have h0 : (int256 (x1W (zWord m))).toNat = 0 := by omega
-    rw [h0]
-    omega
-  · have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
-      Int.toNat_of_nonneg hpos
-    have htd : ((evalPoly geTD (m : Int)).toNat : Int) = evalPoly geTD (m : Int) :=
-      Int.toNat_of_nonneg (by omega)
-    have htn : ((evalPoly geTN (m : Int)).toNat : Int) = evalPoly geTN (m : Int) :=
-      Int.toNat_of_nonneg hTN0
-    refine Int.ofNat_le.mp ?_
-    simp only [Int.natCast_mul]
-    rw [show ((1000000000000000000000000000 : Nat) : Int) =
-        1000000000000000000000000000 from rfl,
-      show ((633825300114114700748351602688000000000000000000000000000 : Nat) : Int) =
-        633825300114114700748351602688000000000000000000000000000 from rfl,
-      hX1n, htd, htn]
-    have hbr := bracket_ge_up h1 h2
-    have c1 := mul_le_mul_right_nonneg hbr
-      (show (0 : Int) ≤ 1000000000000000000000000000 by omega)
-    have e1 : int256 (x1W (zWord m)) * 1000000000000000000000000000 *
-        evalPoly geTD (m : Int) =
-        int256 (x1W (zWord m)) * evalPoly geTD (m : Int) * 1000000000000000000000000000 := by
-      ring
-    have e2 : evalPoly geTN (m : Int) * 2 ^ 99 * 1000000000000000000000000000 =
-        evalPoly geTN (m : Int) *
-          633825300114114700748351602688000000000000000000000000000 := by
-      rw [Int.mul_assoc, show (2 : Int) ^ 99 * 1000000000000000000000000000 =
-        633825300114114700748351602688000000000000000000000000000 from by decide]
-    generalize hp1 : int256 (x1W (zWord m)) * evalPoly geTD (m : Int) *
-      1000000000000000000000000000 = A at c1 e1
-    generalize hp2 : int256 (x1W (zWord m)) * 1000000000000000000000000000 *
-      evalPoly geTD (m : Int) = B at e1 ⊢
-    generalize hp3 : evalPoly geTN (m : Int) * 2 ^ 99 *
-      1000000000000000000000000000 = C at c1 e2
-    generalize hp4 : evalPoly geTN (m : Int) *
-      633825300114114700748351602688000000000000000000000000000 = D at e2 ⊢
-    clear hp1 hp2 hp3 hp4 hbr hpos hX1n htd htn hTN0 hTD1 hw1 hw2 hup h1 h2
-    omega
-
 theorem x1capGeLo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hlo : 0 ≤ evalPoly certGeLo (m : Int)) :
     capLB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000)
@@ -462,60 +289,6 @@ theorem x1capGeLo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   generalize hp4 : evalPoly geTN2b (m : Int) *
     633825300114114700748351602688000000000000000000000000000 = D at e2 ⊢
   clear hp1 hp2 hp3 hp4 hbr hpos hX1n htd htn hTN0 hTD1 hw1 hw2 hlo h1 h2
-  omega
-
-theorem x1capLtUp {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
-    (hup : 0 ≤ evalPoly certLtUp (m : Int)) :
-    capLB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000)
-      633825300114114700748351602688000000000000000000000000000
-      560227709747861399187319382270000000000000000000000000000000
-      (m * 10000000000000000000000000003382) := by
-  have hw1 : (39614081257132168796771975168 : Int) ≤ (m : Int) := by
-    simp only [MLO] at h1; omega
-  have hw2 : (m : Int) ≤ 56022770974786139918731938181 := by
-    simp only [Sc] at h2; omega
-  have hTN0 : 0 ≤ evalPoly ltTN2b (m : Int) := ltTN2_nonneg hw1 hw2
-  have hTD1 : 1 ≤ evalPoly ltTD2b (m : Int) := by
-    have h := ltTD2_nonneg hw1 hw2
-    rw [evalCertLtTD2] at h
-    omega
-  refine capLB_arg (q' := (evalPoly ltTD2b (m : Int)).toNat) (by omega) ?_
-    (capLtUp h1 h2 hup)
-  have hneg := x1_nonpos_lt h1 h2
-  have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) = -int256 (x1W (zWord m)) :=
-    Int.toNat_of_nonneg (by omega)
-  have htd : ((evalPoly ltTD2b (m : Int)).toNat : Int) = evalPoly ltTD2b (m : Int) :=
-    Int.toNat_of_nonneg (by omega)
-  have htn : ((evalPoly ltTN2b (m : Int)).toNat : Int) = evalPoly ltTN2b (m : Int) :=
-    Int.toNat_of_nonneg hTN0
-  refine Int.ofNat_le.mp ?_
-  simp only [Int.natCast_mul]
-  rw [show ((1000000000000000000000000000 : Nat) : Int) =
-      1000000000000000000000000000 from rfl,
-    show ((633825300114114700748351602688000000000000000000000000000 : Nat) : Int) =
-      633825300114114700748351602688000000000000000000000000000 from rfl,
-    hX1n, htd, htn]
-  have hbr := bracket_lt_lo h1 h2
-  have c1 := mul_le_mul_right_nonneg hbr
-    (show (0 : Int) ≤ 1000000000000000000000000000 by omega)
-  have e1 : -int256 (x1W (zWord m)) * 1000000000000000000000000000 *
-      evalPoly ltTD2b (m : Int) =
-      -int256 (x1W (zWord m)) * evalPoly ltTD2b (m : Int) * 1000000000000000000000000000 := by
-    ring
-  have e2 : evalPoly ltTN2b (m : Int) * 2 ^ 99 * 1000000000000000000000000000 =
-      evalPoly ltTN2b (m : Int) *
-        633825300114114700748351602688000000000000000000000000000 := by
-    rw [Int.mul_assoc, show (2 : Int) ^ 99 * 1000000000000000000000000000 =
-      633825300114114700748351602688000000000000000000000000000 from by decide]
-  generalize hp1 : -int256 (x1W (zWord m)) * evalPoly ltTD2b (m : Int) *
-    1000000000000000000000000000 = A at c1 e1
-  generalize hp2 : -int256 (x1W (zWord m)) * 1000000000000000000000000000 *
-    evalPoly ltTD2b (m : Int) = B at e1 ⊢
-  generalize hp3 : evalPoly ltTN2b (m : Int) * 2 ^ 99 *
-    1000000000000000000000000000 = C at c1 e2
-  generalize hp4 : evalPoly ltTN2b (m : Int) *
-    633825300114114700748351602688000000000000000000000000000 = D at e2 ⊢
-  clear hp1 hp2 hp3 hp4 hbr hneg hX1n htd htn hTN0 hTD1 hw1 hw2 hup h1 h2
   omega
 
 theorem x1capLtLo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)

@@ -5,14 +5,6 @@ open Common.Poly
 
 set_option maxRecDepth 100000
 
-theorem geH_check : checkCover certGeH 56022770974786139918731938273 79228162514264337593543950335
-    [23205391539478197674812012062] = true := by
-  decide +kernel
-
-theorem geH_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m ≤ 79228162514264337593543950335) :
-    0 ≤ evalPoly certGeH m :=
-  checkCover_sound _ _ _ _ geH_check m h1 h2
-
 theorem ltH_check : checkCover certLtH 39614081257132168796771975168 56022770974786139918731938181
     [16408689717653971121959963013] = true := by
   decide +kernel
@@ -20,14 +12,6 @@ theorem ltH_check : checkCover certLtH 39614081257132168796771975168 56022770974
 theorem ltH_nonneg {m : Int} (h1 : 39614081257132168796771975168 ≤ m) (h2 : m ≤ 56022770974786139918731938181) :
     0 ≤ evalPoly certLtH m :=
   checkCover_sound _ _ _ _ ltH_check m h1 h2
-
-theorem geTD_check : checkCover certGeTD 56022770974786139918731938273 79228162514264337593543950335
-    [23205391539478197674812012062] = true := by
-  decide +kernel
-
-theorem geTD_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m ≤ 79228162514264337593543950335) :
-    0 ≤ evalPoly certGeTD m :=
-  checkCover_sound _ _ _ _ geTD_check m h1 h2
 
 theorem geTD2_check : checkCover certGeTD2 56022770974786139918731938273 79228162514264337593543950335
     [23205391539478197674812012062] = true := by
@@ -52,14 +36,6 @@ theorem ltTD2_check : checkCover certLtTD2 39614081257132168796771975168 5602277
 theorem ltTD2_nonneg {m : Int} (h1 : 39614081257132168796771975168 ≤ m) (h2 : m ≤ 56022770974786139918731938181) :
     0 ≤ evalPoly certLtTD2 m :=
   checkCover_sound _ _ _ _ ltTD2_check m h1 h2
-
-theorem geTN_check : checkCover geTN 56022770974786139918731938273 79228162514264337593543950335
-    [23205391539478197674812012062] = true := by
-  decide +kernel
-
-theorem geTN_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m ≤ 79228162514264337593543950335) :
-    0 ≤ evalPoly geTN m :=
-  checkCover_sound _ _ _ _ geTN_check m h1 h2
 
 theorem geTN2_check : checkCover geTN2b 56022770974786139918731938273 79228162514264337593543950335
     [23205391539478197674812012062] = true := by

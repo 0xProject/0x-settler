@@ -30,8 +30,8 @@ Machine-checked Lean 4 proof that the compiled `lnWad` / `lnWadToRay` (from
 
 ## Layout (`LnProof/LnProof/`)
 
-The directories are the proof's abstraction layers, lowest first; each has a
-facade module (`Foundation.lean`, `Spec.lean`, …) re-exporting its public face.
+The directories are the proof's abstraction layers, lowest first. The root
+`LnProof.lean` is the checked aggregate of their public entry modules.
 
 | Directory      | Role |
 |----------------|------|
@@ -42,10 +42,12 @@ facade module (`Foundation.lean`, `Spec.lean`, …) re-exporting its public face
 | `Floor/`       | The model ⊨ floor/cut spec proof and its bracket/cap/cert machinery. |
 | `Error/`       | The model-level `1.6986`-ulp error bound and its cell covers / caps. |
 | `Seam/`        | The semantic bridges: `RuntimeModel` (runtime ↔ model) and `RealLog` (cut ↔ `Real.log`). |
-| `Cert/`        | **Generated** certificate literals and cell covers — machine output, do not edit. |
+| `Cert/`        | **Generated** certificate literals, cells, and aggregate covers — machine output, do not edit. |
 | (top level)    | `Theorems`, `Correct`, `ErrorBoundRuntime`, and the two generated EVM artifacts `LnYulRuntime` / `LnYulProof`. |
 
 ## Build
+
+After the generated sources described below are present:
 
 ```bash
 cd formal/ln/LnProof && lake build
@@ -69,28 +71,38 @@ The **generated certificates** under `Cert/` (ignored) come from the in-tree
 generators, run from `formal/ln/LnProof`:
 
 ```bash
+find LnProof/Cert -type f ! -name .gitkeep -delete
+find LnProof/Cert -depth -type d -empty ! -path LnProof/Cert -delete
+for path in .lake/build/lib/lean/LnProof/Cert .lake/build/ir/LnProof/Cert; do
+  if [[ -e "$path" ]]; then
+    rm -r -- "$path"
+  fi
+done
 lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover
 lake env lean GenFloorCertLit.lean
 lake build \
-  LnProof.Cert.FloorCertGeUpLit \
   LnProof.Cert.FloorCertGeLoLit \
-  LnProof.Cert.FloorCertLtUpLit \
   LnProof.Cert.FloorCertLtLoLit
 lake env lean GenCover.lean
 lake env lean GenErr1.lean
 lake build \
-  LnProof.Error.Core.ExpMargin \
-  LnProof.Error.Core.Budget \
-  LnProof.Error.Core.BranchCertHardDefs
+  LnProof.Floor.CarryIndependent.Approximation \
+  Common.GenBernstein \
+  Common.Foundation.PackedShift
+lake env lean GenApproximationCert.lean
+lake build LnProof.Error.Core.Budget
 lake env lean GenErrLit.lean
-lake env lean GenBranchCertHard.lean
-lake build LnProof.Cert.HardMantissaLtGap
 lake build
 ```
 
-The hard-mantissa certificate consists of ten generated 16-case-or-smaller
-kernel checks in two contiguous dependency lanes. The generated aggregate
-imports the two lane tips and reconstructs the 159-case theorem from those
-checked chunks.
+`GenCover.lean` emits each floor certificate's cells and its complete generated
+aggregate; the checked-in floor modules supply the polynomial-evaluation bridge.
+`GenErrLit.lean` emits the complete specialized error-bound cover.
+`GenApproximationCert.lean` emits two approximation-envelope covers containing
+310 cells: 291 use a packed Kronecker shift followed by interval Horner, and 19
+use Bernstein witnesses. Four contiguous dependency lanes connect the cells to
+an aggregate that imports only their tips. A separate Bernstein certificate
+bounds the ratio gap induced by the variable-propagated numerator and
+denominator errors by its endpoint value.
 
 See `.github/workflows/formal.yml` for the canonical CI sequence.

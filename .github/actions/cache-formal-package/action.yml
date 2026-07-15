@@ -1,8 +1,9 @@
 name: Cache formal package
 description: >-
   Restore one Lean proof package under a key that includes its direct
-  dependency sources and its own sources. Restore-only consumers require the
-  exact cache produced by their ordered publisher.
+  dependency sources, its own sources, and the workflow that orchestrates it.
+  Restore-only consumers require the exact cache produced by their ordered
+  publisher.
 
 inputs:
   cache-name:
@@ -36,7 +37,7 @@ runs:
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ${{ inputs.cache-path }}
-        key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
+        key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/workflows/formal.yml', '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
         restore-keys: |
           ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-
           ${{ runner.os }}-formal-${{ inputs.cache-name }}-
@@ -47,7 +48,7 @@ runs:
       uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ${{ inputs.cache-path }}
-        key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
+        key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/workflows/formal.yml', '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
 
     - name: Require exact ${{ inputs.cache-name }} cache from its publisher
       if: inputs.publish != 'true' && steps.restore.outputs.cache-hit != 'true'

@@ -25,9 +25,9 @@ attribute [local irreducible] lnWadToRayBody
 theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551560854268589826112230 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516294209054209107914)
+      116873961749927929127912020551560854268589826112230)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -41,12 +41,12 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
+      116873961749927929127912020551560854268589826112230) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
     have hg : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516294209054209107914 := by
+        116873961749927929127912020551560854268589826112230 := by
       generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516294209054209107914 = V at hrlo ⊢
+        116873961749927929127912020551560854268589826112230 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
@@ -280,9 +280,9 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516294209054209107914 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551560854268589826112230 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516294209054209107914)
+      116873961749927929127912020551560854268589826112230)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -296,12 +296,12 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
   have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551516294209054209107914) * 2 ^ 27 := by
+      116873961749927929127912020551560854268589826112230) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
     have hg : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516294209054209107914 := by
+        116873961749927929127912020551560854268589826112230 := by
       generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516294209054209107914 = V at hrlo ⊢
+        116873961749927929127912020551560854268589826112230 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)

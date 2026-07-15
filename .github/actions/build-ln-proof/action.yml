@@ -39,22 +39,20 @@ runs:
           lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover
           lake env lean GenFloorCertLit.lean
           lake build \
-            LnProof.Cert.FloorCertGeUpLit \
             LnProof.Cert.FloorCertGeLoLit \
-            LnProof.Cert.FloorCertLtUpLit \
             LnProof.Cert.FloorCertLtLoLit
           lake env lean GenCover.lean
           lake env lean GenErr1.lean
           lake build \
-            LnProof.Error.Core.ExpMargin \
-            LnProof.Error.Core.Budget \
-            LnProof.Error.Core.BranchCertHardDefs
+            LnProof.Floor.CarryIndependent.Approximation \
+            Common.GenBernstein \
+            Common.Foundation.PackedShift
+          lake env lean GenApproximationCert.lean
+          lake build LnProof.Error.Core.Budget
           lake env lean GenErrLit.lean
-          lake env lean GenBranchCertHard.lean
 
     - name: Build Ln proof package
       shell: bash
       working-directory: formal/ln/LnProof
       run: |
-        lake build LnProof.Cert.HardMantissaLtGap
         lake build

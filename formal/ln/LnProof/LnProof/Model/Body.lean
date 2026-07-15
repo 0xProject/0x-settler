@@ -32,17 +32,13 @@ def Q2c : Nat := 53722296096946541673620529149
 def Q1c : Nat := 16613772931382142257332678212554
 def Kc : Nat := 7450580596923828125
 def LN2c : Nat := 3273295013171879848905889459134067659407864468560
-def BIASc : Nat := 116873961749927929127912020551516294209054209107914
+def BIASc : Nat := 116873961749927929127912020551560854268589826112230
 
 /-- Largest |z| over the mantissa domain. -/
 def Zc : Nat := 217494458298375249691265569565
 
-theorem Zc_def : Zc = ((Sc - 2 ^ 95) * 2 ^ 100) / (2 ^ 95 + Sc) := by decide
-
 /-- Largest `u`. -/
 def Uc : Nat := 2332259347626381040680638252
-
-theorem Uc_def : Uc = Zc * Zc / 2 ^ 104 := by decide
 
 def SLOPP1 : Int := 19342813113834066795298815
 def SLOPP2 : Int := 69057699520159162110141648894228821086113826043390164
@@ -673,8 +669,5 @@ theorem qS5_facts {u : Nat} (hu : u ≤ Uc) :
     generalize hE : evalPoly QQ4c (u : Int) * (u : Int) = E at hstep ⊢
     generalize hD : int256 (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
     omega
-
-def pWordD (u : Nat) : Nat := pS4 u
-def qWordD (u : Nat) : Nat := qS5 u
 
 end LnYul

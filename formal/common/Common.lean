@@ -14,7 +14,9 @@ import Common.Foundation.ExpSum
 import Common.Foundation.ShiftCert
 import Common.Foundation.Kronecker
 import Common.Foundation.KroneckerShift
+import Common.Foundation.PackedShift
 import Common.Foundation.Bernstein
+import Common.Foundation.PackedBernstein
 import Common.Seam.RealExpBridge
 import Common.GenCover
 import Common.GenBernstein
