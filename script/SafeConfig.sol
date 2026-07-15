@@ -129,7 +129,7 @@ library SafeConfig {
         result[1] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
         result[2] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
         result[3] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
-        result[4] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
+        result[4] = 0xeFA8f8b23dad0741203340041BF41b20F97fEed2; // Lazaro
         return result;
     }
 
