@@ -44,10 +44,10 @@ library Exp {
 
     /// @notice Compute `trunc(y * exp(x / 10**27))` with up to 1ulp of error, towards zero
     /// @dev Let A = |y| ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
-    ///      with 0 ≤ m ≤ A ∧ A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without
-    ///      underflow. `mulExpRay(0, x) == 0` for every accepted x, and `mulExpRay(y, 0) == y`
-    ///      exactly whenever 4⋅|y| ≤ 2¹²⁷ - 1 = 170141183460469231731687303715884105727. Among
-    ///      accepted inputs, the result is monotone in `x`: nondecreasing if y ≥ 0 and
+    ///      with 0 ≤ m ≤ A ∧ A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without underflow; it
+    ///      never overestimates. `mulExpRay(0, x) == 0` for every accepted x, and `mulExpRay(y, 0)
+    ///      == y` exactly whenever 4⋅|y| ≤ 2¹²⁷ - 1 = 170141183460469231731687303715884105727
+    ///      . Among accepted inputs, the result is monotone in `x`: nondecreasing if y ≥ 0 and
     ///      nonincreasing if y < 0. For a fixed `x`, among accepted inputs, the result is
     ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
     ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
