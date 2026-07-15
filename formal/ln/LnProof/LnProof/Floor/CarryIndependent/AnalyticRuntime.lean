@@ -76,7 +76,7 @@ theorem crossLog_hasDerivAt {t : Real} (htm : -1 < t) (htp : t < 1) :
     ((hasDerivAt_const t 1).sub (hasDerivAt_id t))
   have hsq : 1 - t ^ 2 ≠ 0 := by nlinarith [sq_nonneg t]
   unfold crossLog
-  convert hp.sub hm using 1 <;> field_simp [hp0, hm0, hsq] <;> ring_nf
+  convert hp.sub hm using 1; field_simp [hp0, hm0, hsq]; ring_nf
 
 theorem crossLog_increment_le {a t T : Real}
     (ha0 : 0 ≤ a) (hat : a ≤ t) (htT : t ≤ T)

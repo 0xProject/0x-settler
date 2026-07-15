@@ -34,7 +34,7 @@ runs:
     - name: Restore and publish ${{ inputs.cache-name }} cache
       id: cache
       if: inputs.publish == 'true'
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ inputs.cache-path }}
         key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/workflows/formal.yml', '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}
@@ -45,7 +45,7 @@ runs:
     - name: Restore ${{ inputs.cache-name }} cache without publishing
       id: restore
       if: inputs.publish != 'true'
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: ${{ inputs.cache-path }}
         key: ${{ runner.os }}-formal-${{ inputs.cache-name }}-${{ hashFiles(inputs.dependency-hash-globs, 'lib/EVMYulLean/EvmYul/FFI/ffi.c') }}-${{ hashFiles(inputs.source-hash-globs, '.github/workflows/formal.yml', '.github/actions/setup-formal/**', '.github/actions/cache-formal-package/**', '.github/actions/fetch-lean-cache/**') }}

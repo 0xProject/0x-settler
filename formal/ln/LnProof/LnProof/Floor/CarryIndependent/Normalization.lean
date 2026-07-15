@@ -107,8 +107,7 @@ private theorem low_z_num_toNat {m : Nat}
   have hsub : (0 : Int) ≤ (Sc : Int) - m :=
     sub_nonneg.mpr (Int.ofNat_le.mpr (Nat.le_of_lt hmsc))
   have hsubNat : ((Sc : Int) - m).toNat = Sc - m := by
-    simpa using Int.toNat_sub_of_le
-      (Int.ofNat_le.mpr (Nat.le_of_lt hmsc))
+    simp
   have hscale : (0 : Int) ≤ 1267650600228229401496703205376 := by norm_num
   have hscaleNat : (1267650600228229401496703205376 : Int).toNat =
       wordQ100 := by
@@ -305,7 +304,7 @@ private theorem high_z_num_toNat {m : Nat}
   have hsub : (0 : Int) ≤ (m : Int) - Sc :=
     sub_nonneg.mpr (Int.ofNat_le.mpr hscm)
   have hsubNat : ((m : Int) - Sc).toNat = m - Sc := by
-    simpa using Int.toNat_sub_of_le (Int.ofNat_le.mpr hscm)
+    simp
   have hscale : (0 : Int) ≤ 1267650600228229401496703205376 := by norm_num
   have hscaleNat : (1267650600228229401496703205376 : Int).toNat =
       wordQ100 := by

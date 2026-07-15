@@ -672,7 +672,7 @@ private theorem call_fun_unsafeDec_direct
       (hlookup := hlookup)]
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp only [FormalYul.Preservation.wordNat_sub]
-  simp [FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right]
+  simp [FormalYul.Preservation.evmSub_u256_left]
 
 private theorem call_fun_unsafeDec_uint256_direct
     (x b : EvmYul.UInt256) (fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
@@ -734,8 +734,7 @@ private theorem call_fun_unsafeDec_ofNat_uint256_direct
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp only [FormalYul.Preservation.wordNat_sub, FormalYul.Preservation.wordNat_ofNat,
     FormalYul.Preservation.wordNat_lt]
-  simp [FormalYul.word, FormalYul.Preservation.evmSub_u256_left,
-    FormalYul.Preservation.evmLt_u256_left]
+  simp [FormalYul.word, FormalYul.Preservation.evmSub_u256_left]
 
 private theorem call_wrapping_add_t_uint256_direct
     (x y fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
@@ -817,7 +816,6 @@ private theorem call_fun_and_direct
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp only [FormalYul.Preservation.wordNat_mul]
   simp [FormalYul.Preservation.wordNat_lt, FormalYul.Preservation.evmMul_u256_left,
-    FormalYul.Preservation.evmMul_u256_right, FormalYul.Preservation.evmLt_u256_left,
     FormalYul.Preservation.evmLt_u256_right]
 
 private theorem call_fun_and_uint256_direct
@@ -954,7 +952,7 @@ private theorem call_fun_toUint_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -969,7 +967,7 @@ private theorem call_fun_toUint_direct
       (hlookup := hlookup)]
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp [FormalYul.Preservation.wordNat_lt, FormalYul.Preservation.wordNat_ofNat,
-    FormalYul.Preservation.evmLt_u256_left, FormalYul.Preservation.evmLt_u256_right]
+    FormalYul.Preservation.evmLt_u256_right]
 
 private theorem call_fun__gt_direct
     (xHi xLo yHi yLo fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)

@@ -141,9 +141,9 @@ theorem approximationUpper_eval (u : Nat) (hu : u < approximationScale) :
     evalPoly_oneMinus, approximationTailPower, evalPoly_tailPower]
   push_cast
   rw [← hTaylor]
-  field_simp [hTaylorDen, hScale, hGap] <;>
+  field_simp [hTaylorDen, hScale, hGap];
     norm_num [approximationTaylorDen, approximationOddProduct,
-    approximationScale, approximationTerms] <;> ring
+    approximationScale, approximationTerms]; ring
 
 theorem approximationUpperDen_pos {u : Nat} (hu : u ≤ approximationMaxU) :
     0 < evalPoly approximationUpperDen (u : Int) := by
@@ -183,7 +183,7 @@ theorem approximationRational_eval (u : Nat) (hu : u ≤ approximationMaxU) :
     evalPoly_polyScale, evalPoly_polyNeg]
   push_cast at hq hqScaled ⊢
   apply (div_eq_div_iff hq.ne' hqScaled).2
-  field_simp [h358, h386] <;> norm_num <;> ring
+  field_simp [h358, h386]; norm_num; ring
 
 theorem approximationLowCell_implies_series_eval_bound {hi u z a : Nat}
     (ha : approximationEnvelopeCandidate hi a)

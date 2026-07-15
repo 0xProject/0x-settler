@@ -74,8 +74,7 @@ theorem phaseDeltaRay_le :
         10 ^ 27 * ((phaseErrorNum : Real) / (10 ^ 27 * phaseErrorDen)) :=
       mul_le_mul_of_nonneg_left hsmall hscale.le
     _ = (phaseErrorNum : Real) / phaseErrorDen := by
-      field_simp [hden.ne', hscale.ne']
-      <;> ring
+      field_simp [hden.ne', hscale.ne']; ring
 
 theorem phaseErrorRay_le {k : Int} (hlo : -95 ≤ k) (hhi : k ≤ 159) :
     phaseErrorRay k ≤ (159 : Real) * phaseErrorNum / phaseErrorDen := by
