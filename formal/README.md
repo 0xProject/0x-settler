@@ -92,11 +92,12 @@ branches, and subsequent jobs trust the formal-tool artifact it publishes.
 
 ## CI and cache boundaries
 
-The unified formal workflow keeps the large Mathlib and Lake dependency outputs
-in a cache keyed only by the pinned toolchain and dependency manifests. A
-separate formal-tool cache contains `FormalYul` and EVMYulLean outputs and is
-keyed by their sources as well as that dependency configuration. Every proof
-package has a separate cache. A package's exact key includes:
+The unified formal workflow keeps the complete Mathlib and Lake package trees,
+including their repository metadata and build outputs, in a cache keyed only
+by the pinned toolchain and dependency manifests. A separate formal-tool cache
+contains `FormalYul` and EVMYulLean outputs and is keyed by their sources as
+well as that dependency configuration. Every proof package has a separate
+cache. A package's exact key includes:
 
 - the source hash of each direct dependency;
 - its Lake configuration and Lean sources;

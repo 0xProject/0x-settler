@@ -20,11 +20,6 @@ runs:
             formal/ln/LnProof/LnProof/LnYul.lean \
             0.8.34
 
-    - name: Fetch Ln proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
-      with:
-        working-directory: formal/ln/LnProof
-
     - name: Generate Ln certificates
       uses: ./.github/actions/check-generated-sources
       with:

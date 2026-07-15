@@ -48,71 +48,81 @@ theorem call_fun_mulExpRay_revert_direct
   let s := scaleShiftTree ay
   let k := kTree x
   let shift := evmSub s k
+  have hconvertY1 :=
+    call_convert_int128_to_int256_direct (v := y) (fuel := fuel + extra) (extra := 2072)
+      (shared := shared) (hlookup := hlookup) (hclean := hclean)
+  have hconvert255 :=
+    call_convert_255_to_uint8_direct (fuel := fuel + extra) (extra := 2067)
+      (shared := shared) (hlookup := hlookup)
+  have hshiftSign :=
+    call_shift_right_t_int256_t_uint8_255_direct (value := y)
+      (fuel := fuel + extra) (extra := 2006) (shared := shared) (hlookup := hlookup)
+  have hwrapAy :=
+    call_wrapping_sub_t_int256_direct (x := evmXor y (evmSar 255 y)) (y := evmSar 255 y)
+      (fuel := fuel + extra) (extra := 2096) (shared := shared) (hlookup := hlookup)
+  have hayAsUint :=
+    call_convert_int256_to_uint256_direct
+      (v := evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))
+      (fuel := fuel + extra) (extra := 2055) (shared := shared) (hlookup := hlookup)
   have hzeroInit :=
     call_zero_value_for_split_t_int128_direct (fuel := fuel + extra) (extra := 2176)
       (shared := shared) (hlookup := hlookup)
-  have hzeroUint1 :=
-    call_zero_value_for_split_t_uint256_direct (fuel := fuel + extra) (extra := 2173)
-      (shared := shared) (hlookup := hlookup)
-  have hzeroUint2 :=
-    call_zero_value_for_split_t_uint256_direct (fuel := fuel + extra) (extra := 2170)
-      (shared := shared) (hlookup := hlookup)
   have hclz :=
-    call_fun_clz_direct (x := ay) (fuel := fuel + extra) (extra := 2104)
+    call_fun_clz_direct (x := ay) (fuel := fuel + extra) (extra := 2090)
       (shared := shared) (hlookup := hlookup)
   have hscaleClzBias :=
-    call_convert_129_to_uint256_direct (fuel := fuel + extra) (extra := 2060)
+    call_convert_129_to_uint256_direct (fuel := fuel + extra) (extra := 2046)
       (shared := shared) (hlookup := hlookup)
   have hwrapS :=
     call_wrapping_sub_t_uint256_direct (x := evmClz ay) (y := scaleClzBias)
-      (fuel := fuel + extra) (extra := 2102) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 2088) (shared := shared) (hlookup := hlookup)
   have hconvert127 :=
-    call_convert_127_to_uint8_direct (fuel := fuel + extra) (extra := 2058)
+    call_convert_127_to_uint8_direct (fuel := fuel + extra) (extra := 2044)
       (shared := shared) (hlookup := hlookup)
   have hshrAy :=
     call_shift_right_t_uint256_t_uint8_127_direct (value := ay)
-      (fuel := fuel + extra) (extra := 1997) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 1983) (shared := shared) (hlookup := hlookup)
   have hwrapAdd :=
     call_wrapping_add_t_uint256_direct
       (x := evmSub (evmClz ay) scaleClzBias) (y := evmShr 127 ay)
-      (fuel := fuel + extra) (extra := 2095) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 2081) (shared := shared) (hlookup := hlookup)
   have hoctave :=
-    call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 2051)
+    call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 2037)
       (shared := shared) (hlookup := hlookup)
   have hconvertS :=
-    call_convert_uint256_to_int256_direct (v := s) (fuel := fuel + extra) (extra := 2047)
+    call_convert_uint256_to_int256_direct (v := s) (fuel := fuel + extra) (extra := 2033)
       (shared := shared) (hlookup := hlookup)
   have hwrapShift :=
-    call_wrapping_sub_t_int256_direct (x := s) (y := k) (fuel := fuel + extra) (extra := 2084)
+    call_wrapping_sub_t_int256_direct (x := s) (y := k) (fuel := fuel + extra) (extra := 2070)
       (shared := shared) (hlookup := hlookup)
   have hHi :=
     call_convert_MUL_EXP_RAY_HI_MINUS_ONE_to_int256_direct
-      (fuel := fuel + extra) (extra := 2037)
+      (fuel := fuel + extra) (extra := 2023)
       (shared := shared) (hlookup := hlookup)
   have hcleanupXForHi :=
-    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2135)
+    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 2121)
       (shared := shared) (hlookup := hlookup)
   have hconvertTwo :=
-    call_convert_2_to_int256_direct (fuel := fuel + extra) (extra := 2031)
+    call_convert_2_to_int256_direct (fuel := fuel + extra) (extra := 2017)
       (shared := shared) (hlookup := hlookup)
   have hcleanupShift :=
-    call_cleanup_t_int256_direct (v := shift) (fuel := fuel + extra) (extra := 2129)
+    call_cleanup_t_int256_direct (v := shift) (fuel := fuel + extra) (extra := 2115)
       (shared := shared) (hlookup := hlookup)
   have hOrGuard :=
     call_fun_or_direct
       (a := evmSgt x 86989971160273136331862631243)
       (b := evmSlt shift 2)
-      (fuel := fuel + extra) (extra := 2072) (shared := shared) (hlookup := hlookup)
+      (fuel := fuel + extra) (extra := 2058) (shared := shared) (hlookup := hlookup)
   have hoverflow :=
-    call_constant_ARITHMETIC_OVERFLOW_direct (fuel := fuel + extra) (extra := 1987)
+    call_constant_ARITHMETIC_OVERFLOW_direct (fuel := fuel + extra) (extra := 1973)
       (shared := shared) (hlookup := hlookup)
   have hconvu :=
-    call_convert_uint8_to_uint256_17_direct (fuel := fuel + extra) (extra := 2026)
+    call_convert_uint8_to_uint256_17_direct (fuel := fuel + extra) (extra := 2012)
       (shared := shared) (hlookup := hlookup)
   have hpanic :=
-    call_fun_panic_revert_direct (code := 0x11) (fuel := fuel + extra) (extra := 1545)
+    call_fun_panic_revert_direct (code := 0x11) (fuel := fuel + extra) (extra := 1531)
       (shared := shared) (hlookup := hlookup)
-  simp only [Nat.reduceAdd, FormalYul.word] at hzeroInit hzeroUint1 hzeroUint2
+  simp only [Nat.reduceAdd, FormalYul.word] at hconvertY1 hconvert255 hshiftSign hwrapAy hayAsUint hzeroInit
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_clz, ay, absTree, signTree] at hclz
   simp only [Nat.reduceAdd, FormalYul.word] at hscaleClzBias
   simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleClzBias] at hwrapS
@@ -150,24 +160,22 @@ theorem call_fun_mulExpRay_revert_direct
     simpa [mulExpGuardTree, mulShiftTree, scaleShiftTree, absTree, signTree, kTree,
       scaleClzBias, hhiMinusOne] using hguard
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.setStore,
-    FormalYul.word, primCall_signextend_yul,
+    FormalYul.word,
+    hconvertY1, hconvert255, hshiftSign, hwrapAy, hayAsUint,
     hguardUnfold,
-    hzeroInit, hzeroUint1, hzeroUint2, hclz, hscaleClzBias, hwrapS,
+    hzeroInit, hclz, hscaleClzBias, hwrapS,
     hconvert127, hshrAy, hwrapAdd, hoctave, hconvertS, hwrapShift,
     hHi, hcleanupXForHi,
     hconvertTwo, hcleanupShift, hOrGuard,
     hoverflow, hconvu, hpanic,
-    FormalYul.Preservation.uint256_ofNat_sub_eq_word_evmSub,
     Common.Word.uint256_ofNat_xor_eq_word_evmXor,
-    Common.Word.uint256_ofNat_sar_eq_word_evmSar,
     uint256_ofNat_slt_eq_word_evmSlt,
-    uint256_ofNat_sgt_eq_word_evmSgt,
-    hclean]
+    uint256_ofNat_sgt_eq_word_evmSgt]
 
 set_option maxHeartbeats 12000000 in
 /-- `fun_wrap_mulExpRay` forwards the revert. -/
