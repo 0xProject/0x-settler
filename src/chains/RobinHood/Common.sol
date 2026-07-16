@@ -25,6 +25,7 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
+import {sushiswapV3RobinhoodFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {upFactory, upInitHash, upForkId} from "../../core/univ3forks/Up.sol";
 import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3forks/Sheriff.sol";
 import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
@@ -85,6 +86,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 
     {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3RobinhoodFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3RobinhoodFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == pancakeSwapV3ForkId) {

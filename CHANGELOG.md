@@ -13,6 +13,7 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add SushiSwapV3 UniV3 fork to RobinHood
 
 ## 2026-07-15
 
