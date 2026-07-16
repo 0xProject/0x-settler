@@ -55,3 +55,5 @@
    41. Sheriff (Algebra-like)
    <!-- -->
    42. SwapHood V3
+   <!-- -->
+   43. RobinSwap

@@ -14,6 +14,7 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add SushiSwapV3 UniV3 fork to RobinHood
+* Add RobinSwap UniV3 fork to RobinHood with fork ID 43
 
 ## 2026-07-15
 
