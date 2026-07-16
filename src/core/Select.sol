@@ -31,7 +31,16 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 balBefore = _balanceOfOrZero(token);
         _runActions(actions, uint256(tag) >> 255 != 0);
         uint256 score = _balanceOfOrZero(token) - balBefore;
-        if (score < minOut) revert Measured(score, tag);
+        if (score < minOut) {
+            // revert Measured(score, tag); -- in assembly because a left-padded selector constant
+            // is smaller bytecode than Solidity's right-padded `bytes4`
+            assembly ("memory-safe") {
+                mstore(0x00, 0x56c925b8) // selector for `Measured(uint256,bytes32)`
+                mstore(0x20, score)
+                mstore(0x40, tag)
+                revert(0x1c, 0x44)
+            }
+        }
     }
 
     function _select(bytes calldata data, bool vip) internal {
@@ -54,6 +63,17 @@ abstract contract Select is SettlerSwapAbstract {
                 if lt(j_, n_) { e_ := add(base_, calldataload(add(base_, shl(0x05, j_)))) }
                 len_ := sub(e_, start_)
             }
+            // Shared by the trial and commit loops (one bytecode copy). Recomputing the keccak
+            // tag on commit yields the identical value that the trial cached.
+            function attempt(base_, n_, end_, i_, cd_, word44_, tagFlag_, g_) -> ok_, tag_ {
+                let start_, len_ := blob(base_, n_, end_, i_)
+                let dst_ := add(0x84, cd_)
+                calldatacopy(dst_, start_, len_)
+                tag_ := or(and(keccak256(dst_, len_), not(shl(0xff, 0x01))), tagFlag_)
+                mstore(add(0x44, cd_), word44_)
+                mstore(add(0x64, cd_), tag_)
+                ok_ := call(g_, address(), 0x00, cd_, add(0x84, len_), 0x00, 0x00)
+            }
 
             // EIP-150: trials get min(gasCap, 63/64 of remaining). Provision ~2*gasCap or early
             // candidates starve. gasCap == 0 lets one trial starve the rest.
@@ -75,7 +95,6 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(cd, selector)
             mstore(add(0x04, cd), 0x80)
             mstore(add(0x24, cd), token)
-            let dst := add(0x84, cd)
             let tagMask := shl(0xff, 0x01)
 
             let attemptedCommit
@@ -88,14 +107,20 @@ abstract contract Select is SettlerSwapAbstract {
                     and(iszero(iszero(gasCap)), anyScore),
                     lt(gas(), add(add(gasCap, gasCap), add(shr(0x05, gasCap), 0x10000)))
                 ) { break }
-                let start, len := blob(candsData, n, dataEnd, measuredCount)
-                calldatacopy(dst, start, len)
-                let tag := or(and(keccak256(dst, len), not(tagMask)), tagFlag)
-                mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, measuredCount))))
-                mstore(add(0x64, cd), tag)
                 let g := gasCap
                 if or(iszero(g), and(iszero(anyScore), eq(measuredCount, sub(n, 0x01)))) { g := gas() }
-                if call(g, address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
+                let ok, tag :=
+                    attempt(
+                        candsData,
+                        n,
+                        dataEnd,
+                        measuredCount,
+                        cd,
+                        calldataload(add(targetsData, shl(0x05, measuredCount))),
+                        tagFlag,
+                        g
+                    )
+                if ok {
                     attemptedCommit := 0x01
                     break
                 }
@@ -124,13 +149,9 @@ abstract contract Select is SettlerSwapAbstract {
                         revert(ret, returndatasize())
                     }
 
-                    let start, len := blob(candsData, n, dataEnd, best)
-                    calldatacopy(dst, start, len)
-                    mstore(add(0x44, cd), mload(add(scores, shl(0x05, best))))
-                    mstore(add(0x64, cd), or(and(mload(add(tags, shl(0x05, best))), not(tagMask)), tagFlag))
-                    if call(gas(), address(), 0x00, cd, add(0x84, len), 0x00, 0x00) {
-                        break
-                    }
+                    let ok, tag :=
+                        attempt(candsData, n, dataEnd, best, cd, mload(add(scores, shl(0x05, best))), tagFlag, gas())
+                    if ok { break }
 
                     mstore(add(tags, shl(0x05, best)), 0x00)
                 }
@@ -151,8 +172,9 @@ abstract contract Select is SettlerSwapAbstract {
                 tooShort := gt(data.length, not(0x04))
                 if tooShort { data.length := 0x00 }
             }
-            if (tooShort) revertActionInvalid(i, action, data);
-            if (vip.and(i == 0) ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage)) {
+            // `||` (not `FastLogic.or`) so a too-short action is never dispatched; single
+            // `revertActionInvalid` call site keeps its body from being inlined twice.
+            if (tooShort || (vip.and(i == 0) ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage))) {
                 revertActionInvalid(i, action, data);
             }
         }

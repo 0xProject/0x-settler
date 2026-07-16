@@ -89,10 +89,12 @@ abstract contract BaseMixin is
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
-            _select(data, false);
-        } else if (action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector)) {
-            _select(data, true);
+        } else if (
+            (action == uint32(ISettlerActions.SELECT.selector))
+                .or(action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector))
+        ) {
+            // Single `_select` call site; two would get the large body inlined twice.
+            _select(data, action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector));
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
             .or(action == uint32(ISettlerActions.BALANCERV3.selector))
             .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {

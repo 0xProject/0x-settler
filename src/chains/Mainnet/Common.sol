@@ -83,10 +83,12 @@ abstract contract MainnetMixin is
         //// NOTICE: we re-implement the base `_dispatch` implementation here so that we can remove
         //// the `VELODROME` action JUST on this chain because it does little-to-no volume.
 
-        if (action == uint32(ISettlerActions.SELECT.selector)) {
-            _select(data, false);
-        } else if (action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector)) {
-            _select(data, true);
+        if (
+            (action == uint32(ISettlerActions.SELECT.selector))
+                .or(action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector))
+        ) {
+            // Single `_select` call site; two would get the large body inlined twice.
+            _select(data, action == uint32(ISettlerActions.SELECT_VIP_CANDIDATES.selector));
         } else if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
