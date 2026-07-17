@@ -16,7 +16,7 @@ library Exp {
     ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For "central" inputs 707106781186547525 ≤ w ≤
     ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
-    ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.22 ⋅ 10³⁷).
+    ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.218 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int128) {
         // This is ⌈(66⋅2¹⁹² - 2¹⁹¹) / CINV⌉, with CINV the Q192 reciprocal in `_octave`; here the
         // octave count reaches 66 and the deficit envelope exceeds 1ulp.
@@ -52,13 +52,11 @@ library Exp {
     ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
     ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
     ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ (for any x₁, x₂).
-    /// @dev Reverts with `Panic(17)` when x ≥ 86989971160273136331862631244 ≈ 87.00⋅10²⁷
-    ///      (regardless of y), or when round(x / (10²⁷⋅ln(2))) exceeds s - 2, with 2ˢ the scale
-    ///      headroom above |y|; s = 0 at both maximal signed magnitudes and s = 127 at y = 0. The
-    ///      accepted exponents form one interval that narrows as |y| grows, and every accepted x ≤
-    ///      -88376265521393026950697095485 ≈ -88.38⋅10²⁷ evaluates to zero. Below the wrap boundary
-    ///      (x ≲ -5.7⋅10⁴⁵) the wrapped octave word decides: such `x` revert or clamp to zero, (A <
-    ///      1 there at every supported magnitude).
+    /// @dev Reverts with `Panic(17)` iff bitlen(|y|) + round(x / (10²⁷⋅ln(2))) > 125 (below
+    ///      x = -2¹⁵² ≈ -5.709⋅10⁴⁵ it may revert regardless). At y = 0 the rule reads x >
+    ///      86989971160273136331862631243 ≈ 86.99⋅10²⁷. Hence it never reverts when A < 2¹²⁴⋅√2 ≈
+    ///      3.008⋅10³⁷ ∧ y ≠ 0, nor when 2√2⋅A < |y|, and always reverts when A > 2¹²⁵⋅√2 ≈
+    ///      6.015⋅10³⁷. Every accepted x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ returns 0.
     function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
         unchecked {
             // Split `y` into a sign mask and a magnitude
@@ -197,7 +195,7 @@ library Exp {
         // Hence the maximum underestimation is E - A⋅2ᵏ⁻ˢ ≤ (2993/1000 + margin)⋅2ᵏ⁻ˢ. The caller
         // keeps k ≤ s - 2, where this is < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. For the wad
         // specialization s = 67, the deficit envelope exceeds 1ulp at k ≥ 66. On the central octave
-        // k = 0, the margin is 2⁻⁶⁷ ≈ 6.8⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay`
+        // k = 0, the margin is 2⁻⁶⁷ ≈ 6.776⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay`
         // leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
         // ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
