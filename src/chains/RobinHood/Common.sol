@@ -25,6 +25,10 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
+import {upFactory, upInitHash, upForkId} from "../../core/univ3forks/Up.sol";
+import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3forks/Sheriff.sol";
+import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
@@ -86,6 +90,18 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 
         } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == upForkId) {
+            factory = upFactory;
+            initHash = upInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sheriffForkId) {
+            factory = sheriffFactory;
+            initHash = sheriffInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == swapHoodV3ForkId) {
+            factory = swapHoodV3Factory;
+            initHash = swapHoodV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

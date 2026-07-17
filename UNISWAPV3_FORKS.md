@@ -49,3 +49,9 @@
    38. SquadSwapV3
    <!-- -->
    39. PrjxV3 (Project X)
+   <!-- -->
+   40. Up
+   <!-- -->
+   41. Sheriff (Algebra-like)
+   <!-- -->
+   42. SwapHood V3
