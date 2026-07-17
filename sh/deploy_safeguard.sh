@@ -125,7 +125,7 @@ declare safe
 safe="$(get_config governance.upgradeSafe)"
 declare -r safe
 
-if [[ ${safe:-null} == [nN][uU][lL][lL] ]] || [[ -z ${safe:-} ]] ; then
+if [[ ${safe:-null} == [nN][uU][lL][lL] ]] ; then
     echo 'governance.upgradeSafe is missing from chain_config.json for chain "'"$chain_name"'"' >&2
     exit 1
 fi
@@ -133,25 +133,30 @@ fi
 declare safe_codehash
 if [[ $era_vm = [Tt]rue ]] ; then
     safe_codehash="$(cast call --rpc-url "$rpc_url" 0x0000000000000000000000000000000000008002 'getCodeHash(uint256)(bytes32)' "$safe")"
+    case "$safe_codehash" in
+        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d|\
+        0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f) ;;
+        *)
+            echo 'Upgrade Safe ('"$safe"') is not a recognized EraVM Safe proxy (codehash '"$safe_codehash"')' >&2
+            exit 1
+            ;;
+    esac
 else
     safe_codehash="$(cast keccak "$(cast code --rpc-url "$rpc_url" "$safe")")"
+    case "$safe_codehash" in
+        0xaea7d4252f6245f301e540cfbee27d3a88de543af8e49c5c62405d5499fab7e5|\
+        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000|\
+        0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c) ;;
+        *)
+            echo 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')' >&2
+            exit 1
+            ;;
+    esac
 fi
 declare -r safe_codehash
-case "$safe_codehash" in
-    0xaea7d4252f6245f301e540cfbee27d3a88de543af8e49c5c62405d5499fab7e5|\
-    0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000|\
-    0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c|\
-    0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d|\
-    0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f) ;;
-    *)
-        echo 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')' >&2
-        exit 1
-        ;;
-esac
 
 declare onchain_singleton
 onchain_singleton="$(cast call --rpc-url "$rpc_url" "$safe" 'masterCopy()(address)')"
-onchain_singleton="$(cast to-check-sum-address "$onchain_singleton")"
 declare -r onchain_singleton
 
 declare -a candidate_factories
@@ -182,24 +187,25 @@ function predict_create2 {
 }
 
 function predict_create2_era_vm {
+    if (( ${#1} != 42 || ${#2} != 66 || ${#3} != 66 )) ; then
+        echo 'predict_create2_era_vm: argument has the wrong width' >&2
+        return 1
+    fi
     declare _predict_out
     _predict_out="$(cast keccak "$(cast concat-hex "$(cast keccak zksyncCreate2)" "$(cast to-uint256 "$1")" "$(cast hash-zero)" "$2" "$3")")"
     cast to-check-sum-address "0x${_predict_out:26:40}"
 }
 
-function predict_singleton {
-    if [[ $era_vm = [Tt]rue ]] ; then
-        predict_create2_era_vm "$1" "$2" "$(cast keccak '')"
-    else
-        predict_create2 "$1" "$2"
-    fi
-}
-
 declare guard_contract='' factory=''
-declare _f _v
+declare _f _v _predicted_singleton
 for _f in "${candidate_factories[@]}" ; do
     for _v in "${!singleton_inithash[@]}" ; do
-        if [[ "$(predict_singleton "$_f" "${singleton_inithash[$_v]}")" == "$onchain_singleton" ]] ; then
+        if [[ $era_vm = [Tt]rue ]] ; then
+            _predicted_singleton="$(predict_create2_era_vm "$_f" "${singleton_inithash[$_v]}" "$(cast keccak 0x)")"
+        else
+            _predicted_singleton="$(predict_create2 "$_f" "${singleton_inithash[$_v]}")"
+        fi
+        if [[ $_predicted_singleton == "$onchain_singleton" ]] ; then
             guard_contract="$_v"
             factory="$_f"
             break 2
@@ -220,7 +226,7 @@ if [[ $guard_contract == *OnePointThree* ]] ; then
     exit 1
 fi
 
-if [[ "$(cast code --rpc-url "$rpc_url" "$factory")" == '0x' ]] ; then
+if [[ $(cast code --rpc-url "$rpc_url" "$factory") == '0x' ]] ; then
     echo 'The CREATE2 factory ('"$factory"') is not deployed on chain "'"$chain_name"'"' >&2
     exit 1
 fi
@@ -249,9 +255,6 @@ if [[ $era_vm = [Tt]rue ]] ; then
         echo 'Run `foundryup-zksync -i foundry-zksync-v0.1.9`' >&2
         exit 1
     fi
-    # foundry-zksync errors on an empty profile, so, we set default if empty
-    export FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-default}"
-
     forge clean
     forge build --zksync --zk-compile src/deployer/SafeGuard.sol
     declare art="$project_root/zkout/SafeGuard.sol/$guard_contract.json"
@@ -275,7 +278,7 @@ echo 'SafeGuard variant : '"$guard_contract" >&2
 echo 'Protected Safe    : '"$safe" >&2
 echo 'Predicted address : '"$predicted" >&2
 
-if [[ "$(cast code --rpc-url "$rpc_url" "$predicted")" != '0x' ]] ; then
+if [[ $(cast code --rpc-url "$rpc_url" "$predicted") != '0x' ]] ; then
     echo 'SafeGuard already deployed at '"$predicted"' on chain "'"$chain_name"'". Nothing to do.' >&2
     exit 0
 fi
@@ -324,11 +327,6 @@ cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-pric
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
-
-    if [[ "$(cast code --rpc-url "$rpc_url" "$predicted")" == '0x' ]] ; then
-        echo 'Deployment did not produce code at the predicted address '"$predicted" >&2
-        exit 1
-    fi
 
     verify_contract "$constructor_args" "$predicted" src/deployer/SafeGuard.sol:"$guard_contract" 0.8.25
 
