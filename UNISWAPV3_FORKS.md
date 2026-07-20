@@ -57,3 +57,5 @@
    42. SwapHood V3
    <!-- -->
    43. RobinSwap
+   <!-- -->
+   44. QuickSwap V4 (Algebra-like)
