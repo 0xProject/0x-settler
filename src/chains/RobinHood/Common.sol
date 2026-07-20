@@ -31,6 +31,7 @@ import {prjxV3InitHash} from "../../core/univ3forks/PrjxV3.sol";
 import {upFactory, upInitHash, upForkId} from "../../core/univ3forks/Up.sol";
 import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3forks/Sheriff.sol";
 import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
+import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -113,6 +114,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 
         } else if (forkId == swapHoodV3ForkId) {
             factory = swapHoodV3Factory;
             initHash = swapHoodV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == gigaDexV3ForkId) {
+            factory = gigaDexV3Factory;
+            initHash = gigaDexV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
