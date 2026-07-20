@@ -16,6 +16,7 @@
 * Add SushiSwapV3 UniV3 fork to RobinHood
 * Add RobinSwap UniV3 fork to RobinHood with fork ID 43
 * Add QuickSwap V4 (Algebra-like) UniV3 fork to Polygon with fork ID 44
+* Add GigaDEX V3 UniV3 fork to RobinHood with fork ID 45
 * Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to RobinHood
 
 ## 2026-07-15
