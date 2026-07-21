@@ -2,7 +2,7 @@
 
 ### Breaking changes
 
-* SolidlyV3 UniV3 fork removed from Mainnet and Sonic
+* SolidlyV3 UniV3 fork removed from Sonic
 
 ### Non-breaking changes
 
@@ -13,6 +13,15 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+
+## 2026-07-21
+
+### Breaking changes
+
+* SolidlyV3 UniV3 fork removed from Mainnet
+
+### Non-breaking changes
+
 * Add SushiSwapV3 UniV3 fork to RobinHood
 * Add RobinSwap UniV3 fork to RobinHood with fork ID 43
 * Add QuickSwap V4 (Algebra-like) UniV3 fork to Polygon with fork ID 44
