@@ -41,6 +41,13 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x1c, 0x44)
             }
         }
+        // Logs in reverted frames are discarded, so this survives exactly when this candidate
+        // commits -- receipt-level attribution of the committed candidate and its score.
+        // log1(score, topic=tag); -- raw log because a named event costs more bytecode
+        assembly ("memory-safe") {
+            mstore(0x00, score)
+            log1(0x00, 0x20, tag)
+        }
     }
 
     function _select(bytes calldata data, bool vip) internal {

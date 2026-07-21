@@ -250,6 +250,70 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
     }
 
+    function _commitLogs() internal returns (Vm.Log[] memory out) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        out = new Vm.Log[](logs.length);
+        uint256 n;
+        for (uint256 i; i < logs.length; i++) {
+            if (logs[i].emitter == address(settler) && logs[i].topics.length == 1) {
+                out[n++] = logs[i];
+            }
+        }
+        assembly ("memory-safe") {
+            mstore(out, n)
+        }
+    }
+
+    function test_log_fallbackCommit_emitsWinnerTagAndScoreOnce() public {
+        p0.set(10 ether, false);
+        bytes[][] memory candidates = _candidates3();
+        vm.recordLogs();
+        _run(address(buy), new uint256[](3), candidates, 10 ether);
+        Vm.Log[] memory logs = _commitLogs();
+        assertEq(logs.length, 1, "exactly one commit log");
+        assertEq(logs[0].topics[0], _tag(candidates[0], false), "topic is candidate 0's tag");
+        assertEq(abi.decode(logs[0].data, (uint256)), 10 ether, "data is the committed score");
+    }
+
+    function test_log_bestOfN_reexecutionEmitsWinnerTagOnce() public {
+        p0.set(5 ether, false);
+        p1.set(9 ether, false);
+        p2.set(7 ether, false);
+        bytes[][] memory candidates = _candidates3();
+        vm.recordLogs();
+        _run(address(buy), _unreachableTargets(3), candidates, 9 ether);
+        Vm.Log[] memory logs = _commitLogs();
+        assertEq(logs.length, 1, "exactly one commit log");
+        assertEq(logs[0].topics[0], _tag(candidates[1], false), "topic is the re-executed winner's tag");
+        assertEq(abi.decode(logs[0].data, (uint256)), 9 ether, "data is the committed score");
+    }
+
+    function test_log_allCandidatesFail_noLog() public {
+        p0.set(0, true);
+        p1.set(0, true);
+        p2.set(0, true);
+        vm.recordLogs();
+        vm.expectRevert("leg reverted");
+        _run(address(buy), new uint256[](3), _candidates3(), 0);
+        assertEq(_commitLogs().length, 0, "no commit, no log");
+    }
+
+    function test_log_losingTrialEmitsNothing_commitTagOnly() public {
+        p0.set(8 ether, false);
+        p1.set(7 ether, false);
+        bytes[][] memory candidates = _candidates3();
+        uint256[] memory targets = new uint256[](3);
+        targets[0] = 10 ether;
+        targets[1] = 6 ether;
+        targets[2] = 1;
+        vm.recordLogs();
+        _run(address(buy), targets, candidates, 7 ether);
+        Vm.Log[] memory logs = _commitLogs();
+        assertEq(logs.length, 1, "losing measured trial emitted nothing");
+        assertEq(logs[0].topics[0], _tag(candidates[1], false), "topic is the committed candidate's tag");
+        assertEq(abi.decode(logs[0].data, (uint256)), 7 ether, "data is the committed score");
+    }
+
     function test_measured_gasGuard_commitsBestSoFar_skippedCandidateExcluded() public {
         p0.set(8 ether, false);
         p2.set(9 ether, false);
