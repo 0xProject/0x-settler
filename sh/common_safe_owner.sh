@@ -65,6 +65,11 @@ function sign_call {
         _sign_call_result="$(jq -Mr .result <<<"$_sign_call_result")"
     else
         _sign_call_result="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$_sign_call_struct_json")"
+        if [[ $wallet_type = 'browser' ]] ; then
+            # `cast wallet sign --browser` (foundry v1.5.1) prints connection
+            # status lines to stdout before the signature; keep only the last line
+            _sign_call_result="${_sign_call_result##*$'\n'}"
+        fi
     fi
     declare -r _sign_call_result
 

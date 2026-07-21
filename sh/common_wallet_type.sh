@@ -5,7 +5,7 @@ if [[ -f "$saved_wallet_type" && -r "$saved_wallet_type" ]] ; then
     wallet_type="$(<"$saved_wallet_type")"
 else
     PS3='What kind of wallet are you using? '
-    select wallet_type in ledger trezor hot frame ; do break ; done
+    select wallet_type in ledger trezor hot frame browser ; do break ; done
 
     if [[ ${wallet_type:-unset} = 'unset' ]] ; then
         exit 1
@@ -30,11 +30,19 @@ case $wallet_type in
     'frame')
         wallet_args=(--unlocked)
         ;;
+    'browser')
+        wallet_args=(--browser)
+        ;;
     *)
         echo 'Unrecognized wallet type: '"$wallet_type" >&2
         exit 1
         ;;
 esac
+
+if [[ $wallet_type = 'browser' ]] ; then
+    echo 'Switch your browser wallet to '"${chain_display_name}"' (chain ID '"${chainid}"') before connecting.' >&2
+    echo '`cast` will not switch chains for you; a mismatched chain fails the transaction or signature request.' >&2
+fi
 
 if [[ $wallet_type = 'ledger' ]] ; then
     declare -r saved_wallet_ledger_path="$project_root"/config/ledger_hd_path.txt
