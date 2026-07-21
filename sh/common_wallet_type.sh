@@ -40,7 +40,7 @@ case $wallet_type in
 esac
 
 if [[ $wallet_type = 'browser' ]] ; then
-    echo 'Switch your browser wallet to '"${chain_display_name:-the target chain}"' (chain ID '"${chainid:-unknown}"') before connecting.' >&2
+    echo 'Switch your browser wallet to '"${chain_display_name}"' (chain ID '"${chainid}"') before connecting.' >&2
     echo '`cast` will not switch chains for you; a mismatched chain fails the transaction or signature request.' >&2
 fi
 
