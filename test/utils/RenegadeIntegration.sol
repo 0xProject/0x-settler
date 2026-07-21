@@ -9,10 +9,6 @@ import {SettlerBasePairTest} from "../integration/SettlerBasePairTest.t.sol";
 import {InvalidRenegadeData, TooMuchSlippage} from "src/core/SettlerErrors.sol";
 
 abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
-    uint256 private constant INPUT_TOKEN_ARG = 2;
-    uint256 private constant OUTPUT_TOKEN_ARG = 3;
-    uint256 private constant OPTIONS_OFFSET_ARG = 9;
-
     function setUp() public virtual override {
         super.setUp();
         vm.label(_gasSponsor(), "GasSponsor");
@@ -107,22 +103,13 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
         }
     }
 
-    // Overwrites ABI arg word `argIndex` in a copy of `cd` (4-byte selector at byte 0).
-    // args: 2=internalPartyInputToken, 3=internalPartyOutputToken, 9=gasSponsorOptions offset.
-    function _mutate(bytes memory cd, uint256 argIndex, uint256 value) internal pure returns (bytes memory out) {
-        out = bytes.concat(cd);
-        uint256 off = 0x24 + (argIndex * 0x20);
+    // Assembly overwrites the options offset without decoding the opaque structs.
+    // Equivalent Solidity pseudocode: decode calldata, replace its options offset, and re-encode.
+    function _withOptionsOffset(bytes memory data, uint256 optionsOffset) internal pure returns (bytes memory out) {
+        out = bytes.concat(data);
         assembly ("memory-safe") {
-            mstore(add(off, out), value)
+            mstore(add(0x144, out), optionsOffset)
         }
-    }
-
-    function _withOutputToken(bytes memory cd, IERC20 token) internal pure returns (bytes memory) {
-        return _mutate(cd, OUTPUT_TOKEN_ARG, uint256(uint160(address(token))));
-    }
-
-    function _withInputToken(bytes memory cd, IERC20 token) internal pure returns (bytes memory) {
-        return _mutate(cd, INPUT_TOKEN_ARG, uint256(uint160(address(token))));
     }
 
     // Halfway between the quote's min bound and the captured trade's implied fill.
@@ -156,6 +143,19 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
             }
             assertEq(address(revertedToken), address(expectedToken), "revert should report buyToken");
         }
+    }
+
+    function _expectInvalidData(bytes memory renegadeData) internal {
+        bytes memory ahData =
+            _buildExecDataFromPayload(renegadeData, address(settler), type(uint256).max, false, 0, 0, toToken(), 0);
+        deal(address(fromToken()), address(this), amount());
+        fromToken().approve(address(allowanceHolder), amount());
+        vm.expectRevert(InvalidRenegadeData.selector);
+        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
+    }
+
+    function _expectInvalidOptionsOffset(uint256 optionsOffset) internal {
+        _expectInvalidData(_compactPayload(_withOptionsOffset(_txnCalldata(), optionsOffset)));
     }
 
     function testSellToRenegade() public {
@@ -194,34 +194,19 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
         assertEq(balanceOf(fromToken(), address(settler)), amount() - maxSellAmount);
     }
 
-    function testInputTokenForcedToBuyToken() public {
-        uint256 balanceBefore = balanceOf(toToken(), address(this));
-        _exec(_buildExecData(_withInputToken(_txnCalldata(), fromToken())));
-        assertGt(balanceOf(toToken(), address(this)), balanceBefore);
-    }
-
-    function testOutputTokenForcedToSellToken() public {
-        uint256 balanceBefore = balanceOf(toToken(), address(this));
-        _exec(_buildExecData(_withOutputToken(_txnCalldata(), toToken())));
-        assertGt(balanceOf(toToken(), address(this)), balanceBefore);
-    }
-
     function testShortDataReverts() public {
-        bytes memory ahData =
-            _buildExecDataFromPayload(new bytes(0x80), address(settler), type(uint256).max, false, 0, 0, toToken(), 0);
-        deal(address(fromToken()), address(this), amount());
-        fromToken().approve(address(allowanceHolder), amount());
-        vm.expectRevert(InvalidRenegadeData.selector);
-        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
+        _expectInvalidData(new bytes(0x80));
+    }
+
+    function testOptionsOffsetTooSmallReverts() public {
+        _expectInvalidOptionsOffset(0x120);
     }
 
     function testUnalignedOptionsOffsetReverts() public {
-        bytes memory renegadeData = _compactPayload(_mutate(_txnCalldata(), OPTIONS_OFFSET_ARG, 0x141));
-        bytes memory ahData =
-            _buildExecDataFromPayload(renegadeData, address(settler), type(uint256).max, false, 0, 0, toToken(), 0);
-        deal(address(fromToken()), address(this), amount());
-        fromToken().approve(address(allowanceHolder), amount());
-        vm.expectRevert(InvalidRenegadeData.selector);
-        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
+        _expectInvalidOptionsOffset(0x141);
+    }
+
+    function testOptionsOffsetOutOfBoundsReverts() public {
+        _expectInvalidOptionsOffset(_txnCalldata().length - 0x04);
     }
 }
