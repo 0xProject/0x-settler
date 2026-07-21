@@ -463,6 +463,40 @@ contract SelectVIPUnitTest is SelectShared, Permit2Signature {
         assertEq(sell.balanceOf(taker), 99 ether, "failed replay did not spend again");
     }
 
+    function test_measuredRoute_rejectsNestedSelectVIPCandidates_withoutPullingTakerFunds() public {
+        p0.set(7 ether, false);
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
+        bytes[][] memory vipCandidates = new bytes[][](1);
+        vipCandidates[0] = _vipCandidate(address(p0), permit, sig);
+        bytes[] memory nested = new bytes[](1);
+        nested[0] = abi.encodeCall(
+            ISettlerActions.SELECT_VIP_CANDIDATES, (uint256(0), address(0), new uint256[](1), vipCandidates)
+        );
+
+        Pool alternate = new Pool(buy);
+        buy.mint(address(alternate), 3 ether);
+        alternate.set(3 ether, false);
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = nested;
+        candidates[1] = _candidate(address(alternate));
+
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(0), new uint256[](2), candidates));
+        vm.prank(taker, taker);
+        settler.execute(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 3 ether
+            }),
+            actions,
+            bytes32(0)
+        );
+
+        assertEq(buy.balanceOf(recipient), 3 ether, "measured VIP candidate rejected; alternate committed");
+        assertEq(sell.balanceOf(taker), 100 ether, "measured route cannot pull taker funds");
+        assertEq(PERMIT2.nonceBitmap(taker, NONCE >> 8), 0, "permit nonce remains unspent");
+        assertEq(sell.balanceOf(address(p0)), 0, "no pull reached the pool");
+    }
+
     function test_selectVIP_spoofedMeasurementForfeits_runnerUpCommitsSharedPermitOnce() public {
         vm.setEnv("SELECT_VIP_SPOOF_SEEN", "false");
         p0.set(8 ether, false);

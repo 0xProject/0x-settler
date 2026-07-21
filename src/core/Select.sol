@@ -51,6 +51,9 @@ abstract contract Select is SettlerSwapAbstract {
     }
 
     function _select(bytes calldata data, bool vip) internal {
+        // VIP taker-fund pulls are only authorized in the frame the taker directly submitted,
+        // never nested inside another candidate's measured (roll-back-able) frame.
+        if (vip && msg.sender == address(this)) revert();
         uint256 measuredSelector = uint32(Measured.selector);
         uint256 tagFlag = vip.toUint() << 255;
         bytes4 selector = this.executeSelected.selector;
