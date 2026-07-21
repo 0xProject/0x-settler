@@ -109,7 +109,7 @@ library UnsafeEkuboCore {
             mcopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey.config` as the `to` argument
             mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `to`'s padding
 
-            if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0x104, 0x00, 0x20)) {
+            if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0xa4, 0x00, 0x20)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
