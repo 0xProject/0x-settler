@@ -13,6 +13,7 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add Ramses V3 UniV3 fork to RobinHood with fork ID 46
 
 ## 2026-07-21
 

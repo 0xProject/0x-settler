@@ -61,3 +61,5 @@
    44. QuickSwap V4 (Algebra-like)
    <!-- -->
    45. GigaDEX V3
+   <!-- -->
+   46. Ramses V3
