@@ -132,6 +132,9 @@ fi
 
 declare safe_codehash
 if [[ $era_vm = [Tt]rue ]] ; then
+    # On EraVM an account's codehash is the versioned bytecode hash recorded by the AccountCodeStorage
+    # system contract, not the keccak256 of its code.
+    # https://docs.zksync.io/zksync-protocol/contracts/system-contracts#accountcodestorage
     safe_codehash="$(cast call --rpc-url "$rpc_url" 0x0000000000000000000000000000000000008002 'getCodeHash(uint256)(bytes32)' "$safe")"
     case "$safe_codehash" in
         0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d|\
@@ -181,9 +184,7 @@ else
 fi
 
 function predict_create2 {
-    declare _predict_out
-    _predict_out="$(cast compute-address "$1" --salt "$(cast hash-zero)" --init-code-hash "$2")"
-    echo "${_predict_out##* }"
+    cast create2 --deployer "$1" --salt "$(cast hash-zero)" --init-code-hash "$2"
 }
 
 function predict_create2_era_vm {
