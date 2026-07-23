@@ -228,8 +228,10 @@ theorem mulScaleTree_spec {y : Nat} (_hy : y < 2 ^ 256)
     have hsst : scaleShiftTree (absTree y) = 127 := by
       rw [h0]
       unfold scaleShiftTree
-      rw [hclz, hs]
-      norm_num [evmShr, evmAdd, u256, WORD_MOD]
+      have hshr : evmShr 127 0 = 0 := by
+        norm_num [evmShr, u256, WORD_MOD]
+      have hxor : evmXor scaleClzBias 0 = scaleClzBias := by decide
+      rw [hclz, hshr, hxor, hs]
     have hshl : evmShl 127 (0 : Nat) = 0 := by
       rw [evmShl_small (by norm_num) (by norm_num) (by norm_num)]
       ring
@@ -249,13 +251,12 @@ theorem mulScaleTree_spec {y : Nat} (_hy : y < 2 ^ 256)
         have hclz : evmClz (2 ^ 127) = 128 := by
           unfold evmClz
           rw [u256_self (by norm_num), if_neg (by norm_num), hlog]
-        have hsub : evmSub 128 scaleClzBias = 2 ^ 256 - 1 := by
-          norm_num [evmSub, scaleClzBias, u256, WORD_MOD]
         have hshr : evmShr 127 (2 ^ 127) = 1 := by
           norm_num [evmShr, u256, WORD_MOD]
+        have hxor : evmXor scaleClzBias 1 = 128 := by decide
         unfold scaleShiftTree
-        rw [hclz, hsub, hshr]
-        norm_num [evmAdd, u256, WORD_MOD]
+        rw [hclz, hshr, hxor]
+        norm_num [evmSub, u256, WORD_MOD]
       have hscale : mulScaleTree y = kernelScaleMax := by
         unfold mulScaleTree
         rw [hs, hend]
@@ -284,18 +285,13 @@ theorem mulScaleTree_spec {y : Nat} (_hy : y < 2 ^ 256)
         exact Nat.div_eq_of_lt hay127
       have hs : scaleShiftTree (absTree y) = 126 - Nat.log2 (absTree y) := by
         unfold scaleShiftTree
+        have hxor : evmXor scaleClzBias 0 = scaleClzBias := by decide
         have hsub : evmSub (255 - Nat.log2 (absTree y)) scaleClzBias =
             126 - Nat.log2 (absTree y) := by
           rw [evmSub_small (by unfold scaleClzBias; omega) (by omega)]
           unfold scaleClzBias
           omega
-        rw [hclz, hshr, hsub]
-        unfold evmAdd
-        have hshiftlt : 126 - Nat.log2 (absTree y) < 2 ^ 256 := by
-          exact lt_of_le_of_lt (Nat.sub_le _ _) (by norm_num)
-        rw [show u256 (126 - Nat.log2 (absTree y)) = 126 - Nat.log2 (absTree y) from
-          u256_self hshiftlt, show u256 0 = 0 from u256_self (by norm_num)]
-        rw [Nat.add_zero, u256_self hshiftlt]
+        rw [hclz, hshr, hxor, hsub]
       have hfit : absTree y * 2 ^ (126 - Nat.log2 (absTree y)) < 2 ^ 127 := by
         calc absTree y * 2 ^ (126 - Nat.log2 (absTree y))
             < 2 ^ (Nat.log2 (absTree y) + 1) *

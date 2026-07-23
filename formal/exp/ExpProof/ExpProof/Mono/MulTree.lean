@@ -26,10 +26,10 @@ def signTree (y : Nat) : Nat :=
 def absTree (y : Nat) : Nat :=
   evmSub (evmXor y (signTree y)) (signTree y)
 
-/-- The scale headroom computed from the magnitude's bit length, with the `int128.min`
-magnitude's wrapping subtraction saturated back to zero. -/
+/-- The scale headroom computed from the magnitude's bit length. The top bit of the magnitude
+is boolean, so xor lowers the bias to `128` exactly for the `int128.min` magnitude. -/
 def scaleShiftTree (ay : Nat) : Nat :=
-  evmAdd (evmSub (evmClz ay) scaleClzBias) (evmShr 127 ay)
+  evmSub (evmClz ay) (evmXor scaleClzBias (evmShr 127 ay))
 
 /-- Dynamic pre-shift scale `abs(y) << S`. -/
 def mulScaleTree (y : Nat) : Nat :=
@@ -72,7 +72,7 @@ theorem absTree_lt (y : Nat) : absTree y < 2 ^ 256 := by
 
 theorem scaleShiftTree_lt (ay : Nat) : scaleShiftTree ay < 2 ^ 256 := by
   unfold scaleShiftTree
-  exact evmAdd_lt _ _
+  exact evmSub_lt _ _
 
 theorem mulScaleTree_lt (y : Nat) : mulScaleTree y < 2 ^ 256 := by
   unfold mulScaleTree

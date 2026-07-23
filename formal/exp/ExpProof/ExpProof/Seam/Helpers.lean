@@ -1344,39 +1344,6 @@ theorem call_wrapping_sub_t_uint256_direct
     Finmap.lookup_insert, FormalYul.word,
     FormalYul.Preservation.uint256_ofNat_sub_eq_word_evmSub, hcleanup]
 
-theorem call_wrapping_add_t_uint256_direct
-    (x y fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
-    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
-      some (FormalYul.accountFor yulContract)) :
-    EvmYul.Yul.call (fuel + (extra + 80)) [FormalYul.word x, FormalYul.word y]
-      (.some "wrapping_add_t_uint256") (.some yulContract)
-      (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmAdd x y)]) := by
-  rw [show fuel + (extra + 80) = (fuel + extra) + 80 by omega]
-  rw [EvmYul.Yul.call.eq_def]
-  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_wrapping_add_t_uint256]
-  simp only [yulFunction_wrapping_add_t_uint256,
-    FormalYul.Preservation.functionDefinition_params_def,
-    FormalYul.Preservation.functionDefinition_rets_def,
-    FormalYul.Preservation.functionDefinition_body_def,
-    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  have hcleanup :=
-    call_cleanup_t_uint256_direct (v := evmAdd x y) (fuel := fuel + extra) (extra := 56)
-      (shared := shared)
-      (store := Finmap.insert "x" (FormalYul.word x)
-        (Finmap.insert "y" (FormalYul.word y) (Inhabited.default : EvmYul.Yul.VarStore)))
-      (hlookup := hlookup)
-  simp [FormalYul.word] at hcleanup
-  simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
-    EvmYul.Yul.evalTail.eq_def,
-    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word,
-    FormalYul.Preservation.uint256_ofNat_add_eq_word_evmAdd, hcleanup]
-
 theorem call_fun_clz_direct
     (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =

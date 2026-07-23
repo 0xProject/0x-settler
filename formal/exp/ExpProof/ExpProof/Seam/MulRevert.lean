@@ -71,20 +71,17 @@ theorem call_fun_mulExpRay_revert_direct
     call_fun_clz_direct (x := ay) (fuel := fuel + extra) (extra := 2090)
       (shared := shared) (hlookup := hlookup)
   have hscaleClzBias :=
-    call_convert_129_to_uint256_direct (fuel := fuel + extra) (extra := 2046)
+    call_convert_129_to_uint256_direct (fuel := fuel + extra) (extra := 2039)
       (shared := shared) (hlookup := hlookup)
-  have hwrapS :=
-    call_wrapping_sub_t_uint256_direct (x := evmClz ay) (y := scaleClzBias)
-      (fuel := fuel + extra) (extra := 2088) (shared := shared) (hlookup := hlookup)
   have hconvert127 :=
-    call_convert_127_to_uint8_direct (fuel := fuel + extra) (extra := 2044)
+    call_convert_127_to_uint8_direct (fuel := fuel + extra) (extra := 2045)
       (shared := shared) (hlookup := hlookup)
   have hshrAy :=
     call_shift_right_t_uint256_t_uint8_127_direct (value := ay)
-      (fuel := fuel + extra) (extra := 1983) (shared := shared) (hlookup := hlookup)
-  have hwrapAdd :=
-    call_wrapping_add_t_uint256_direct
-      (x := evmSub (evmClz ay) scaleClzBias) (y := evmShr 127 ay)
+      (fuel := fuel + extra) (extra := 1984) (shared := shared) (hlookup := hlookup)
+  have hwrapS :=
+    call_wrapping_sub_t_uint256_direct (x := evmClz ay)
+      (y := evmXor scaleClzBias (evmShr 127 ay))
       (fuel := fuel + extra) (extra := 2081) (shared := shared) (hlookup := hlookup)
   have hoctave :=
     call_fun__octave_direct (x := x) (fuel := fuel + extra) (extra := 2037)
@@ -125,10 +122,9 @@ theorem call_fun_mulExpRay_revert_direct
   simp only [Nat.reduceAdd, FormalYul.word] at hconvertY1 hconvert255 hshiftSign hwrapAy hayAsUint hzeroInit
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun_clz, ay, absTree, signTree] at hclz
   simp only [Nat.reduceAdd, FormalYul.word] at hscaleClzBias
-  simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleClzBias] at hwrapS
   simp only [Nat.reduceAdd, FormalYul.word] at hconvert127
   simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree] at hshrAy
-  simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleClzBias] at hwrapAdd
+  simp only [Nat.reduceAdd, FormalYul.word, ay, absTree, signTree, scaleClzBias] at hwrapS
   simp only [Nat.reduceAdd, FormalYul.word, yulName_fun__octave] at hoctave
   simp only [Nat.reduceAdd, FormalYul.word, s, ay, absTree, signTree, scaleShiftTree,
     scaleClzBias] at hconvertS
@@ -152,9 +148,8 @@ theorem call_fun_mulExpRay_revert_direct
         (evmSgt x 86989971160273136331862631243)
         (evmSlt
           (evmSub
-            (evmAdd
-              (evmSub (evmClz (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))) 129)
-              (evmShr 127 (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y))))
+            (evmSub (evmClz (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y)))
+              (evmXor 129 (evmShr 127 (evmSub (evmXor y (evmSar 255 y)) (evmSar 255 y)))))
             (evmSar kRoundShift (evmAdd (evmShl kHalfShift 1) (evmMul cInvQ192 x))))
           2) = 1 := by
     simpa [mulExpGuardTree, mulShiftTree, scaleShiftTree, absTree, signTree, kTree,
@@ -169,7 +164,7 @@ theorem call_fun_mulExpRay_revert_direct
     hconvertY1, hconvert255, hshiftSign, hwrapAy, hayAsUint,
     hguardUnfold,
     hzeroInit, hclz, hscaleClzBias, hwrapS,
-    hconvert127, hshrAy, hwrapAdd, hoctave, hconvertS, hwrapShift,
+    hconvert127, hshrAy, hoctave, hconvertS, hwrapShift,
     hHi, hcleanupXForHi,
     hconvertTwo, hcleanupShift, hOrGuard,
     hoverflow, hconvu, hpanic,

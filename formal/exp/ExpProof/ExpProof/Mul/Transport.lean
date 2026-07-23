@@ -62,15 +62,14 @@ theorem scaleShiftTree_pos {ay : Nat} (hy : ay < 2 ^ 256)
     have hclz : evmClz (2 ^ 127) = 128 := by
       unfold evmClz
       rw [u256_self (by norm_num), if_neg (by norm_num), hlog]
-    have hsub : evmSub 128 scaleClzBias = 2 ^ 256 - 1 := by
-      norm_num [evmSub, scaleClzBias, u256, WORD_MOD]
     have hshr : evmShr 127 (2 ^ 127) = 1 := by
       norm_num [evmShr, u256, WORD_MOD]
+    have hxor : evmXor scaleClzBias 1 = 128 := by decide
     unfold scaleShiftTree
-    rw [hclz, hsub, hshr]
-    have hadd : evmAdd (2 ^ 256 - 1) 1 = 0 := by
-      norm_num [evmAdd, u256, WORD_MOD]
-    rw [hadd]
+    rw [hclz, hshr, hxor]
+    have hsub : evmSub 128 128 = 0 := by
+      norm_num [evmSub, u256, WORD_MOD]
+    rw [hsub]
     change 0 = 126 - Nat.log2 (2 ^ 127)
     rw [hlog]
   · have hay127 : ay < 2 ^ 127 := by rw [← kernelScaleMax_eq]; omega
@@ -88,27 +87,26 @@ theorem scaleShiftTree_pos {ay : Nat} (hy : ay < 2 ^ 256)
       unfold evmShr
       rw [u256_self (by norm_num), u256_self hy, if_pos (by norm_num)]
       exact Nat.div_eq_of_lt hay127
+    have hxor : evmXor scaleClzBias 0 = scaleClzBias := by decide
     have hsub : evmSub (255 - Nat.log2 ay) scaleClzBias = 126 - Nat.log2 ay := by
       rw [evmSub_small (by unfold scaleClzBias; omega) (by omega)]
       unfold scaleClzBias
       omega
     unfold scaleShiftTree
-    rw [hclz, hshr, hsub]
-    unfold evmAdd
-    have hshiftlt : 126 - Nat.log2 ay < 2 ^ 256 :=
-      lt_of_le_of_lt (Nat.sub_le _ _) (by norm_num)
-    rw [show u256 (126 - Nat.log2 ay) = 126 - Nat.log2 ay from u256_self hshiftlt,
-      show u256 0 = 0 from u256_self (by norm_num)]
-    rw [Nat.add_zero, u256_self hshiftlt]
+    rw [hclz, hshr, hxor, hsub]
 
 theorem scaleShiftTree_zero : scaleShiftTree 0 = 127 := by
   have hclz : evmClz 0 = 256 := by
     unfold evmClz
     rw [u256_self (by norm_num)]
     simp
+  have hshr : evmShr 127 0 = 0 := by
+    norm_num [evmShr, u256, WORD_MOD]
+  have hxor : evmXor scaleClzBias 0 = scaleClzBias := by decide
   unfold scaleShiftTree
-  rw [hclz, evmSub_small (by unfold scaleClzBias; omega) (by norm_num)]
-  norm_num [scaleClzBias, evmShr, evmAdd, u256, WORD_MOD]
+  rw [hclz, hshr, hxor, evmSub_small (by unfold scaleClzBias; omega) (by norm_num)]
+  unfold scaleClzBias
+  norm_num
 
 theorem scaleShiftTree_int128Max : scaleShiftTree int128Max = 0 := by
   have hmax : int128Max ≠ 0 := by unfold int128Max; norm_num
