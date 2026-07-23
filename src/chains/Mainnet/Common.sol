@@ -149,8 +149,7 @@ abstract contract MainnetMixin is
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
                 sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else {
-                // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
                 sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {

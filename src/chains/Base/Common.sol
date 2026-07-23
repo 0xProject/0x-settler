@@ -88,8 +88,8 @@ abstract contract BaseMixin is
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-                .or(action == uint32(ISettlerActions.BALANCERV3.selector))
-                .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
+            .or(action == uint32(ISettlerActions.BALANCERV3.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -105,17 +105,16 @@ abstract contract BaseMixin is
                 sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else {
-                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
                 sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
-            /*
-            } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-                (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                    abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+        /*
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
-                sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
-            */
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        */
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
