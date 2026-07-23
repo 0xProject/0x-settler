@@ -417,15 +417,38 @@ Comments, notes, commit messages, PR descriptions, and docs must describe only
 the current implementation unless historical context is required for present
 correctness. Archaeology is forbidden.
 
+Work product must not reference opaque external planning material. Code,
+comments, docs, commit messages, PR descriptions, and other in-repo literature
+must not include outside task identifiers, plan-document labels, milestone
+names, tracking IDs, TODO placeholders, or similar references unless the
+referenced artifact is committed in this repository and the reference is
+required for current correctness.
+
+### Commenting Discipline
+
+Comments must be added only where the code cannot speak for itself, and code
+must be written so that this is rare. Delete any comment that restates what the
+code does.
+
+Comments must explain only their associated code. A comment must never explain
+the chat, the task, the plan, or the changes from a previous revision.
+
+Comments must refer to behavior and intent, never to function or variable names.
+A comment must explain _what_ a function does only when, by external constraints
+or the desire to optimize, that function is forced into an obtuse, arcane, or
+non-idiomatic structure in order to achieve its goal.
+
 ### DO NOT
 
 - Create documentation files unless explicitly requested
 - Write notes, comments, docs, commit messages, or PR descriptions that describe historical evolution instead of the current system unless the history is required for current correctness
+- Write comments, code, docs, commit messages, PR descriptions, or other in-repo literature that cite opaque outside task identifiers, plan labels, milestones, tracking IDs, TODO placeholders, or issue labels
 - Use comments to explain what used to be true, what changed, why something was once necessary, or that a workaround/kludge existed previously
 - Make up performance numbers or generic justifications for changes
 - Add features beyond what was asked (no over-engineering)
 - Modify the `_dispatch` copy/paste pattern without updating all locations
 - Create standalone test files; use the project's test infrastructure
+- Use the `-f` or the `--force` flag to _**ANY**_ tool or utility, _EVER_.
 
 ### ALWAYS
 
