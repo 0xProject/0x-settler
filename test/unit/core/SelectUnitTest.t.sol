@@ -212,6 +212,54 @@ contract SelectUnitTest is Test, SelectShared {
         Select(address(settler)).executeSelected(actions, IERC20(address(0)), 0, bytes32(0));
     }
 
+    function test_select_rejectsCandidateOutsideActionBounds() public {
+        uint256[] memory targets = new uint256[](2);
+        bytes[][] memory emptyCandidates = new bytes[][](2);
+        emptyCandidates[0] = new bytes[](0);
+        emptyCandidates[1] = new bytes[](0);
+        bytes memory action = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(0), targets, emptyCandidates));
+        assembly ("memory-safe") {
+            mstore(action, 0x144) // Keep the SELECT head and both dynamic offset tables only.
+        }
+
+        bytes[] memory unsignedCandidate = _candidate(address(p0));
+        bytes memory encodedCandidate = abi.encode(unsignedCandidate);
+        bytes memory candidate = new bytes(encodedCandidate.length - 0x20);
+        assembly ("memory-safe") {
+            mcopy(add(candidate, 0x20), add(encodedCandidate, 0x40), mload(candidate))
+        }
+
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = action;
+        bytes memory callData = abi.encodeCall(
+            settler.execute,
+            (
+                ISettlerBase.AllowedSlippage({
+                    recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
+                }),
+                actions,
+                bytes32(0)
+            )
+        );
+        assembly ("memory-safe") {
+            let start := add(callData, 0x20)
+            let args := add(start, 0x04)
+            let array := add(args, mload(add(args, 0x60)))
+            let offsets := add(array, 0x20)
+            let actionData := add(add(offsets, mload(offsets)), 0x20)
+            let selectData := add(actionData, 0x04)
+            let candidateOffsets := add(add(selectData, mload(add(selectData, 0x60))), 0x20)
+            let first := sub(add(start, mload(callData)), candidateOffsets)
+            mstore(candidateOffsets, first)
+            mstore(add(candidateOffsets, 0x20), add(first, mload(candidate)))
+        }
+
+        vm.prank(taker, taker);
+        (bool ok,) = address(settler).call(bytes.concat(callData, candidate));
+        assertFalse(ok, "candidate outside SELECT action executed");
+        assertEq(p0.callCount(), 0, "unsigned candidate reached its pool");
+    }
+
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
         p1.set(7 ether, false);
         bytes[][] memory candidates = new bytes[][](2);

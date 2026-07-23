@@ -55,6 +55,9 @@ abstract contract Select is SettlerSwapAbstract {
                 let e_ := end_
                 let j_ := add(0x01, i_)
                 if lt(j_, n_) { e_ := add(base_, calldataload(add(base_, shl(0x05, j_)))) }
+                // Keep each candidate inside the SELECT action. Meta-txn witnesses hash only the
+                // declared outer action bytes, so escaped offsets would read unsigned trailing data.
+                if or(or(lt(start_, base_), gt(e_, end_)), gt(start_, e_)) { revert(0x00, 0x00) }
                 len_ := sub(e_, start_)
             }
             // Shared by the trial and commit loops (one bytecode copy). Recomputing the keccak
