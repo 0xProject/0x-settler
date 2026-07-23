@@ -65,8 +65,9 @@ library Exp {
             uint256 ay = uint256((y_ ^ sign) - sign);
 
             // The top-bit term admits ay = abs(type(int128).min) at s = 0 while leaving every
-            // smaller magnitude's normalization unchanged.
-            uint256 s = Clz.clz(ay) - 129 + (ay >> 127);
+            // smaller magnitude's normalization unchanged. The top bit is boolean, so `129 ^
+            // topBit` is `129 - topBit`.
+            uint256 s = Clz.clz(ay) - (129 ^ ay >> 127);
 
             int256 k = _octave(x);
             int256 shift = int256(s) - k;
