@@ -230,11 +230,6 @@ interface ISettlerActions {
     function SELECT(uint256 candidateGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
 
-    /// @dev Taker-submitted `SELECT` whose candidates each begin with a VIP action.
-    function SELECT_VIP_CANDIDATES(
-        uint256 candidateGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates
-    ) external;
-
     function EKUBO(
         address recipient,
         address sellToken,

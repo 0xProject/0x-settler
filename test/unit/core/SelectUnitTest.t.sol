@@ -4,14 +4,12 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {Vm} from "@forge-std/Vm.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
 import {Select} from "src/core/Select.sol";
 import {Measured} from "src/core/SettlerErrors.sol";
-import {Permit2Signature} from "test/utils/Permit2Signature.sol";
 
 abstract contract SelectShared {
     function _candidate(address p) internal pure returns (bytes[] memory c) {
@@ -19,14 +17,11 @@ abstract contract SelectShared {
         c[0] = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, p, 0, abi.encodeCall(Pool.swap, ())));
     }
 
-    function _tag(bytes[] memory c, bool vip) internal pure returns (bytes32 t) {
+    function _tag(bytes[] memory c) internal pure returns (bytes32 t) {
         bytes memory e = abi.encode(c);
         assembly ("memory-safe") {
             t := keccak256(add(e, 0x40), sub(mload(e), 0x20))
         }
-        uint256 tag = uint256(t);
-        uint256 highBit = 1 << 255;
-        return bytes32(vip ? tag | highBit : tag & ~highBit);
     }
 
     function _unreachableTargets(uint256 n) internal pure returns (uint256[] memory targets) {
@@ -160,7 +155,7 @@ contract SelectUnitTest is Test, SelectShared {
         p2.set(0, false);
         SpoofPool evil = new SpoofPool("SELECT_SPOOF_SEEN");
         bytes[] memory evilCandidate = _candidate(address(evil));
-        bytes32 tag = _tag(evilCandidate, false);
+        bytes32 tag = _tag(evilCandidate);
         evil.setTag(tag);
         uint256[] memory targets = _bestOfTargets(20 ether);
         bytes[][] memory candidates = new bytes[][](3);
@@ -186,10 +181,10 @@ contract SelectUnitTest is Test, SelectShared {
         vm.setEnv("SELECT_SPOOF_SEEN_1", "false");
         SpoofPool evil0 = new SpoofPool("SELECT_SPOOF_SEEN_0");
         bytes[] memory evilCandidate0 = _candidate(address(evil0));
-        evil0.setTag(_tag(evilCandidate0, false));
+        evil0.setTag(_tag(evilCandidate0));
         SpoofPool evil1 = new SpoofPool("SELECT_SPOOF_SEEN_1");
         bytes[] memory evilCandidate1 = _candidate(address(evil1));
-        bytes32 tag1 = _tag(evilCandidate1, false);
+        bytes32 tag1 = _tag(evilCandidate1);
         evil1.setTag(tag1);
         uint256[] memory targets = _unreachableTargets(2);
         bytes[][] memory candidates = new bytes[][](2);
@@ -250,70 +245,6 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
     }
 
-    function _commitLogs() internal returns (Vm.Log[] memory out) {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        out = new Vm.Log[](logs.length);
-        uint256 n;
-        for (uint256 i; i < logs.length; i++) {
-            if (logs[i].emitter == address(settler) && logs[i].topics.length == 1) {
-                out[n++] = logs[i];
-            }
-        }
-        assembly ("memory-safe") {
-            mstore(out, n)
-        }
-    }
-
-    function test_log_fallbackCommit_emitsWinnerTagAndScoreOnce() public {
-        p0.set(10 ether, false);
-        bytes[][] memory candidates = _candidates3();
-        vm.recordLogs();
-        _run(address(buy), new uint256[](3), candidates, 10 ether);
-        Vm.Log[] memory logs = _commitLogs();
-        assertEq(logs.length, 1, "exactly one commit log");
-        assertEq(logs[0].topics[0], _tag(candidates[0], false), "topic is candidate 0's tag");
-        assertEq(abi.decode(logs[0].data, (uint256)), 10 ether, "data is the committed score");
-    }
-
-    function test_log_bestOfN_reexecutionEmitsWinnerTagOnce() public {
-        p0.set(5 ether, false);
-        p1.set(9 ether, false);
-        p2.set(7 ether, false);
-        bytes[][] memory candidates = _candidates3();
-        vm.recordLogs();
-        _run(address(buy), _unreachableTargets(3), candidates, 9 ether);
-        Vm.Log[] memory logs = _commitLogs();
-        assertEq(logs.length, 1, "exactly one commit log");
-        assertEq(logs[0].topics[0], _tag(candidates[1], false), "topic is the re-executed winner's tag");
-        assertEq(abi.decode(logs[0].data, (uint256)), 9 ether, "data is the committed score");
-    }
-
-    function test_log_allCandidatesFail_noLog() public {
-        p0.set(0, true);
-        p1.set(0, true);
-        p2.set(0, true);
-        vm.recordLogs();
-        vm.expectRevert("leg reverted");
-        _run(address(buy), new uint256[](3), _candidates3(), 0);
-        assertEq(_commitLogs().length, 0, "no commit, no log");
-    }
-
-    function test_log_losingTrialEmitsNothing_commitTagOnly() public {
-        p0.set(8 ether, false);
-        p1.set(7 ether, false);
-        bytes[][] memory candidates = _candidates3();
-        uint256[] memory targets = new uint256[](3);
-        targets[0] = 10 ether;
-        targets[1] = 6 ether;
-        targets[2] = 1;
-        vm.recordLogs();
-        _run(address(buy), targets, candidates, 7 ether);
-        Vm.Log[] memory logs = _commitLogs();
-        assertEq(logs.length, 1, "losing measured trial emitted nothing");
-        assertEq(logs[0].topics[0], _tag(candidates[1], false), "topic is the committed candidate's tag");
-        assertEq(abi.decode(logs[0].data, (uint256)), 7 ether, "data is the committed score");
-    }
-
     function test_measured_gasGuard_commitsBestSoFar_skippedCandidateExcluded() public {
         p0.set(8 ether, false);
         p2.set(9 ether, false);
@@ -328,214 +259,14 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p0.callCount(), 1, "measured best committed once");
         assertEq(p2.callCount(), 0, "unmeasured 9-token candidate skipped and excluded");
     }
-}
 
-contract SelectVIPUnitTest is SelectShared, Permit2Signature {
-    ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    uint256 internal constant TAKER_PRIVATE_KEY = 0x51e17e;
-    uint256 internal constant SELL_AMOUNT = 1 ether;
-    uint256 internal constant NONCE = 7;
-
-    BaseSettler internal settler;
-    TestToken internal sell;
-    TestToken internal buy;
-    SelectVIPSellPool internal p0;
-    SelectVIPSellPool internal p1;
-    address internal recipient = makeAddr("recipient");
-    address internal taker = vm.addr(TAKER_PRIVATE_KEY);
-    bytes32 internal permit2Domain;
-
-    function setUp() public {
-        deployCodeTo("Permit2.sol:Permit2", address(PERMIT2));
-        settler = new BaseSettler(bytes20(0));
-        sell = new TestToken();
-        buy = new TestToken();
-        p0 = new SelectVIPSellPool(sell, buy);
-        p1 = new SelectVIPSellPool(sell, buy);
-        buy.mint(address(p0), 1_000 ether);
-        buy.mint(address(p1), 1_000 ether);
-        sell.mint(taker, 100 ether);
-        vm.prank(taker);
-        sell.approve(address(PERMIT2), type(uint256).max);
-        permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
-    }
-
-    function _permit(uint256 nonce)
-        internal
-        view
-        returns (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
-    {
-        permit = defaultERC20PermitTransfer(address(sell), SELL_AMOUNT, nonce);
-        sig = getPermitTransferSignature(permit, address(settler), TAKER_PRIVATE_KEY, permit2Domain);
-    }
-
-    function _vipCandidate(address pool, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
-        internal
-        view
-        returns (bytes[] memory c)
-    {
-        c = new bytes[](2);
-        c[0] = abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig));
-        c[1] = abi.encodeCall(
-            ISettlerActions.BASIC, (address(sell), 10_000, pool, 4, abi.encodeCall(SelectVIPSellPool.swap, (0)))
-        );
-    }
-
-    function _runVIP(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT_VIP_CANDIDATES, (uint256(0), token, targets, candidates));
-        vm.prank(taker, taker);
-        settler.execute(
-            ISettlerBase.AllowedSlippage({
-                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: minOut
-            }),
-            actions,
-            bytes32(0)
-        );
-    }
-
-    function _assertNonceSpentOnce(uint256 nonce) internal view {
-        uint256 wordPos = nonce >> 8;
-        uint256 mask = 1 << uint8(nonce);
-        assertEq(PERMIT2.nonceBitmap(taker, wordPos), mask, "Permit2 nonce bit");
-    }
-
-    function test_selectVIP_revertedCandidateRollsBackPermitNonce_commitsAlternate() public {
-        vm.setEnv("SELECT_VIP_P0_SAW_PULL", "false");
-        p0.set(5 ether, true);
-        p0.setKey("SELECT_VIP_P0_SAW_PULL");
-        p1.set(7 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
+    function test_measured_gasGuard_preservesCommitReserveForZeroScore() public {
+        p0.set(0, false);
         bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = _vipCandidate(address(p0), permit, sig);
-        candidates[1] = _vipCandidate(address(p1), permit, sig);
-
-        _runVIP(address(0), new uint256[](2), candidates, 7 ether);
-
-        assertTrue(vm.envBool("SELECT_VIP_P0_SAW_PULL"), "pool A saw the attempted pull");
-        assertEq(sell.balanceOf(taker), 99 ether, "taker spent exactly one sell amount");
-        _assertNonceSpentOnce(NONCE);
-        assertEq(sell.balanceOf(address(p0)), 0, "pool A pull rolled back");
-        assertEq(sell.balanceOf(address(p1)), SELL_AMOUNT, "pool B kept the committed pull");
-        assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed");
-    }
-
-    function test_selectVIP_measurementRollbackUnspendsNonce_onlyWinnerSurvives() public {
-        p0.set(5 ether, false);
-        p1.set(7 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = _vipCandidate(address(p0), permit, sig);
-        candidates[1] = _vipCandidate(address(p1), permit, sig);
-        uint256[] memory targets = _unreachableTargets(2);
-
-        _runVIP(address(buy), targets, candidates, 7 ether);
-
-        assertEq(sell.balanceOf(taker), 99 ether, "taker spent exactly one sell amount");
-        _assertNonceSpentOnce(NONCE);
-        assertEq(sell.balanceOf(address(p0)), 0, "losing measurement pull rolled back");
-        assertEq(sell.balanceOf(address(p1)), SELL_AMOUNT, "winner pull survived only on commit");
-        assertEq(buy.balanceOf(recipient), 7 ether, "winner output paid");
-    }
-
-    function test_selectVIP_replayAfterCommitFailsNonceInvariant() public {
-        p0.set(7 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _vipCandidate(address(p0), permit, sig);
-        uint256[] memory targets = new uint256[](1);
-
-        _runVIP(address(0), targets, candidates, 7 ether);
-        _assertNonceSpentOnce(NONCE);
-
-        vm.prank(taker, taker);
-        bytes[] memory actions = new bytes[](1);
-        actions[0] =
-            abi.encodeCall(ISettlerActions.SELECT_VIP_CANDIDATES, (uint256(0), address(0), targets, candidates));
-        vm.expectRevert(bytes4(keccak256("InvalidNonce()")));
-        settler.execute(
-            ISettlerBase.AllowedSlippage({
-                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
-            }),
-            actions,
-            bytes32(0)
-        );
-        assertEq(sell.balanceOf(taker), 99 ether, "failed replay did not spend again");
-    }
-
-    function test_measuredRoute_rejectsNestedSelectVIPCandidates_withoutPullingTakerFunds() public {
-        p0.set(7 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
-        bytes[][] memory vipCandidates = new bytes[][](1);
-        vipCandidates[0] = _vipCandidate(address(p0), permit, sig);
-        bytes[] memory nested = new bytes[](1);
-        nested[0] = abi.encodeCall(
-            ISettlerActions.SELECT_VIP_CANDIDATES, (uint256(0), address(0), new uint256[](1), vipCandidates)
-        );
-
-        Pool alternate = new Pool(buy);
-        buy.mint(address(alternate), 3 ether);
-        alternate.set(3 ether, false);
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = nested;
-        candidates[1] = _candidate(address(alternate));
-
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(0), new uint256[](2), candidates));
-        vm.prank(taker, taker);
-        settler.execute(
-            ISettlerBase.AllowedSlippage({
-                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 3 ether
-            }),
-            actions,
-            bytes32(0)
-        );
-
-        assertEq(buy.balanceOf(recipient), 3 ether, "measured VIP candidate rejected; alternate committed");
-        assertEq(sell.balanceOf(taker), 100 ether, "measured route cannot pull taker funds");
-        assertEq(PERMIT2.nonceBitmap(taker, NONCE >> 8), 0, "permit nonce remains unspent");
-        assertEq(sell.balanceOf(address(p0)), 0, "no pull reached the pool");
-    }
-
-    function test_selectVIP_spoofedMeasurementForfeits_runnerUpCommitsSharedPermitOnce() public {
-        vm.setEnv("SELECT_VIP_SPOOF_SEEN", "false");
-        p0.set(8 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
-        bytes[] memory honest = _vipCandidate(address(p0), permit, sig);
-        SpoofPool evil = new SpoofPool("SELECT_VIP_SPOOF_SEEN");
-        bytes[] memory evilCandidate = _vipCandidate(address(evil), permit, sig);
-        evil.setTag(_tag(evilCandidate, true));
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = honest;
-        candidates[1] = evilCandidate;
-        uint256[] memory targets = _unreachableTargets(2);
-
-        _runVIP(address(buy), targets, candidates, 8 ether);
-
-        assertEq(sell.balanceOf(taker), 99 ether, "shared permit spent once");
-        _assertNonceSpentOnce(NONCE);
-        assertEq(sell.balanceOf(address(p0)), SELL_AMOUNT, "runner-up committed");
-        assertEq(buy.balanceOf(recipient), 8 ether, "spoof forfeited to runner-up");
-    }
-
-    function testGas_selectVIP_oneMeasuredCandidate() public {
-        p0.set(7 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _vipCandidate(address(p0), permit, sig);
-        uint256[] memory targets = _unreachableTargets(1);
-        _runVIP(address(buy), targets, candidates, 7 ether);
-    }
-
-    function testGas_selectVIP_twoMeasuredCandidates() public {
-        p0.set(5 ether, false);
-        p1.set(7 ether, false);
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _permit(NONCE);
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = _vipCandidate(address(p0), permit, sig);
-        candidates[1] = _vipCandidate(address(p1), permit, sig);
-        uint256[] memory targets = _unreachableTargets(2);
-        _runVIP(address(buy), targets, candidates, 7 ether);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(new GasBurnerPool()));
+        _runWithGasCap(300_000, address(buy), _unreachableTargets(2), candidates, 0, 750_000);
+        assertEq(p0.callCount(), 1, "authenticated zero-score candidate committed");
     }
 }
 
@@ -660,35 +391,5 @@ contract GasHeavyPool {
             }
         }
         t.transfer(msg.sender, amt);
-    }
-}
-
-contract SelectVIPSellPool {
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    IERC20 internal immutable sell;
-    IERC20 internal immutable buy;
-    uint256 internal buyAmount;
-    bool internal doRevert;
-    string internal key;
-
-    constructor(IERC20 _sell, IERC20 _buy) {
-        sell = _sell;
-        buy = _buy;
-    }
-
-    function set(uint256 _buyAmount, bool _doRevert) external {
-        buyAmount = _buyAmount;
-        doRevert = _doRevert;
-    }
-
-    function setKey(string calldata _key) external {
-        key = _key;
-    }
-
-    function swap(uint256 sellAmount) external {
-        if (bytes(key).length != 0) vm.setEnv(key, "true");
-        sell.transferFrom(msg.sender, address(this), sellAmount);
-        buy.transfer(msg.sender, buyAmount);
-        if (doRevert) revert("vip leg reverted");
     }
 }

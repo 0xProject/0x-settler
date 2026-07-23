@@ -6,11 +6,10 @@ import {Test} from "@forge-std/Test.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 contract MainnetSelectDispatchTest is Test {
-    function test_productionRuntime_excludesExperimentalSelectDispatch() public {
+    function test_productionRuntime_includesSelectDispatch() public {
         bytes memory runtime = vm.getDeployedCode("TakerSubmitted.sol:MainnetSettler");
 
-        assertFalse(_contains(runtime, ISettlerActions.SELECT.selector), "SELECT included");
-        assertFalse(_contains(runtime, ISettlerActions.SELECT_VIP_CANDIDATES.selector), "SELECT_VIP_CANDIDATES included");
+        assertTrue(_contains(runtime, ISettlerActions.SELECT.selector), "SELECT excluded");
     }
 
     function _contains(bytes memory haystack, bytes4 needle) private pure returns (bool) {

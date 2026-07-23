@@ -7,7 +7,6 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {FastLogic} from "../utils/FastLogic.sol";
 import {revertActionInvalid, Measured} from "./SettlerErrors.sol";
 
 /// @notice Candidate-route selection by revertable self-call measurement.
@@ -15,21 +14,16 @@ abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
-    using FastLogic for bool;
-
-    function _dispatchVIP(uint256, bytes calldata) internal virtual returns (bool) {
-        return false;
-    }
 
     function _balanceOfOrZero(IERC20 token) private view returns (uint256) {
         return address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
     }
 
-    /// @notice Self-call entrypoint for one candidate. `tag`'s high bit dispatches action 0 VIP.
+    /// @notice Self-call entrypoint for one candidate.
     function executeSelected(bytes[] calldata actions, IERC20 token, uint256 minOut, bytes32 tag) external {
-        require(msg.sender == address(this));
+        if (msg.sender != address(this)) revert();
         uint256 balBefore = _balanceOfOrZero(token);
-        _runActions(actions, uint256(tag) >> 255 != 0);
+        _runActions(actions);
         uint256 score = _balanceOfOrZero(token) - balBefore;
         if (score < minOut) {
             // revert Measured(score, tag); -- in assembly because a left-padded selector constant
@@ -41,28 +35,18 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x1c, 0x44)
             }
         }
-        // Logs in reverted frames are discarded, so this survives exactly when this candidate
-        // commits -- receipt-level attribution of the committed candidate and its score.
-        // log1(score, topic=tag); -- raw log because a named event costs more bytecode
-        assembly ("memory-safe") {
-            mstore(0x00, score)
-            log1(0x00, 0x20, tag)
-        }
     }
 
-    function _select(bytes calldata data, bool vip) internal {
-        // VIP taker-fund pulls are only authorized in the frame the taker directly submitted,
-        // never nested inside another candidate's measured (roll-back-able) frame.
-        if (vip && msg.sender == address(this)) revert();
+    function _select(bytes calldata data) internal {
         uint256 measuredSelector = uint32(Measured.selector);
-        uint256 tagFlag = vip.toUint() << 255;
         bytes4 selector = this.executeSelected.selector;
         assembly ("memory-safe") {
-            function measured(ret_, tag_, sel_) -> s_ {
+            function measured(ret_, tag_, sel_) -> s_, valid_ {
                 if eq(returndatasize(), 0x44) {
                     returndatacopy(ret_, 0x00, 0x44)
-                    if eq(shr(0xe0, mload(ret_)), sel_) {
-                        if eq(mload(add(0x24, ret_)), tag_) { s_ := mload(add(0x04, ret_)) }
+                    if and(eq(shr(0xe0, mload(ret_)), sel_), eq(mload(add(0x24, ret_)), tag_)) {
+                        s_ := mload(add(0x04, ret_))
+                        valid_ := 0x01
                     }
                 }
             }
@@ -75,11 +59,11 @@ abstract contract Select is SettlerSwapAbstract {
             }
             // Shared by the trial and commit loops (one bytecode copy). Recomputing the keccak
             // tag on commit yields the identical value that the trial cached.
-            function attempt(base_, n_, end_, i_, cd_, word44_, tagFlag_, g_) -> ok_, tag_ {
+            function attempt(base_, n_, end_, i_, cd_, word44_, g_) -> ok_, tag_ {
                 let start_, len_ := blob(base_, n_, end_, i_)
                 let dst_ := add(0x84, cd_)
                 calldatacopy(dst_, start_, len_)
-                tag_ := or(and(keccak256(dst_, len_), not(shl(0xff, 0x01))), tagFlag_)
+                tag_ := keccak256(dst_, len_)
                 mstore(add(0x44, cd_), word44_)
                 mstore(add(0x64, cd_), tag_)
                 ok_ := call(g_, address(), 0x00, cd_, add(0x84, len_), 0x00, 0x00)
@@ -105,20 +89,19 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(cd, selector)
             mstore(add(0x04, cd), 0x80)
             mstore(add(0x24, cd), token)
-            let tagMask := shl(0xff, 0x01)
 
             let attemptedCommit
-            let anyScore
+            let anyMeasured
             let measuredCount
             for {} lt(measuredCount, n) { measuredCount := add(0x01, measuredCount) } {
-                // Preserve a commit reserve once at least one candidate has measured positive.
+                // Preserve a commit reserve once at least one candidate has measured.
                 // gasCap >> 0x05 covers the commit call's 63/64 shave.
                 if and(
-                    and(iszero(iszero(gasCap)), anyScore),
+                    and(iszero(iszero(gasCap)), anyMeasured),
                     lt(gas(), add(add(gasCap, gasCap), add(shr(0x05, gasCap), 0x10000)))
                 ) { break }
                 let g := gasCap
-                if or(iszero(g), and(iszero(anyScore), eq(measuredCount, sub(n, 0x01)))) { g := gas() }
+                if or(iszero(g), and(iszero(anyMeasured), eq(measuredCount, sub(n, 0x01)))) { g := gas() }
                 let ok, tag :=
                     attempt(
                         candsData,
@@ -127,18 +110,16 @@ abstract contract Select is SettlerSwapAbstract {
                         measuredCount,
                         cd,
                         calldataload(add(targetsData, shl(0x05, measuredCount))),
-                        tagFlag,
                         g
                     )
                 if ok {
                     attemptedCommit := 0x01
                     break
                 }
-                let score := measured(ret, tag, measuredSelector)
-                anyScore := or(anyScore, gt(score, 0x00))
+                let score, valid := measured(ret, tag, measuredSelector)
+                anyMeasured := or(anyMeasured, valid)
                 mstore(add(scores, shl(0x05, measuredCount)), score)
-                // Cache the hash and use its high bit as the attempted-candidate marker.
-                mstore(add(tags, shl(0x05, measuredCount)), or(tag, tagMask))
+                mstore(add(tags, shl(0x05, measuredCount)), valid)
             }
 
             if iszero(attemptedCommit) {
@@ -159,8 +140,7 @@ abstract contract Select is SettlerSwapAbstract {
                         revert(ret, returndatasize())
                     }
 
-                    let ok, tag :=
-                        attempt(candsData, n, dataEnd, best, cd, mload(add(scores, shl(0x05, best))), tagFlag, gas())
+                    let ok, tag := attempt(candsData, n, dataEnd, best, cd, mload(add(scores, shl(0x05, best))), gas())
                     if ok { break }
 
                     mstore(add(tags, shl(0x05, best)), 0x00)
@@ -169,7 +149,7 @@ abstract contract Select is SettlerSwapAbstract {
         }
     }
 
-    function _runActions(bytes[] calldata actions, bool vip) internal {
+    function _runActions(bytes[] calldata actions) internal {
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {
@@ -184,7 +164,7 @@ abstract contract Select is SettlerSwapAbstract {
             }
             // `||` (not `FastLogic.or`) so a too-short action is never dispatched; single
             // `revertActionInvalid` call site keeps its body from being inlined twice.
-            if (tooShort || (vip.and(i == 0) ? !_dispatchVIP(action, data) : !_dispatch(i, action, data, noSlippage))) {
+            if (tooShort || !_dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }
         }
