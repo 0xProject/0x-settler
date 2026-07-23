@@ -12,6 +12,12 @@ contract MainnetSelectDispatchTest is Test {
         assertTrue(_contains(runtime, ISettlerActions.SELECT.selector), "SELECT excluded");
     }
 
+    function test_optimismRuntime_includesSelectViaSettlerBase() public {
+        bytes memory runtime = vm.getDeployedCode("TakerSubmitted.sol:OptimismSettler");
+
+        assertTrue(_contains(runtime, ISettlerActions.SELECT.selector), "SELECT excluded on Optimism");
+    }
+
     function _contains(bytes memory haystack, bytes4 needle) private pure returns (bool) {
         if (haystack.length < 4) return false;
         for (uint256 i; i <= haystack.length - 4; ++i) {

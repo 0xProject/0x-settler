@@ -17,7 +17,6 @@ import {EkuboV2} from "../../core/EkuboV2.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
-import {Select} from "../../core/Select.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -61,8 +60,7 @@ abstract contract MainnetMixin is
     EkuboV2,
     EkuboV3,
     EulerSwap,
-    Bebop,
-    Select
+    Bebop
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
@@ -151,7 +149,8 @@ abstract contract MainnetMixin is
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
                 sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+            } else {
+                // if (action == uint32(ISettlerActions.EKUBOV3.selector))
                 sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
