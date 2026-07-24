@@ -8,6 +8,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
+import {Hanji} from "../../core/Hanji.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -41,7 +42,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 {
+abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji {
     using FastLogic for bool;
 
     constructor() {
@@ -75,6 +76,19 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 
             } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
                 sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
+        } else if (action == uint32(ISettlerActions.HANJI.selector)) {
+            (
+                IERC20 sellToken,
+                uint256 bps,
+                address pool,
+                uint256 sellScalingFactor,
+                uint256 buyScalingFactor,
+                bool isAsk,
+                uint256 priceLimit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
+
+            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else {
             return false;
         }
