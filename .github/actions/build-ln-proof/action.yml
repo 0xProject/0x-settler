@@ -7,33 +7,47 @@ description: >-
 runs:
   using: composite
   steps:
-    - name: Generate EVMYulLean artifacts from compiled LnWrapper Yul IR
-      shell: bash
-      run: |
-        ./formal/yul/generate_from_forge.sh \
-          ln \
-          src/wrappers/LnWrapper.sol:LnWrapper \
-          formal/ln/LnProof/LnProof/LnYul.lean \
-          0.8.34
+    - name: Generate Ln EVMYulLean artifacts
+      uses: ./.github/actions/check-generated-sources
+      with:
+        generated-paths: |
+          formal/ln/LnProof/LnProof/LnYulRuntime.lean
+          formal/ln/LnProof/LnProof/LnYulProof.lean
+        generator: |
+          ./formal/yul/generate_from_forge.sh \
+            ln \
+            src/wrappers/LnWrapper.sol:LnWrapper \
+            formal/ln/LnProof/LnProof/LnYul.lean \
+            0.8.34
 
-    - name: Fetch Ln proof dependency cache
-      uses: ./.github/actions/fetch-lean-cache
+    - name: Generate Ln certificates
+      uses: ./.github/actions/check-generated-sources
       with:
         working-directory: formal/ln/LnProof
-
-    - name: Generate Ln certificate artifacts
-      shell: bash
-      working-directory: formal/ln/LnProof
-      run: |
-        lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover
-        lake env lean GenFloorCertLit.lean
-        lake build LnProof.Cert.FloorCertLit
-        lake env lean GenCover.lean
-        lake env lean GenErr1.lean
-        lake build LnProof.Error.Core
-        lake env lean GenErrLit.lean
+        generated-paths: LnProof/Cert
+        generator: |
+          for path in .lake/build/lib/lean/LnProof/Cert .lake/build/ir/LnProof/Cert; do
+            if [[ -e "$path" ]]; then
+              rm -r -- "$path"
+            fi
+          done
+          lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts Common.GenCover
+          lake env lean GenFloorCertLit.lean
+          lake build \
+            LnProof.Cert.FloorCertGeLoLit \
+            LnProof.Cert.FloorCertLtLoLit
+          lake env lean GenCover.lean
+          lake env lean GenErr1.lean
+          lake build \
+            LnProof.Floor.CarryIndependent.Approximation \
+            Common.GenBernstein \
+            Common.Foundation.PackedShift
+          lake env lean GenApproximationCert.lean
+          lake build LnProof.Error.Core.Budget
+          lake env lean GenErrLit.lean
 
     - name: Build Ln proof package
       shell: bash
       working-directory: formal/ln/LnProof
-      run: lake build
+      run: |
+        lake build

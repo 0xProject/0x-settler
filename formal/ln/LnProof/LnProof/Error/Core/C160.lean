@@ -6,7 +6,7 @@ import LnProof.Error.Core.Args
 /-!
 # Error bound — C160
 
-Negative-argument lemmas, the `c160` constant block, and the `lo_*_c160_exact` brackets.
+Negative-argument lemmas and the `lo_*_c160_exact` brackets.
 -/
 
 open FormalYul
@@ -19,7 +19,6 @@ namespace LnFloorCert
 open LnYul LnFloor Common.Exp Common.Poly
 
 attribute [local irreducible] lnWadToRayBody
-
 
 theorem ln_err_arg_nonneg {r : Int} (hr0 : -1 ≤ r) :
     0 ≤ r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
@@ -74,21 +73,9 @@ theorem v_c160_nonneg {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) :
   rw [hln2]
   omega
 
-def ten31 : Nat := 10 ^ 31
-
-def c160W0 : Nat := Sc * ten31
-def c160W : Nat := Sc * (10 : Nat) ^ 111
-
-def c160R0 : Nat := ten31 - 3385
-def c160R1 : Nat := ten31 - 3384
-def c160R2 : Nat := ten31 + lnErrorExtraCap
-def c160R3 : Nat := ten31 - 10
-def c160R4 : Nat := 10 ^ 18
-def c160R : Nat := Sc * (c160R0 * c160R1 * c160R2 * c160R3 * c160R4)
-
 theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551560854268589826112230 < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hx : x = m := by omega
@@ -169,7 +156,7 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 
 theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551560854268589826112230 < (r + 1) * 2 ^ 72)
     (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hx : x = m := by omega
@@ -179,7 +166,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     omega
   have hV0I := v_c160_nonneg h1 hmhi
   have hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551516284764321243411868 := by
+      116873961749927929127912020551560854268589826112230 := by
     simpa [lnBiasI] using hV0I
   have hr0 : -1 ≤ r := by
     rcases Int.lt_or_le r (-1) with hlt | hle

@@ -143,6 +143,52 @@ lemma le_exp_of_capLB {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
     _ ≤ ∑' i : Nat, ((p : Real) / q) ^ i / ((fact i : Nat) : Real) := by
         exact Summable.sum_le_tsum _ (fun i hi => expTerm_nonneg hq i) hs.summable
 
+lemma partial_sum_le_exp {p q : Nat} (hq : 0 < q) (n : Nat) :
+    (expNum n p q : Real) / ((fact n * q ^ n : Nat) : Real) ≤
+      Real.exp ((p : Real) / q) := by
+  have hs := exp_hasSum ((p : Real) / q)
+  rw [expNum_div_eq_sum_range n p q hq, ← hs.tsum_eq]
+  exact Summable.sum_le_tsum (Finset.range (n + 1))
+    (fun i _ => expTerm_nonneg hq i) hs.summable
+
+lemma capUB_of_exp_le {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
+    (h : Real.exp ((p : Real) / q) ≤ (y : Real) / w) : capUB p q y w := by
+  intro n
+  have hratio :
+      (expNum n p q : Real) / ((fact n * q ^ n : Nat) : Real) ≤ (y : Real) / w :=
+    (partial_sum_le_exp hq n).trans h
+  have hdenpos : 0 < ((fact n * q ^ n : Nat) : Real) := by
+    exact_mod_cast Nat.mul_pos (fact_pos n) (Nat.pow_pos hq)
+  have hwpos : 0 < (w : Real) := by exact_mod_cast hw
+  have hcross :
+      (expNum n p q : Real) * (w : Real) ≤
+        (y : Real) * ((fact n * q ^ n : Nat) : Real) :=
+    (div_le_div_iff₀ hdenpos hwpos).mp hratio
+  exact_mod_cast hcross
+
+lemma capLB_of_lt_exp {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
+    (h : (y : Real) / w < Real.exp ((p : Real) / q)) : capLB p q y w := by
+  have hs := exp_hasSum ((p : Real) / q)
+  have heventually : ∀ᶠ n : Nat in Filter.atTop,
+      (y : Real) / w < ∑ i ∈ Finset.range n,
+        ((p : Real) / q) ^ i / ((fact i : Nat) : Real) :=
+    (tendsto_order.mp hs.tendsto_sum_nat).1 _ h
+  obtain ⟨n, hn⟩ := heventually.exists
+  have hterm : 0 ≤ ((p : Real) / q) ^ n / ((fact n : Nat) : Real) :=
+    expTerm_nonneg hq n
+  have hratio : (y : Real) / w ≤
+      (expNum n p q : Real) / ((fact n * q ^ n : Nat) : Real) := by
+    rw [expNum_div_eq_sum_range n p q hq, Finset.sum_range_succ]
+    linarith
+  have hwpos : 0 < (w : Real) := by exact_mod_cast hw
+  have hdenpos : 0 < ((fact n * q ^ n : Nat) : Real) := by
+    exact_mod_cast Nat.mul_pos (fact_pos n) (Nat.pow_pos hq)
+  have hcross : (y : Real) * ((fact n * q ^ n : Nat) : Real) ≤
+      (expNum n p q : Real) * (w : Real) :=
+    (div_le_div_iff₀ hwpos hdenpos).mp hratio
+  refine ⟨n, ?_⟩
+  exact_mod_cast hcross
+
 end
 
 end Common.RealExpBridge

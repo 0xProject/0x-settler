@@ -17,14 +17,13 @@ open FormalYul.Preservation
 set_option maxRecDepth 100000
 
 /-- The octave index advances by `0` or `1` per unit input step (`CINV ≪ 2^192`). -/
-theorem kTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
-    (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
-    (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
+theorem kTree_step_wide {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hW1 : WideRegion x1) (hW2 : WideRegion x2)
     (hadj : int256 x2 = int256 x1 + 1) :
     int256 (kTree x2) = int256 (kTree x1) ∨ int256 (kTree x2) = int256 (kTree x1) + 1 := by
-  obtain ⟨hlo1, hhi1⟩ := kTree_sandwich hx1 hC1 hC01
-  obtain ⟨hlo2, hhi2⟩ := kTree_sandwich hx2 hC2 hC02
-  have hmono := kTree_mono hx1 hx2 hC1 (by omega) hC02
+  obtain ⟨hlo1, hhi1⟩ := kTree_sandwich_wide hx1 hW1
+  obtain ⟨hlo2, hhi2⟩ := kTree_sandwich_wide hx2 hW2
+  have hmono := kTree_mono_wide hx1 hx2 hW1.1 (by omega) hW2.2
   -- the rounding argument advances by exactly `CINV < 2^192`
   set k1 := int256 (kTree x1)
   set k2 := int256 (kTree x2)
@@ -39,6 +38,13 @@ theorem kTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   -- 2^192·k2 ≤ A + CINV < 2^192·k1 + 2^192 + CINV < 2^192·(k1 + 2), so k2 < k1 + 2 ⇒ k2 ≤ k1 + 1
   have hupper : k2 < k1 + 2 := by nlinarith [hlo2, hhi1, hcinv, hp200]
   omega
+
+theorem kTree_step {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
+    (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
+    (hadj : int256 x2 = int256 x1 + 1) :
+    int256 (kTree x2) = int256 (kTree x1) ∨ int256 (kTree x2) = int256 (kTree x1) + 1 :=
+  kTree_step_wide hx1 hx2 (wideRegion_of_wad hC1 hC01) (wideRegion_of_wad hC2 hC02) hadj
 
 /-- **The octave-seam step** (`k` advances by one): `r1Tree` is nondecreasing across the boundary.
 The accumulators are still nearly constant (`v_a ≈ v_b`), the reduced argument flips sign

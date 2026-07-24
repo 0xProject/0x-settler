@@ -40,7 +40,7 @@ def selectorCases : ModelKind → List String
   | .cbrt => ["0x56df2b56", "0x29f2f4f1"]
   | .cbrt512 => ["0xa83a5c08", "0x7c0352fc"]
   | .ln => ["0xef102248", "0x31d42abd"]
-  | .exp => ["0x4187462b"]
+  | .exp => ["0x0dbb6bb9", "0x4187462b"]
 
 def functionPrefixes : ModelKind → List String
   | .sqrt =>
@@ -68,7 +68,12 @@ def functionPrefixes : ModelKind → List String
        "fun_wrap_lnWad_", "fun_wrap_lnWadToRay_", "fun_lnWad_", "fun_lnWadToRay_"]
   | .exp =>
       ["external_fun_wrap_expRayToWad_",
-       "fun_wrap_expRayToWad_", "fun_expRayToWad_", "fun__expRayToWad_"]
+       "external_fun_wrap_mulExpRay_",
+       "fun_wrap_expRayToWad_", "fun_wrap_mulExpRay_",
+       "fun_expRayToWad_", "fun_mulExpRay_",
+       "fun__octave_", "fun__expRayKernel_",
+       "constant_ARITHMETIC_OVERFLOW_", "fun_panic_",
+       "fun_or_", "fun_clz_"]
 
 def requiredCalls : ModelKind → List String
   | .sqrt => ["clz"]
@@ -76,7 +81,7 @@ def requiredCalls : ModelKind → List String
   | .cbrt => ["clz"]
   | .cbrt512 => ["clz", "mulmod"]
   | .ln => ["clz", "sdiv"]
-  | .exp => ["div"]
+  | .exp => ["clz", "div"]
 
 end ModelKind
 
@@ -504,8 +509,14 @@ contractDef ++ "
 def selector_expRayToWad : ByteArray :=
   FormalYul.bytes [0x41, 0x87, 0x46, 0x2b]
 
+def selector_mulExpRay : ByteArray :=
+  FormalYul.bytes [0x0d, 0xbb, 0x6b, 0xb9]
+
 def run_exp_ray_to_wad_evm (x : Nat) : Except String Nat :=
   FormalYul.callWord yulContract selector_expRayToWad [x]
+
+def run_mul_exp_ray_evm (y x : Nat) : Except String Nat :=
+  FormalYul.callWord yulContract selector_mulExpRay [y, x]
 "
 
 def runHelpers : ModelKind → String → String
@@ -564,6 +575,9 @@ def aliasFunctionDefName (stable : String) : String :=
 def aliasFunctionNameName (stable : String) : String :=
   "yulName_" ++ sanitizeIdent stable
 
+def aliasFunctionBodyName (stable : String) : String :=
+  "yulFunctionBody_" ++ sanitizeIdent stable
+
 def findFunction (functions : List FunctionSource) (name : String) : Except String FunctionSource :=
   match functions.find? (fun fn => fn.name = name) with
   | some fn => .ok fn
@@ -599,19 +613,29 @@ def aliasByCallPrefix
   let original ← callWithPrefixFrom functions caller pfx
   .ok { stable, original }
 
-def renderGeneratedAlias (entry : GeneratedAlias) : String :=
-  "\n/-- Stable generated alias for solc-emitted function `" ++ entry.original ++ "`. -/\n" ++
-  "abbrev " ++ aliasFunctionDefName entry.stable ++
-    " : EvmYul.Yul.Ast.FunctionDefinition := " ++ functionDefName entry.original ++ "\n\n" ++
-  "abbrev " ++ aliasFunctionNameName entry.stable ++ " := " ++ reprStr entry.original ++ "\n\n" ++
-  "@[simp]\n" ++
-  "theorem lookup_" ++ sanitizeIdent entry.stable ++ " :\n" ++
-  "    yulFunctions.lookup " ++ aliasFunctionNameName entry.stable ++
-  " = some " ++ aliasFunctionDefName entry.stable ++ " := by\n" ++
-  "  unfold " ++ aliasFunctionNameName entry.stable ++ "\n" ++
-  "  unfold " ++ aliasFunctionDefName entry.stable ++ "\n" ++
-  "  unfold yulFunctions\n" ++
-  "  simp [Finmap.lookup_insert]\n"
+def renderGeneratedAlias (functions : List FunctionSource) (entry : GeneratedAlias) :
+    Except String String := do
+  let fn ← findFunction functions entry.original
+  .ok <|
+    "\n/-- Stable generated alias for solc-emitted function `" ++ entry.original ++ "`. -/\n" ++
+    "abbrev " ++ aliasFunctionDefName entry.stable ++
+      " : EvmYul.Yul.Ast.FunctionDefinition := " ++ functionDefName entry.original ++ "\n\n" ++
+    "abbrev " ++ aliasFunctionNameName entry.stable ++ " := " ++ reprStr entry.original ++ "\n\n" ++
+    "@[simp]\n" ++
+    "theorem lookup_" ++ sanitizeIdent entry.stable ++ " :\n" ++
+    "    yulFunctions.lookup " ++ aliasFunctionNameName entry.stable ++
+    " = some " ++ aliasFunctionDefName entry.stable ++ " := by\n" ++
+    "  unfold " ++ aliasFunctionNameName entry.stable ++ "\n" ++
+    "  unfold " ++ aliasFunctionDefName entry.stable ++ "\n" ++
+    "  unfold yulFunctions\n" ++
+    "  simp [Finmap.lookup_insert]\n\n" ++
+    "/-- Suffix-free unfolding of `" ++ aliasFunctionDefName entry.stable ++ "` to its Yul\n" ++
+    "body, so proofs stepping through it never name the solc-numbered definition. -/\n" ++
+    "theorem " ++ aliasFunctionBodyName entry.stable ++ " :\n" ++
+    "    " ++ aliasFunctionDefName entry.stable ++ " =\n" ++
+    "  <f\n" ++
+    indentBlock "  " fn.source ++ "\n" ++
+    "  > := rfl\n"
 
 def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
     Except String (List GeneratedAlias) := do
@@ -721,14 +745,23 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
   | .exp =>
       sequence [
         aliasByPrefix functions "external_fun_wrap_expRayToWad" "external_fun_wrap_expRayToWad_",
+        aliasByPrefix functions "external_fun_wrap_mulExpRay" "external_fun_wrap_mulExpRay_",
         aliasByPrefix functions "fun_wrap_expRayToWad" "fun_wrap_expRayToWad_",
+        aliasByPrefix functions "fun_wrap_mulExpRay" "fun_wrap_mulExpRay_",
         aliasByPrefix functions "fun_expRayToWad" "fun_expRayToWad_",
-        aliasByPrefix functions "fun__expRayToWad" "fun__expRayToWad_"
+        aliasByPrefix functions "fun_mulExpRay" "fun_mulExpRay_",
+        aliasByPrefix functions "fun__octave" "fun__octave_",
+        aliasByPrefix functions "fun__expRayKernel" "fun__expRayKernel_",
+        aliasByPrefix functions "constant_ARITHMETIC_OVERFLOW" "constant_ARITHMETIC_OVERFLOW_",
+        aliasByPrefix functions "fun_panic" "fun_panic_",
+        aliasByPrefix functions "fun_or" "fun_or_",
+        aliasByPrefix functions "fun_clz" "fun_clz_"
       ]
 
 def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String) : Except String String := do
   let functions := contract.functions
   let aliases ← generatedAliases kind functions
+  let renderedAliases ← aliases.mapM (renderGeneratedAlias functions)
   let runtimeModule := moduleNameFromOutput output ++ "Runtime"
   .ok <|
     "import FormalYul.Preservation\n" ++
@@ -741,7 +774,7 @@ def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String)
     "@[simp]\n" ++
     "theorem yulContract_functions : yulContract.functions = yulFunctions := rfl\n" ++
     joinLines (functions.map renderLookupLemma) ++ "\n" ++
-    joinLines (aliases.map renderGeneratedAlias) ++ "\n" ++
+    joinLines renderedAliases ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
 
 def validateSelectorCase (dispatcherStx : Syntax) (selector : String) : Except String Unit :=
@@ -774,8 +807,12 @@ def validateShape (kind : ModelKind) (contract : ParsedContract) : Except String
 def validateInput (kind : ModelKind) (contract : ParsedContract) : Except String Unit :=
   validateShape kind contract
 
+example : (ModelKind.functionPrefixes .exp).contains "fun_or_" := by decide
+
+example : ¬(ModelKind.functionPrefixes .exp).contains "fun_and_" := by decide
+
 def usage : String :=
-  "usage: yul_importer --kind <sqrt|sqrt512|cbrt|cbrt512|ln> --output <output-stem.lean> < solc-ir"
+  "usage: yul_importer --kind <sqrt|sqrt512|cbrt|cbrt512|ln|exp> --output <output-stem.lean> < solc-ir"
 
 unsafe def run (args : List String) : IO UInt32 := do
   let opts ← match parseArgs args {} with

@@ -6,7 +6,7 @@ import Mathlib.Tactic.IntervalCases
 
 The reduced-argument Taylor caps (`Floor.CapsV`) are certified over `t ∈ [0, H129]` with
 `H129 = ⌊ln2/2 · 2¹²⁸⌋`. To instantiate them at the runtime reduced argument `t = tTree x` we
-need `|tTree x| ≤ H129` on the meaningful region.
+need `|tTree x| ≤ H129` on the wide region.
 
 This is an integer-`k` fact: a real linear-program relaxation of the octave/reduced-argument
 sandwiches is unbounded (it decouples `k` from `x`), but the *integer*
@@ -22,22 +22,21 @@ open FormalYul
 open FormalYul.Preservation
 
 set_option maxRecDepth 100000
+set_option maxHeartbeats 1600000
 
-/-- On the meaningful region the reduced argument lands in the certificate domain:
+/-- On the wide region the reduced argument lands in the certificate domain:
 `-H129 ≤ tTree x ≤ H129` (as signed integers), where `H129 = ⌊ln2/2 · 2¹²⁸⌋`. -/
-theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem tTree_in_cert_domain_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     -(235865763225513294137944142764154484399 : Int) ≤ int256 (tTree x) ∧
       int256 (tTree x) ≤ 235865763225513294137944142764154484399 := by
-  obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
-  obtain ⟨hklo, hkhi⟩ := kTree_sandwich hx hC hC0
-  obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
-  obtain ⟨hkblo, hkbhi⟩ := kTree_bound hx hC hC0
+  obtain ⟨htlo, hthi⟩ := tTree_sandwich_wide hx hW
+  obtain ⟨hklo, hkhi⟩ := kTree_sandwich_wide hx hW
+  obtain ⟨hxlo, hxhi⟩ := region_x_bound_wide hW
+  obtain ⟨hkblo, hkbhi⟩ := kTree_bound_wide hx hW
+  obtain ⟨hC, hC0⟩ := hW
   -- region endpoints as decimals
-  have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 45401140326676417766828703956 := int256_C0thresh
-  rw [hCi] at hC
-  rw [hC0i] at hC0
+  rw [int256_mulExpRayZeroMax] at hC
+  rw [int256_mulExpRayHi] at hC0
   -- constants as decimals
   have hK27 : (0x279d346de4781f921dd7a89933d54d1f72928 : Int) =
       55213970774324510299478046898216203619608872 := by norm_num
@@ -56,15 +55,20 @@ theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
       3138550867693340381917894711603833208051177722232017256448 := by norm_num
   have p200 : (2 : Int) ^ 192 =
       6277101735386680763835789423207666416102355444464034512896 := by norm_num
-  have pH : (235865763225513294137944142764154484399 : Int) =
-      235865763225513294137944142764154484399 := rfl
   rw [p106] at htlo hthi
   rw [p199, p200] at hklo hkhi
   clear_value k
-  -- For each fixed integer octave index `k ∈ [−61, 65]` the band of consistent `x` together with
-  -- the reduction sandwich pins `t` to the cert domain; `omega` closes each band (the coupling is
-  -- linear in `x` and `t` once `k` is a literal).
-  clear htdef hXdef hkdef hCi hC0i hK27 hLN2 hCINV pH p106 p199 p200 hx hxlo hxhi
+  -- For each fixed integer octave index `k ∈ [−127, 125]` the band of consistent `x` together
+  -- with the reduction sandwich pins `t` to the cert domain; `omega` closes each band (the
+  -- coupling is linear in `x` and `t` once `k` is a literal).
+  clear htdef hXdef hkdef hK27 hLN2 hCINV p106 p199 p200 hx hxlo hxhi
   interval_cases k <;> constructor <;> omega
+
+/-- The meaningful-region instance of `tTree_in_cert_domain_wide`. -/
+theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    -(235865763225513294137944142764154484399 : Int) ≤ int256 (tTree x) ∧
+      int256 (tTree x) ≤ 235865763225513294137944142764154484399 :=
+  tTree_in_cert_domain_wide hx (wideRegion_of_wad hC hC0)
 
 end ExpYul

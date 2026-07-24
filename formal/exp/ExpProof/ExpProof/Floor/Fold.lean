@@ -38,7 +38,7 @@ theorem accumReal_eq {x : Nat} (hx : x < 2 ^ 256)
   refine ⟨s, hsint, ?_⟩
   unfold accumReal
   rw [hseq]
-  -- the integer shift argument has the closed value `r0 − 3`
+  -- the integer shift argument has the closed value `r0 − 1`
   rw [hargeq]
   push_cast
   ring

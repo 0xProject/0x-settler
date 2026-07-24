@@ -2,8 +2,12 @@
 pragma solidity ^0.8.34;
 
 import {Panic} from "../utils/Panic.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
+import {Clz} from "./Clz.sol";
 
 library Exp {
+    using FastLogic for bool;
+
     /// @notice Compute the natural exponential of a fixnum with 10**27 (ray) basis, returning the
     ///         result as a fixnum with 10**18 (wad) basis.
     /// @dev Let E = 10¹⁸ ⋅ exp(x / 10²⁷) be the exact, infinite-precision result. This function
@@ -12,42 +16,140 @@ library Exp {
     ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For "central" inputs 707106781186547525 ≤ w ≤
     ///      1414213562373095048, `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
-    ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.22 ⋅ 10³⁷).
-    function expRayToWad(int256 x) internal pure returns (int256) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 66, where the deficit
-        // envelope below exceeds 1ulp.
+    ///      (x ≥ 0x92b2f16cc66c5a4ae96e80d4 ≈ 45.40 ⋅ 10²⁷, i.e. E ≳ 5.218 ⋅ 10³⁷).
+    function expRayToWad(int256 x) internal pure returns (int128) {
+        // This is ⌈(66⋅2¹⁹² - 2¹⁹¹) / CINV⌉, with CINV the Q192 reciprocal in `_octave`; here the
+        // octave count reaches 66 and the deficit envelope exceeds 1ulp.
         if (x >= 0x92b2f16cc66c5a4ae96e80d4) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
-        return _expRayToWad(x);
+
+        int256 k = _octave(x);
+        unchecked {
+            // 10¹⁸⋅2⁶⁷ carries 67 closing-headroom bits. The cutoff is ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the
+            // greatest x with 10¹⁸⋅exp(x/10²⁷) < 1.
+            return int128(
+                int256(
+                    _expRayKernel(
+                        x,
+                        k,
+                        0x6f05b59d3b2000000000000000000000,
+                        uint256(int256(67) - k),
+                        -41446531673892822312323846185
+                    )
+                )
+            );
+        }
     }
 
-    /// @dev The rational polynomial approximation kernel
-    function _expRayToWad(int256 x) private pure returns (int256 r) {
+    /// @notice Compute `trunc(y * exp(x / 10**27))` with up to 1ulp of error, towards zero
+    /// @dev Let A = |y| ⋅ exp(x / 10²⁷). For accepted inputs, this function returns sign(y) ⋅ m
+    ///      with 0 ≤ m ≤ A ∧ A < m + 2: the magnitude m is ⌊A⌋ or ⌊A⌋ - 1, without underflow; it
+    ///      never overestimates. `mulExpRay(0, x) == 0` for every accepted x, and `mulExpRay(y, 0)
+    ///      == y` exactly whenever 4⋅|y| ≤ 2¹²⁷ - 1 = 170141183460469231731687303715884105727
+    ///      . Among accepted inputs, the result is monotone in `x`: nondecreasing if y ≥ 0 and
+    ///      nonincreasing if y < 0. For a fixed `x`, among accepted inputs, the result is
+    ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
+    ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
+    ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ (for any x₁, x₂).
+    /// @dev Reverts with `Panic(17)` iff bitlen(|y|) + round(x / (10²⁷⋅ln(2))) > 125 (below
+    ///      x = -2¹⁵² ≈ -5.709⋅10⁴⁵ it may revert regardless). At y = 0 the rule reads x >
+    ///      86989971160273136331862631243 ≈ 86.99⋅10²⁷. Hence it never reverts when A < 2¹²⁴⋅√2 ≈
+    ///      3.008⋅10³⁷ ∧ y ≠ 0, nor when 2√2⋅A < |y|, and always reverts when A > 2¹²⁵⋅√2 ≈
+    ///      6.015⋅10³⁷. Every accepted x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ returns 0.
+    function mulExpRay(int128 y, int256 x) internal pure returns (int128) {
+        unchecked {
+            // Split `y` into a sign mask and a magnitude
+            int256 y_ = int256(y);
+            int256 sign = y_ >> 255;
+            uint256 ay = uint256((y_ ^ sign) - sign);
+
+            // The top-bit term admits ay = abs(type(int128).min) at s = 0 while leaving every
+            // smaller magnitude's normalization unchanged. The top bit is boolean, so `129 ^
+            // topBit` is `129 - topBit`.
+            uint256 s = Clz.clz(ay) - (129 ^ ay >> 127);
+
+            int256 k = _octave(x);
+            int256 shift = int256(s) - k;
+            // Reject inputs whose two-unit magnitude bracket the kernel cannot deliver:
+            //  * x at or above ⌈(126⋅2¹⁹² - 2¹⁹¹) / CINV⌉, where k = 126 exhausts the deficit
+            //    envelope at even the maximal headroom. This fences accepted x away from
+            //    `_octave`'s positive wraparound
+            //  * fewer than 2 bits of closing shift: the deficit envelope (2993/1000 + margin)⋅2ᵏ⁻ˢ
+            //    reaches 1ulp at k > s - 2 (see the kernel). When `_octave`'s product wraps (x ≲
+            //    -2¹⁵²) its output stands in for k, so those exponents revert or pass as the
+            //    wrapped word falls
+            if ((x > 86989971160273136331862631243).or(shift < 2)) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+
+            // Monotonicity in `y` at a fixed accepted `x`: within one headroom class (fixed s) the
+            // magnitude is a composition of nondecreasing maps of `ay`. At a bit-length boundary
+            // (ay reaching 2ᴸ), the scale `ay << s` does not decrease while the closing shift
+            // shrinks by one, so both effects raise the result. The x = 0 pin and zero-clamp
+            // preserve order, and sign reapplication mirrors the argument to y < 0. The cutoff is
+            // ⌈(-127⋅2¹⁹² - 2¹⁹¹) / CINV⌉. At or below it, 2¹²⁷⋅exp(x/10²⁷) < 1, so every supported
+            // magnitude clamps soundly to zero.
+            uint256 m = _expRayKernel(x, k, ay << s, uint256(shift), -88376265521393026950697095485);
+            // Reapply `y`'s sign and collapse y = 0 (kernel output is unspecified; scale is 0):
+            //     m *= sign(y)
+            assembly ("memory-safe") {
+                m := mul(or(lt(0x00, ay), sign), m)
+            }
+            return int128(int256(m));
+        }
+    }
+
+    function _octave(int256 x) private pure returns (int256 k) {
+        assembly ("memory-safe") {
+            // k = round(x / (10²⁷⋅ln(2))), half-open. CINV = round(2¹⁹² / (10²⁷⋅ln(2))); the +2¹⁹¹
+            // and `sar(192, …)` round to nearest with ties resolved toward +∞.
+            k := sar(0xc0, add(shl(0xbf, 0x01), mul(0x724d54edbacbebbb95c52a0f60, x)))
+        }
+    }
+
+    /// @dev The rational polynomial approximation kernel, shared by `expRayToWad` (scale =
+    ///      10¹⁸⋅2⁶⁷, shift = 67 - k) and `mulExpRay` (scale = |y|⋅2ˢ, shift = s - k).
+    /// @dev The caller must maintain:
+    ///       * `k == _octave(x)` and `scale <= 2**127`: the margin and deficit budgets below hold
+    ///         throughout this range, and smaller scales only shrink them
+    ///       * `scale == base << s` for the caller's magnitude `base`, with `shift == s - k`
+    ///       * for every accepted `x` with `zeroCutoff < x` and `x != 0`: `shift >= 2` (the deficit
+    ///         envelope reaches 1ulp below that), `_octave`'s product must not wrap (x ≲ 2¹⁵¹), and
+    ///         `shift < 256`. At x = 0 the result is exact for any shift
+    ///       * for every x ≤ zeroCutoff: base⋅exp(x / 10²⁷) < 1, so the clamped-to-zero result
+    ///         satisfies the bracket. The clamp consults only `x`, so `_octave` wraparound garbage
+    ///         (x ≲ -2¹⁵¹) in `k`, `t`, and `shift` is discarded
+    /// @dev When `scale == 0` the returned value is unspecified and the caller must discard it.
+    function _expRayKernel(int256 x, int256 k, uint256 scale, uint256 shift, int256 zeroCutoff)
+        private
+        pure
+        returns (uint256 r)
+    {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
-        //     k = round(x / (10²⁷⋅ln(2))); // x = (k⋅ln(2) + t)⋅10²⁷, |t| ≤ ln(2)/2
         //     t = x/10²⁷ - k⋅ln(2);        // range-reduced argument; Q129
         //     ev = Ev(t²);                 // polynomial approximation; Q89
         //     od = Od(t²);                 // polynomial approximation; Q89
         //     n = ev + t⋅od;               // rational numerator; Q89
         //     d = ev - t⋅od;               // rational denominator; Q89
-        //     e = 10¹⁸⋅n / d;              // ≈ 10¹⁸⋅exp(t); Q67
-        //     r = ⌊(e - margin)⋅2ᵏ⌋;       // wad
-        //     r = r ⋅ (x > C);             // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
-        //     return r + (x == 0);         // pin exp(0) = 10¹⁸ exactly
+        //     e = scale⋅n / d;             // ≈ scale⋅exp(t)
+        //     r = ⌊(e - margin) / 2ˢʰⁱᶠᵗ⌋;
+        //     r = r ⋅ (x > zeroCutoff);
+        //     return r + (x == 0);         // pin exact scale points
         //
         // `exp(t) = (1 + tanh(t/2)) / (1 - tanh(t/2))`, so with the even/odd split N(t) = Ev(t²) +
         // t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational that matches
         // `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln(2)/2)²]. Ev(v) is degree 5 and Od(v)
-        // degree 4; in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the
+        // degree 4; in exact arithmetic this (5,4) form approximates exp to ≈135 bits, and the
         // integer coefficients realize ≈133 of them: each coefficient's low bits are chosen
         // jointly, after rounding at the staircase bases, to re-center the ten quantization
         // residuals, holding the realized envelope at ≤ 0.0075 ulp. Ev(v) is monic, so its leading
         // stage is just an add.
         //
         // Mixed fixed-point bases (a staircase): each coefficient takes the widest basis fitting
-        // its chosen byte width. A coefficient followed by more multiplies by v tolerates a shorter
-        // basis. Each renormalizing shift lands a value directly at the basis its consumer needs.
+        // its chosen byte width. A coefficient followed by more multiplies by `v` tolerates a
+        // shorter basis. Each renormalizing shift lands a value directly at the basis its consumer
+        // needs.
         //     v = t²: Q123 the widest basis whose monic-stage product stays inside 256 bits, so
         //         Ev(v)'s leading stage consumes v with no renormalizing shift. t's Q129 basis (|t|
         //         ≤ ln(2)/2) means that pre-reduction t² fits 256 bits.
@@ -57,70 +159,62 @@ library Exp {
         //         product stays inside 256 bits
         //     dividend: Q156 the widest basis that fits in 256 bits before the single truncating
         //         `DIV` by Q89 divisor. < 2¹²⁹
-        //     r: Q67 implied by the pre-scale 10¹⁸⋅2⁶⁷ < 2¹²⁷ to avoid overflowing the dividend.
-        //     output: the closing `shr(67 - k, …)` is the output-rounding floor, with the 2ᵏ octave
-        //         scaling folded in
+        //     r: the pre-scale is at most 2¹²⁷; the strict numerator bound keeps the dividend
+        //         below 2²⁵⁶ at the endpoint.
+        //     output: the closing `shr(shift, …)` is the output-rounding floor, with the 2ᵏ octave
+        //         scaling folded into the caller's scale/shift pair.
         //
         // Error budget. Let ê = N/D be the exact value of the integer rational (N = Ev + t⋅Od, D =
         // Ev - t⋅Od; the closing `DIV` floor is counted on the output grid below) and write its
-        // excess over exp(t) as Δ = (ê - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). Δ is the
-        // tightest bound the proof technique can bear, in spite of the fact that the worst-case
-        // error contributions do not co-occur. The budget bounds Δ ≤ 0.5792534503673398887, the sum
-        // of four one-sided contributions:
-        //     integer Horner truncation: the shared Ev shared cancels to first order in the
-        //         quotient, so its truncation barely perturbs ê; this jitter stays < 0.21706.
+        // excess over exp(t) as Δ = (ê - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The budget
+        // bounds Δ ≤ 0.4668745981919039833, the sum of four one-sided contributions:
+        //     integer Horner truncation: the shared Ev cancels to first order in the quotient, so
+        //         its truncation barely perturbs ê; this jitter stays ≤ 0.1103.
         //     argument granularity: v carries t² on the Q123 grid, and its floor only lowers the
-        //         polynomials' shared argument, which lifts ê on the t > 0 half by < 0.32906: one
+        //         polynomials' shared argument, which lifts ê on the t > 0 half by ≤ 0.3291: one
         //         v-grain moves the quotient by 2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose one-signed
-        //         numerator is maximal at each piece's upper edge and whose denominator, when
-        //         analyzed over over 32 domain pieces, has pointwise supremum ≈ 0.3287 at t =
-        //         ln(2)/2). The t < 0 direction is budgeted on the under side.
+        //         numerator is maximal at each piece's upper edge and whose denominator has
+        //         pointwise supremum ≈ 0.3287 at t = ln(2)/2. The t < 0 direction is budgeted on
+        //         the under side.
         //     rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
-        //         < 0.02210 (its supremum is √2⋅2¹²⁶/(2¹³²-1)).
-        //     reduced-argument gap: the Q128 floor of t only pushes ê downward (that direction is
+        //         ≤ 0.0221 (its supremum is √2⋅2¹²⁶/(2¹³²-1)).
+        //     reduced-argument gap: the Q129 floor of `t` only pushes ê downward (that direction is
         //         budgeted on the under side); the over side is the K27/LN2 constant-grid residue
-        //         (k⋅ln(2) grid error is below 2⁻²²⁹), enveloped one-sidedly at 2⁻¹³³ of reduced
-        //         argument, lifting ê by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) = √2/128).
+        //         (the K27 coefficient-grid term is below 2⁻¹³³ over |x| < 2⁹⁷ and the k⋅ln(2) grid
+        //         term below 2⁻²²⁸), lifting ê by ≤ 0.0055 (≈ √2/256).
         //
-        // The quotient `r` carries 10¹⁸⋅ê on the 2⁶⁷ output grid, where one grid unit is worth
-        // 2ᵏ⁻⁶⁷ ulp (1 ulp = 10⁻¹⁸ of the result) and Δ's image is below one grid unit: the Q89
-        // closing bases confine the over-side jitter so that 5¹⁸⋅Δ/2⁴¹ < 1. The margin is the least
-        // integer strictly above that image: 0x01, worth 0.25 ulp at the supported edge k = 65. The
-        // `DIV` floor only lowers the quotient, so the pre-floor accumulator A = q - margin
-        // satisfies A⋅2ᵏ⁻⁶⁷ ≤ E. The under side is certified directly on the output grid, piecewise
-        // over the 32 domain pieces (per-piece denominator floors confine the truncation
-        // amplification): q ≥ 10¹⁸⋅2⁶⁷⋅exp(t) - 2993/1000, where 2993/1000 bounds, on each sign
-        // half, the sum of the integer-rational deficit together with the `DIV` floor (≤ 2378/1000,
-        // certified piecewise), the `Mp` factor (≤ 2/25, via ê ≤ 1.45), the under-direction
-        // reduced-argument gap (≤ 307/1000 on the t > 0 half via exp(t) ≤ √2; ≤ 218/1000 on the
-        // other, where exp(t) ≤ 1 + ε), and the under-direction argument granularity (≤ 143/500:
-        // the one-grain envelope with the negative-half denominator floor; free on the t > 0 half).
+        // The quotient `r` carries the scaled rational on a dynamic output grid, where one grid
+        // unit is worth 2ᵏ⁻ˢ ulp (1ulp = 1 in the caller's magnitude). Because scale ≤ 2¹²⁷ and Δ <
+        // 1/2, its image scale⋅Δ/2¹²⁶ is below one grid unit. The margin dominates the image: 0x01,
+        // worth 0.25 ulp at the supported edge. The `DIV` floor only lowers the quotient, so the
+        // pre-floor accumulator A = q - margin satisfies A⋅2ᵏ⁻ˢ ≤ E. The under side is certified
+        // directly on the output grid. The `DIV` floor costs 1ulp at any scale. On the positive
+        // half, the integer-rational carry is certified similarly, while the scale-dependent 2⁻¹³²
+        // and reduced-argument terms remain exact. On the negative half, the one-grain direction
+        // and reduced-argument bound shrink.
         //
-        // Hence the maximum underestimation is E - A⋅2ᵏ⁻⁶⁷ ≤ (2993/1000 + margin)⋅2ᵏ⁻⁶⁷ =
-        // (3993/4000)⋅2ᵏ⁻⁶⁵ ulp. At k ≤ 65, this is < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. The
-        // deficit envelope doubles each octave and exceeds 1ulp at k ≥ 66. On the central octave k
-        // = 0, the margin is 2⁻⁶⁷ ≈ 6.8⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves,
-        // so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
+        // Hence the maximum underestimation is E - A⋅2ᵏ⁻ˢ ≤ (2993/1000 + margin)⋅2ᵏ⁻ˢ. The caller
+        // keeps k ≤ s - 2, where this is < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1. For the wad
+        // specialization s = 67, the deficit envelope exceeds 1ulp at k ≥ 66. On the central octave
+        // k = 0, the margin is 2⁻⁶⁷ ≈ 6.776⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay`
+        // leaves, so the round trip floors to ⌊E⌋. The k = 0 band is exactly [-H, H] with H =
         // ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2, √2).
         //
-        // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
-        // pre-floor accumulator by at least 10¹⁸⋅2⁶⁷⋅10⁻²⁷/√2 ≈ 1.0⋅10¹¹ grid units. The error
-        // terms above confine the accumulator to a band of width 5¹⁸⋅Δ/2⁴¹ + 2993/1000 ≈ 4.0 grid
-        // units just below E's grid image at every octave (in grid units the band is k-independent;
-        // an octave seam rescales E and the band together), so the per-step gain exceeds any
-        // adverse swing within the band by more than 9 orders of magnitude, and the pre-floor
-        // accumulator strictly increases at every step; its floor is non-decreasing. The zeroing
-        // clamp and the +1 pin at x = 0 preserve order: below C the result is 0 while just above it
-        // ⌊E⌋ ≥ 0, and the adjacent runtime values around x = 0 bracket the pinned scale-point
-        // value.
+        // Monotonicity: one unit step in `x` multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves
+        // the pre-floor accumulator by at least scale⋅10⁻²⁷/√2 > 5.2⋅10¹⁰ grid units (every live
+        // scale is at least 2¹²⁶ > 10¹⁸⋅2⁶⁶). The error terms above confine the accumulator to a
+        // band of width scale⋅Δ/2¹²⁶ + 2993/1000 < 4.0 grid units just below E's grid image at
+        // every octave (in grid units the band is k-independent; an octave seam rescales E and the
+        // band together), so the per-step gain exceeds any adverse swing within the band by more
+        // than 9 orders of magnitude, and the pre-floor accumulator strictly increases at every
+        // step; its floor is non-decreasing. The zeroing clamp and the +1 pin at x = 0 preserve
+        // order: below C the result is 0 while just above it ⌊E⌋ ≥ 0, and the adjacent runtime
+        // values around x = 0 bracket the pinned scale-point value.
         assembly ("memory-safe") {
-            // k = round(x / (10²⁷⋅ln(2))), half-open. CINV = round(2¹⁹² / (10²⁷⋅ln(2))); the +2¹⁹¹
-            // and `sar(192, …)` round to nearest with ties resolved toward +∞.
-            let k := sar(0xc0, add(shl(0xbf, 0x01), mul(0x724d54edbacbebbb95c52a0f60, x)))
-
             // t in Q129. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k⋅LN2
-            // from K27⋅x at the Q235 product basis (so the k⋅ln(2) rounding error is ~2⁻²³⁵, far
-            // below an output ulp) then one `sar(106, …)` leaves the reduced argument at Q129.
+            // from K27⋅x at the Q235 product basis (so the k⋅ln(2) rounding error stays below
+            // 2⁻²²⁸ over |k| ≤ 127, far below an output ulp) then one `sar(106, …)` leaves the
+            // reduced argument at Q129.
             let t :=
                 sar(
                     0x6a,
@@ -155,22 +249,21 @@ library Exp {
             // both positive.
             let tod := sar(0x81, mul(t, od))
 
-            // 10¹⁸⋅exp(t) in Q67: the constant is 10¹⁸⋅2⁶⁷ = 5¹⁸⋅2⁸⁵, so one `DIV` scales, widens,
-            // and floors at once. The numerator stays below 2¹²⁹ and 10¹⁸⋅2⁶⁷ < 2¹²⁷, so the
-            // dividend stays inside 256 bits; the denominator > 0.
-            r := div(mul(0x6f05b59d3b2000000000000000000000, add(ev, tod)), sub(ev, tod))
+            // The scaled rational: one `DIV` scales, widens, and floors at once. The numerator
+            // stays strictly below 2¹²⁹ and scale ≤ 2¹²⁷, so the dividend stays inside 256 bits;
+            // the denominator > 0.
+            r := div(mul(scale, add(ev, tod)), sub(ev, tod))
 
-            // Less the one-sided margin (0x01; see the budget above), then floored by
-            // `shr(67 - k, …)` which folds in the 2ᵏ octave scaling (67 - k ∈ [3, 127]).
-            r := shr(sub(0x43, k), sub(r, 0x01))
+            // Less the one-sided margin (0x01; see the budget above), then floored by `shr(shift,
+            // …)` which folds in the 2ᵏ octave scaling.
+            r := shr(shift, sub(r, 0x01))
 
-            // Zero the result at and below C = ⌊-18⋅ln(10)⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
-            // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
-            // where the reduction would overflow, so it also discards those (otherwise garbage).
-            r := mul(slt(sub(0x00, 0x85ebc478242540a11f5f1029), x), r)
+            // Zero results whose exact magnitude is below one output unit. For very negative x,
+            // this also discards arithmetic outside the reduction range.
+            r := mul(slt(zeroCutoff, x), r)
 
             // exp(0) = 1 is the only input whose exact result is an integer; the construction lands
-            // on 10¹⁸ - 1, so add one back exactly there.
+            // one unit below the input magnitude, so add one back exactly there.
             r := add(iszero(x), r)
         }
     }

@@ -10,7 +10,7 @@ import Mathlib.Data.Complex.ExponentialBounds
 # Discharging the runtime `r0` bound
 
 The public floor brackets need the scaled quotient `r0Tree x` bracketed against the target
-`E = 10¹⁸·exp(int256 x / 10²⁷)` across the octave shift `2^(68 − k)`. This file builds two
+`E = 10¹⁸·exp(int256 x / 10²⁷)` across the octave shift `2^(67 − k)`. This file builds two
 ingredients of that discharge:
 
 * the **Horner-truncation bridge** for the even/odd accumulators — the runtime `evTree x`/`odTree x`,

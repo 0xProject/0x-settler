@@ -32,7 +32,7 @@ library Ln {
         // rational polynomial approximation of f(u) = atanh(√u)/√u on u ∈ [0, (3-2√2)²], fit under
         // the weight √u (the weight the error carries into ln), with q monic and p(0) = -q(0)
         // constrained so both polynomials share their constant-term literal. The weighted sup-norm
-        // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.327ulp.
+        // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is <0.323662ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs:
@@ -53,11 +53,12 @@ library Ln {
         //         and the bias, so the closing `sar(72, …)` is the single output-rounding floor
         //
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
-        // approximation and coefficient quantization ≤0.327 combined; mantissa (Q95) truncation
-        // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `SDIV` truncations ≤0.005 combined; Horner
-        // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by
-        // a margin of ~1.598⋅10²¹ units (0.3383 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
-        // margin plus downward errors total < 0.699 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
+        // approximation and coefficient quantization <0.323662; normalized-mantissa/z and u
+        // truncations <0.001626 and <0.001497; Horner stage truncations <0.000503; the closing
+        // `SDIV` contributes <0.001578; and the ln(2) phase contributes <4⋅10⁻²¹. Their certified
+        // one-sided total is <0.3288640403604298097806. The bias is reduced by ~1.553⋅10²¹ units
+        // (0.3288640403604298097807 ulp), so the Q72 accumulator never exceeds L⋅2⁷²; margin plus
+        // downward errors total <0.699⋅2⁷², so it always exceeds (L-1)⋅2⁷².
         // `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
         // Monotonicity: within an octave, the integer z = sdiv((s-m)⋅2¹⁰⁰, m+s) is strictly
@@ -117,7 +118,7 @@ library Ln {
 
             // Add ⌊(ln(s/2⁹⁵) + 95⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ minus the one-sided error
             // margin described above.
-            r := add(0x4ff7e9b32826a6aec97ea1e6974062cc1e985b359c, r)
+            r := add(0x4ff7e9b32826a6aec97ea1e699aae97c1cc87bfae6, r)
 
             // Q72 → integer ray result (`SAR` floors).
             r := sar(0x48, r)

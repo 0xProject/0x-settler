@@ -4,7 +4,7 @@ namespace ExpYul
 
 open FormalYul.Preservation
 
-/-! Runtime constants used by the generated exp kernel normal form. -/
+/-! Runtime constants and derived bounds used by the exp kernel proofs. -/
 
 abbrev Cmask : Nat := 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7
 abbrev C0thresh : Nat := 0x92b2f16cc66c5a4ae96e80d4
@@ -41,12 +41,38 @@ abbrev odShift4 : Nat := 0x80
 abbrev todShift : Nat := 0x81
 abbrev foldShift : Nat := 0x43
 abbrev scaleQ67 : Nat := 0x6f05b59d3b2000000000000000000000
+abbrev int128Max : Nat := 0x7fffffffffffffffffffffffffffffff
+abbrev kernelScaleMax : Nat := 0x80000000000000000000000000000000
+abbrev scaleClzBias : Nat := 0x81
 abbrev marginWord : Nat := 0x1
+abbrev mulExpRayHi : Nat := 0x119146ae9d22b7454e84ce34c
+abbrev mulExpRayZeroMax : Nat := 0xfffffffffffffffffffffffffffffffffffffffee270ddd64709e8aac2676ec3
 
 theorem scaleQ67_eq : (scaleQ67 : Int) = 3814697265625 * 2 ^ 85 := by
   unfold scaleQ67; norm_num
 
 theorem scaleQ67_lt_2127 : scaleQ67 < 2 ^ 127 := by unfold scaleQ67; norm_num
+
+theorem int128Max_eq : int128Max = 2 ^ 127 - 1 := by
+  unfold int128Max
+  norm_num
+
+theorem kernelScaleMax_eq : kernelScaleMax = 2 ^ 127 := by
+  unfold kernelScaleMax
+  norm_num
+
+theorem scaleQ67_le_kernelScaleMax : scaleQ67 ≤ kernelScaleMax := by
+  unfold scaleQ67 kernelScaleMax
+  norm_num
+
+theorem mul_lt_2256_of_scale_le_kernelScaleMax {scale n : Nat}
+    (hscale : scale ≤ kernelScaleMax) (hn : n < 2 ^ 129) : scale * n < 2 ^ 256 := by
+  calc
+    scale * n ≤ kernelScaleMax * n := Nat.mul_le_mul_right n hscale
+    _ < kernelScaleMax * 2 ^ 129 := Nat.mul_lt_mul_of_pos_left hn (by
+      unfold kernelScaleMax
+      norm_num)
+    _ = 2 ^ 256 := by rw [kernelScaleMax_eq, ← pow_add]
 
 theorem int256_Cmask : int256 Cmask = -41446531673892822312323846185 := by
   unfold Cmask int256
@@ -58,6 +84,23 @@ theorem Cmask_lt : Cmask < 2 ^ 256 := by
 
 theorem int256_C0thresh : int256 C0thresh = 45401140326676417766828703956 := by
   unfold C0thresh int256
+  norm_num
+
+theorem int256_mulExpRayHi : int256 mulExpRayHi = 86989971160273136331862631244 := by
+  unfold mulExpRayHi int256
+  norm_num
+
+theorem int256_mulExpRayZeroMax :
+    int256 mulExpRayZeroMax = -88376265521393026950697095485 := by
+  unfold mulExpRayZeroMax int256
+  norm_num
+
+theorem mulExpRayHi_lt : mulExpRayHi < 2 ^ 256 := by
+  unfold mulExpRayHi
+  norm_num
+
+theorem mulExpRayZeroMax_lt : mulExpRayZeroMax < 2 ^ 256 := by
+  unfold mulExpRayZeroMax
   norm_num
 
 end ExpYul

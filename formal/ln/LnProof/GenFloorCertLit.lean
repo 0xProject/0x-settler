@@ -5,23 +5,27 @@ open LnFloorCert Common.GenCover
 
 namespace GenFloorCertLit
 
-def fileText : String :=
-  "/-! Literal coefficient lists for the floor certificate polynomials. -/\n\n" ++
+def fileText (body : String) : String :=
+  "/-! Literal coefficient lists for one floor-certificate family. -/\n\n" ++
     "namespace LnFloorCert\n\n" ++
-    litText "geTNLit" geTN ++
-    litText "geTDLit" geTD ++
+    body ++
+    "end LnFloorCert\n"
+
+def geLoText : String := fileText <|
     litText "geTN2bLit" geTN2b ++
     litText "geTD2bLit" geTD2b ++
+    litText "certGeLoLit" (ptrim certGeLo)
+
+def ltLoText : String := fileText <|
     litText "ltTNLit" ltTN ++
     litText "ltTDLit" ltTD ++
-    litText "ltTN2bLit" ltTN2b ++
-    litText "ltTD2bLit" ltTD2b ++
-    litText "certGeUpLit" (ptrim certGeUp) ++
-    litText "certGeLoLit" (ptrim certGeLo) ++
-    litText "certLtUpLit" (ptrim certLtUp) ++
-    litText "certLtLoLit" (ptrim certLtLo) ++
-    "end LnFloorCert\n"
+    litText "certLtLoLit" (ptrim certLtLo)
 
 end GenFloorCertLit
 
-#eval IO.FS.writeFile "LnProof/Cert/FloorCertLit.lean" GenFloorCertLit.fileText
+#eval do
+  reconcileOutputs "LnProof/Cert"
+    ["FloorCertGeLoLit", "FloorCertLtLoLit"]
+    ["FloorCertGeLoLit.lean", "FloorCertLtLoLit.lean"]
+  IO.FS.writeFile "LnProof/Cert/FloorCertGeLoLit.lean" GenFloorCertLit.geLoText
+  IO.FS.writeFile "LnProof/Cert/FloorCertLtLoLit.lean" GenFloorCertLit.ltLoText

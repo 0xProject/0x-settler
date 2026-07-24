@@ -1,4 +1,5 @@
-import LnProof.Cert.FloorCertLit
+import LnProof.Cert.FloorCertGeLoLit
+import LnProof.Cert.FloorCertLtLoLit
 import Common.Foundation.KroneckerShift
 import Common.GenCover
 
@@ -8,48 +9,50 @@ import Common.GenCover
 Greedily walks `[lo, hi]` for a certificate polynomial, computing at each anchor
 `a` the largest cell width `w` with `0 ≤ (hornerIv (kShiftWitness kB C a) 0 w).1`
 — exactly the predicate the in-kernel `checkCoverK` decides, so the emitted
-covers are guaranteed `decide`-acceptable.  Writes one `…C<NN>.lean` cell file
-per sub-cell and prints the `_nonneg` ladder and import block for the cover
-module.
+covers are guaranteed `decide`-acceptable. Writes one `…C<NN>.lean` cell file
+per sub-cell and one aggregate module containing the complete literal
+`NonnegOn` proof.
 
-Run with `lake env lean GenCover.lean` (after `lake build LnProof.Cert.FloorCertLit Common.GenCover`).
+Run with `lake env lean GenCover.lean` after building the two
+`LnProof.Cert.FloorCert*Lit` modules and `Common.GenCover`.
 -/
 
 open Common.Poly LnFloorCert Common.GenCover
 
 namespace GenCover
 
-/-- Emit cell files `<modPrefix><NN>.lean` and return the ladder text. -/
-def emit (nm litName symName evalEqName modPrefix cellPrefix nonnegName : String)
+/-- Render the aggregate that imports every cell and joins their intervals. -/
+def aggregateText (litName modPrefix cellPrefix nonnegName : String)
+    (cells : List (Int × Int)) (lo hi : Int) : String :=
+  let imports := String.join <| cells.zipIdx.map fun (_, i) =>
+    s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
+  let header :=
+    "\nnamespace LnFloorCert\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\n" ++
+      s!"theorem {nonnegName} : NonnegOn {litName} {lo} {hi} := by\n" ++
+      "  intro m h1 h2\n"
+  let n := cells.length
+  let ladder := String.join <| cells.zipIdx.map fun ((a, w), i) =>
+    ladderStep s!"{cellPrefix}{pad2 i}" "m" a w (i + 1 == n)
+  imports ++ header ++ ladder ++ "\nend LnFloorCert\n"
+
+/-- Emit the complete declared output set for one cover. -/
+def emit (nm litModule litName modPrefix cellPrefix aggregateModule nonnegName : String)
     (C : List Int) (lo hi : Int) : IO Unit := do
   let (ok, cells) := walk C lo hi
-  IO.println s!"-- {nm}: reached={ok} ncells={cells.length}"
   if ! ok then
-    IO.println s!"-- FAILED tail: {cells.drop (cells.length - 2)}"
-    return
-  -- write one cell file per sub-cell
+    throw <| IO.userError s!"{nm}: cover did not reach {hi}; tail={cells.drop (cells.length - 2)}"
+  let cellOutputs := cells.zipIdx.map fun (_, i) => s!"{modPrefix}{pad2 i}.lean"
+  let aggregateOutput := s!"{aggregateModule}.lean"
+  let expected := cellOutputs ++ [aggregateOutput]
+  reconcileOutputs "LnProof/Cert" [modPrefix, aggregateModule] expected
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     let nn := pad2 i
     IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{nn}.lean"
-      (cellText "LnProof.Cert.FloorCertLit" "LnFloorCert" s!"{cellPrefix}{nn}" litName a w)
-  -- ladder + imports
-  let mut imps := ""
-  for (_, i) in cells.zipIdx do
-    imps := imps ++ s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
-  IO.println "==== IMPORTS ===="
-  IO.println imps
-  IO.println "==== LADDER ===="
-  let lb := "{"
-  let rb := "}"
-  IO.println s!"theorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :"
-  IO.println s!"    0 ≤ evalPoly {symName} m := by"
-  IO.println s!"  have hev := {evalEqName} m"
-  IO.println "  rw [hev]"
-  let n := cells.length
-  for (aw, i) in cells.zipIdx do
-    let (a, w) := aw
-    IO.print (ladderStep s!"{cellPrefix}{pad2 i}" "m" a w (i + 1 == n))
+      (cellText s!"LnProof.Cert.{litModule}" "LnFloorCert" s!"{cellPrefix}{nn}" litName a w)
+  IO.FS.writeFile s!"LnProof/Cert/{aggregateOutput}"
+    (aggregateText litName modPrefix cellPrefix nonnegName cells lo hi)
+  IO.println s!"{nm}: wrote {cells.length} cells and {aggregateOutput}"
 
 end GenCover
 
@@ -60,10 +63,7 @@ def hiLT : Int := 56022770974786139918731938181          -- Sc - 46
 def loGE : Int := 56022770974786139918731938273          -- Sc + 46
 def hiGE : Int := 79228162514264337593543950335          -- 2^96 - 1
 
--- Generate the floor cert covers: never-overshoot upper forms (GeUp/LtUp) and
--- not-too-low lower forms (GeLo/LtLo). The cover modules keep their hand-written
--- eval_eq; only the cell files and the _nonneg ladder are generated.
-#eval emit "certGeUp" "certGeUpLit" "certGeUp" "geUp_eval_eq" "FloorCertGeUpC" "geUp_cell" "geUp_nonneg" certGeUpLit loGE hiGE
-#eval emit "certLtUp" "certLtUpLit" "certLtUp" "ltUp_eval_eq" "FloorCertLtUpC" "ltUp_cell" "ltUp_nonneg" certLtUpLit loLT hiLT
-#eval emit "certGeLo" "certGeLoLit" "certGeLo" "geLo_eval_eq" "FloorCertGeLoC" "geLo_cell" "geLo_nonneg" certGeLoLit loGE hiGE
-#eval emit "certLtLo" "certLtLoLit" "certLtLo" "ltLo_eval_eq" "FloorCertLtLoC" "ltLo_cell" "ltLo_nonneg" certLtLoLit loLT hiLT
+#eval emit "certGeLo" "FloorCertGeLoLit" "certGeLoLit" "FloorCertGeLoC"
+  "geLo_cell" "FloorCertGeLoCover" "certGeLoLit_nonnegOn" certGeLoLit loGE hiGE
+#eval emit "certLtLo" "FloorCertLtLoLit" "certLtLoLit" "FloorCertLtLoC"
+  "ltLo_cell" "FloorCertLtLoCover" "certLtLoLit_nonnegOn" certLtLoLit loLT hiLT

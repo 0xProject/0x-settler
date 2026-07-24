@@ -5,13 +5,12 @@ import LnProof.Error.LtFactoredCap
 /-!
 # Bridge from the lt error cell cover to the reduced error inequality
 
-`errLt_nonneg` proves `0 ≤ evalPoly certErrLtLit m` over the lt domain
+`errLt_nonnegOn` proves `0 ≤ evalPoly certErrLtLit m` over the lt domain
 `[2^95, Sc-46]`.  Here we identify the literal cert with the symbolic margin
-`certErrLt = errLtW·23!·ltTD^23 − errLtK·(m+1)·G` (an `evalPoly_ext` identity,
-exactly as `ltLo_eval_eq`), and read off the reduced inequality that
-`lt_pos_cut_reduced` consumes directly, with no `sumGE`/`expMarginPoly`
-(the curved cap numerator `G` sits on the `(m+1)` side, its denominator
-`23!·ltTD^23` on the bias side).
+`certErrLt = errLtW·23!·ltTD^23 − errLtK·(m+1)·G` through an `evalPoly_ext`
+identity, and read off the reduced inequality consumed by `lt_pos_cut_reduced`.
+The curved-cap numerator `G` sits on the `(m+1)` side and its denominator
+`23!·ltTD^23` sits on the bias side.
 
 The constants are the octave-extracted cell parameters at the active
 `lnErrorBoundNum = 1698600000`:
@@ -95,8 +94,14 @@ theorem errLt_eval_eq : ∀ x : Int, evalPoly certErrLt x = evalPoly certErrLtLi
       evalPoly_polyPow, evalPoly_expPolyNum]
     decide +kernel
 
-/-- The lt cell cover proves the c-independent error-bound inequality, via the
-`evalPoly_ext` identity and the direct `polySub` margin (no `sumGE`). -/
+theorem certErrLt_nonnegOn :
+    NonnegOn certErrLt 39614081257132168796771975168 56022770974786139918731938181 := by
+  intro x hlo hhi
+  rw [errLt_eval_eq]
+  exact errLt_nonnegOn x hlo hhi
+
+/-- The lt cell cover proves the c-independent error-bound inequality through
+the `evalPoly_ext` identity and the direct polynomial margin. -/
 theorem errLt_reduced_ineq {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     ((m + 1) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *
         (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
@@ -113,8 +118,7 @@ theorem errLt_reduced_ineq {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     have h := ltTD_nonneg hw1 hw2; rw [evalCertLtTD] at h; omega
   have hTN : 0 ≤ evalPoly ltTN (m : Int) := ltTN_nonneg hw1 hw2
   have herrK : (0 : Int) ≤ errLtK := by unfold errLtK; decide
-  have hcert : 0 ≤ evalPoly certErrLt (m : Int) := by
-    rw [errLt_eval_eq]; exact errLt_nonneg hw1 hw2
+  have hcert : 0 ≤ evalPoly certErrLt (m : Int) := certErrLt_nonnegOn _ hw1 hw2
   -- expand the symbolic margin; cast the bracket evaluations to `Nat`
   unfold certErrLt at hcert
   simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul,

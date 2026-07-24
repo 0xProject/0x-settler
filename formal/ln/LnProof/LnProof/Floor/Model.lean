@@ -24,6 +24,79 @@ open LnYul Common.Poly
 /-- Mantissa word of `x`. -/
 def mant (x : Nat) : Nat := evmShr 160 (evmShl (evmClz x) x)
 
+/-- Binade window for the mantissa, low-shift side. -/
+theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
+    (hc : evmClz x ≤ 160) :
+    mant x * 2 ^ (160 - evmClz x) ≤ x ∧
+      x < (mant x + 1) * 2 ^ (160 - evmClz x) := by
+  obtain ⟨me, _, _⟩ := mant_facts h1 h2
+  have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
+  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
+  rw [hclz] at hc ⊢
+  have hdm := Nat.div_add_mod (x * 2 ^ (255 - Nat.log2 x)) (2 ^ 160)
+  have hml := Nat.mod_lt (x * 2 ^ (255 - Nat.log2 x)) (y := 2 ^ 160) (by decide)
+  have hsplit : 2 ^ (255 - Nat.log2 x) * 2 ^ (160 - (255 - Nat.log2 x)) = 2 ^ 160 := by
+    rw [← Nat.pow_add]
+    congr 1
+    omega
+  rw [hm]
+  generalize hgq : x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 = q at *
+  generalize hgA : (2 : Nat) ^ (255 - Nat.log2 x) = A at *
+  generalize hgB : (2 : Nat) ^ (160 - (255 - Nat.log2 x)) = B at *
+  have hA0 : 0 < A := by rw [← hgA]; exact Nat.pow_pos (by omega)
+  constructor
+  · refine Nat.le_of_mul_le_mul_left ?_ hA0
+    have e1 : A * (q * B) = 2 ^ 160 * q := by
+      rw [show A * (q * B) = q * (A * B) from by
+        simp only [Nat.mul_left_comm], hsplit]
+      exact Nat.mul_comm _ _
+    have e2 : A * x = x * A := Nat.mul_comm _ _
+    generalize hg1 : A * (q * B) = T1 at e1 ⊢
+    generalize hg3 : A * x = T3 at e2 ⊢
+    generalize hg4 : x * A = T4 at e2 hdm
+    generalize hg5 : 2 ^ 160 * q = T5 at e1 hdm
+    omega
+  · have hlt : x * A < (q + 1) * 2 ^ 160 := by
+      have e : (q + 1) * 2 ^ 160 = 2 ^ 160 * q + 2 ^ 160 := by
+        rw [Nat.add_mul, Nat.one_mul, Nat.mul_comm]
+      omega
+    refine Nat.lt_of_mul_lt_mul_left (a := A) ?_
+    have e1 : A * x = x * A := Nat.mul_comm _ _
+    have e2 : A * ((q + 1) * B) = (q + 1) * 2 ^ 160 := by
+      rw [show A * ((q + 1) * B) = (q + 1) * (A * B) from by
+        simp only [Nat.mul_assoc, Nat.mul_comm], hsplit]
+    generalize hg1 : A * x = T1 at e1 ⊢
+    generalize hg2 : x * A = T2 at e1 hlt
+    generalize hg3 : A * ((q + 1) * B) = T3 at e2 ⊢
+    generalize hg5 : (q + 1) * 2 ^ 160 = T5 at e2 hlt
+    omega
+
+/-- Binade window, high-shift side: the mantissa is exact. -/
+theorem mant_window_gt {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
+    (hc : 160 < evmClz x) :
+    mant x = x * 2 ^ (evmClz x - 160) := by
+  obtain ⟨me, _, _⟩ := mant_facts h1 h2
+  have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
+  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
+  rw [hclz] at hc ⊢
+  have hsplit : (2 : Nat) ^ (255 - Nat.log2 x) =
+      2 ^ 160 * 2 ^ ((255 - Nat.log2 x) - 160) := by
+    rw [← Nat.pow_add]
+    congr 1
+    omega
+  rw [hm, hsplit]
+  have e : x * (2 ^ 160 * 2 ^ ((255 - Nat.log2 x) - 160)) =
+      x * 2 ^ ((255 - Nat.log2 x) - 160) * 2 ^ 160 := by
+    simp only [Nat.mul_comm, Nat.mul_left_comm]
+  rw [e]
+  exact Nat.mul_div_cancel _ (by decide)
+
+theorem clz_bounds {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    1 ≤ evmClz x ∧ evmClz x ≤ 255 := by
+  have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
+  have hlog : Nat.log2 x < 255 := (Nat.log2_lt (by omega)).mpr (by omega)
+  omega
+
 /-- Signed `ln2 * k` summand for clz value `c`. -/
 def ln2kInt (c : Nat) : Int :=
   if c ≤ 160 then (LN2c : Int) * ((160 - c : Nat) : Int)
@@ -33,18 +106,12 @@ theorem ln2kInt_eq {c : Nat} (hc : c < 256) :
     int256 (evmMul LN2c (evmSub 160 c)) = ln2kInt c :=
   ln2k_exact hc
 
-theorem ln2kInt_bound {c : Nat} (hc : c < 256) :
-    -(310963026251328585646059498617736427643747124513200 : Int) ≤ ln2kInt c ∧
-      ln2kInt c ≤ (523727202107500775824942313461450825505258314969600 : Int) := by
-  rw [← ln2kInt_eq hc]
-  exact ln2k_bound hc
-
 /-- The pre-shift accumulator decomposes exactly. -/
 theorem r4_value {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) {c : Nat} (hc : c < 256) :
     int256 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c (evmSub 160 c)))
         BIASc) =
       int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551516284764321243411868 := by
+        116873961749927929127912020551560854268589826112230 := by
   have hB := r1_bound h1 h2
   have hr1w : x1W (zWord m) < 2 ^ 256 := by unfold x1W; exact evmSdiv_lt _ _
   have hW := ln2k_bound hc
@@ -66,7 +133,7 @@ theorem r4_value {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) {c : Nat} (hc : c < 2
       (by rw [e2]; clear e2 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2]; clear e2 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : int256 BIASc = (116873961749927929127912020551516284764321243411868 : Int) := by
+  have hBI : int256 BIASc = (116873961749927929127912020551560854268589826112230 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega
@@ -108,9 +175,9 @@ theorem lnWadToRayBody_floor_bracket {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hne : x ≠ 1000000000000000000) :
     int256 (lnWadToRayBody x) * 4722366482869645213696 ≤
         int256 (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
-          116873961749927929127912020551516284764321243411868 ∧
+          116873961749927929127912020551560854268589826112230 ∧
       int256 (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
-          116873961749927929127912020551516284764321243411868 <
+          116873961749927929127912020551560854268589826112230 <
         int256 (lnWadToRayBody x) * 4722366482869645213696 +
           4722366482869645213696 := by
   have hx256 : x < 2 ^ 256 := by omega

@@ -35,6 +35,48 @@ def evalPoly : List Int → Int → Int
   | [], _ => 0
   | c :: cs, x => c + x * evalPoly cs x
 
+/-- The proposition shared by polynomial nonnegativity certificate backends. -/
+def NonnegOn (cs : List Int) (lo hi : Int) : Prop :=
+  ∀ x : Int, lo ≤ x → x ≤ hi → 0 ≤ evalPoly cs x
+
+namespace NonnegOn
+
+theorem eval {cs : List Int} {lo hi x : Int} (h : NonnegOn cs lo hi)
+    (hlo : lo ≤ x) (hhi : x ≤ hi) : 0 ≤ evalPoly cs x :=
+  h x hlo hhi
+
+theorem restrict {cs : List Int} {lo hi lo' hi' : Int} (h : NonnegOn cs lo hi)
+    (hlo : lo ≤ lo') (hhi : hi' ≤ hi) : NonnegOn cs lo' hi' := by
+  intro x hxlo hxhi
+  exact h x (by omega) (by omega)
+
+theorem empty (cs : List Int) {lo hi : Int} (h : hi < lo) : NonnegOn cs lo hi := by
+  intro x hxlo hxhi
+  omega
+
+theorem singleton (cs : List Int) (x : Int) (h : 0 ≤ evalPoly cs x) :
+    NonnegOn cs x x := by
+  intro y hylo hyhi
+  have : y = x := by omega
+  simpa [this] using h
+
+theorem union {cs : List Int} {lo mid hi : Int}
+    (hl : NonnegOn cs lo mid) (hr : NonnegOn cs (mid + 1) hi) :
+    NonnegOn cs lo hi := by
+  intro x hxlo hxhi
+  by_cases hx : x ≤ mid
+  · exact hl x hxlo hx
+  · exact hr x (by omega) hxhi
+
+theorem congr {cs ds : List Int} {lo hi : Int} (h : NonnegOn cs lo hi)
+    (heval : ∀ x : Int, lo ≤ x → x ≤ hi → evalPoly cs x = evalPoly ds x) :
+    NonnegOn ds lo hi := by
+  intro x hxlo hxhi
+  rw [← heval x hxlo hxhi]
+  exact h x hxlo hxhi
+
+end NonnegOn
+
 /-- Interval Horner over a nonnegative domain `[lo, hi]`, `0 ≤ lo`. Returns
 `(vlo, vhi)` with `vlo ≤ P(x) ≤ vhi` for all `x ∈ [lo, hi]`. -/
 def hornerIv : List Int → Int → Int → Int × Int

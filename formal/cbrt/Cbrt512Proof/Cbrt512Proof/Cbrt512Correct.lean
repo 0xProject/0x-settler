@@ -3229,6 +3229,7 @@ theorem cbrt512_floorCorrection_correct (xHi xLo r : Nat)
     rw [hrEq]
     omega
 
+set_option exponentiation.threshold 1024 in
 /-- The cube root of a value below `WORD_MOD^2` (= 2^512) is tiny, so `icbrt x + 2`
     still fits in a word — needed to rule out overflow in the ceiling increment. -/
 private theorem icbrt_add_two_lt_word (x : Nat) (hx : x < WORD_MOD * WORD_MOD) :

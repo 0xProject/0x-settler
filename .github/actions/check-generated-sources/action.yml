@@ -1,0 +1,90 @@
+name: Generate declared Lean sources
+description: >-
+  Clean each declared output surface, generate it once, and require nonempty
+  outputs without modifying tracked sources.
+
+inputs:
+  working-directory:
+    description: Directory from which to run the generator and resolve paths.
+    required: false
+    default: .
+  generated-paths:
+    description: >-
+      Newline-separated generated files or generated-only directories. A
+      directory may contain a tracked .gitkeep file.
+    required: true
+  generator:
+    description: Generator command to run from a clean output set.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Generate declared sources
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GENERATED_PATHS: ${{ inputs.generated-paths }}
+        GENERATOR: ${{ inputs.generator }}
+      run: |
+        set -euo pipefail
+        git diff --exit-code
+        git diff --cached --exit-code
+
+        validate_path() {
+          case "$1" in
+            ''|/*|..|../*|*/..|*/../*)
+              echo "generated path must stay within the working directory: $1" >&2
+              exit 2
+              ;;
+          esac
+        }
+
+        paths=()
+        while IFS= read -r path; do
+          [[ -n "$path" ]] || continue
+          validate_path "$path"
+          paths+=("$path")
+        done <<< "$GENERATED_PATHS"
+
+        [[ ${#paths[@]} -gt 0 ]] || {
+          echo "at least one generated path is required" >&2
+          exit 2
+        }
+
+        clean_surfaces() {
+          local path file
+          for path in "${paths[@]}"; do
+            if [[ -d "$path" ]]; then
+              while IFS= read -r -d '' file; do
+                rm -- "$file"
+              done < <(find "$path" -type f ! -name .gitkeep -print0)
+              find "$path" -depth -type d -empty ! -path "$path" -delete
+            elif [[ -e "$path" ]]; then
+              rm -- "$path"
+            fi
+          done
+        }
+
+        require_outputs() {
+          local path
+          for path in "${paths[@]}"; do
+            if [[ -d "$path" ]]; then
+              if ! find "$path" -type f ! -name .gitkeep -print -quit | grep -q .; then
+                echo "generated directory is empty: $path" >&2
+                exit 1
+              fi
+            elif [[ -s "$path" ]]; then
+              continue
+            else
+              echo "generated file is missing or empty: $path" >&2
+              exit 1
+            fi
+          done
+        }
+
+        clean_surfaces
+        bash -e -u -o pipefail -c "$GENERATOR"
+        require_outputs
+        git diff --exit-code
+        git diff --cached --exit-code

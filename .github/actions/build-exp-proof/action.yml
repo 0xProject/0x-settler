@@ -1,0 +1,44 @@
+name: Build ExpProof
+description: Generate ExpProof sources once and build the package.
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Exp EVMYulLean artifacts
+      uses: ./.github/actions/check-generated-sources
+      with:
+        generated-paths: |
+          formal/exp/ExpProof/ExpProof/ExpYulRuntime.lean
+          formal/exp/ExpProof/ExpProof/ExpYulProof.lean
+        generator: |
+          ./formal/yul/generate_from_forge.sh \
+            exp \
+            src/wrappers/ExpWrapper.sol:ExpWrapper \
+            formal/exp/ExpProof/ExpProof/ExpYul.lean \
+            0.8.34
+
+    - name: Generate Exp certificates
+      uses: ./.github/actions/check-generated-sources
+      with:
+        working-directory: formal/exp/ExpProof
+        generated-paths: ExpProof/Cert
+        generator: |
+          for path in .lake/build/lib/lean/ExpProof/Cert .lake/build/ir/ExpProof/Cert; do
+            if [[ -e "$path" ]]; then
+              rm -r -- "$path"
+            fi
+          done
+          lake build \
+            ExpProof.Floor.CertDefsV \
+            ExpProof.Floor.GranPieces \
+            ExpProof.Floor.UnderCarryDefs \
+            Common.Foundation.KroneckerShift \
+            Common.GenCover \
+            Common.GenBernstein
+          lake env lean GenExpVLit.lean
+          lake env lean GenExpUnderCarry.lean
+
+    - name: Build Exp proof package
+      shell: bash
+      working-directory: formal/exp/ExpProof
+      run: lake build

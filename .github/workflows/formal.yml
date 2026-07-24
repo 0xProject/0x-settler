@@ -1,0 +1,743 @@
+name: Formal Checks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+jobs:
+  route:
+    name: Select formal checks
+    runs-on: ubuntu-latest
+    outputs:
+      any: ${{ steps.route.outputs.any }}
+      common: ${{ steps.route.outputs.common }}
+      cbrt: ${{ steps.route.outputs.cbrt }}
+      cbrt512: ${{ steps.route.outputs.cbrt512 }}
+      sqrt: ${{ steps.route.outputs.sqrt }}
+      sqrt512: ${{ steps.route.outputs.sqrt512 }}
+      ln: ${{ steps.route.outputs.ln }}
+      exp: ${{ steps.route.outputs.exp }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select affected formal packages
+        id: route
+        uses: ./.github/actions/route-formal
+        with:
+          event-name: ${{ github.event_name }}
+          before-sha: ${{ github.event.before }}
+          base-sha: ${{ github.event.pull_request.base.sha }}
+          head-sha: ${{ github.event.pull_request.head.sha || github.sha }}
+
+  base:
+    name: Publish formal base caches
+    needs: route
+    if: needs.route.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Build and publish the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "true"
+          lean-toolchain-files: |
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+            formal/common/lean-toolchain
+            formal/ln/LnProof/lean-toolchain
+            formal/exp/ExpProof/lean-toolchain
+            formal/cbrt/CbrtProof/lean-toolchain
+            formal/cbrt/Cbrt512Proof/lean-toolchain
+            formal/sqrt/SqrtProof/lean-toolchain
+            formal/sqrt/Sqrt512Proof/lean-toolchain
+
+  common:
+    name: Common formal check
+    needs:
+      - route
+      - base
+    if: needs.route.outputs.common == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/common/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Common package cache
+        id: common-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: common
+          publish: "true"
+          cache-path: formal/common/.lake/build
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/common/lean-toolchain
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/Common.lean
+            formal/common/Common/**/*.lean
+            .github/actions/build-common-proof/**
+
+      - name: Build Common package after a cache miss
+        if: steps.common-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-common-proof
+
+  cbrt:
+    name: Cbrt.sol formal check
+    needs:
+      - route
+      - base
+    if: needs.route.outputs.cbrt == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/cbrt/CbrtProof/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Cbrt package cache
+        id: cbrt-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: cbrt
+          publish: "true"
+          cache-path: |
+            formal/cbrt/CbrtProof/.lake/build
+            formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/cbrt/CbrtProof/lean-toolchain
+            formal/cbrt/CbrtProof/lakefile.toml
+            formal/cbrt/CbrtProof/lake-manifest.json
+            formal/cbrt/CbrtProof/**/*.lean
+            formal/python/cbrt/**/*.py
+            src/vendor/Cbrt.sol
+            src/wrappers/CbrtWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-cbrt-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Build Cbrt proof package after a cache miss
+        if: steps.cbrt-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-cbrt-proof
+
+  sqrt:
+    name: Sqrt.sol formal check
+    needs:
+      - route
+      - base
+    if: needs.route.outputs.sqrt == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/sqrt/SqrtProof/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Sqrt package cache
+        id: sqrt-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: sqrt
+          publish: "true"
+          cache-path: |
+            formal/sqrt/SqrtProof/.lake/build
+            formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/sqrt/SqrtProof/lean-toolchain
+            formal/sqrt/SqrtProof/lakefile.toml
+            formal/sqrt/SqrtProof/lake-manifest.json
+            formal/sqrt/SqrtProof/**/*.lean
+            formal/python/sqrt/**/*.py
+            src/vendor/Sqrt.sol
+            src/wrappers/SqrtWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-sqrt-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Build Sqrt proof package after a cache miss
+        if: steps.sqrt-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-sqrt-proof
+
+  cbrt512:
+    name: 512Math cbrt formal check
+    needs:
+      - route
+      - base
+      - cbrt
+    if: needs.route.outputs.cbrt512 == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/cbrt/Cbrt512Proof/lean-toolchain
+            formal/cbrt/CbrtProof/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Cbrt dependency cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: cbrt
+          publish: "false"
+          cache-path: |
+            formal/cbrt/CbrtProof/.lake/build
+            formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/cbrt/CbrtProof/lean-toolchain
+            formal/cbrt/CbrtProof/lakefile.toml
+            formal/cbrt/CbrtProof/lake-manifest.json
+            formal/cbrt/CbrtProof/**/*.lean
+            formal/python/cbrt/**/*.py
+            src/vendor/Cbrt.sol
+            src/wrappers/CbrtWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-cbrt-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Restore Cbrt512 package cache
+        id: cbrt512-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: cbrt512
+          publish: "true"
+          cache-path: |
+            formal/cbrt/Cbrt512Proof/.lake/build
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulRuntime.lean
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+            formal/cbrt/CbrtProof/lean-toolchain
+            formal/cbrt/CbrtProof/lakefile.toml
+            formal/cbrt/CbrtProof/lake-manifest.json
+            formal/cbrt/CbrtProof/**/*.lean
+            formal/python/cbrt/**/*.py
+            src/vendor/Cbrt.sol
+            src/wrappers/CbrtWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-cbrt-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+          source-hash-globs: |
+            formal/cbrt/Cbrt512Proof/lean-toolchain
+            formal/cbrt/Cbrt512Proof/lakefile.toml
+            formal/cbrt/Cbrt512Proof/lake-manifest.json
+            formal/cbrt/Cbrt512Proof/**/*.lean
+            src/utils/512Math.sol
+            src/utils/FastLogic.sol
+            src/utils/Panic.sol
+            src/utils/Ternary.sol
+            src/utils/UnsafeMath.sol
+            src/vendor/Clz.sol
+            src/vendor/Cbrt.sol
+            src/vendor/Sqrt.sol
+            src/wrappers/Cbrt512Wrapper.sol
+            lib/forge-std/src/interfaces/IERC20.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-cbrt512-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Build Cbrt512 proof package after a cache miss
+        if: steps.cbrt512-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-cbrt512-proof
+
+  sqrt512:
+    name: 512Math sqrt formal check
+    needs:
+      - route
+      - base
+      - sqrt
+    if: needs.route.outputs.sqrt512 == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/sqrt/Sqrt512Proof/lean-toolchain
+            formal/sqrt/SqrtProof/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Sqrt dependency cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: sqrt
+          publish: "false"
+          cache-path: |
+            formal/sqrt/SqrtProof/.lake/build
+            formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/sqrt/SqrtProof/lean-toolchain
+            formal/sqrt/SqrtProof/lakefile.toml
+            formal/sqrt/SqrtProof/lake-manifest.json
+            formal/sqrt/SqrtProof/**/*.lean
+            formal/python/sqrt/**/*.py
+            src/vendor/Sqrt.sol
+            src/wrappers/SqrtWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-sqrt-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Restore Sqrt512 package cache
+        id: sqrt512-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: sqrt512
+          publish: "true"
+          cache-path: |
+            formal/sqrt/Sqrt512Proof/.lake/build
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulRuntime.lean
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+            formal/sqrt/SqrtProof/lean-toolchain
+            formal/sqrt/SqrtProof/lakefile.toml
+            formal/sqrt/SqrtProof/lake-manifest.json
+            formal/sqrt/SqrtProof/**/*.lean
+            formal/python/sqrt/**/*.py
+            src/vendor/Sqrt.sol
+            src/wrappers/SqrtWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-sqrt-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+          source-hash-globs: |
+            formal/sqrt/Sqrt512Proof/lean-toolchain
+            formal/sqrt/Sqrt512Proof/lakefile.toml
+            formal/sqrt/Sqrt512Proof/lake-manifest.json
+            formal/sqrt/Sqrt512Proof/**/*.lean
+            src/utils/512Math.sol
+            src/utils/FastLogic.sol
+            src/utils/Panic.sol
+            src/utils/Ternary.sol
+            src/utils/UnsafeMath.sol
+            src/vendor/Clz.sol
+            src/vendor/Cbrt.sol
+            src/vendor/Sqrt.sol
+            src/wrappers/Sqrt512Wrapper.sol
+            lib/forge-std/src/interfaces/IERC20.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-sqrt512-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Build Sqrt512 proof package after a cache miss
+        if: steps.sqrt512-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-sqrt512-proof
+
+  ln:
+    name: Ln.sol formal check
+    needs:
+      - route
+      - base
+      - common
+    if: needs.route.outputs.ln == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/ln/LnProof/lean-toolchain
+            formal/common/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Common dependency cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: common
+          publish: "false"
+          cache-path: formal/common/.lake/build
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/common/lean-toolchain
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/Common.lean
+            formal/common/Common/**/*.lean
+            .github/actions/build-common-proof/**
+
+      - name: Restore Ln package cache
+        id: ln-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: ln
+          publish: "true"
+          cache-path: |
+            formal/ln/LnProof/.lake/build
+            formal/ln/LnProof/LnProof/Cert
+            formal/ln/LnProof/LnProof/LnYulRuntime.lean
+            formal/ln/LnProof/LnProof/LnYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+            formal/common/lean-toolchain
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/Common.lean
+            formal/common/Common/**/*.lean
+          source-hash-globs: |
+            formal/ln/LnProof/lean-toolchain
+            formal/ln/LnProof/lakefile.toml
+            formal/ln/LnProof/lake-manifest.json
+            formal/ln/LnProof/**/*.lean
+            src/vendor/Ln.sol
+            src/utils/Panic.sol
+            src/wrappers/LnWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-ln-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Build Ln proof package after a cache miss
+        if: steps.ln-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-ln-proof
+
+  exp:
+    name: Exp.sol formal check
+    needs:
+      - route
+      - base
+      - common
+      - ln
+    if: needs.route.outputs.exp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore the formal base
+        uses: ./.github/actions/setup-formal
+        with:
+          publish: "false"
+          lean-toolchain-files: |
+            formal/exp/ExpProof/lean-toolchain
+            formal/ln/LnProof/lean-toolchain
+            formal/common/lean-toolchain
+            formal/yul/lean-toolchain
+            lib/EVMYulLean/lean-toolchain
+
+      - name: Restore Common dependency cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: common
+          publish: "false"
+          cache-path: formal/common/.lake/build
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+          source-hash-globs: |
+            formal/common/lean-toolchain
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/Common.lean
+            formal/common/Common/**/*.lean
+            .github/actions/build-common-proof/**
+
+      - name: Restore Ln dependency cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: ln
+          publish: "false"
+          cache-path: |
+            formal/ln/LnProof/.lake/build
+            formal/ln/LnProof/LnProof/Cert
+            formal/ln/LnProof/LnProof/LnYulRuntime.lean
+            formal/ln/LnProof/LnProof/LnYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+            formal/common/lean-toolchain
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/Common.lean
+            formal/common/Common/**/*.lean
+          source-hash-globs: |
+            formal/ln/LnProof/lean-toolchain
+            formal/ln/LnProof/lakefile.toml
+            formal/ln/LnProof/lake-manifest.json
+            formal/ln/LnProof/**/*.lean
+            src/vendor/Ln.sol
+            src/utils/Panic.sol
+            src/wrappers/LnWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-ln-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Restore Exp package cache
+        id: exp-cache
+        uses: ./.github/actions/cache-formal-package
+        with:
+          cache-name: exp
+          publish: "true"
+          cache-path: |
+            formal/exp/ExpProof/.lake/build
+            formal/exp/ExpProof/ExpProof/Cert
+            formal/exp/ExpProof/ExpProof/ExpYulRuntime.lean
+            formal/exp/ExpProof/ExpProof/ExpYulProof.lean
+          dependency-hash-globs: |
+            formal/yul/lean-toolchain
+            formal/yul/lakefile.toml
+            formal/yul/lake-manifest.json
+            formal/yul/FormalYul.lean
+            formal/yul/YulImporter.lean
+            formal/yul/FormalYul/**/*.lean
+            lib/EVMYulLean/lean-toolchain
+            lib/EVMYulLean/lakefile.lean
+            lib/EVMYulLean/lake-manifest.json
+            lib/EVMYulLean/**/*.lean
+            formal/common/lean-toolchain
+            formal/common/lakefile.toml
+            formal/common/lake-manifest.json
+            formal/common/Common.lean
+            formal/common/Common/**/*.lean
+            formal/ln/LnProof/lean-toolchain
+            formal/ln/LnProof/lakefile.toml
+            formal/ln/LnProof/lake-manifest.json
+            formal/ln/LnProof/**/*.lean
+            src/vendor/Ln.sol
+            src/utils/Panic.sol
+            src/wrappers/LnWrapper.sol
+            .github/actions/build-ln-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+          source-hash-globs: |
+            formal/exp/ExpProof/lean-toolchain
+            formal/exp/ExpProof/lakefile.toml
+            formal/exp/ExpProof/lake-manifest.json
+            formal/exp/ExpProof/**/*.lean
+            src/vendor/Exp.sol
+            src/vendor/Clz.sol
+            src/utils/FastLogic.sol
+            src/utils/Panic.sol
+            src/wrappers/ExpWrapper.sol
+            formal/yul/generate_from_forge.sh
+            foundry.toml
+            remappings.txt
+            .gitmodules
+            .github/actions/build-exp-proof/**
+            .github/actions/check-generated-sources/**
+            .github/actions/fetch-lean-cache/**
+
+      - name: Build Exp proof package after a cache miss
+        if: steps.exp-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/build-exp-proof

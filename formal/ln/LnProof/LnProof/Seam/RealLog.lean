@@ -51,6 +51,32 @@ lemma reciprocal_wadRatio {x : Nat} (hx : 0 < x) :
   have hxR : (x : Real) ≠ 0 := by exact_mod_cast ne_of_gt hx
   field_simp [hxR]
 
+lemma cutLeLogWadRay_of_lt {r : Int} {x : Nat} (hx : 0 < x)
+    (h : (r : Real) / ((10 ^ 27 : Nat) : Real) <
+      Real.log ((x : Real) / ((10 ^ 18 : Nat) : Real))) :
+    CutLeLogWadRay r x := by
+  have hratio : 0 < (x : Real) / ((10 ^ 18 : Nat) : Real) := wadRatio_pos hx
+  by_cases hr : 0 ≤ r
+  · rw [CutLeLogWadRay, if_pos hr]
+    unfold CutExpLe
+    apply capUB_of_exp_le QS_pos (by decide)
+    rw [ray_exp_arg_of_nonneg hr]
+    calc
+      Real.exp ((r : Real) / ((10 ^ 27 : Nat) : Real))
+          ≤ Real.exp (Real.log ((x : Real) / ((10 ^ 18 : Nat) : Real))) :=
+        Real.exp_le_exp.mpr h.le
+      _ = (x : Real) / ((10 ^ 18 : Nat) : Real) := Real.exp_log hratio
+  · have hrlt : r < 0 := by omega
+    rw [CutLeLogWadRay, if_neg hr]
+    unfold CutRatioLeExp
+    apply capLB_of_lt_exp QS_pos hx
+    rw [ray_exp_arg_of_neg hrlt]
+    have hneg : -Real.log ((x : Real) / ((10 ^ 18 : Nat) : Real)) <
+        -((r : Real) / ((10 ^ 27 : Nat) : Real)) := by linarith
+    have hexp := Real.exp_lt_exp.mpr hneg
+    rw [Real.exp_neg, Real.exp_log hratio, ← reciprocal_wadRatio hx] at hexp
+    exact hexp
+
 lemma le_rayLog_of_cutLeLogWadRay {r : Int} {x : Nat} (hx : 0 < x)
     (hcut : CutLeLogWadRay r x) :
     (r : Real) ≤ ((10 ^ 27 : Nat) : Real) * Real.log ((x : Real) / ((10 ^ 18 : Nat) : Real)) := by

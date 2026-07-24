@@ -3,6 +3,7 @@ import ExpProof.Mono.ShellOn
 import ExpProof.Mono.RunBridge
 import ExpProof.Mono.Pin
 import ExpProof.Mono.Seam
+import ExpProof.Mul.WordBridge
 
 /-!
 # Top-level monotonicity reduction
@@ -30,7 +31,7 @@ set_option maxRecDepth 100000
 /-- The analytic monotonicity facts on the meaningful region `int256 C < int256 x < C0`
 (for canonical words). -/
 structure RegionMonotonicityFacts : Prop where
-  /-- `r1Tree` never exceeds `≈ 2^123 < 2^254`. -/
+  /-- This bound prevents signed-word wrap in the arithmetic comparisons below. -/
   range : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x →
     int256 x < int256 C0thresh → r1Tree x < 2 ^ 254
   /-- `0 ≤ r1Tree` on the region (the floored `exp` value is never negative). -/
@@ -149,6 +150,47 @@ theorem domain_of_below_C0 {x : Nat} (hx : x < 2 ^ 256) (h : int256 x < int256 C
     rw [hC0]; exact_mod_cast h
   · right; omega
 
+theorem expTree_int128_range {x : Nat} (hx : x < 2 ^ 256)
+    (hdom : int256 x < int256 C0thresh) : expTree x < 2 ^ 127 := by
+  have hu : u256 x = x := u256_id hx
+  have huC : u256 Cmask = Cmask := u256_id Cmask_lt
+  by_cases hC : int256 Cmask < int256 x
+  · by_cases hx0 : x = 0
+    · subst hx0
+      have hzero : expTree 0 = 1000000000000000000 := by
+        unfold expTree
+        rw [r1Tree_zero]
+        decide
+      rw [hzero]
+      norm_num
+    · have hr1 := r1Tree_int128_range hx hC hdom
+      have hmask : int256 (u256 Cmask) < int256 (u256 x) := by
+        rw [huC, hu]
+        exact hC
+      have heq := int256_expTree_of_gt hmask
+        (lt_trans hr1 (by norm_num : (2 : Nat) ^ 127 < 2 ^ 254))
+      rw [hu, if_neg hx0] at heq
+      have hnn : 0 ≤ int256 (expTree x) := by
+        rw [heq]
+        positivity
+      obtain ⟨hi, _⟩ := int256_eq_of_nonneg (expTree_lt x) hnn
+      have hcast : ((expTree x : Nat) : Int) < 2 ^ 127 := by
+        rw [← hi, heq]
+        simp only [zero_add]
+        exact_mod_cast hr1
+      exact_mod_cast hcast
+  · have hle : int256 (u256 x) ≤ int256 (u256 Cmask) := by
+      rw [hu, huC]
+      omega
+    rw [expTree_eq_zero_of_le hle]
+    norm_num
+
+theorem expTree_int128_word {x : Nat} (hx : x < 2 ^ 256)
+    (hdom : int256 x < int256 C0thresh) :
+    EvmYul.UInt256.signextend (FormalYul.word 15) (FormalYul.word (expTree x)) =
+      FormalYul.word (expTree x) :=
+  signextend_15_nonnegative (expTree_int128_range hx hdom)
+
 /-- **Runtime monotonicity.** Under the region monotonicity facts, the compiled
 `expRayToWad` signed results are `≤`-ordered for ordered canonical inputs strictly below the
 supported threshold (the entire non-reverting `int256` domain). -/
@@ -160,7 +202,9 @@ theorem run_exp_ray_to_wad_evm_mono (H : RegionMonotonicityFacts) (x1 x2 : Nat)
   have hdom1 : int256 x1 < int256 C0thresh := lt_of_le_of_lt hle hdom
   refine ⟨expTree x1, expTree x2, ?_, ?_, ?_⟩
   · exact run_exp_ray_to_wad_evm_eq_expTree x1 (domain_of_below_C0 hx1 hdom1)
+      (expTree_int128_word hx1 hdom1)
   · exact run_exp_ray_to_wad_evm_eq_expTree x2 (domain_of_below_C0 hx2 hdom)
+      (expTree_int128_word hx2 hdom)
   · exact expTree_mono H hx1 hx2 hle hdom
 
 /-- **Runtime monotonicity, modulo the octave seam.** With `range`/`nonneg` and the

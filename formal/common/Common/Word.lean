@@ -235,6 +235,21 @@ theorem wordNat_slt (a b : EvmYul.UInt256) :
     rw [hua', hub', word_mod_eq]
   rw [hLHS, hRHS]
 
+theorem wordNat_sgt (a b : EvmYul.UInt256) :
+    wordNat (EvmYul.UInt256.sgt a b) = evmSgt (wordNat a) (wordNat b) := by
+  have hbool : EvmYul.UInt256.sgtBool a b = EvmYul.UInt256.sltBool b a := by
+    unfold EvmYul.UInt256.sgtBool EvmYul.UInt256.sltBool
+    by_cases ha : 2 ^ 255 ≤ a.toNat <;> by_cases hb : 2 ^ 255 ≤ b.toNat
+    · rw [if_pos ha, if_pos hb, if_pos hb, if_pos ha]
+    · rw [if_pos ha, if_neg hb, if_neg hb, if_pos ha]
+    · rw [if_neg ha, if_pos hb, if_pos hb, if_neg ha]
+    · rw [if_neg ha, if_neg hb, if_neg hb, if_neg ha]
+  unfold EvmYul.UInt256.sgt
+  rw [hbool]
+  change wordNat (EvmYul.UInt256.slt b a) = evmSgt (wordNat a) (wordNat b)
+  rw [wordNat_slt b a]
+  rfl
+
 /-- An `evmAdd` result is already `u256`-wrapped, so injecting it through `ofNat` and reading its
 `toNat` is the identity. Discharges the run-level `resultWord` extraction without re-stating the
 evm* tree. -/
@@ -248,6 +263,13 @@ theorem evmSlt_u256_left (a b : Nat) : evmSlt (u256 a) b = evmSlt a b := by
   simp only [evmSlt, u256_idem]
 theorem evmSlt_u256_right (a b : Nat) : evmSlt a (u256 b) = evmSlt a b := by
   simp only [evmSlt, u256_idem]
+theorem evmSgt_u256_left (a b : Nat) : evmSgt (u256 a) b = evmSgt a b := by
+  simp only [evmSgt, u256_idem]
+theorem evmSgt_u256_right (a b : Nat) : evmSgt a (u256 b) = evmSgt a b := by
+  simp only [evmSgt, u256_idem]
+theorem u256_evmSgt (a b : Nat) : u256 (evmSgt a b) = evmSgt a b := by
+  unfold evmSgt
+  split <;> simp [u256, WORD_MOD]
 
 theorem evmSar_u256_left (s v : Nat) : evmSar (u256 s) v = evmSar s v := by
   simp only [evmSar, u256_idem]
@@ -257,6 +279,89 @@ theorem evmSdiv_u256_left (a b : Nat) : evmSdiv (u256 a) b = evmSdiv a b := by
   simp only [evmSdiv, u256_idem]
 theorem evmSdiv_u256_right (a b : Nat) : evmSdiv a (u256 b) = evmSdiv a b := by
   simp only [evmSdiv, u256_idem]
+
+def evmXor (a b : Nat) : Nat :=
+  u256 a ^^^ u256 b
+
+theorem u256_evmXor (a b : Nat) : u256 (evmXor a b) = evmXor a b := by
+  unfold evmXor
+  apply u256_eq_self_of_lt
+  rw [word_mod_eq]
+  apply Nat.xor_lt_two_pow
+  · exact u256_lt_word a
+  · exact u256_lt_word b
+
+theorem evmXor_u256_left (a b : Nat) : evmXor (u256 a) b = evmXor a b := by
+  simp only [evmXor, u256_idem]
+
+theorem evmXor_u256_right (a b : Nat) : evmXor a (u256 b) = evmXor a b := by
+  simp only [evmXor, u256_idem]
+
+theorem evmSar_lt_WORD_MOD (s v : Nat) : evmSar s v < WORD_MOD := by
+  have hs : s % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; positivity)
+  have hv : v % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; positivity)
+  unfold evmSar u256
+  dsimp only
+  split_ifs
+  · unfold WORD_MOD; norm_num
+  · exact Nat.lt_of_le_of_lt (Nat.sub_le _ _) (by unfold WORD_MOD; norm_num)
+  · unfold WORD_MOD; norm_num
+  · exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hv
+
+theorem u256_evmSar (s v : Nat) : u256 (evmSar s v) = evmSar s v := by
+  exact u256_eq_self_of_lt (evmSar_lt_WORD_MOD s v)
+
+theorem wordNat_xor (a b : EvmYul.UInt256) :
+    wordNat (EvmYul.UInt256.xor a b) = evmXor (wordNat a) (wordNat b) := by
+  cases a with
+  | mk av =>
+  cases b with
+  | mk bv =>
+  cases av with
+  | mk av hav =>
+  cases bv with
+  | mk bv hbv =>
+  have hav' : av < EvmYul.UInt256.size := by
+    simpa [EvmYul.UInt256.size] using hav
+  have hbv' : bv < EvmYul.UInt256.size := by
+    simpa [EvmYul.UInt256.size] using hbv
+  have hxorlt : Nat.xor av bv < EvmYul.UInt256.size := by
+    rw [show EvmYul.UInt256.size = 2 ^ 256 by rfl]
+    apply Nat.xor_lt_two_pow
+    · simpa [EvmYul.UInt256.size] using hav
+    · simpa [EvmYul.UInt256.size] using hbv
+  have hxormod :
+      Nat.xor av bv %
+          115792089237316195423570985008687907853269984665640564039457584007913129639936 =
+        Nat.xor av bv := by
+    simpa [EvmYul.UInt256.size] using Nat.mod_eq_of_lt hxorlt
+  have havmod :
+      av % 115792089237316195423570985008687907853269984665640564039457584007913129639936 =
+        av := by
+    simpa [EvmYul.UInt256.size] using Nat.mod_eq_of_lt hav'
+  have hbvmod :
+      bv % 115792089237316195423570985008687907853269984665640564039457584007913129639936 =
+        bv := by
+    simpa [EvmYul.UInt256.size] using Nat.mod_eq_of_lt hbv'
+  simp [wordNat, evmXor, u256, WORD_MOD, EvmYul.UInt256.xor, Fin.xor,
+    EvmYul.UInt256.toNat, EvmYul.UInt256.size, hxormod, havmod, hbvmod]
+  rfl
+
+theorem uint256_ofNat_xor_eq_word_evmXor (a b : Nat) :
+    EvmYul.UInt256.xor (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmXor a b) := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [wordNat_xor, FormalYul.Preservation.wordNat_ofNat,
+    FormalYul.Preservation.wordNat_word]
+  simp [evmXor_u256_left, evmXor_u256_right, u256_evmXor]
+
+theorem uint256_ofNat_sar_eq_word_evmSar (s v : Nat) :
+    EvmYul.UInt256.sar (EvmYul.UInt256.ofNat s) (EvmYul.UInt256.ofNat v) =
+      word (evmSar s v) := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [wordNat_sar, FormalYul.Preservation.wordNat_ofNat,
+    FormalYul.Preservation.wordNat_word]
+  simp [evmSar_u256_left, evmSar_u256_right, u256_evmSar]
 
 /-! ## Shift and division floor lemmas (general shift amounts) -/
 

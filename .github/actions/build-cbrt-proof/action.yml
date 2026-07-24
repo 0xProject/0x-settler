@@ -1,0 +1,26 @@
+name: Build CbrtProof
+description: Generate CbrtProof sources once and build the package.
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Cbrt proof sources
+      uses: ./.github/actions/check-generated-sources
+      with:
+        generated-paths: |
+          formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean
+          formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean
+          formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
+        generator: |
+          ./formal/yul/generate_from_forge.sh \
+            cbrt \
+            src/wrappers/CbrtWrapper.sol:CbrtWrapper \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
+            0.8.34
+          python3 formal/python/cbrt/generate_cbrt_cert.py \
+            --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
+
+    - name: Build Cbrt proof package
+      shell: bash
+      working-directory: formal/cbrt/CbrtProof
+      run: lake build

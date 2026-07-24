@@ -5,7 +5,7 @@
 /LnProof/LnYulRuntime.lean
 /LnProof/LnYulProof.lean
 
-# Lean-generated certificate literals and cell covers — the whole Cert/ tree is
-# machine output (floor + error-bound literals, cell covers, bias cap numerator).
+# Lean-generated certificate literals, cells, and aggregate covers — the whole
+# Cert/ tree is machine output.
 /LnProof/Cert/*
 !/LnProof/Cert/.gitkeep

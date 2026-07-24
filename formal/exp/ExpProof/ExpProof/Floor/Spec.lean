@@ -8,13 +8,13 @@ import ExpProof.Mono.RangeNonneg
 # Floor + branch assembly: the public `Real.exp` brackets
 
 `run_exp_ray_to_wad_evm_eq_expTree` returns `expTree x`, the clamp/pin shell around the floored
-accumulator `r1Tree x = shr(68 − k, r0 − MARGIN)`. On the meaningful region the closing shift
-`s = 68 − k ∈ [4, 129]` is positive and the shift argument `arg = r0 − MARGIN` is a
+accumulator `r1Tree x = shr(67 − k, r0 − MARGIN)` with `MARGIN = 1`. On the meaningful region the
+closing shift `s = 67 − k ∈ [2, 127]` is positive and the shift argument `arg = r0 − MARGIN` is a
 nonnegative canonical word, so the runtime result is exactly the integer floor `⌊arg / 2^s⌋` of the
 *real* pre-floor accumulator
 
 ```
-A = (r0 − MARGIN) / 2^(68 − k).
+A = (r0 − MARGIN) / 2^(67 − k).
 ```
 
 The two floor facts `(r : Real) ≤ A` and `A < (r : Real) + 1` (i.e. `r = ⌊A⌋`) are established here
@@ -87,10 +87,10 @@ theorem shr_real_floor {W s : Nat} (hs : s < 256) (hWw : W < 2 ^ 256) (hWnn : 0 
 /-! ## The runtime accumulator as a real number
 
 For `x > 0` in the meaningful region the result is the body word, `expTree x = r1Tree x`, with
-`r1Tree x = evmShr (68 − k) (r0 − MARGIN)`. Its real pre-floor accumulator is
+`r1Tree x = evmShr (67 − k) (r0 − MARGIN)`. Its real pre-floor accumulator is
 
 ```
-A x = int256 (r0 − MARGIN) / 2^(68 − k).
+A x = int256 (r0 − MARGIN) / 2^(67 − k).
 ```
 -/
 

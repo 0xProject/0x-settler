@@ -1,0 +1,23 @@
+name: Build Sqrt512Proof
+description: Generate Sqrt512Proof sources once and build the package.
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Sqrt512 EVMYulLean artifacts
+      uses: ./.github/actions/check-generated-sources
+      with:
+        generated-paths: |
+          formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulRuntime.lean
+          formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulProof.lean
+        generator: |
+          ./formal/yul/generate_from_forge.sh \
+            sqrt512 \
+            src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper \
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean \
+            0.8.34
+
+    - name: Build Sqrt512 proof package
+      shell: bash
+      working-directory: formal/sqrt/Sqrt512Proof
+      run: lake build

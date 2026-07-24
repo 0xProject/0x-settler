@@ -6,14 +6,15 @@ open FormalYul
 open FormalYul.Preservation
 
 /-!
-# Constant-piece exponential caps
+# Constant-piece caps for the strict-margin bound
 
 Every exponent in the floor-specification assembly is an integer multiple
 of `1/(10^27 2^99)`: the model's quotient contributes `X1/2^99`, the
 exponent word contributes `k LN2c/(2^72 10^27)`, and the bias contributes
-`BIASc/(2^72 10^27)`. This file pins two-sided caps for the two constant
-pieces and a lower cap for one output ulp, each by a single kernel-checked
-partial sum (`capUB_of_partial` carries the geometric tail).
+`BIASc/(2^72 10^27)`. The strict-margin bound uses two-sided caps for the
+scaled `ln 2` piece, a lower cap for the bias, and a lower cap for one output
+ulp. Each cap is pinned by a kernel-checked partial sum; upper caps also carry
+the geometric tail.
 -/
 
 set_option maxRecDepth 8192
@@ -30,13 +31,6 @@ theorem cap2U : capUB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 + 1)) (10 ^ 40) := by
 /-- `e^(LN2c 2^27 / QS) ≥ 2 (1 - 1e-40)`. -/
 theorem cap2L : capLB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 - 1)) (10 ^ 40) :=
   ⟨40, by decide⟩
-
-/-- `e^(BIASc 2^27 / QS) ≤ (S/10^18)(1 - 3.386e-28)`: the bias keeps almost
-all of its 0.33866-ulp margin through the cap. -/
-theorem capBU : capUB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3383))
-    (10 ^ 18 * 10 ^ 31) := by
-  refine capUB_of_partial (K := 130) QS_pos (by decide) ?_
-  decide
 
 /-- `e^(BIASc 2^27 / QS) ≥ (S/10^18)(1 - 3.404e-28)`. -/
 theorem capBL : capLB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3384))

@@ -8,21 +8,26 @@ on:
       - fork/shanghai
   pull_request:
 
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   size-limit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Node.js 18.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 18.x
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@b00af27efadbc7b4ca8b82abbd903b17cc874d2a # v1.9.0
         with:
           version: v1.5.1
 
@@ -38,4 +43,9 @@ jobs:
         run: npm install
 
       - name: Check chain-specific Settler contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' -- src/chains/
+        run: |
+          set -Eeufo pipefail -o posix
+          jq -r '.[].displayName' < chain_config.json | while IFS= read -r chain ; do
+            echo 'Checking sizes for '"$chain" >&2
+            forge build --sizes -- src/chains/"$chain"
+          done

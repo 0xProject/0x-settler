@@ -28,18 +28,17 @@ set_option maxRecDepth 100000
 
 /-! ## The reduced-argument bound `|t| < 2^128` -/
 
-/-- On the meaningful region the reduced argument is bounded: `-2^128 < int256 (tTree x) < 2^128`.
+/-- On the wide region the reduced argument is bounded: `-2^128 < int256 (tTree x) < 2^128`.
 The octave reduction couples `k` to `x` (`2^192·k ≈ CINV·x`), so the residual `K27·x − LN2·k`
 stays inside `±ln2/2·2^235`, leaving `|t| < ln2/2·2^129 < 2^128`. -/
-theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem tTree_bound_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     -(2 ^ 128 : Int) < int256 (tTree x) ∧ int256 (tTree x) < 2 ^ 128 := by
-  obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
-  obtain ⟨hklo, hkhi⟩ := kTree_sandwich hx hC hC0
-  obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
+  obtain ⟨htlo, hthi⟩ := tTree_sandwich_wide hx hW
+  obtain ⟨hklo, hkhi⟩ := kTree_sandwich_wide hx hW
+  obtain ⟨hxlo, hxhi⟩ := region_x_bound_wide hW
   -- numeric forms
-  have hb96 : (2 : Int) ^ 96 = 79228162514264337593543950336 := by norm_num
-  rw [hb96] at hxlo hxhi
+  have hb97 : (2 : Int) ^ 97 = 158456325028528675187087900672 := by norm_num
+  rw [hb97] at hxlo hxhi
   -- constants as decimal
   have hK27 : (0x279d346de4781f921dd7a89933d54d1f72928 : Int) =
       55213970774324510299478046898216203619608872 := by norm_num
@@ -108,19 +107,23 @@ theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
   · nlinarith [htlo', hthi', hklo', hkhi', hxlo, hxhi]
   · nlinarith [htlo', hthi', hklo', hkhi', hxlo, hxhi]
 
-/-- The sharper reduced-argument bound `|t| < 1.2·10^38`: the true envelope is
-`ln2/2 · 2^128 ≈ 1.1793·10^38`, and this relaxation still squares below `2^253`, which is what the
+theorem tTree_bound {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    -(2 ^ 128 : Int) < int256 (tTree x) ∧ int256 (tTree x) < 2 ^ 128 :=
+  tTree_bound_wide hx (wideRegion_of_wad hC hC0)
+
+/-- The sharper reduced-argument bound `|t| < 2.4·10^38`: the true envelope is
+`ln2/2 · 2^129 ≈ 2.3587·10^38`, and this relaxation still squares below `2^253`, which is what the
 Q123 square and the monic-stage multiply safety need. Same sandwich elimination as `tTree_bound`,
 closed against the sharper literal. -/
-theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem tTree_bound_sharp_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     -(240000000000000000000000000000000000000 : Int) < int256 (tTree x) ∧
       int256 (tTree x) < 240000000000000000000000000000000000000 := by
-  obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
-  obtain ⟨hklo, hkhi⟩ := kTree_sandwich hx hC hC0
-  obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
-  have hb96 : (2 : Int) ^ 96 = 79228162514264337593543950336 := by norm_num
-  rw [hb96] at hxlo hxhi
+  obtain ⟨htlo, hthi⟩ := tTree_sandwich_wide hx hW
+  obtain ⟨hklo, hkhi⟩ := kTree_sandwich_wide hx hW
+  obtain ⟨hxlo, hxhi⟩ := region_x_bound_wide hW
+  have hb97 : (2 : Int) ^ 97 = 158456325028528675187087900672 := by norm_num
+  rw [hb97] at hxlo hxhi
   have hK27 : (0x279d346de4781f921dd7a89933d54d1f72928 : Int) =
       55213970774324510299478046898216203619608872 := by norm_num
   have hLN2 : (0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d : Int) =
@@ -182,14 +185,19 @@ theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
   · nlinarith [htlo', hthi', hklo', hkhi', hxlo, hxhi]
   · nlinarith [htlo', hthi', hklo', hkhi', hxlo, hxhi]
 
+theorem tTree_bound_sharp {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    -(240000000000000000000000000000000000000 : Int) < int256 (tTree x) ∧
+      int256 (tTree x) < 240000000000000000000000000000000000000 :=
+  tTree_bound_sharp_wide hx (wideRegion_of_wad hC hC0)
+
 /-! ## `v = t²` in Q123 -/
 
 /-- The Q123 square `v = ⌊t²/2^135⌋` as a `Nat`: nonnegative, and `< 2^120`. The shift argument
 `t·t` fits in a word because `|t| < 2.4·10^38` gives `t² < 2^255`. -/
-theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+theorem vTree_eq_wide {x : Nat} (hx : x < 2 ^ 256) (hW : WideRegion x) :
     (vTree x : Int) = (int256 (tTree x))^2 / 2 ^ 135 ∧ vTree x < 2 ^ 120 := by
-  obtain ⟨htlo, hthi⟩ := tTree_bound_sharp hx hC hC0
+  obtain ⟨htlo, hthi⟩ := tTree_bound_sharp_wide hx hW
   have htw : tTree x < 2 ^ 256 := by unfold tTree; exact evmSar_lt _ _
   -- the signed square equals the unsigned product of the canonical word with itself
   set t := int256 (tTree x) with htdef
@@ -229,6 +237,11 @@ theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
     have he : (2:Nat) ^ 255 / 2 ^ 135 = 2 ^ 120 := by
       rw [Nat.pow_div (by norm_num) (by norm_num)]
     omega
+
+theorem vTree_eq {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (vTree x : Int) = (int256 (tTree x))^2 / 2 ^ 135 ∧ vTree x < 2 ^ 120 :=
+  vTree_eq_wide hx (wideRegion_of_wad hC hC0)
 
 /-! ## Exact word arithmetic when the operands fit -/
 

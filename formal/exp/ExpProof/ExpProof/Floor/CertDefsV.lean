@@ -92,7 +92,7 @@ def expN27 : List Int := expPolyNum [0, 1] [(Qexp : Int)] 27
 
 `yUB/wUB = ê_v·(1 + 2⁻¹³²)` and `yLB/wLB = ê_v·(1 − 2⁻¹³²)`. The tight `2⁻¹³²` margins keep the
 `2¹²⁶·(ê_v − exp)` contribution to the runtime over/under budget below `2¹²⁶·exp·2⁻¹³² ≈ 0.022` ulp,
-inside the `MARGIN`; the realized envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.0075` ulp leaves slack. -/
+inside the `MARGIN`; the realized envelope `2¹²⁶·|ê_v − exp(t/2¹²⁹)| ≤ 0.0075` ulp leaves slack. -/
 
 def yUB : List Int := polyScale (2 ^ 132 + 1) numExpV
 def wUB : List Int := polyScale (2 ^ 132) denExpV

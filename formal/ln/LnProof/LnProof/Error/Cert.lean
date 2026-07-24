@@ -11,13 +11,11 @@ def lnErrorBoundNum : Nat := 1698600000
 def lnErrorBoundDen : Nat := 1000000000
 def lnErrorExtraNum : Nat := lnErrorBoundNum - lnErrorBoundDen
 def lnErrorExtraCap : Nat := 6986
-def lnErrorBiasCap : Nat := 3384
 def lnErrorCoarseGePosBudgetCap : Nat := 6961
 def lnErrorCoarsePosBudgetCap : Nat := 6986
 def lnErrorCoarseNegBudgetCap : Nat := 6785
 def lnErrorCoarseGePosResidue : Nat := 0
 def lnErrorCoarsePosResidue : Nat := 0
-def lnErrorDirectResidueGap : Nat := 336460000000000000
 
 /-- `e^((0.698600000)·10^-27) ≥ 1 + 6986·10^-31`. -/
 theorem capEFracL :
@@ -47,11 +45,6 @@ theorem capECoarseNegL :
       (10 ^ 31 + lnErrorCoarseNegBudgetCap) (10 ^ 31) :=
   ⟨1, by decide +kernel⟩
 
-theorem capBiasL3403 :
-    capLB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - lnErrorBiasCap))
-      (10 ^ 18 * 10 ^ 31) :=
-  ⟨130, by unfold lnErrorBiasCap; decide +kernel⟩
-
 /-- Nonnegative-shift strict lower budget with the fractional extra ulp. -/
 def errBudgetL (k : Nat) : Bool :=
   decide (((Sc - 45) + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
@@ -71,14 +64,6 @@ def errBudgetLn (j : Nat) : Bool :=
     2 ^ j * (10 ^ 40 : Nat) ^ j * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
       (10 ^ 31 + lnErrorCoarseNegBudgetCap) * (10 ^ 31 - 10) * 10 ^ 18)
 
-/-- Reciprocal nonnegative-shift strict budget with the fractional extra ulp. -/
-def errBudgetB (k : Nat) : Bool :=
-  decide ((10 : Nat) ^ 31 * (10 ^ 40 : Nat) ^ k * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
-      (((Sc - 45) + 1) * 2 ^ k) * 10 ^ 31 ≤
-    10 ^ 18 * (10 ^ 31 - 10) * (Sc - 45) * (10 ^ 31 - 3385) *
-      (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3384) *
-      (10 ^ 31 + lnErrorCoarsePosBudgetCap))
-
 /-- Reciprocal negative-shift strict budget with the fractional extra ulp. -/
 def errBudgetBn (j : Nat) : Bool :=
   decide ((2 * (10 ^ 40 + 1)) ^ j * (10 : Nat) ^ 31 * (10 ^ 18 * 10 ^ 31) *
@@ -93,9 +78,6 @@ theorem errBudgetLGe_all : (List.range 160).all errBudgetLGe = true := by
   decide +kernel
 
 theorem errBudgetLn_all : (List.range 96).all errBudgetLn = true := by
-  decide +kernel
-
-theorem errBudgetB_all : (List.range 160).all errBudgetB = true := by
   decide +kernel
 
 theorem errBudgetBn_all : (List.range 96).all errBudgetBn = true := by
@@ -123,16 +105,6 @@ theorem errBudgetLn_le {j : Nat} (hj : j ≤ 95) :
         (10 ^ 31 + lnErrorCoarseNegBudgetCap) * (10 ^ 31 - 10) * 10 ^ 18 := by
   have h := List.all_eq_true.mp errBudgetLn_all j (List.mem_range.mpr (by omega))
   simp only [errBudgetLn, decide_eq_true_eq] at h
-  exact h
-
-theorem errBudgetB_le {k : Nat} (hk : k ≤ 159) :
-    (10 : Nat) ^ 31 * (10 ^ 40 : Nat) ^ k * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
-      (((Sc - 45) + 1) * 2 ^ k) * 10 ^ 31 ≤
-    10 ^ 18 * (10 ^ 31 - 10) * (Sc - 45) * (10 ^ 31 - 3385) *
-      (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3384) *
-      (10 ^ 31 + lnErrorCoarsePosBudgetCap) := by
-  have h := List.all_eq_true.mp errBudgetB_all k (List.mem_range.mpr (by omega))
-  simp only [errBudgetB, decide_eq_true_eq] at h
   exact h
 
 theorem errBudgetBn_le {j : Nat} (hj : j ≤ 95) :

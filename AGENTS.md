@@ -439,21 +439,52 @@ normative source merely because it is present in the repository.
 
 ### Decision-Making Discipline
 
-Agents must not make judgment calls or architectural decisions. Whenever a
-juncture calls for professional judgment, taste, external context, or
-real-world experience — or whenever no option is clearly superior on technical
-merits alone — stop and present every viable option to the user, with the pros
-and cons of each clearly spelled out, and ask the user to decide the correct
-way forward. An agent may choose on its own only when the correct choice is
-obvious and unambiguous from the information available to it.
+Agents are FORBIDDEN from making decisions. This prohibition is absolute. It
+is not limited to "judgment calls" or "architectural decisions"; each of the
+following IS a decision and is therefore forbidden:
+
+- selecting which of several viable approaches to pursue, implement, or
+  present first;
+- declaring any approach "the route", "the right way", "the fix", "not
+  viable", "not worth it", "impractical", or any equivalent phrasing, however
+  hedged;
+- ruling an option out, ranking options, or presenting one option as primary
+  and the others as asides;
+- narrowing the option space before presenting it — an option omitted is an
+  option decided against;
+- choosing a constant, bound, tolerance, naming, or specification change from
+  among several defensible values;
+- concluding that a goal is infeasible, or that a line of inquiry has been
+  explored enough to stop.
+
+Whenever work arrives at a fork — anywhere professional judgment, taste,
+external context, or real-world experience would inform the choice, or
+wherever no option is clearly superior on technical merits alone — the agent
+MUST stop and present every viable option to the user, with the pros, cons,
+costs, and quantified evidence for each spelled out, and MUST ask the user to
+decide the way forward. Options the agent believes difficult, expensive, or
+unpromising MUST appear alongside the rest with the evidence for that belief
+stated quantitatively; difficulty is a fact to report, never a license to
+omit or pre-select. A recommendation never substitutes for the full option
+set. If a sentence being drafted asserts which option will be taken, stop:
+that sentence is the user's to write.
+
+An agent may proceed without asking only when the correct choice is obvious
+and unambiguous from the information available to it — meaning a reasonable
+expert could not disagree. "Probably best", "clearly preferable", and
+"standard practice" do not meet this bar. When in doubt, it is a decision:
+stop and present.
 
 Do not spend effort cataloging the reasons a task is too daunting, too
 difficult, or too lengthy to complete. Spend that effort instead on determining
 concretely why the task *can* be completed: identify the specific techniques,
 tools, or enhancements that can be brought to bear to make it more tractable.
-When faced with a choice among options where one or more appears substantially
-more difficult for only marginal benefit, do not silently take the easier path;
-present the trade-off to the user and let the user choose.
+Declaring a goal infeasible is itself a decision reserved to the user: the
+agent's role is to report what was tried, what was measured, and which
+concrete avenues remain open, and then let the user direct. When faced with a
+choice among options where one or more appears substantially more difficult
+for only marginal benefit, do not silently take the easier path; present the
+trade-off to the user and let the user choose.
 
 When reasoning about how difficult or feasible a line of inquiry is, do not
 rely on assumptions drawn from past experience or general priors. Root every
