@@ -13,6 +13,11 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+
+## 2026-07-27
+
+### Non-breaking changes
+
 * Add `HANJI` action for the Hanji order book liquidity source on RobinHood
 * Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to HyperEVM
 
