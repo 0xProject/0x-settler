@@ -14,6 +14,7 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add `HANJI` action for the Hanji order book liquidity source on RobinHood
+* Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to HyperEVM
 
 ## 2026-07-21
 
