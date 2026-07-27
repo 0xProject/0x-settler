@@ -23,6 +23,7 @@ import {
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {sushiswapV3PolygonFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {quickSwapV3Factory, quickSwapV3InitHash, quickSwapV3ForkId} from "../../core/univ3forks/QuickSwapV3.sol";
+import {quickSwapV4Factory, quickSwapV4InitHash, quickSwapV4ForkId} from "../../core/univ3forks/QuickSwapV4.sol";
 
 import {POLYGON_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -102,6 +103,10 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
         } else if (forkId == quickSwapV3ForkId) {
             factory = quickSwapV3Factory;
             initHash = quickSwapV3InitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == quickSwapV4ForkId) {
+            factory = quickSwapV4Factory;
+            initHash = quickSwapV4InitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

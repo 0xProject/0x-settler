@@ -7,6 +7,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
+import {Hanji} from "../../core/Hanji.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -24,8 +25,13 @@ import {
     pancakeSwapV3ForkId,
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
+import {sushiswapV3RobinhoodFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
+import {robinSwapV3Factory, robinSwapV3ForkId} from "../../core/univ3forks/RobinSwapV3.sol";
+import {prjxV3InitHash} from "../../core/univ3forks/PrjxV3.sol";
 import {upFactory, upInitHash, upForkId} from "../../core/univ3forks/Up.sol";
 import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3forks/Sheriff.sol";
+import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
+import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -35,7 +41,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4 {
+abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
     using FastLogic for bool;
 
     constructor() {
@@ -69,6 +75,19 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4 {
             } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
                 revert("unimplemented");
             }
+        } else if (action == uint32(ISettlerActions.HANJI.selector)) {
+            (
+                IERC20 sellToken,
+                uint256 bps,
+                address pool,
+                uint256 sellScalingFactor,
+                uint256 buyScalingFactor,
+                bool isAsk,
+                uint256 priceLimit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
+
+            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else {
             return false;
         }
@@ -85,6 +104,14 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4 {
             factory = uniswapV3RobinhoodFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3RobinhoodFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == robinSwapV3ForkId) {
+            factory = robinSwapV3Factory;
+            initHash = prjxV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
@@ -97,6 +124,14 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4 {
             factory = sheriffFactory;
             initHash = sheriffInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == swapHoodV3ForkId) {
+            factory = swapHoodV3Factory;
+            initHash = swapHoodV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == gigaDexV3ForkId) {
+            factory = gigaDexV3Factory;
+            initHash = gigaDexV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

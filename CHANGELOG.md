@@ -2,15 +2,10 @@
 
 ### Breaking changes
 
-* SolidlyV3 UniV3 fork removed from Mainnet and Sonic
+* SolidlyV3 UniV3 fork removed from Sonic
 
 ### Non-breaking changes
 
-* Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
-* Add PrjxV3 (Project X) UniV3 fork to HyperEVM with fork ID 39
-* Add Up UniV3 fork to RobinHood with fork ID 40
-* Add Sheriff (Algebra-like) UniV3 fork to RobinHood with fork ID 41
-* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Monad
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
@@ -18,6 +13,33 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add `HANJI` action for the Hanji order book liquidity source on RobinHood
+* Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to HyperEVM
+
+## 2026-07-21
+
+### Breaking changes
+
+* SolidlyV3 UniV3 fork removed from Mainnet
+
+### Non-breaking changes
+
+* Add SushiSwapV3 UniV3 fork to RobinHood
+* Add RobinSwap UniV3 fork to RobinHood with fork ID 43
+* Add QuickSwap V4 (Algebra-like) UniV3 fork to Polygon with fork ID 44
+* Add GigaDEX V3 UniV3 fork to RobinHood with fork ID 45
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to RobinHood
+
+## 2026-07-15
+
+### Non-breaking changes
+
+* Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
+* Add PrjxV3 (Project X) UniV3 fork to HyperEVM with fork ID 39
+* Add Up UniV3 fork to RobinHood with fork ID 40
+* Add Sheriff (Algebra-like) UniV3 fork to RobinHood with fork ID 41
+* Add SwapHood V3 UniV3 fork to RobinHood with fork ID 42
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Monad
 
 ## 2026-06-30
 

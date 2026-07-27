@@ -5,6 +5,7 @@ if ! hash forge &>/dev/null ; then
     exit 1
 fi
 
+foundryup -u v1.5.1 &>/dev/null || true
 if [[ $(forge --version) != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
     echo 'Wrong foundry version installed' >&2
     echo 'Run `foundryup -i v1.5.1`' >&2
@@ -127,6 +128,11 @@ function verify_contract {
     if (( $# > 0 )) ; then
         _verify_extra_flags+=(--compiler-version "$1")
         shift
+    fi
+    # EraVm artifacts must be verified through the zkSync flow; the flag threads into every verifier
+    # invocation below alongside --compiler-version.
+    if [[ $era_vm = [Tt]rue ]] ; then
+        _verify_extra_flags+=(--zksync)
     fi
     declare -r -a _verify_extra_flags
 
