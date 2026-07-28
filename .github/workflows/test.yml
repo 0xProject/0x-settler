@@ -36,13 +36,13 @@ jobs:
           FOUNDRY_OPTIMIZER_RUNS: 200
 
       - name: Run SafeGuard tests
-        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/SafeGuard.t.sol
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/fuzz_FV/*' --skip 'test/0.8.28/*' --mp test/0.8.25/SafeGuard.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
       - name: Run EulerSwap math tests
-        run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
+        run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/fuzz_FV/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
 
       - name: Build contracts
         run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'src/chains/*' --skip 'test/*' --skip 'script/*'
@@ -75,7 +75,7 @@ jobs:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
       - name: Run MultiCall tests
-        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/MultiCall.t.sol
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/fuzz_FV/*' --skip 'test/0.8.28/*' --mp test/0.8.25/MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
@@ -83,7 +83,7 @@ jobs:
           MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}
 
       - name: Run CrossChainReceiverFactory tests
-        run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/0.8.25/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+        run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/fuzz_FV/*' --skip 'test/0.8.28/*' --skip 'test/0.8.25/*' --mp test/unit/CrossChainReceiverFactory.t.sol
 
       - name: Build Base Settlers
         run: forge build src/chains/Base/

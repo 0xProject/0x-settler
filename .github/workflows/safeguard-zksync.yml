@@ -34,4 +34,4 @@ jobs:
           FOUNDRY_OPTIMIZER_RUNS: 200
 
       - name: Run zkSync SafeGuard tests
-        run: forge test --zksync -C zktest --root "$GITHUB_WORKSPACE" --lib-paths "$GITHUB_WORKSPACE/lib" --match-contract TestSafeGuardZkSyncArtifacts
+        run: forge test --zksync -C zktest --root "$GITHUB_WORKSPACE" --lib-paths "$GITHUB_WORKSPACE/lib" --skip 'test/fuzz_FV/*' --match-contract TestSafeGuardZkSyncArtifacts

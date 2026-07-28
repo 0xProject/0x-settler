@@ -5,8 +5,14 @@ import {Test} from "@forge-std/Test.sol";
 import {CheckCall} from "src/utils/CheckCall.sol";
 
 contract AssemblyReplacementHarness {
-    /// @notice Function that returns both the assambly and the solidity results of the _msgSender function
-    function msgSenderCheck(bytes calldata /*data*/) external pure returns (address senderASM, address senderSOL) {
+    /// @notice Function that returns both the assembly and the solidity results of the _msgSender function
+    function msgSenderCheck(
+        bytes calldata /*data*/
+    )
+        external
+        pure
+        returns (address senderASM, address senderSOL)
+    {
         //original assembly implementation
         assembly ("memory-safe") {
             senderASM := shr(0x60, calldataload(sub(calldatasize(), 0x14)))
@@ -15,71 +21,54 @@ contract AssemblyReplacementHarness {
         senderSOL = address(bytes20(msg.data[msg.data.length - 20:]));
     }
 
-    /// @notice Original assembly implementation of CheckCall.checkCall.
-    ///         Kept here so we can compare against checkCallSolidity.
+    /// @notice Original assembly implementation, called directly from production code.
     function checkCallAsm(address target, bytes memory data, uint256 minReturnBytes)
         external
         view
         returns (bool success)
     {
-        assembly ("memory-safe") {
-            let beforeGas
-            {
-                let offset := add(data, 0x20)
-                let length := mload(data)
-                beforeGas := gas()
-                success := staticcall(gas(), target, offset, length, 0x00, 0x00)
-            }
-            let afterGas := gas()
-
-            for {} 1 {} {
-                if iszero(returndatasize()) {
-                    switch success
-                    case 0 {
-                        let remainingGas := shr(6, beforeGas)
-                        remainingGas := add(remainingGas, shr(6, sub(beforeGas, remainingGas)))
-                        if iszero(lt(remainingGas, afterGas)) { invalid() }
-                    }
-                    default {
-                        if iszero(extcodesize(target)) { revert(0x00, 0x00) }
-                        success := iszero(minReturnBytes)
-                    }
-                    break
-                }
-                success := gt(success, lt(returndatasize(), minReturnBytes))
-                break
-            }
-        }
+        return CheckCall.checkCall(target, data, minReturnBytes);
     }
 
-    /// @notice Solidity replacement implementation.
+    /// @notice Solidity replacement implementation, mirroring the semantics the
+    ///         formal verification modeled for `CheckCall.checkCall`. The OOG
+    ///         detection of the original (consuming all gas via `invalid()`) is
+    ///         intentionally dropped because gas cannot be modeled by certora;
+    ///         a failed call with empty returndata is simply reported as false.
     function checkCallSol(address target, bytes memory data, uint256 minReturnBytes)
         external
         view
-        returns (bool)
+        returns (bool success)
     {
-        return CheckCall.checkCallSolidity(target, data, minReturnBytes);
+        bytes memory returnData;
+        (success, returnData) = target.staticcall(data);
+        if (returnData.length == 0) {
+            if (!success) {
+                return false;
+            }
+            if (target.code.length == 0) {
+                revert();
+            }
+            return minReturnBytes == 0;
+        }
+        return success && returnData.length >= minReturnBytes;
     }
 }
 
 /// @notice Fuzz harness that proves the Solidity replacement of the assembly
-///         is observationally equivalent to the original assembly code 
+///         is observationally equivalent to the original assembly code
 contract MsgSenderReplacementFuzzTest is Test {
     AssemblyReplacementHarness internal harness;
-
 
     function setUp() public {
         harness = new AssemblyReplacementHarness();
     }
-
 
     function testFuzz_MsgSender_Replacement_Correctness(bytes calldata data) public view {
         (address senderASM, address senderSOL) = harness.msgSenderCheck(data);
 
         assertEq(senderASM, senderSOL, "asm/sol disagreement on production-shaped calldata");
     }
-
-
 }
 
 /// @notice Fuzz harness that proves the Solidity replacement of the assembly
