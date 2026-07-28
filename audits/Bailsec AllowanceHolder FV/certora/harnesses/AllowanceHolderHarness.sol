@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.25;
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
+import {AllowanceHolder} from "./AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
