@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {Vm} from "@forge-std/Vm.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
@@ -33,16 +34,23 @@ abstract contract SelectShared {
 }
 
 contract SelectUnitTest is Test, SelectShared {
+    address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
     BaseSettler internal settler;
+    MockPermit2 internal permit2 = MockPermit2(PERMIT2);
+    TestToken internal sell;
     TestToken internal buy;
     Pool internal p0;
     Pool internal p1;
     Pool internal p2;
     address internal recipient = makeAddr("recipient");
     address internal taker = makeAddr("taker");
+    address internal maker = makeAddr("maker");
 
     function setUp() public {
+        vm.etch(PERMIT2, type(MockPermit2).runtimeCode);
         settler = new BaseSettler(bytes20(0));
+        sell = new TestToken();
         buy = new TestToken();
         p0 = new Pool(buy);
         p1 = new Pool(buy);
@@ -50,6 +58,44 @@ contract SelectUnitTest is Test, SelectShared {
         buy.mint(address(p0), 1_000 ether);
         buy.mint(address(p1), 1_000 ether);
         buy.mint(address(p2), 1_000 ether);
+    }
+
+    function _rfqCandidate(uint256 makerAmount, uint256 nonce) internal view returns (bytes[] memory c) {
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(buy), amount: makerAmount}),
+            nonce: nonce,
+            deadline: type(uint256).max
+        });
+        c = new bytes[](1);
+        c[0] = abi.encodeCall(
+            ISettlerActions.RFQ,
+            (address(settler), permit, maker, bytes(""), address(sell), uint256(1 ether))
+        );
+    }
+
+    function _rfqVipCandidate(uint256 amount, uint256 nonce) internal view returns (bytes[] memory c) {
+        ISignatureTransfer.PermitTransferFrom memory takerPermit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(sell), amount: 1 ether}),
+            nonce: nonce + 1,
+            deadline: type(uint256).max
+        });
+        ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: address(buy), amount: amount}),
+            nonce: nonce,
+            deadline: type(uint256).max
+        });
+        c = new bytes[](1);
+        c[0] = abi.encodeCall(
+            ISettlerActions.RFQ_VIP,
+            (address(settler), takerPermit, makerPermit, maker, bytes(""), bytes(""))
+        );
+    }
+
+    function _fundRfq(uint256 makerAmount) internal {
+        sell.mint(address(settler), 1 ether);
+        buy.mint(maker, makerAmount);
+        vm.prank(maker);
+        buy.approve(PERMIT2, type(uint256).max);
     }
 
     function _candidates3() internal view returns (bytes[][] memory c) {
@@ -147,6 +193,53 @@ contract SelectUnitTest is Test, SelectShared {
         _run(address(buy), targets, _candidates3(), 10 ether);
         assertEq(buy.balanceOf(recipient), 10 ether);
         assertEq(p1.callCount() + p2.callCount(), 0, "nothing else measured");
+    }
+
+    function test_measured_losingRfq_rollsBackMakerPermitAndTransfers() public {
+        uint256 nonce = 42;
+        _fundRfq(7 ether);
+        p0.set(9 ether, false);
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _rfqCandidate(7 ether, nonce);
+        candidates[1] = _candidate(address(p0));
+
+        _run(address(buy), _unreachableTargets(2), candidates, 9 ether);
+
+        assertEq(buy.balanceOf(recipient), 9 ether, "non-RFQ winner committed");
+        assertFalse(permit2.nonceUsed(maker, nonce), "losing maker permit rolled back");
+        assertEq(buy.balanceOf(maker), 7 ether, "losing maker transfer rolled back");
+        assertEq(sell.balanceOf(maker), 0, "losing taker transfer rolled back");
+    }
+
+    function test_measured_winningRfq_consumesMakerPermitOnce() public {
+        uint256 nonce = 43;
+        _fundRfq(9 ether);
+        p0.set(7 ether, false);
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _rfqCandidate(9 ether, nonce);
+        candidates[1] = _candidate(address(p0));
+
+        _run(address(buy), _unreachableTargets(2), candidates, 9 ether);
+
+        assertEq(buy.balanceOf(recipient), 9 ether, "RFQ winner committed");
+        assertTrue(permit2.nonceUsed(maker, nonce), "winning maker permit persisted");
+        assertEq(buy.balanceOf(maker), 0, "maker paid the committed output");
+        assertEq(sell.balanceOf(maker), 1 ether, "maker received the committed input");
+    }
+
+    function test_fallback_nestedRfqVip_isRejectedWithoutBurningPermit() public {
+        uint256 nonce = 44;
+        _fundRfq(9 ether);
+        p0.set(7 ether, false);
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _rfqVipCandidate(9 ether, nonce);
+        candidates[1] = _candidate(address(p0));
+
+        _run(address(buy), new uint256[](2), candidates, 7 ether);
+
+        assertEq(buy.balanceOf(recipient), 7 ether, "ordinary fallback committed");
+        assertFalse(permit2.nonceUsed(maker, nonce), "unsupported nested VIP never reached Permit2");
+        assertEq(buy.balanceOf(maker), 9 ether, "unsupported nested VIP made no transfer");
     }
 
     function test_measured_spoofCorrectTag_degradesToRunnerUp() public {
@@ -381,6 +474,23 @@ contract TestToken is IERC20 {
     function approve(address s, uint256 a) external returns (bool) {
         allowance[msg.sender][s] = a;
         return true;
+    }
+}
+
+contract MockPermit2 {
+    mapping(address owner => mapping(uint256 nonce => bool used)) public nonceUsed;
+
+    function permitWitnessTransferFrom(
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        ISignatureTransfer.SignatureTransferDetails calldata transferDetails,
+        address owner,
+        bytes32,
+        string calldata,
+        bytes calldata
+    ) external {
+        require(!nonceUsed[owner][permit.nonce], "nonce used");
+        nonceUsed[owner][permit.nonce] = true;
+        IERC20(permit.permitted.token).transferFrom(owner, transferDetails.to, transferDetails.requestedAmount);
     }
 }
 
