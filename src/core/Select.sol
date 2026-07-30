@@ -39,13 +39,13 @@ abstract contract Select is SettlerSwapAbstract {
 
     function _select(bytes calldata data) internal {
         uint256 measuredSelector = uint32(Measured.selector);
-        bytes4 selector = this.executeSelected.selector;
+        uint256 selector = uint32(this.executeSelected.selector);
         assembly ("memory-safe") {
-            function measured(ret_, tag_, sel_) -> s_, valid_ {
+            function measured(ret_, tag_, sel_) -> score_, valid_ {
                 if eq(returndatasize(), 0x44) {
                     returndatacopy(ret_, 0x00, 0x44)
                     if and(eq(shr(0xe0, mload(ret_)), sel_), eq(mload(add(0x24, ret_)), tag_)) {
-                        s_ := mload(add(0x04, ret_))
+                        score_ := mload(add(0x04, ret_))
                         valid_ := 0x01
                     }
                 }
@@ -62,14 +62,14 @@ abstract contract Select is SettlerSwapAbstract {
             }
             // Shared by the trial and commit loops (one bytecode copy). Recomputing the keccak
             // tag on commit yields the identical value that the trial cached.
-            function attempt(base_, n_, end_, i_, cd_, word44_, g_) -> ok_, tag_ {
+            function attempt(base_, n_, end_, i_, cd_, minOut_, gas_) -> ok_, tag_ {
                 let start_, len_ := blob(base_, n_, end_, i_)
                 let dst_ := add(0x84, cd_)
                 calldatacopy(dst_, start_, len_)
                 tag_ := keccak256(dst_, len_)
-                mstore(add(0x44, cd_), word44_)
+                mstore(add(0x44, cd_), minOut_)
                 mstore(add(0x64, cd_), tag_)
-                ok_ := call(g_, address(), 0x00, cd_, add(0x84, len_), 0x00, 0x00)
+                ok_ := call(gas_, address(), 0x00, cd_, add(0x84, len_), 0x00, 0x00)
             }
 
             // EIP-150: trials get min(gasCap, 63/64 of remaining). Provision ~2*gasCap or early
@@ -86,12 +86,14 @@ abstract contract Select is SettlerSwapAbstract {
             }
 
             let scores := mload(0x40)
-            let tags := add(scores, shl(0x05, n))
-            let ret := add(tags, shl(0x05, n))
+            let valids := add(scores, shl(0x05, n))
+            let ret := add(valids, shl(0x05, n))
             let cd := add(0x60, ret)
             mstore(cd, selector)
-            mstore(add(0x04, cd), 0x80)
-            mstore(add(0x24, cd), token)
+            mstore(add(0x20, cd), 0x80)
+            mstore(add(0x40, cd), token)
+            // `selector` is left-padded; calldata starts at its first byte
+            cd := add(0x1c, cd)
 
             let attemptedCommit
             let anyMeasured
@@ -122,7 +124,7 @@ abstract contract Select is SettlerSwapAbstract {
                 let score, valid := measured(ret, tag, measuredSelector)
                 anyMeasured := or(anyMeasured, valid)
                 mstore(add(scores, shl(0x05, measuredCount)), score)
-                mstore(add(tags, shl(0x05, measuredCount)), valid)
+                mstore(add(valids, shl(0x05, measuredCount)), valid)
             }
 
             if iszero(attemptedCommit) {
@@ -130,7 +132,7 @@ abstract contract Select is SettlerSwapAbstract {
                     let best := measuredCount
                     let bestScore
                     for { let i := 0x00 } lt(i, measuredCount) { i := add(0x01, i) } {
-                        if mload(add(tags, shl(0x05, i))) {
+                        if mload(add(valids, shl(0x05, i))) {
                             let score := mload(add(scores, shl(0x05, i)))
                             if or(eq(best, measuredCount), gt(score, bestScore)) {
                                 best := i
@@ -143,10 +145,10 @@ abstract contract Select is SettlerSwapAbstract {
                         revert(ret, returndatasize())
                     }
 
-                    let ok, tag := attempt(candsData, n, dataEnd, best, cd, mload(add(scores, shl(0x05, best))), gas())
+                    let ok, tag := attempt(candsData, n, dataEnd, best, cd, bestScore, gas())
                     if ok { break }
 
-                    mstore(add(tags, shl(0x05, best)), 0x00)
+                    mstore(add(valids, shl(0x05, best)), 0x00)
                 }
             }
         }
