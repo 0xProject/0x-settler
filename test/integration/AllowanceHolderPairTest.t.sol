@@ -50,7 +50,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 )
             ),
             // Execute UniswapV3 from the Settler balance
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -251,7 +251,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.BASIC,
                 (
                     address(fromToken()),
-                    1_000,
+                    100_000,
                     address(fromToken()),
                     0x24,
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))

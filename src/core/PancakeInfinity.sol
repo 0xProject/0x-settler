@@ -232,7 +232,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
     //// Pancake Infinity.
     ////
     //// Now that you have a list of fills, encode each fill as follows.
-    //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
+    //// First encode the `ppm` for the fill as 3 bytes. Remember that this `ppm` is relative to the
     //// running balance at the moment that the fill is settled.
     //// Second, encode the price caps sqrtPriceLimitX96 as 20 bytes.
     //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
@@ -260,7 +260,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
     function sellToPancakeInfinity(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -271,7 +271,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             uint32(IPancakeInfinityVault.lock.selector),
             recipient,
             sellToken,
-            bps,
+            ppm,
             feeOnTransfer,
             hashMul,
             hashMod,
@@ -371,7 +371,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
     }
 
     // the mandatory fields are
-    // 2 - sell bps
+    // 3 - sell ppm
     // 20 - sqrtPriceLimitX96
     // 1 - pool key tokens case
     // 20 - hook
@@ -379,7 +379,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
     // 3 - pool fee
     // 32 - parameters
     // 3 - hook data length
-    uint256 private constant _HOP_DATA_LENGTH = 82;
+    uint256 private constant _HOP_DATA_LENGTH = 83;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -423,20 +423,20 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             int256 amountSpecified;
             uint160 sqrtPriceLimitX96;
             {
-                uint16 bps;
+                uint24 ppm;
                 assembly ("memory-safe") {
-                    bps := shr(0xf0, calldataload(data.offset))
-                    data.offset := add(0x02, data.offset)
+                    ppm := shr(0xe8, calldataload(data.offset))
+                    data.offset := add(0x03, data.offset)
 
                     sqrtPriceLimitX96 := shr(0x60, calldataload(data.offset))
                     data.offset := add(0x14, data.offset)
 
-                    data.length := sub(data.length, 0x16)
+                    data.length := sub(data.length, 0x17)
                     // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
                 }
 
                 data = Decoder.updateState(state, notes, data);
-                amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
+                amountSpecified = int256((state.sell().amount() * ppm).unsafeDiv(BASIS)).unsafeNeg();
             }
             bool zeroForOne;
             {

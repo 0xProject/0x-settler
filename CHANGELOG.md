@@ -2,6 +2,12 @@
 
 ### Breaking changes
 
+* All proportional-amount action arguments are now denominated in parts-per-million (`ppm`; denominator 1_000_000) instead of basis points (`bps`; denominator 10_000)
+  * Affects the third-ish argument of `UNISWAPV3`, `UNISWAPV2`, `BASIC`, `VELODROME`, `MAKERPSM`, `DODOV1`, `DODOV2`, `MAVERICKV2`, `EULERSWAP`, `HANJI`, `UNISWAPV4`, `BALANCERV3`, `PANCAKE_INFINITY`, `EKUBO`, and `EKUBOV3`; the `maxBps` (now `maxPpm`) argument of `POSITIVE_SLIPPAGE`; and BridgeSettler's `BASIC`
+  * Action selectors are unchanged (the arguments are `uint256` at the ABI level); only the interpretation of the value changes
+  * In the packed `fills` encoding of `UNISWAPV4`, `BALANCERV3`, `PANCAKE_INFINITY`, `EKUBO`, and `EKUBOV3`, the leading proportion field of each fill (and the corresponding field of the non-VIP header) widens from 2 bytes to 3 bytes
+  * `BALANCERV3` wrap/unwrap flags move from bits 15/14 to bits 23/22 of the fill's proportion field; the Ekubo forwarding-extension flag moves from bit 15 to bit 23
+  * The Permit2 balance-proportional sell amount sentinel widens: `permit.permitted.amount > type(uint256).max - 1_000_000` now encodes a proportion in `ppm` as `type(uint256).max - (1_000_000 - ppm)`
 * SolidlyV3 UniV3 fork removed from Sonic
 
 ### Non-breaking changes

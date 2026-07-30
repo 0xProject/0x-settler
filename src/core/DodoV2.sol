@@ -71,15 +71,15 @@ abstract contract DodoV2 is SettlerSwapAbstract {
     function sellToDodoV2(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         IDodoV2 dodo,
         bool quoteForBase,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        if (bps != 0) {
+        if (ppm != 0) {
             uint256 sellAmount;
             unchecked {
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS);
             }
             sellToken.safeTransfer(address(dodo), sellAmount);
         }

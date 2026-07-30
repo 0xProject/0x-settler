@@ -18,7 +18,7 @@ abstract contract Basic is SettlerAbstract {
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
-    function basicSellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) internal {
+    function basicSellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) internal {
         if (_isRestrictedTarget(pool)) {
             revertConfusedDeputy();
         }
@@ -28,7 +28,7 @@ abstract contract Basic is SettlerAbstract {
         uint256 value;
         if (sellToken == ETH_ADDRESS) {
             unchecked {
-                value = (address(this).balance * bps).unsafeDiv(BASIS);
+                value = (address(this).balance * ppm).unsafeDiv(BASIS);
             }
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
@@ -44,11 +44,11 @@ abstract contract Basic is SettlerAbstract {
                 }
             }
         } else if (address(sellToken) == address(0)) {
-            // TODO: check for zero `bps`
+            // TODO: check for zero `ppm`
             if (offset != 0) revert InvalidOffset();
         } else {
-            // We treat `bps > BASIS` as a GIGO error
-            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), bps).unsafeDiv(BASIS);
+            // We treat `ppm > BASIS` as a GIGO error
+            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), ppm).unsafeDiv(BASIS);
 
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);

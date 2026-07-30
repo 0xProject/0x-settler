@@ -80,10 +80,10 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 ALLOWANCE_HOLDER.exec(settler, token, amount, payable(settler), settlerData);
             }
         } else if (action == uint32(IBridgeSettlerActions.BASIC.selector)) {
-            (address bridgeToken, uint256 bps, address pool, uint256 offset, bytes memory bridgeData) =
+            (address bridgeToken, uint256 ppm, address pool, uint256 offset, bytes memory bridgeData) =
                 abi.decode(data, (address, uint256, address, uint256, bytes));
 
-            basicSellToPool(IERC20(bridgeToken), bps, pool, offset, bridgeData);
+            basicSellToPool(IERC20(bridgeToken), ppm, pool, offset, bridgeData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY.selector)) {
             (address token, address to, bytes32 requestId) = abi.decode(data, (address, address, bytes32));
             bridgeERC20ToRelay(IERC20(token), to, requestId);

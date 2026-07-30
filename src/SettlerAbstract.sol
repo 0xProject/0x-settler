@@ -16,7 +16,7 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     string internal constant SLIPPAGE_TYPE = "Slippage(address recipient,address buyToken,uint256 minAmountOut)";
     bytes32 internal constant SLIPPAGE_TYPEHASH = 0xdc83993a2ffc65b01b71ed08790b6e39c5c55d76937b62a3b5085b02071f1259;
 
-    uint256 internal constant BASIS = 10_000;
+    uint256 internal constant BASIS = 1_000_000;
     IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     constructor() {

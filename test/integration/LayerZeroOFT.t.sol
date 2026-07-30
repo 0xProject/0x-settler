@@ -153,7 +153,7 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
                 IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
                 (address(ETH), oft, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))).popSelector())
             ),
-            abi.encodeCall(IBridgeSettlerActions.BASIC, (address(ETH), 10000, address(this), 0, bytes("")))
+            abi.encodeCall(IBridgeSettlerActions.BASIC, (address(ETH), 1_000_000, address(this), 0, bytes("")))
         );
         sendParam.amountLD = amount - dust;
 

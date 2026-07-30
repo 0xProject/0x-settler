@@ -44,7 +44,7 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -52,19 +52,19 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
                 int32 tickLimit,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, ppm, pool, tokenAIn, tickLimit, minBuyAmount);
         } else {
             return false;
         }

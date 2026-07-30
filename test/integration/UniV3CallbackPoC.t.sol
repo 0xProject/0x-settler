@@ -241,7 +241,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
                 ISettlerActions.BASIC,
                 (
                     address(0), // sellToken
-                    10_000, // proportion
+                    1_000_000, // proportion
                     pool, // pool
                     0, // offset
                     poolCalldata

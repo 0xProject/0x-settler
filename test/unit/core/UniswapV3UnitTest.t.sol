@@ -43,12 +43,12 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return callback(data[4:]);
     }
 
-    function sellSelf(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
+    function sellSelf(address recipient, uint256 ppm, bytes memory encodedPath, uint256 minBuyAmount)
         external
         takerSubmitted
         returns (uint256)
     {
-        return super.sellToUniswapV3(recipient, bps, encodedPath, minBuyAmount);
+        return super.sellToUniswapV3(recipient, ppm, encodedPath, minBuyAmount);
     }
 
     function sell(
@@ -299,7 +299,7 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function testUniswapV3SellSelfFunded() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
@@ -328,11 +328,11 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectCall(POOL, data);
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellSelf(RECIPIENT, bps, encodedPath, minBuyAmount);
+        uni.sellSelf(RECIPIENT, ppm, encodedPath, minBuyAmount);
     }
 
     function testUniswapV3SellSlippage() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
@@ -365,7 +365,7 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectRevert(
             abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
         );
-        uni.sellSelf(RECIPIENT, bps, encodedPath, minBuyAmount);
+        uni.sellSelf(RECIPIENT, ppm, encodedPath, minBuyAmount);
     }
 
     function testUniswapV3SellPermit2() public {
