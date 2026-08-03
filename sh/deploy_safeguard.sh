@@ -298,7 +298,7 @@ declare -r -a deploy_args zk_tx_flags
 declare -i gas_limit
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}")"
+    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}")"
     declare -r -i gas_estimate
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
 else
