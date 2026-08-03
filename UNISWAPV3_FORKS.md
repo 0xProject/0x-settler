@@ -45,3 +45,19 @@
    36. AboreanCL
    <!-- -->
    37. Thena (Algebra-like)
+   <!-- -->
+   38. SquadSwapV3
+   <!-- -->
+   39. PrjxV3 (Project X)
+   <!-- -->
+   40. Up
+   <!-- -->
+   41. Sheriff (Algebra-like)
+   <!-- -->
+   42. SwapHood V3
+   <!-- -->
+   43. RobinSwap
+   <!-- -->
+   44. QuickSwap V4 (Algebra-like)
+   <!-- -->
+   45. GigaDEX V3

@@ -17,6 +17,7 @@ address constant uniswapV3PlasmaFactory = 0xcb2436774C3e191c85056d248EF4260ce5f2
 address constant uniswapV3MonadFactory = 0x204FAca1764B154221e35c0d20aBb3c525710498;
 address constant uniswapV3AbstractFactory = 0xA1160e73B63F322ae88cC2d8E700833e71D0b2a1;
 address constant uniswapV3TempoFactory = 0x24a3d4757E330890A8b8978028c9e58E04611fd6;
+address constant uniswapV3RobinhoodFactory = 0x1f7d7550B1b028f7571E69A784071F0205FD2EfA;
 
 bytes32 constant uniswapV3InitHash = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 // This isn't a "hash" inasmuch as it's a versioned discriminator

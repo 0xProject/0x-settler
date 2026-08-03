@@ -101,7 +101,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     bytes32 private constant _WNATIVE_STORAGE_SALT = keccak256("Wrapped Native Token Address");
     IWrappedNative private immutable _WNATIVE;
-    bool private immutable _HAS_WNATIVE = true;
     bool private immutable _MISSING_WNATIVE = false;
 
     bytes32 private constant _MULTICALL_STORAGE_SALT = keccak256("ERC2771-forwarding MultiCall Address");
@@ -200,7 +199,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     == 0xa4675c945174b9ec4e7010035cbc327beed918e1ea949cf630df20b201167a0c
             );
             // `_WNATIVE` is deliberately unset
-            _HAS_WNATIVE = false;
             _MISSING_WNATIVE = true;
         } else {
             // do some behavioral checks on `_WNATIVE`
@@ -407,6 +405,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         bytes32 proxyInitCode0 = _proxyInitCode0;
         bytes32 proxyInitCode1 = _proxyInitCode1;
         assembly ("memory-safe") {
+            setOwnerNotCleanup := iszero(iszero(setOwnerNotCleanup))
+
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
             mstore(callvalue(), root)
@@ -811,8 +811,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             }
             calls := add(0x20, calls)
 
+            // Individual `calls[i]` may alias each other. To avoid malleability attacks, we mutate
+            // the sentinel `calls[i].target` first, then hash the whole array so that any
+            // `calls[i].data` aliasing results in an invalid hash.
             for { let i } xor(i, callsLengthBytes) { i := add(0x20, i) } {
-                let dst := add(i, scratch)
                 let src := add(i, calls)
 
                 // indirect `src` because it points to a dynamic type
@@ -822,6 +824,20 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     src := add(calls, offset)
                     err := or(lt(lastWord, add(0x60, src)), or(oom, err))
                 }
+
+                // replace `src.target` with `address(this)` if it is `_ADDRESS_THIS_SENTINEL`
+                let srcTarget := mload(src)
+                mstore(src, xor(srcTarget, mul(eq(_ADDRESS_THIS_SENTINEL, srcTarget), xor(address(), srcTarget))))
+            }
+
+            // now we can go through each of the `calls[i]`, hash each `calls[i].data`, hash each
+            // struct, and sum up `totalValue`
+            for { let i } xor(i, callsLengthBytes) { i := add(0x20, i) } {
+                let src := add(i, calls)
+
+                // indirect `src` because it points to a dynamic type
+                src := add(calls, mload(src))
+                // we already updated `err` appropriately for `src` indirection; skip doing it again
 
                 // indirect `src.data` because it also points to a dynamic type
                 let srcData
@@ -843,18 +859,22 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     srcData := keccak256(add(0x20, srcData), srcDataLength)
                 }
 
+                // if `src.target` is `address(this)`, temporarily replace it with
+                // `_ADDRESS_THIS_SENTINEL` for hashing
+                let srcTarget := mload(src)
+                mstore(src, xor(srcTarget, mul(eq(address(), srcTarget), xor(_ADDRESS_THIS_SENTINEL, srcTarget))))
+
                 // EIP712-hash the `Call` object into the `Call[]` array at `scratch[i]`
                 let typeHashWord := sub(src, 0x20) // not technically memory safe
                 let typeHashWordValue := mload(typeHashWord)
                 mstore(typeHashWord, _CALL_TYPEHASH)
                 mstore(srcDataWord, srcData)
-                mstore(dst, keccak256(typeHashWord, 0xa0))
+                mstore(add(i, scratch), keccak256(typeHashWord, 0xa0))
                 mstore(typeHashWord, typeHashWordValue)
                 mstore(srcDataWord, srcDataWordValue)
 
-                // replace `src.target` with `address(this)` if it is `_ADDRESS_THIS_SENTINEL`
-                let srcTarget := mload(src)
-                mstore(src, xor(srcTarget, mul(eq(_ADDRESS_THIS_SENTINEL, srcTarget), xor(address(), srcTarget))))
+                // restore `src.target`
+                mstore(src, srcTarget)
 
                 // if this addition overflows, then the call will fail inside `MultiCall` because we
                 // won't have enough value to send. depending on the value of `revertPolicy` this
@@ -950,7 +970,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             if (address(this).balance < value) {
                 uint256 wrappedBalance;
                 IWrappedNative wnative = _WNATIVE;
-                bool hasWnative = _HAS_WNATIVE;
+                bool missingWnative = _MISSING_WNATIVE;
                 assembly ("memory-safe") {
                     mstore(0x00, 0x70a08231) // `IERC20.balanceOf.selector`
                     mstore(0x20, address())
@@ -960,7 +980,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(codesize(), callvalue())
                     }
 
-                    wrappedBalance := mul(hasWnative, mload(callvalue()))
+                    wrappedBalance := mul(iszero(missingWnative), mload(callvalue()))
                 }
 
                 uint256 toUnwrap = (address(this).balance + wrappedBalance < value)

@@ -12,12 +12,12 @@ jobs:
   size-limit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Node.js 18.x
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v6
         with:
           node-version: 18.x
 
@@ -38,4 +38,9 @@ jobs:
         run: npm install
 
       - name: Check chain-specific Settler contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' -- src/chains/
+        run: |
+          set -Eeufo pipefail -o posix
+          jq -r '.[].displayName' < chain_config.json | while IFS= read -r chain ; do
+            echo 'Checking sizes for '"$chain" >&2
+            forge build --sizes -- src/chains/"$chain"
+          done

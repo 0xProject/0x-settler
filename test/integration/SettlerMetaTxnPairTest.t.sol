@@ -62,6 +62,34 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
     function uniswapV3Path() internal virtual returns (bytes memory);
 
+    function testSettler_metaTxn_shortAction() public {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)), bytes(hex"ffffff")
+        );
+
+        bytes32[] memory actionHashes = new bytes32[](actions.length);
+        for (uint256 i; i < actionHashes.length; i++) {
+            actionHashes[i] = keccak256(actions[i]);
+        }
+        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
+        bytes32 witness =
+            keccak256(abi.encode(SLIPPAGE_AND_ACTIONS_TYPEHASH, address(0), address(0), 0 ether, actionsHash));
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
+        );
+
+        SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(FROM), buyToken: fromToken(), minAmountOut: amount()});
+        // Submitted by third party
+        vm.startPrank(address(this), address(this)); // does a `call` to keep the optimizer from reordering opcodes
+        vm.expectRevert(bytes(""));
+        _settlerMetaTxn.executeMetaTxn(slippage, actions, bytes32(0), FROM, sig);
+    }
+
     /// @dev Performs an direct RFQ trade between MAKER and FROM
     // Funds are transferred MAKER->FROM and FROM->MAKER
     function testSettler_rfq() public skipIf(true) { // action `RFQ_VIP` is disabled

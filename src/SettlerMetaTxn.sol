@@ -30,8 +30,11 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         // This function deliberately does no bounds checking on `actions` for
         // gas efficiency. We assume that `actions` will get used elsewhere in
         // this context and any OOB or other malformed calldata will result in a
-        // revert later.
+        // revert later. To compensate for potential underflow in
+        // `CalldataDecoder.decodeCall`'s selector slicing, we check that each
+        // member of `actions` is at least 4 bytes long.
         assembly ("memory-safe") {
+            let err
             let ptr := mload(0x40)
             let hashesLength := shl(0x05, actions.length)
             for {
@@ -44,10 +47,12 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             } {
                 let src := add(calldataload(i), actions.offset)
                 let length := calldataload(src)
+                err := or(gt(0x04, length), err)
                 calldatacopy(dst, add(0x20, src), length)
                 mstore(dst, keccak256(dst, length))
             }
             result := keccak256(ptr, hashesLength)
+            if err { revert(0x00, 0x00) }
         }
     }
 
