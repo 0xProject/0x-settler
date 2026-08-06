@@ -20,6 +20,8 @@ abstract contract SelectShared {
 
     function _tag(bytes[] memory c) internal pure returns (bytes32 t) {
         bytes memory e = abi.encode(c);
+        // Hash the candidate's ABI frame without copying it.
+        // Equivalent Solidity: `t = keccak256(abi.encode(c)[32:])`.
         assembly ("memory-safe") {
             t := keccak256(add(e, 0x40), sub(mload(e), 0x20))
         }
@@ -68,26 +70,7 @@ contract SelectUnitTest is Test, SelectShared {
         });
         c = new bytes[](1);
         c[0] = abi.encodeCall(
-            ISettlerActions.RFQ,
-            (address(settler), permit, maker, bytes(""), address(sell), uint256(1 ether))
-        );
-    }
-
-    function _rfqVipCandidate(uint256 amount, uint256 nonce) internal view returns (bytes[] memory c) {
-        ISignatureTransfer.PermitTransferFrom memory takerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: address(sell), amount: 1 ether}),
-            nonce: nonce + 1,
-            deadline: type(uint256).max
-        });
-        ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: address(buy), amount: amount}),
-            nonce: nonce,
-            deadline: type(uint256).max
-        });
-        c = new bytes[](1);
-        c[0] = abi.encodeCall(
-            ISettlerActions.RFQ_VIP,
-            (address(settler), takerPermit, makerPermit, maker, bytes(""), bytes(""))
+            ISettlerActions.RFQ, (address(settler), permit, maker, bytes(""), address(sell), uint256(1 ether))
         );
     }
 
@@ -105,14 +88,29 @@ contract SelectUnitTest is Test, SelectShared {
         c[2] = _candidate(address(p2));
     }
 
-    function _bestOfTargets(uint256 belief) internal pure returns (uint256[] memory targets) {
+    function _firstReservation(uint256 target) internal pure returns (uint256[] memory targets) {
         targets = _unreachableTargets(3);
-        targets[0] = belief;
+        targets[0] = target;
     }
 
+    /// @dev A multi-candidate SELECT requires a nonzero cap so no trial can starve the fallback.
+    uint256 internal constant TEST_GAS_CAP = 400_000;
+
     function _run(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
+        _runAction(_selectAction(TEST_GAS_CAP, token, targets, candidates), minOut);
+    }
+
+    function _selectAction(uint256 gasCap, address token, uint256[] memory targets, bytes[][] memory candidates)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodeCall(ISettlerActions.SELECT, (gasCap, token, targets, candidates));
+    }
+
+    function _runAction(bytes memory action, uint256 minOut) internal {
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), token, targets, candidates));
+        actions[0] = action;
         vm.prank(taker, taker);
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -143,6 +141,160 @@ contract SelectUnitTest is Test, SelectShared {
         );
     }
 
+    function test_bounds_candidateOffsetIntoTable_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates);
+        // Point candidate 0 at its own offset-table entry instead of its encoded body.
+        // Equivalent Solidity: `action.candidates[0].offset = 0`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            mstore(add(add(action, 0x44), candidatesOffset), 0x00)
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_targetsRegionPastDataEnd_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates);
+        // Point the targets array one word past the signed SELECT action.
+        // Equivalent Solidity: `action.targets.offset = action.end + 32`.
+        assembly ("memory-safe") {
+            let actionEnd := add(add(action, 0x20), mload(action))
+            let arguments := add(action, 0x24)
+            mstore(add(action, 0x64), add(sub(actionEnd, arguments), 0x20))
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates);
+        // Move candidate 0 one word before the candidates offset table.
+        // Equivalent Solidity: `action.candidates[0].offset = -32`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            mstore(add(add(action, 0x44), candidatesOffset), not(0x1f))
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_candidateOffsetPastDataEnd_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates);
+        // Point candidate 0 one word past the signed SELECT action.
+        // Equivalent Solidity: `action.candidates[0].start = action.end + 32`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let candidatesData := add(add(action, 0x44), candidatesOffset)
+            let actionEnd := add(add(action, 0x20), mload(action))
+            mstore(candidatesData, add(sub(actionEnd, candidatesData), 0x20))
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_decreasingCandidateOffsets_reverts() public {
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(p1));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](2), candidates);
+        // Reverse the two candidate-frame starts.
+        // Equivalent Solidity: `(offset[0], offset[1]) = (offset[1], offset[0])`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let candidatesData := add(add(action, 0x44), candidatesOffset)
+            let first := mload(candidatesData)
+            let second := mload(add(candidatesData, 0x20))
+            mstore(candidatesData, second)
+            mstore(add(candidatesData, 0x20), first)
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_overlappingCandidateOffsets_reverts() public {
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(p1));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](2), candidates);
+        // Give both candidates the same frame start.
+        // Equivalent Solidity: `offset[1] = offset[0]`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let candidatesData := add(add(action, 0x44), candidatesOffset)
+            mstore(add(candidatesData, 0x20), mload(candidatesData))
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_candidateFrameOverlapsTargets_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates);
+        // Point candidate 0 at the targets data word.
+        // Equivalent Solidity: `candidateStart = targetsData`.
+        assembly ("memory-safe") {
+            let targetsOffset := mload(add(action, 0x64))
+            let candidatesOffset := mload(add(action, 0x84))
+            let targetsData := add(add(action, 0x44), targetsOffset)
+            let candidatesData := add(add(action, 0x44), candidatesOffset)
+            mstore(candidatesData, sub(targetsData, candidatesData))
+        }
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_trailingBytesAfterLastCandidate_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action =
+            bytes.concat(_selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates), abi.encode(bytes32(0)));
+
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_zeroCandidates_reverts() public {
+        vm.expectRevert();
+        _run(address(0), new uint256[](0), new bytes[][](0), 0);
+    }
+
+    function test_bounds_fourCandidates_reverts() public {
+        bytes[][] memory candidates = new bytes[][](4);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(p1));
+        candidates[2] = _candidate(address(p2));
+        candidates[3] = _candidate(address(p0));
+
+        vm.expectRevert();
+        _run(address(0), new uint256[](4), candidates, 0);
+    }
+
+    function test_bounds_threeCandidates_passes() public {
+        p2.set(7 ether, false);
+        uint256[] memory targets = _unreachableTargets(3);
+        targets[2] = 7 ether;
+
+        _run(address(buy), targets, _candidates3(), 7 ether);
+
+        assertEq(buy.balanceOf(recipient), 7 ether);
+    }
+
     function test_fallback_primaryRevert_commitsAlternate() public {
         p0.set(10 ether, true);
         p1.set(7 ether, false);
@@ -165,45 +317,46 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(p2.callCount(), 0, "rung 2 never attempted");
     }
 
-    function test_measured_bestOfN_commitsArgmax() public {
+    function test_allReservationsMiss_revertsLastMeasurement() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
         p2.set(9 ether, false);
-        uint256[] memory targets = _bestOfTargets(10 ether);
-        _run(address(buy), targets, _candidates3(), 9 ether);
-        assertEq(buy.balanceOf(recipient), 9 ether, "best (p2) committed");
-        assertEq(p0.callCount() + p1.callCount(), 0, "losing measurements rolled back");
+        bytes[][] memory candidates = _candidates3();
+
+        vm.expectRevert(abi.encodeWithSelector(Measured.selector, 9 ether, _tag(candidates[2])));
+        _run(address(buy), _unreachableTargets(3), candidates, 0);
     }
 
-    function test_measured_bestOfN_treatsScoresAsUnsigned() public {
-        uint256 highScore = 1 << 255;
-        buy.mint(address(p0), highScore);
-        p0.set(highScore, false);
-        p1.set(1 ether, false);
-        uint256[] memory targets = _bestOfTargets(type(uint256).max);
-
-        _run(address(buy), targets, _candidates3(), highScore);
-
-        assertEq(buy.balanceOf(recipient), highScore, "uint256 argmax committed");
-    }
-
-    function test_measured_winsOutright_skipsMeasurements() public {
+    function test_firstCandidateClearsReservation_skipsRest() public {
         p0.set(10 ether, false);
-        uint256[] memory targets = _bestOfTargets(10 ether);
+        uint256[] memory targets = _firstReservation(10 ether);
         _run(address(buy), targets, _candidates3(), 10 ether);
         assertEq(buy.balanceOf(recipient), 10 ether);
-        assertEq(p1.callCount() + p2.callCount(), 0, "nothing else measured");
+        assertEq(p1.callCount() + p2.callCount(), 0, "later candidates not attempted");
     }
 
-    function test_measured_losingRfq_rollsBackMakerPermitAndTransfers() public {
+    function test_allCandidatesFail_bubblesLastReturndata() public {
+        p0.set(0, true);
+        RevertingPool last = new RevertingPool("last candidate");
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(last));
+
+        vm.expectRevert("last candidate");
+        _run(address(0), new uint256[](2), candidates, 0);
+    }
+
+    function test_losingRfq_rollsBackMakerPermitAndTransfers() public {
         uint256 nonce = 42;
         _fundRfq(7 ether);
         p0.set(9 ether, false);
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = _rfqCandidate(7 ether, nonce);
         candidates[1] = _candidate(address(p0));
+        uint256[] memory targets = _unreachableTargets(2);
+        targets[1] = 9 ether;
 
-        _run(address(buy), _unreachableTargets(2), candidates, 9 ether);
+        _run(address(buy), targets, candidates, 9 ether);
 
         assertEq(buy.balanceOf(recipient), 9 ether, "non-RFQ winner committed");
         assertFalse(permit2.nonceUsed(maker, nonce), "losing maker permit rolled back");
@@ -211,89 +364,22 @@ contract SelectUnitTest is Test, SelectShared {
         assertEq(sell.balanceOf(maker), 0, "losing taker transfer rolled back");
     }
 
-    function test_measured_winningRfq_consumesMakerPermitOnce() public {
+    function test_winningRfq_consumesMakerPermitOnce() public {
         uint256 nonce = 43;
         _fundRfq(9 ether);
         p0.set(7 ether, false);
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = _rfqCandidate(9 ether, nonce);
         candidates[1] = _candidate(address(p0));
+        uint256[] memory targets = _unreachableTargets(2);
+        targets[0] = 9 ether;
 
-        _run(address(buy), _unreachableTargets(2), candidates, 9 ether);
+        _run(address(buy), targets, candidates, 9 ether);
 
         assertEq(buy.balanceOf(recipient), 9 ether, "RFQ winner committed");
         assertTrue(permit2.nonceUsed(maker, nonce), "winning maker permit persisted");
         assertEq(buy.balanceOf(maker), 0, "maker paid the committed output");
         assertEq(sell.balanceOf(maker), 1 ether, "maker received the committed input");
-    }
-
-    function test_fallback_nestedRfqVip_isRejectedWithoutBurningPermit() public {
-        uint256 nonce = 44;
-        _fundRfq(9 ether);
-        p0.set(7 ether, false);
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = _rfqVipCandidate(9 ether, nonce);
-        candidates[1] = _candidate(address(p0));
-
-        _run(address(buy), new uint256[](2), candidates, 7 ether);
-
-        assertEq(buy.balanceOf(recipient), 7 ether, "ordinary fallback committed");
-        assertFalse(permit2.nonceUsed(maker, nonce), "unsupported nested VIP never reached Permit2");
-        assertEq(buy.balanceOf(maker), 9 ether, "unsupported nested VIP made no transfer");
-    }
-
-    function test_measured_spoofCorrectTag_degradesToRunnerUp() public {
-        vm.setEnv("SELECT_SPOOF_SEEN", "false");
-        p0.set(8 ether, false);
-        p2.set(0, false);
-        SpoofPool evil = new SpoofPool("SELECT_SPOOF_SEEN");
-        bytes[] memory evilCandidate = _candidate(address(evil));
-        bytes32 tag = _tag(evilCandidate);
-        evil.setTag(tag);
-        uint256[] memory targets = _bestOfTargets(20 ether);
-        bytes[][] memory candidates = new bytes[][](3);
-        candidates[0] = _candidate(address(p0));
-        candidates[1] = evilCandidate;
-        candidates[2] = _candidate(address(p2));
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(buy), targets, candidates));
-        vm.prank(taker, taker);
-        settler.execute(
-            ISettlerBase.AllowedSlippage({
-                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 8 ether
-            }),
-            actions,
-            bytes32(0)
-        );
-        assertEq(buy.balanceOf(recipient), 8 ether, "real runner-up settled");
-        assertEq(buy.balanceOf(address(evil)), 0, "spoofer delivered nothing");
-    }
-
-    function test_measured_allCommitPhaseCommitsFail_bubblesLastRevert() public {
-        vm.setEnv("SELECT_SPOOF_SEEN_0", "false");
-        vm.setEnv("SELECT_SPOOF_SEEN_1", "false");
-        SpoofPool evil0 = new SpoofPool("SELECT_SPOOF_SEEN_0");
-        bytes[] memory evilCandidate0 = _candidate(address(evil0));
-        evil0.setTag(_tag(evilCandidate0));
-        SpoofPool evil1 = new SpoofPool("SELECT_SPOOF_SEEN_1");
-        bytes[] memory evilCandidate1 = _candidate(address(evil1));
-        bytes32 tag1 = _tag(evilCandidate1);
-        evil1.setTag(tag1);
-        uint256[] memory targets = _unreachableTargets(2);
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = evilCandidate0;
-        candidates[1] = evilCandidate1;
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(buy), targets, candidates));
-        vm.prank(taker, taker);
-        vm.expectRevert(abi.encodeWithSelector(Measured.selector, uint256(0), tag1));
-        settler.execute(
-            ISettlerBase.AllowedSlippage({
-                recipient: payable(recipient), buyToken: IERC20(address(0)), minAmountOut: 0
-            }),
-            actions,
-            bytes32(0)
-        );
     }
 
     function testFuzz_shortNestedAction_revertsCleanly(uint256 len) public {
@@ -305,70 +391,12 @@ contract SelectUnitTest is Test, SelectShared {
         Select(address(settler)).executeSelected(actions, IERC20(address(0)), 0, bytes32(0));
     }
 
-    function test_select_rejectsCandidateOutsideActionBounds() public {
-        uint256[] memory targets = new uint256[](2);
-        bytes[][] memory emptyCandidates = new bytes[][](2);
-        emptyCandidates[0] = new bytes[](0);
-        emptyCandidates[1] = new bytes[](0);
-        bytes memory action = abi.encodeCall(ISettlerActions.SELECT, (uint256(0), address(0), targets, emptyCandidates));
-        assembly ("memory-safe") {
-            mstore(action, 0x144) // Keep the SELECT head and both dynamic offset tables only.
-        }
-
-        bytes[] memory unsignedCandidate = _candidate(address(p0));
-        bytes memory encodedCandidate = abi.encode(unsignedCandidate);
-        bytes memory candidate = new bytes(encodedCandidate.length - 0x20);
-        assembly ("memory-safe") {
-            mcopy(add(candidate, 0x20), add(encodedCandidate, 0x40), mload(candidate))
-        }
-
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = action;
-        bytes memory callData = abi.encodeCall(
-            settler.execute,
-            (
-                ISettlerBase.AllowedSlippage({
-                    recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
-                }),
-                actions,
-                bytes32(0)
-            )
-        );
-        assembly ("memory-safe") {
-            let start := add(callData, 0x20)
-            let args := add(start, 0x04)
-            let array := add(args, mload(add(args, 0x60)))
-            let offsets := add(array, 0x20)
-            let actionData := add(add(offsets, mload(offsets)), 0x20)
-            let selectData := add(actionData, 0x04)
-            let candidateOffsets := add(add(selectData, mload(add(selectData, 0x60))), 0x20)
-            let first := sub(add(start, mload(callData)), candidateOffsets)
-            mstore(candidateOffsets, first)
-            mstore(add(candidateOffsets, 0x20), add(first, mload(candidate)))
-        }
-
-        vm.prank(taker, taker);
-        (bool ok,) = address(settler).call(bytes.concat(callData, candidate));
-        assertFalse(ok, "candidate outside SELECT action executed");
-        assertEq(p0.callCount(), 0, "unsigned candidate reached its pool");
-    }
-
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
         p1.set(7 ether, false);
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = _candidate(address(new GasBurnerPool()));
         candidates[1] = _candidate(address(p1));
-        uint256[] memory targets = new uint256[](2);
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (uint256(300_000), address(0), targets, candidates));
-        vm.prank(taker, taker);
-        settler.execute{gas: 1_500_000}(
-            ISettlerBase.AllowedSlippage({
-                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 7 ether
-            }),
-            actions,
-            bytes32(0)
-        );
+        _runWithGasCap(300_000, address(0), new uint256[](2), candidates, 7 ether, 1_500_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed despite the staller");
     }
 
@@ -380,70 +408,92 @@ contract SelectUnitTest is Test, SelectShared {
         candidates[0] = _candidate(address(new GasBurnerPool()));
         candidates[1] = _candidate(address(new GasBurnerPool()));
         candidates[2] = _candidate(address(finisher));
-        uint256[] memory targets = new uint256[](3);
-        _runWithGasCap(300_000, address(0), targets, candidates, 7 ether, 1_200_000);
+        _runWithGasCap(300_000, address(0), new uint256[](3), candidates, 7 ether, 1_200_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "final fallback candidate committed");
-        assertEq(finisher.callCount(), 1, "final candidate finished during the attempt phase");
+        assertEq(finisher.callCount(), 1, "final candidate ran uncapped");
     }
 
-    function test_measured_gasGuard_commitsBestSoFar_skippedCandidateExcluded() public {
-        p0.set(8 ether, false);
-        p2.set(9 ether, false);
-        bytes[][] memory candidates = new bytes[][](4);
-        candidates[0] = _candidate(address(p0));
-        candidates[1] = _candidate(address(new GasBurnerPool()));
-        candidates[2] = _candidate(address(new GasBurnerPool()));
-        candidates[3] = _candidate(address(p2));
-        uint256[] memory targets = _unreachableTargets(4);
-        _runWithGasCap(300_000, address(buy), targets, candidates, 8 ether, 1_150_000);
-        assertEq(buy.balanceOf(recipient), 8 ether, "best measured-so-far committed");
-        assertEq(p0.callCount(), 1, "measured best committed once");
-        assertEq(p2.callCount(), 0, "unmeasured 9-token candidate skipped and excluded");
-    }
-
-    function test_measured_gasGuard_preservesCommitReserveForZeroScore() public {
-        p0.set(0, false);
+    function test_fallback_zeroGasCapWithMultipleCandidates_reverts() public {
+        p0.set(7 ether, false);
         bytes[][] memory candidates = new bytes[][](2);
         candidates[0] = _candidate(address(p0));
-        candidates[1] = _candidate(address(new GasBurnerPool()));
-        _runWithGasCap(300_000, address(buy), _unreachableTargets(2), candidates, 0, 750_000);
-        assertEq(p0.callCount(), 1, "authenticated zero-score candidate committed");
+        candidates[1] = _candidate(address(p1));
+
+        vm.expectRevert();
+        _runWithGasCap(0, address(0), new uint256[](2), candidates, 0, 1_000_000);
+
+        assertEq(p0.callCount(), 0, "first candidate not attempted without a cap");
+    }
+
+    function test_gasCap_insufficientReserve_revertsBeforeFirstCandidate() public {
+        p0.set(8 ether, false);
+        p1.set(7 ether, false);
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(p1));
+
+        vm.expectRevert();
+        _runWithGasCap(300_000, address(0), new uint256[](2), candidates, 0, 500_000);
+
+        assertEq(p0.callCount(), 0, "first candidate not attempted without reserve");
+        assertEq(p1.callCount(), 0, "second candidate not attempted without reserve");
+    }
+
+    function _commitLogs() internal returns (Vm.Log[] memory out) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        out = new Vm.Log[](logs.length);
+        uint256 n;
+        for (uint256 i; i < logs.length; i++) {
+            if (logs[i].emitter == address(settler) && logs[i].topics.length == 1) {
+                out[n++] = logs[i];
+            }
+        }
+        // Shrink the filtered memory array in place without copying it.
+        // Equivalent Solidity: return an array containing only `out[0:n]`.
+        assembly ("memory-safe") {
+            mstore(out, n)
+        }
+    }
+
+    function test_log_firstCommit_emitsWinnerTagAndScoreOnce() public {
+        p0.set(10 ether, false);
+        bytes[][] memory candidates = _candidates3();
+        vm.recordLogs();
+        _run(address(buy), new uint256[](3), candidates, 10 ether);
+        Vm.Log[] memory logs = _commitLogs();
+        assertEq(logs.length, 1, "exactly one commit log");
+        assertEq(logs[0].topics[0], _tag(candidates[0]), "topic is candidate 0's tag");
+        assertEq(abi.decode(logs[0].data, (uint256)), 10 ether, "data is the committed score");
+    }
+
+    function test_log_losingTrialEmitsNothing_commitTagOnly() public {
+        p0.set(8 ether, false);
+        p1.set(7 ether, false);
+        bytes[][] memory candidates = _candidates3();
+        uint256[] memory targets = new uint256[](3);
+        targets[0] = 10 ether;
+        targets[1] = 6 ether;
+        targets[2] = 1;
+        vm.recordLogs();
+        _run(address(buy), targets, candidates, 7 ether);
+        Vm.Log[] memory logs = _commitLogs();
+        assertEq(logs.length, 1, "losing trial emitted nothing");
+        assertEq(logs[0].topics[0], _tag(candidates[1]), "topic is the committed candidate's tag");
+        assertEq(abi.decode(logs[0].data, (uint256)), 7 ether, "data is the committed score");
+    }
+
+    function test_log_allCandidatesFail_noLog() public {
+        p0.set(0, true);
+        p1.set(0, true);
+        p2.set(0, true);
+        vm.recordLogs();
+        vm.expectRevert("leg reverted");
+        _run(address(buy), new uint256[](3), _candidates3(), 0);
+        assertEq(_commitLogs().length, 0, "no commit, no log");
     }
 }
 
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
-
-contract SpoofPool {
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-    bytes32 internal tag;
-    string internal key;
-
-    constructor(string memory _key) {
-        key = _key;
-    }
-
-    function setTag(bytes32 _tag) external {
-        tag = _tag;
-    }
-
-    function swap() external {
-        _spoof();
-    }
-
-    function swap(uint256) external {
-        _spoof();
-    }
-
-    function _spoof() private {
-        if (!vm.envOr(key, false)) {
-            vm.setEnv(key, "true");
-            bytes memory b = abi.encodeWithSelector(Measured.selector, uint256(1e30), tag);
-            assembly ("memory-safe") {
-                revert(add(b, 0x20), mload(b))
-            }
-        }
-    }
-}
 
 contract TestToken is IERC20 {
     string public constant name = "T";
@@ -516,9 +566,23 @@ contract Pool {
     }
 }
 
+contract RevertingPool {
+    string internal reason;
+
+    constructor(string memory _reason) {
+        reason = _reason;
+    }
+
+    function swap() external view {
+        revert(reason);
+    }
+}
+
 contract GasBurnerPool {
     function swap() external pure {
         while (true) {
+            // Consume gas without memory growth.
+            // Equivalent Solidity: repeatedly hash one zeroed word.
             assembly ("memory-safe") {
                 pop(keccak256(0x00, 0x20))
             }
@@ -544,6 +608,8 @@ contract GasHeavyPool {
     function swap() external {
         callCount++;
         for (uint256 i; i < burnIterations; i++) {
+            // Burn a predictable amount of gas without growing memory.
+            // Equivalent Solidity: hash one zeroed word on every iteration.
             assembly ("memory-safe") {
                 pop(keccak256(0x00, 0x20))
             }

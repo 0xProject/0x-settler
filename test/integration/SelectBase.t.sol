@@ -19,6 +19,7 @@ contract SelectBase is Test, Permit2Signature {
     address payable internal RECIPIENT = payable(makeAddr("recipient"));
     uint256 internal constant AMOUNT = 0.01 ether;
     uint48 internal constant PERMIT2_FROM_NONCE = 1;
+    uint256 internal constant SELECT_GAS_CAP = 400_000;
 
     IERC20 internal constant WETH = IERC20(0x4200000000000000000000000000000000000006);
     IERC20 internal constant USDC = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
@@ -79,22 +80,17 @@ contract SelectBase is Test, Permit2Signature {
         assertEq(USDC.balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
     }
 
-    function testMeasuredBestOf_measuresBothAndCommitsLargerStandaloneOutput() public {
+    function testAllReservationsMiss_reverts() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
-
-        uint256 uniswapOutput = _standaloneOutput(candidates[0]);
-        uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
-        uint256 expected = uniswapOutput > aerodromeOutput ? uniswapOutput : aerodromeOutput;
-
         uint256[] memory targets = new uint256[](2);
         targets[0] = type(uint256).max;
         targets[1] = type(uint256).max;
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        _runSelect(address(USDC), targets, candidates, expected);
-        uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
+        vm.expectRevert();
+        _runSelect(address(USDC), targets, candidates, 0);
 
-        assertEq(received, expected, "SELECT committed measured argmax");
+        assertEq(USDC.balanceOf(RECIPIENT), beforeBalance, "no candidate committed");
     }
 
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
@@ -114,7 +110,8 @@ contract SelectBase is Test, Permit2Signature {
 
     function _runSelect(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         bytes[] memory actions = ActionDataBuilder.build(
-            _permit2FundingAction(), abi.encodeCall(ISettlerActions.SELECT, (uint256(0), token, targets, candidates))
+            _permit2FundingAction(),
+            abi.encodeCall(ISettlerActions.SELECT, (SELECT_GAS_CAP, token, targets, candidates))
         );
 
         _execute(actions, minOut);

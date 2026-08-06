@@ -7,7 +7,6 @@ interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
     /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
-
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -224,8 +223,8 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Commits the first candidate that clears its target, else the highest measured score.
-    ///      `token = 0` scores bare success. Zero targets are fallback.
+    /// @dev Tries at most three candidates in order and commits the first that clears its target.
+    ///      `token = 0` scores bare success. Multi-candidate SELECT requires a nonzero gas limit.
     // Pre-req: Funded
     function SELECT(uint256 candidateGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
