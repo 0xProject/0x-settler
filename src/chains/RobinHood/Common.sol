@@ -35,6 +35,7 @@ import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../cor
 import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {OrvexCL} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
 
@@ -42,7 +43,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji {
+abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, OrvexCL {
     using FastLogic for bool;
 
     constructor() {
@@ -59,7 +60,8 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+            .or(action == uint32(ISettlerActions.EKUBOV3.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -73,8 +75,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+            } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
                 sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (

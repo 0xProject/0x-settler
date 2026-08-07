@@ -9,7 +9,7 @@ import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
-import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {PancakeInfinity} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 

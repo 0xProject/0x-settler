@@ -10,7 +10,7 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
-import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {PancakeInfinity} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
