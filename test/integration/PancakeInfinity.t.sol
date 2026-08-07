@@ -86,10 +86,22 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         }
     }
 
+    function vault() internal pure virtual returns (address) {
+        return pancakeInfinityVault;
+    }
+
+    function clPoolManager() internal pure virtual returns (address) {
+        return pancakeInfinityClManager;
+    }
+
+    function binPoolManager() internal pure virtual returns (address) {
+        return pancakeInfinityBinManager;
+    }
+
     function _setPancakeInfinityLabels() private {
-        vm.label(pancakeInfinityVault, "Vault");
-        vm.label(pancakeInfinityClManager, "CLPoolManager");
-        vm.label(pancakeInfinityBinManager, "BINPoolManager");
+        vm.label(vault(), "Vault");
+        vm.label(clPoolManager(), "CLPoolManager");
+        vm.label(binPoolManager(), "BINPoolManager");
     }
 
     function _readSlot0Cold(bytes32 poolId_) private view returns (uint160 sqrtPriceX96) {
@@ -102,7 +114,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function _readSlot0AndRevert(bytes32 poolId_) external view {
-        uint160 sqrtPriceX96 = IPancakeInfinityCLPoolManagerSlot0(pancakeInfinityClManager).getSlot0(poolId_);
+        uint160 sqrtPriceX96 = IPancakeInfinityCLPoolManagerSlot0(clPoolManager()).getSlot0(poolId_);
         assembly ("memory-safe") {
             mstore(0x00, sqrtPriceX96)
             revert(0x00, 0x20)
@@ -135,9 +147,8 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     function pancakeInfinityFills(IERC20 fromToken, IERC20 toToken) internal view virtual returns (bytes memory) {
         bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
-        PoolKey memory poolKey = IPancakeInfinityPoolManager(
-                managerId == 0 ? pancakeInfinityClManager : pancakeInfinityBinManager
-            ).poolIdToPoolKey(PoolId.wrap(poolId_));
+        PoolKey memory poolKey = IPancakeInfinityPoolManager(managerId == 0 ? clPoolManager() : binPoolManager())
+            .poolIdToPoolKey(PoolId.wrap(poolId_));
 
         return abi.encodePacked(
             uint16(10_000),
