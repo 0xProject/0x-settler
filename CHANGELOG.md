@@ -13,6 +13,7 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add Orvex CL PancakeInfinity fork to RobinHood chain
 
 ## 2026-07-27
 
