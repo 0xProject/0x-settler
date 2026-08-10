@@ -14,6 +14,7 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add Orvex CL PancakeInfinity fork to RobinHood chain
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
 
 ## 2026-07-27
 
