@@ -653,14 +653,15 @@ library Decoder {
         if (state.globalSell().tokenIsEth()) {
             assert(payer == address(this));
 
-            uint24 ppm;
+            uint256 ppm;
             assembly ("memory-safe") {
                 // `data` hasn't been advanced from decoding `sellToken` above. so we have to
-                // implicitly advance it by 20 bytes to decode `ppm` then advance by 23 bytes
+                // advance it by 20 bytes to decode `ppm` then advance by 3 bytes
 
-                ppm := shr(0x48, calldataload(data.offset))
+                data.offset := add(0x14, data.offset)
+                ppm := shr(0xe8, calldataload(data.offset))
 
-                data.offset := add(0x17, data.offset)
+                data.offset := add(0x3, data.offset)
                 data.length := sub(data.length, 0x17)
                 // We check for array out-of-bounds below
             }
@@ -670,14 +671,15 @@ library Decoder {
             }
         } else {
             if (payer == address(this)) {
-                uint24 ppm;
+                uint256 ppm;
                 assembly ("memory-safe") {
                     // `data` hasn't been advanced from decoding `sellToken` above. so we have to
-                    // implicitly advance it by 20 bytes to decode `ppm` then advance by 23 bytes
+                    // advance it by 20 bytes to decode `ppm` then advance by 3 bytes
 
-                    ppm := shr(0x48, calldataload(data.offset))
+                    data.offset := add(0x14, data.offset)
+                    ppm := shr(0xe8, calldataload(data.offset))
 
-                    data.offset := add(0x17, data.offset)
+                    data.offset := add(0x3, data.offset)
                     data.length := sub(data.length, 0x17)
                     // We check for array out-of-bounds below
                 }
