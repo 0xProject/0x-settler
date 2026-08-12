@@ -5,9 +5,11 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertInvalidRenegadeData, revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
+    using UnsafeMath for uint256;
 
     // selector for `sponsorExternalMatch(uint256,address,(address,address,(uint256),uint256,uint256,uint256),(bool,uint8,bytes),(address,bool,uint256,uint256,bytes))`
     // `data` excludes the selector and the first four ABI words (amount, recipient, buy token, sell token).
@@ -82,10 +84,7 @@ abstract contract Renegade is SettlerSwapAbstract {
         }
 
         if (!refundNativeEth || buyToken == ETH_ADDRESS) {
-            unchecked {
-                if (buyAmt > maxRefundAmount) buyAmt -= maxRefundAmount;
-                else buyAmt = 0;
-            }
+            buyAmt = buyAmt.saturatingSub(maxRefundAmount);
         }
         if (buyAmt < minBuyAmount) revertTooMuchSlippage(buyToken, minBuyAmount, buyAmt);
     }
