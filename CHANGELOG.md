@@ -2,6 +2,9 @@
 
 ### Breaking changes
 
+* Update `RENEGADE` signature: replace `target` and `baseForQuote` with
+  `recipient`, `buyToken`, `maxSellAmount`, `refundNativeEth`, and
+  `maxRefundAmount`
 * SolidlyV3 UniV3 fork removed from Sonic
 
 ### Non-breaking changes
