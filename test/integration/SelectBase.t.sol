@@ -1,30 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {Permit2Signature} from "../utils/Permit2Signature.sol";
-import {Shim} from "./SettlerBasePairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
-contract SelectBase is Test, Permit2Signature {
+contract SelectBase is SettlerBasePairTest {
     uint256 internal constant BASE_BLOCK = 48_241_765;
     address payable internal RECIPIENT = payable(makeAddr("recipient"));
     uint256 internal constant AMOUNT = 0.01 ether;
-    uint48 internal constant PERMIT2_FROM_NONCE = 1;
     uint256 internal constant SELECT_GAS_CAP = 400_000;
 
-    IERC20 internal constant WETH = IERC20(0x4200000000000000000000000000000000000006);
+    IERC20 internal constant BASE_WETH = IERC20(0x4200000000000000000000000000000000000006);
     IERC20 internal constant USDC = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
-    ISignatureTransfer internal constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    IAllowanceHolder internal constant ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
 
     uint8 internal constant UNISWAP_V3_FORK_ID = 0;
     uint8 internal constant AERODROME_V3_FORK_ID = 4;
@@ -32,39 +25,40 @@ contract SelectBase is Test, Permit2Signature {
     uint24 internal constant AERODROME_TICK_SPACING = 100;
     uint160 internal constant SQRT_PRICE_LIMIT_X96 = 4295128740;
 
-    bytes32 private constant _PERMIT2_NAME_HASH = keccak256("Permit2");
-    bytes32 private constant _PERMIT2_TYPE_HASH =
-        keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    BaseSettler internal settler;
-    bytes32 internal permit2Domain;
-    uint256 internal fromPrivateKey;
-    address payable internal from;
-
-    function setUp() public {
-        vm.createSelectFork("base", BASE_BLOCK);
-        vm.setEvmVersion("osaka");
-        permit2Domain = keccak256(abi.encode(_PERMIT2_TYPE_HASH, _PERMIT2_NAME_HASH, block.chainid, address(PERMIT2)));
-        (address fromAddr, uint256 privateKey) = makeAddrAndKey("FROM");
-        from = payable(fromAddr);
-        fromPrivateKey = privateKey;
-
-        vm.label(address(PERMIT2), "Permit2");
-        vm.label(address(WETH), "WETH");
-        vm.label(address(USDC), "USDC");
-        vm.label(from, "FROM");
+    function setUp() public override {
+        super.setUp();
+        // The pinned account has delegated code at this block; signatures here expect an EOA.
+        vm.etch(FROM, bytes(""));
         vm.label(RECIPIENT, "RECIPIENT");
+        safeApproveIfBelow(BASE_WETH, FROM, address(PERMIT2), AMOUNT);
+    }
 
-        deal(address(WETH), from, AMOUNT);
-        vm.prank(from);
-        WETH.approve(address(PERMIT2), type(uint256).max);
+    function settlerInitCode() internal pure override returns (bytes memory) {
+        return bytes.concat(type(BaseSettler).creationCode, abi.encode(bytes20(0)));
+    }
 
-        uint256 forkChainId = (new Shim()).chainId();
-        vm.chainId(31337);
-        settler = new BaseSettler(bytes20(0));
-        vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
-        vm.chainId(forkChainId);
-        vm.label(address(settler), "BaseSettler");
+    function _testChainId() internal pure override returns (string memory) {
+        return "base";
+    }
+
+    function _testBlockNumber() internal pure override returns (uint256) {
+        return BASE_BLOCK;
+    }
+
+    function _testName() internal pure override returns (string memory) {
+        return "BASE-SELECT";
+    }
+
+    function fromToken() internal pure override returns (IERC20) {
+        return BASE_WETH;
+    }
+
+    function toToken() internal pure override returns (IERC20) {
+        return USDC;
+    }
+
+    function amount() internal pure override returns (uint256) {
+        return AMOUNT;
     }
 
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
@@ -72,11 +66,13 @@ contract SelectBase is Test, Permit2Signature {
         uint256[] memory targets = new uint256[](2);
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        snapStartName("settler_selectFallbackRescue");
         _runSelect(address(0), targets, candidates, 1);
+        snapEnd();
         uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
 
         assertGt(received, 1, "alternate route paid recipient");
-        assertEq(WETH.balanceOf(address(settler)), 0, "settler WETH consumed");
+        assertEq(BASE_WETH.balanceOf(address(settler)), 0, "settler WETH consumed");
         assertEq(USDC.balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
     }
 
@@ -102,7 +98,9 @@ contract SelectBase is Test, Permit2Signature {
         targets[1] = aerodromeOutput;
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        snapStartName("settler_selectLadderCommit");
         _runSelect(address(USDC), targets, candidates, aerodromeOutput);
+        snapEnd();
         uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
 
         assertEq(received, aerodromeOutput, "first reachable rung committed");
@@ -110,7 +108,7 @@ contract SelectBase is Test, Permit2Signature {
 
     function _runSelect(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
         bytes[] memory actions = ActionDataBuilder.build(
-            _permit2FundingAction(),
+            _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.SELECT, (SELECT_GAS_CAP, token, targets, candidates))
         );
 
@@ -118,27 +116,20 @@ contract SelectBase is Test, Permit2Signature {
     }
 
     function _standaloneOutput(bytes[] memory candidate) internal returns (uint256 output) {
-        uint256 snapshot = vm.snapshot();
+        uint256 snapshot = vm.snapshotState();
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        _execute(ActionDataBuilder.build(_permit2FundingAction(), candidate[0]), 1);
+        _execute(ActionDataBuilder.build(_getDefaultFromPermit2Action(), candidate[0]), 1);
         output = USDC.balanceOf(RECIPIENT) - beforeBalance;
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
     }
 
     function _execute(bytes[] memory actions, uint256 minOut) internal {
-        vm.prank(from, from);
+        vm.prank(FROM, FROM);
         settler.execute(
             ISettlerBase.AllowedSlippage({recipient: RECIPIENT, buyToken: USDC, minAmountOut: minOut}),
             actions,
             bytes32(0)
         );
-    }
-
-    function _permit2FundingAction() internal view returns (bytes memory) {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(WETH), AMOUNT, PERMIT2_FROM_NONCE);
-        bytes memory sig = getPermitTransferSignature(permit, address(settler), fromPrivateKey, permit2Domain);
-        return abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig));
     }
 
     function _twoCandidates(uint256 uniswapMinOut, uint256 aerodromeMinOut)
@@ -157,6 +148,6 @@ contract SelectBase is Test, Permit2Signature {
     }
 
     function _path(uint8 forkId, uint24 poolId) internal pure returns (bytes memory) {
-        return abi.encodePacked(address(WETH), forkId, poolId, SQRT_PRICE_LIMIT_X96, address(USDC));
+        return abi.encodePacked(address(BASE_WETH), forkId, poolId, SQRT_PRICE_LIMIT_X96, address(USDC));
     }
 }
