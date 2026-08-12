@@ -6,9 +6,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
 
-/// @notice `SELECT` measurement: carries a candidate's measured score out of an isolated
-///         (reverted) self-call. `tag` = keccak256 of the candidate, rejecting look-alike reverts.
-error Measured(uint256 score, bytes32 tag);
+/// @notice Thrown when a SELECT candidate does not clear its measured output target.
+error Measured(uint256 score, bytes32 candidateHash);
 
 /// @notice Thrown when a validating a target contract to avoid certain types of targets
 error ConfusedDeputy();

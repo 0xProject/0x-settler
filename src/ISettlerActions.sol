@@ -224,9 +224,10 @@ interface ISettlerActions {
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
     /// @dev Tries at most three candidates in order and commits the first that clears its target.
-    ///      `token = 0` scores bare success. Multi-candidate SELECT requires a nonzero gas limit.
+    ///      `token = 0` scores bare success. Score native output as WETH. A multi-candidate SELECT
+    ///      requires a nonzero `trialGasLimit`; the fallback is uncapped.
     // Pre-req: Funded
-    function SELECT(uint256 candidateGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
+    function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
 
     function EKUBO(
