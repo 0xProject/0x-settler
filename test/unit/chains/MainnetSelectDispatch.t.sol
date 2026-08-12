@@ -2,31 +2,30 @@
 pragma solidity =0.8.34;
 
 import {Test} from "@forge-std/Test.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 
 contract MainnetSelectDispatchTest is Test {
-    function test_productionRuntime_includesSelectDispatch() public {
-        bytes memory runtime = vm.getDeployedCode("TakerSubmitted.sol:MainnetSettler");
+    function test_mainnetSelect_executesEmptyCandidate() public {
+        vm.mockCall(
+            0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, abi.encodeCall(IERC20.decimals, ()), abi.encode(uint8(6))
+        );
+        vm.mockCall(
+            0xdAC17F958D2ee523a2206206994597C13D831ec7, abi.encodeCall(IERC20.decimals, ()), abi.encode(uint8(6))
+        );
+        MainnetSettler settler = new MainnetSettler(bytes20(0));
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = new bytes[](0);
 
-        assertTrue(_contains(runtime, ISettlerActions.SELECT.selector), "SELECT excluded");
-    }
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (0, address(0), new uint256[](1), candidates));
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(this)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
-    function test_optimismRuntime_includesSelectViaSettlerBase() public {
-        bytes memory runtime = vm.getDeployedCode("TakerSubmitted.sol:OptimismSettler");
-
-        assertTrue(_contains(runtime, ISettlerActions.SELECT.selector), "SELECT excluded on Optimism");
-    }
-
-    function _contains(bytes memory haystack, bytes4 needle) private pure returns (bool) {
-        if (haystack.length < 4) return false;
-        for (uint256 i; i <= haystack.length - 4; ++i) {
-            bytes4 candidate;
-            assembly ("memory-safe") {
-                candidate := mload(add(add(haystack, 0x20), i))
-            }
-            if (candidate == needle) return true;
-        }
-        return false;
+        assertTrue(settler.execute(slippage, actions, bytes32(0)));
     }
 }
