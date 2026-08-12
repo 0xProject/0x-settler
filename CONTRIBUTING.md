@@ -13,6 +13,10 @@ that appears to be majority AI-authored without human review. Any contributor
 who opens majority AI-authored pull requests may be banned from opening pull
 requests against this repository.
 
+All AI-assisted commits must include one or more `Co-Authored-By:` lines
+attributing which AI models, harnesses, and/or agents were used in the
+production of those commits.
+
 # Documentation
 
 We do not accept pull requests that only modify documentation, correct spelling,

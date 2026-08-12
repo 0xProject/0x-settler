@@ -66,7 +66,7 @@ library UnsafeEkuboCore {
             // Compact params (uint96 sqrtRatioLimit, int128 amount, bool isToken1, uint32 skipAhead)
             // skipAhead is encoded as 31 bits
             // mstore(add(0x80, ptr), 0x00) // skipAhead harcoded to zero
-            mstore(add(0x80, ptr), shl(0x1f, isToken1)) // sets skipAhead to zero
+            mstore(add(0x80, ptr), shl(0x1f, lt(0x00, isToken1))) // sets skipAhead to zero
             mstore(add(0x7c, ptr), amount)
             mstore(add(0x6c, ptr), sqrtRatioLimit)
             mcopy(add(0x20, ptr), poolKey, 0x60)
@@ -102,14 +102,14 @@ library UnsafeEkuboCore {
             /// Compact params (uint96 sqrtRatioLimit, int128 amount, bool isToken1, uint32 skipAhead)
             // skipAhead is encoded as 31 bits
             // mstore(add(0x94, ptr), 0x00) // skipAhead harcoded to zero
-            mstore(add(0x94, ptr), shl(0x1f, isToken1)) // sets skipAhead to zero
+            mstore(add(0x94, ptr), shl(0x1f, lt(0x00, isToken1))) // sets skipAhead to zero
             mstore(add(0x90, ptr), amount)
             mstore(add(0x80, ptr), sqrtRatioLimit)
             mcopy(add(0x34, ptr), poolKey, 0x60)
             mcopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey.config` as the `to` argument
             mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `to`'s padding
 
-            if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0x104, 0x00, 0x20)) {
+            if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0xa4, 0x00, 0x20)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
