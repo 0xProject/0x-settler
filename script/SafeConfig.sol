@@ -104,10 +104,10 @@ library SafeConfig {
         revert(string.concat("Unrecognized chainid ", ItoA.itoa(block.chainid)));
     }
 
-    uint256 internal constant upgradeSafeThreshold = 2;
+    uint256 internal constant upgradeSafeThreshold = 3;
 
     function getUpgradeSafeSigners() internal view returns (address[] memory) {
-        address[] memory result = new address[](4);
+        address[] memory result = new address[](5);
         result[0] = 0x203393921A2E778fCB8619470ee0Cf399b6Ab4b2; // Chris
         result[1] = 0x3C3a57b5CC72933E312e0b0bEBe031F72d47c30B; // Duncan
         if (_isMainnet()) {
@@ -117,6 +117,7 @@ library SafeConfig {
             result[2] = 0x9E4496adE6096b000C856219C27734F4f89A5210; // Amir
             result[3] = 0x5A9d540A07a96a2bfC8a8dfd638359778C72526f; // Jacob
         }
+        result[4] = 0xc3445Ec2E12Ba39E74922bD33559028985164bb4; // Phil
         return result;
     }
 
