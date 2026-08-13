@@ -324,7 +324,7 @@ fi
 declare -r -a maybe_broadcast
 declare -r submit_rpc
 
-cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}"
+cast --timeout 300 --rpc-timeout 300 --confirmations 10 "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
