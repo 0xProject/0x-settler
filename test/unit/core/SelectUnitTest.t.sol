@@ -105,6 +105,10 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         buy.approve(address(permit2), type(uint256).max);
     }
 
+    function _gasBurner() internal returns (address) {
+        return address(new GasHeavyPool(IERC20(address(buy)), 0, type(uint256).max));
+    }
+
     function _candidates3() internal view returns (bytes[][] memory c) {
         c = new bytes[][](3);
         c[0] = _candidate(address(p0));
@@ -192,8 +196,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     function test_bounds_candidatesTablePastDataEnd_reverts() public {
         bytes memory action = _malformedAction(1);
-        // Place a one-entry candidates table where only its length word fits in the action.
-        // Equivalent Solidity: `candidates.offset = action.end - arguments - 32; candidates.length = 1`.
+        // Place a one-entry table where only its length word fits.
         assembly ("memory-safe") {
             let actionEnd := add(add(action, 0x20), mload(action))
             let arguments := add(action, 0x24)
@@ -422,8 +425,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     function test_nestedSelect_uncappedOuterFallbackCanFundInnerReserve() public {
         p0.set(7 ether, false);
-        bytes[][] memory innerCandidates =
-            _candidatePair(_candidate(address(new GasBurnerPool())), _candidate(address(p0)));
+        bytes[][] memory innerCandidates = _candidatePair(_candidate(_gasBurner()), _candidate(address(p0)));
         uint256[] memory innerTargets = new uint256[](2);
         innerTargets[0] = 1;
         innerTargets[1] = 7 ether;
@@ -511,18 +513,17 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
         p1.set(7 ether, false);
-        bytes[][] memory candidates = _candidatePair(_candidate(address(new GasBurnerPool())), _candidate(address(p1)));
+        bytes[][] memory candidates = _candidatePair(_candidate(_gasBurner()), _candidate(address(p1)));
         _runAction(_selectAction(300_000, address(0), new uint256[](2), candidates), 7 ether, 1_500_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed despite the staller");
     }
 
     function test_fallback_gasCap_lastCandidateRunsUncapped() public {
-        GasHeavyPool finisher = new GasHeavyPool(IERC20(address(buy)));
-        finisher.set(7 ether, 9_000);
+        GasHeavyPool finisher = new GasHeavyPool(IERC20(address(buy)), 7 ether, 9_000);
         buy.mint(address(finisher), 7 ether);
         bytes[][] memory candidates = new bytes[][](3);
-        candidates[0] = _candidate(address(new GasBurnerPool()));
-        candidates[1] = _candidate(address(new GasBurnerPool()));
+        candidates[0] = _candidate(_gasBurner());
+        candidates[1] = _candidate(_gasBurner());
         candidates[2] = _candidate(address(finisher));
         _runAction(_selectAction(300_000, address(0), new uint256[](3), candidates), 7 ether, 1_200_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "final fallback candidate committed");
@@ -551,20 +552,16 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p1.callCount(), 0, "second candidate not attempted without reserve");
     }
 
-    function _settlerLogs() internal returns (Vm.Log[] memory settlerLogs) {
+    function _settlerLog() internal returns (Vm.Log memory result) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 n;
-        settlerLogs = new Vm.Log[](logs.length);
         for (uint256 i; i < logs.length; ++i) {
             if (logs[i].emitter == address(settler)) {
-                settlerLogs[n++] = logs[i];
+                result = logs[i];
+                n++;
             }
         }
-        // Shrink the over-allocated array to the settler-emitted prefix.
-        // Equivalent Solidity: `settlerLogs.length = n`.
-        assembly ("memory-safe") {
-            mstore(settlerLogs, n)
-        }
+        assertEq(n, 1, "exactly one attribution log");
     }
 
     function test_commit_emitsAttributionLog() public {
@@ -577,11 +574,10 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         vm.recordLogs();
         _run(address(buy), targets, candidates, 7 ether);
 
-        Vm.Log[] memory logs = _settlerLogs();
-        assertEq(logs.length, 1, "exactly one attribution log");
-        assertEq(logs[0].topics.length, 1, "log1: single topic");
-        assertEq(logs[0].topics[0], _candidateHash(candidates[0]), "topic1 is the committed candidate hash");
-        assertEq(logs[0].data, abi.encode(uint256(7 ether)), "data is the committed score");
+        Vm.Log memory log = _settlerLog();
+        assertEq(log.topics.length, 1, "log1: single topic");
+        assertEq(log.topics[0], _candidateHash(candidates[0]), "topic is the candidate hash");
+        assertEq(log.data, abi.encode(uint256(7 ether)), "data is the score");
     }
 
     function test_missedTrial_emitsNoAttributionLog() public {
@@ -589,16 +585,29 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         p1.set(7 ether, false);
         bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
         uint256[] memory targets = new uint256[](2);
-        targets[0] = 6 ether; // first trial scores 5 ether, misses, and its frame's logs are discarded
+        targets[0] = 6 ether;
         targets[1] = 7 ether;
 
         vm.recordLogs();
         _run(address(buy), targets, candidates, 7 ether);
 
-        Vm.Log[] memory logs = _settlerLogs();
-        assertEq(logs.length, 1, "only the committed candidate's attribution log survives");
-        assertEq(logs[0].topics[0], _candidateHash(candidates[1]), "topic1 is the committed candidate hash");
-        assertEq(logs[0].data, abi.encode(uint256(7 ether)), "data is the committed score");
+        Vm.Log memory log = _settlerLog();
+        assertEq(log.topics[0], _candidateHash(candidates[1]), "topic is the candidate hash");
+        assertEq(log.data, abi.encode(uint256(7 ether)), "data is the score");
+    }
+
+    function test_basicSelfCall_emitsCallerChosenAttribution() public {
+        bytes32 candidateHash = bytes32(uint256(1));
+        bytes memory selfCall =
+            abi.encodeCall(Select.executeSelected, (new bytes[](0), IERC20(address(0)), 0, candidateHash));
+        bytes memory action = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, address(settler), 0, selfCall));
+
+        vm.recordLogs();
+        _runAction(action, 0);
+
+        Vm.Log memory log = _settlerLog();
+        assertEq(log.topics[0], candidateHash, "topic is caller chosen");
+        assertEq(log.data, abi.encode(uint256(0)), "data is zero score");
     }
 }
 
@@ -626,29 +635,14 @@ contract Pool {
     }
 }
 
-contract GasBurnerPool {
-    function swap() external pure {
-        while (true) {
-            // Consume gas without memory growth.
-            // Equivalent Solidity: repeatedly hash one zeroed word.
-            assembly ("memory-safe") {
-                pop(keccak256(0x00, 0x20))
-            }
-        }
-    }
-}
-
 contract GasHeavyPool {
     IERC20 internal immutable t;
     uint256 internal amt;
     uint256 internal burnIterations;
     uint256 public callCount;
 
-    constructor(IERC20 _t) {
+    constructor(IERC20 _t, uint256 _amt, uint256 _burnIterations) {
         t = _t;
-    }
-
-    function set(uint256 _amt, uint256 _burnIterations) external {
         amt = _amt;
         burnIterations = _burnIterations;
     }

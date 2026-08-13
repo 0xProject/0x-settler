@@ -27,7 +27,7 @@ contract SelectBase is SettlerBasePairTest {
 
     function setUp() public override {
         super.setUp();
-        // The pinned account has delegated code at this block; signatures here expect an EOA.
+        // The pinned account has delegated code at this block. Signatures here expect an EOA.
         vm.etch(FROM, bytes(""));
         vm.label(RECIPIENT, "RECIPIENT");
         safeApproveIfBelow(BASE_WETH, FROM, address(PERMIT2), AMOUNT);
@@ -74,6 +74,17 @@ contract SelectBase is SettlerBasePairTest {
         assertGt(received, 1, "alternate route paid recipient");
         assertEq(BASE_WETH.balanceOf(address(settler)), 0, "settler WETH consumed");
         assertEq(USDC.balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
+    }
+
+    function testFirstCandidateSuccess_commitsImmediately() public {
+        bytes[][] memory candidates = _twoCandidates(0, 0);
+        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+
+        snapStartName("settler_selectFirstCandidate");
+        _runSelect(address(0), new uint256[](2), candidates, 1);
+        snapEnd();
+
+        assertGt(USDC.balanceOf(RECIPIENT) - beforeBalance, 1, "first candidate paid recipient");
     }
 
     function testAllReservationsMiss_reverts() public {

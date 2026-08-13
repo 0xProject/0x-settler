@@ -15,9 +15,11 @@ abstract contract Select is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    /// @notice Candidates per SELECT action. Two covers primary/fallback and three adds a middle
-    /// rung; nesting the uncapped fallback extends depth without widening this decoder.
+    /// @notice Nest the uncapped fallback to exceed three candidates.
     uint256 private constant MAX_CANDIDATES = 3;
+
+    /// @dev Advisory attribution. BASIC can invoke the self-call directly.
+    event Selected(bytes32 indexed candidateHash, uint256 score) anonymous;
 
     function _balanceOfOrZero(IERC20 token) private view returns (uint256) {
         return address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
@@ -39,9 +41,7 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x1c, 0x44)
             }
         }
-        // Logs in reverted frames are discarded, so this survives exactly when this candidate
-        // commits -- receipt-level attribution of the committed candidate and its score.
-        // Equivalent Solidity pseudocode: `emit Selected(candidateHash, score)`.
+        // Reverted trials discard this log. Equivalent Solidity emits Selected(candidateHash, score).
         assembly ("memory-safe") {
             mstore(0x00, score)
             log1(0x00, 0x20, candidateHash)
@@ -50,14 +50,10 @@ abstract contract Select is SettlerSwapAbstract {
 
     function _select(bytes calldata data) internal {
         bytes4 selector = this.executeSelected.selector;
-        // Assembly keeps candidate validation, slicing, self-call construction, and revert
-        // bubbling compact. Equivalent Solidity: validate an in-frame targets prefix
-        // and one-to-three strictly ordered candidate frames; require the last frame's ABI
-        // encoding to consume the action exactly; then call candidates in order with their
-        // targets and commit the first success, bubbling the final failure. Before each non-final
-        // call, reserve enough gas for every remaining allocation: for r candidates, gasleft()
-        // must be at least r * trialGasLimit + floor(r * trialGasLimit / 0x20) + 0x10000.
-        // A multi-candidate action therefore requires a nonzero cap; the last candidate gets gas().
+        // Assembly keeps validation and self-calls compact. Equivalent Solidity validates both ABI
+        // tables and their exact span before trying candidates. With r candidates left, a trial
+        // requires r * trialGasLimit + floor(r * trialGasLimit / 0x20) + 0x10000 gas. The final
+        // call is uncapped and bubbles failure.
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
@@ -119,10 +115,10 @@ abstract contract Select is SettlerSwapAbstract {
             for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
                 let start_ := add(candsData, calldataload(add(candsData, shl(0x05, i))))
                 let next_ := dataEnd
-                let remaining_ := 0x00
-                if lt(add(i, 0x01), n) {
+                let remaining_ := sub(n, i)
+                let later_ := sub(remaining_, 0x01)
+                if later_ {
                     next_ := add(candsData, calldataload(add(candsData, shl(0x05, add(i, 0x01)))))
-                    remaining_ := sub(n, i)
                 }
                 let len_ := sub(next_, start_)
                 let dst_ := add(0x84, cd)
@@ -131,7 +127,7 @@ abstract contract Select is SettlerSwapAbstract {
                 mstore(add(0x64, cd), keccak256(dst_, len_))
 
                 let g_ := gas()
-                if remaining_ {
+                if later_ {
                     let totalCap_ := mul(gasCap, remaining_)
                     if or(
                         or(iszero(gasCap), gt(gasCap, div(g_, remaining_))),
@@ -142,7 +138,7 @@ abstract contract Select is SettlerSwapAbstract {
                     g_ := gasCap
                 }
                 if call(g_, address(), 0x00, cd, add(0x84, len_), 0x00, 0x00) { break }
-                if eq(add(i, 0x01), n) {
+                if iszero(later_) {
                     returndatacopy(cd, 0x00, returndatasize())
                     revert(cd, returndatasize())
                 }
@@ -153,23 +149,19 @@ abstract contract Select is SettlerSwapAbstract {
     function _runActions(bytes[] calldata actions) internal {
         AllowedSlippage memory noSlippage;
         uint256 it;
-        // Read the calldata array cursor without copying it to memory.
-        // Equivalent Solidity: `it = actions.offset`.
+        // Read the array cursor without a memory copy. Equivalent Solidity: `it = actions.offset`.
         assembly ("memory-safe") {
             it := actions.offset
         }
         for (uint256 i; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
             bool tooShort;
-            // Detect the lax decoder's underflow sentinel without copying the nested action.
-            // Equivalent Solidity: `tooShort = data.length > type(uint256).max - 4; if
-            // (tooShort) data = bytes("")`.
+            // Equivalent Solidity replaces decoder underflow with empty bytes.
             assembly ("memory-safe") {
                 tooShort := gt(data.length, not(0x04))
                 if tooShort { data.length := 0x00 }
             }
-            // `||` (not `FastLogic.or`) so a too-short action is never dispatched; single
-            // `revertActionInvalid` call site keeps its body from being inlined twice.
+            // Short-circuit malformed data. One revert site avoids duplicated inlining.
             if (tooShort || !_dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }

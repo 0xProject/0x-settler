@@ -223,10 +223,10 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Tries at most three candidates in order and commits the first that clears its target.
-    ///      `token = 0` scores bare success. Score native output as WETH. A multi-candidate SELECT
-    ///      requires a nonzero `trialGasLimit`; the fallback is uncapped. Place nested SELECT in
-    ///      the fallback unless its full reserve fits the enclosing trial's limit.
+    /// @dev Tries one-to-three funded candidates and commits the first to meet its target. A score
+    ///      is the increase in Settler-held `token`. Zero token scores success. Score native as WETH.
+    ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
+    ///      Nest in the fallback unless its full reserve fits the enclosing trial.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
