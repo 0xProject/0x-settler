@@ -566,9 +566,7 @@ contract TestSafeGuard is Test {
         calls[owners.length] = Call({
             to: address(safe),
             value: 0,
-            data: abi.encodeWithSignature(
-                "removeOwner(address,address,uint256)", owners[owners.length - 1].addr, safeCreator.addr, threshold
-            )
+            data: abi.encodeCall(ISafeSetup.removeOwner, (owners[owners.length - 1].addr, safeCreator.addr, threshold))
         });
     }
 
@@ -1806,7 +1804,7 @@ contract TestSafeGuard is Test {
         assertEq(IZeroExSettlerDeployerSafeGuard(predictedGuard).safe(), address(safe));
     }
 
-    function test_AtomicInstall_GuardCreatedOutsideFactory_Reverts() external {
+    function test_AtomicInstall_GuardCreatedOutsideFactory_Fails() external {
         // The Guard's constructor demands a supported CREATE2 factory as its deployer, which is why the
         // installation batch routes the deployment through the Safe Singleton Factory toehold.
         bytes memory initcode = _guardInitcode();
@@ -1869,7 +1867,7 @@ contract TestSafeGuard is Test {
         // The very calldata that installed the Guard is inadmissible now that the Guard is watching: its
         // sub-calls are not interleaved with `check()`.
         t.nonce = safe.nonce();
-        bytes memory subcall = abi.encodeCall(ISafeSetup.addOwnerWithThreshold, (owners[owners.length - 2].addr, 1));
+        bytes memory subcall = _handoverCalls(3)[1].data;
         bytes memory expectedRevert = abi.encodeWithSelector(
             IZeroExSettlerDeployerSafeGuard.GuardCheckNotEnforced.selector, uint256(1), address(safe), subcall
         );
