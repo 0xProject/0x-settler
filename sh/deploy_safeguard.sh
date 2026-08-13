@@ -299,7 +299,7 @@ declare -r -i gas_limit
 declare -a maybe_broadcast=()
 declare submit_rpc
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(send --chain $chainid)
+    maybe_broadcast+=(send --timeout 300 --rpc-timeout 300 --confirmations 10 --chain $chainid)
     if [[ $wallet_type = 'frame' ]] ; then
         submit_rpc='http://127.0.0.1:1248'
         maybe_broadcast+=(--unlocked)
@@ -418,7 +418,7 @@ if [[ ${BROADCAST-no} = [Yy]es && $era_vm = [Tt]rue ]] ; then
 
     cast publish --rpc-url "$rpc_url" "$raw_tx"
 else
-    cast --timeout 300 --rpc-timeout 300 --confirmations 10 "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}"
+    cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}"
 fi
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
