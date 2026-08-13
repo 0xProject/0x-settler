@@ -24,8 +24,7 @@ if ! contains "${signer-unset}" "${owners_array[@]}" ; then
     select signer in "${owners_array[@]}" ; do break ; done
 
     if [[ ${signer:-unset} = 'unset' ]] ; then
-        echo 'I do not know who that is' >&2
-        exit 1
+        die 'I do not know who that is'
     fi
 
     echo "$signer" >"$saved_safe_owner"
