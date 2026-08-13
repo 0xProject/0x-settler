@@ -9,6 +9,7 @@ function die {
 
 function register_exit_cleanup {
     declare -r _register_exit_cleanup="$1"
+    shift
     declare _register_exit_trap
     _register_exit_trap="$(trap -p EXIT)"
 
