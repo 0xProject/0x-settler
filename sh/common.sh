@@ -118,6 +118,16 @@ function get_config {
     jq -Mr .'"'"$chain_name"'"'."$1" < "$project_root"/chain_config.json
 }
 
+function get_config_strict {
+    declare _get_config_strict_result
+    _get_config_strict_result="$(get_config "$1")"
+    declare -r _get_config_strict_result
+    if [[ $_get_config_strict_result = 'null' ]] ; then
+        die 'Config key '"$1"' is missing for chain '"$chain_name"
+    fi
+    echo "$_get_config_strict_result"
+}
+
 if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
     if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
         die 'You are on the wrong branch (switch to `fork/london`)'

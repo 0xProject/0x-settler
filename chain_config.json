@@ -19,7 +19,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -65,7 +68,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -111,7 +117,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -157,7 +166,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -203,7 +215,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -249,7 +264,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -295,7 +313,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -341,7 +362,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -387,7 +411,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -433,7 +460,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -479,7 +509,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -525,7 +558,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -571,7 +607,10 @@
         "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
         "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
         "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
-        "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+        "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -617,7 +656,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -662,7 +704,10 @@
         "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
         "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
         "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
-        "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D"
+        "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -708,7 +753,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -753,7 +801,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -799,7 +850,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -844,7 +898,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -890,7 +947,10 @@
         "singleton": "0x1727c2c531cf966f902E5927b98490fDFb3b2b70",
         "factory": "0xDAec33641865E4651fB43181C6DB6f7232Ee91c2",
         "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
-        "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F"
+        "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
+        "migration": {
+          "v1.4.1": "0x817756C6c555A94BCEE39eB5a102AbC1678b09A7"
+        }
       },
       "v1.4.1": {
         "toehold": "0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD",
@@ -934,7 +994,10 @@
         "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
         "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
         "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
       },
       "v1.4.1": {
         "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -973,11 +1036,23 @@
     "minGasPriceGwei": 1,
     "wnative": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
     "safe": {
-      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
+      },
+      "v1.4.1": {
+        "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/robinhood/api"
     },
     "governance": {

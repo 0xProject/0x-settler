@@ -2,8 +2,13 @@ declare safe_url
 safe_url="$(get_config safe.apiUrl)"
 declare -r safe_url
 
+declare safe_version
+safe_version="$(cast call --rpc-url "$rpc_url" "$safe_address" 'VERSION()(string)')"
+safe_version="${safe_version//\"/}"
+declare -r safe_version
+
 declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
+multicall_address="$(get_config_strict 'safe["v'"$safe_version"'"].multiCall')"
 declare -r multicall_address
 
 declare deployer_address

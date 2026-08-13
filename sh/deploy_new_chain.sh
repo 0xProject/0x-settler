@@ -185,10 +185,10 @@ declare -r dao_description
 
 # safe constants
 declare safe_factory
-safe_factory="$(get_config safe.factory)"
+safe_factory="$(get_config_strict 'safe["v1.3.0"].factory')"
 declare -r safe_factory
 declare safe_singleton
-safe_singleton="$(get_config safe.singleton)"
+safe_singleton="$(get_config_strict 'safe["v1.3.0"].singleton')"
 declare -r safe_singleton
 declare safe_creation_sig
 safe_creation_sig='proxyCreationCode()(bytes)'
@@ -210,11 +210,23 @@ else
 fi
 declare -r safe_inithash
 declare safe_fallback
-safe_fallback="$(get_config safe.fallback)"
+safe_fallback="$(get_config_strict 'safe["v1.3.0"].fallback')"
 declare -r safe_fallback
 declare safe_multicall
-safe_multicall="$(get_config safe.multiCall)"
+safe_multicall="$(get_config_strict 'safe["v1.3.0"].multiCall')"
 declare -r safe_multicall
+declare safe_singleton_v141
+safe_singleton_v141="$(get_config_strict 'safe["v1.4.1"].singleton')"
+declare -r safe_singleton_v141
+declare safe_fallback_v141
+safe_fallback_v141="$(get_config_strict 'safe["v1.4.1"].fallback')"
+declare -r safe_fallback_v141
+declare safe_multicall_v141
+safe_multicall_v141="$(get_config_strict 'safe["v1.4.1"].multiCall')"
+declare -r safe_multicall_v141
+declare safe_migration
+safe_migration="$(get_config_strict 'safe["v1.3.0"].migration["v1.4.1"]')"
+declare -r safe_migration
 
 # compute deployment safe
 declare -r setup_signature='setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)'
@@ -339,11 +351,11 @@ forge script                                             \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
+    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$safe_singleton_v141" "$safe_fallback_v141" "$safe_multicall_v141" "$safe_migration" \
     2 3 4 5 1001 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 unset -v ICECOLDCOFFEE_DEPLOYER_KEY
