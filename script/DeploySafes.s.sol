@@ -378,6 +378,7 @@ contract DeploySafes is Script {
         address deploymentSafe,
         address upgradeSafe,
         address daoSafe,
+        address timelock,
         ISafeFactory safeFactory,
         address safeSingleton,
         address safeFallback,
@@ -639,6 +640,7 @@ contract DeploySafes is Script {
             guardInitcode = bytes.concat(guardCreationCode, abi.encode(upgradeSafe));
             predictedGuard =
                 AddressDerivation.deriveDeterministicContract(safeToehold, bytes32(0), keccak256(guardInitcode));
+            require(predictedGuard == timelock, "guard -- inithash/deployed address mismatch");
             require(predictedGuard.code.length == 0, "guard is already deployed");
         }
 

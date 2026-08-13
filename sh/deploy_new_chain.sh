@@ -327,7 +327,7 @@ dao_safe="$(cast to-check-sum-address "0x${dao_safe:26:40}")"
 declare -r dao_safe
 
 # compute guard (timelock) address
-declare guard_address=''
+declare guard_address="$(cast address-zero)"
 if [[ $era_vm = [Ff]alse ]] ; then
     declare guard_constructor_args
     guard_constructor_args="$(cast abi-encode 'constructor(address)' "$upgrade_safe")"
@@ -384,7 +384,7 @@ forge script                                             \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$safe_singleton_v141" "$safe_fallback_v141" "$safe_multicall_v141" "$safe_migration" "$safe_toehold" \
+    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$guard_address" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$safe_singleton_v141" "$safe_fallback_v141" "$safe_multicall_v141" "$safe_migration" "$safe_toehold" \
     2 3 4 5 1001 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 unset -v ICECOLDCOFFEE_DEPLOYER_KEY
