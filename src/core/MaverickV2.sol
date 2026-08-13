@@ -150,7 +150,7 @@ library FastMaverickV2Pool {
             mstore(add(0xc4, data), 0xc0)
             mstore(add(0xa4, data), signextend(0x03, tickLimit))
             mstore(add(0x84, data), 0x00) // exactOutput is false
-            mstore(add(0x64, data), tokenAIn)
+            mstore(add(0x64, data), lt(0x00, tokenAIn))
             mstore(add(0x44, data), amount)
             mstore(add(0x24, data), recipient)
             mstore(add(0x10, data), 0x3eece7db000000000000000000000000) // selector for `swap(address,(uint256,bool,bool,int32),bytes)` with `recipient`'s padding

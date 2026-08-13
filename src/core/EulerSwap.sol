@@ -56,6 +56,8 @@ library FastEvc {
                 revert(ptr_, returndatasize())
             }
             authorized := mload(0x00)
+            // we don't check for short returndata or dirty bits because we know that `evc` is
+            // well-behaved
             mstore(0x40, ptr)
         }
     }
@@ -384,10 +386,10 @@ library FastEulerSwap {
             let ptr := mload(0x40)
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
             {
-                zeroForOne := shl(0x05, zeroForOne)
+                zeroForOne := shl(0x05, iszero(zeroForOne))
                 let amountsStart := add(0x20, ptr)
-                let amountWord := add(amountsStart, zeroForOne)
-                let zeroWord := add(xor(0x20, zeroForOne), amountsStart)
+                let zeroWord := add(zeroForOne, amountsStart)
+                let amountWord := add(amountsStart, xor(0x20, zeroForOne))
                 mstore(amountWord, amountOut)
                 mstore(zeroWord, 0x00)
             }

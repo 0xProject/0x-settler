@@ -1,3 +1,4 @@
+[profile.""] # added for foundry-zksync to detect profile.default
 [profile.default]
 unchecked_cheatcode_artifacts = true
 ignored_error_codes = [2394, 2424, 4591, 5159, 9170]
