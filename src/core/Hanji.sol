@@ -64,6 +64,7 @@ library FastHanjiPool {
     ) internal returns (uint256 executed) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            isAsk := lt(0x00, isAsk)
             mstore(ptr, xor(0xad73d32e, mul(0x58603c62, isAsk)))       // selector
             mstore(add(0x20, ptr), isAsk)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffff, quantity))
@@ -90,6 +91,7 @@ library FastHanjiPool {
     function getToken(IHanjiPool pool, bool tokenY) internal view returns (IERC20 result) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            tokenY := lt(0x00, tokenY)
 
             mstore(0x00, 0xc3f909d4) // IHanjiPool.getConfig.selector
             if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x80)) {

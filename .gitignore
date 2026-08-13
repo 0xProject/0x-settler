@@ -4,6 +4,7 @@
 /cache/
 /out/
 /src/flat/
+/zkout/
 
 # Ignores development broadcast logs
 !/broadcast

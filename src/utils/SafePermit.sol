@@ -48,7 +48,7 @@ library FastPermit {
             mstore(add(0xf4, ptr), and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
             mstore(add(0xd4, ptr), r) // `r`.
             mstore(add(0xb4, ptr), add(0x1b, shr(0xff, vs))) // `v`.
-            mstore(add(0x94, ptr), allowed)
+            mstore(add(0x94, ptr), lt(0x00, allowed))
             mstore(add(0x74, ptr), expiry)
             mstore(add(0x54, ptr), nonce)
             mstore(add(0x34, ptr), spender)
@@ -272,7 +272,7 @@ library SafePermit {
                 mstore(add(0x80, ptr), spender)
                 mstore(add(0xa0, ptr), nonce)
                 mstore(add(0xc0, ptr), deadline)
-                mstore(add(0xe0, ptr), allowed)
+                mstore(add(0xe0, ptr), lt(0x00, allowed))
                 mstore(add(0x40, ptr), keccak256(add(0x40, ptr), 0xc0))
                 signingHash := keccak256(add(0x1e, ptr), 0x42)
             }

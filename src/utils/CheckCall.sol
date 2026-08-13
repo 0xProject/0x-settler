@@ -74,4 +74,17 @@ library CheckCall {
             }
         }
     }
+
+    //helper function to check if the call is successful
+    function checkCallSolidity(address target, bytes memory data, uint256 minReturnBytes) internal view returns (bool success) {
+        (bool ok, bytes memory ret) = target.staticcall(data);
+        if (ret.length == 0) {
+            if (!ok) {
+                return false;
+            }
+            require(target.code.length > 0);
+            return minReturnBytes == 0;
+        }
+        return ok && ret.length >= minReturnBytes;
+    }
 }
