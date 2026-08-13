@@ -167,10 +167,16 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     function unlock() external;
 
     function check() external view;
+
+    function supportsInterface(bytes4 interfaceID) external view returns (bool);
 }
 
 interface IMulticall {
     function multiSend(bytes memory transactions) external payable;
+}
+
+interface ISafeMigration {
+    function migrateL2WithFallbackHandler() external;
 }
 
 contract MigrationDummy {
@@ -210,11 +216,20 @@ contract TestSafeGuard is Test {
     address internal constant factory = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
     ISafe internal constant safe = ISafe(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
     address internal constant onePointThreeSingleton = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
+    address internal constant onePointFourSingleton = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
+    address internal constant onePointFourFallback = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+    address internal constant safeMigration = 0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6;
     IMulticall internal constant _MULTICALL = IMulticall(0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B);
+    IMulticall internal constant _MULTICALL_ONE_POINT_FOUR = IMulticall(0x9641d764fc13c8B624c04430C7356C1C7C8102e2);
+    // `type(Guard).interfaceId` as probed by the 1.4.1 `setGuard`
+    bytes4 internal constant _GUARD_INTERFACE_ID = 0xe6d7a83a;
+    uint24 internal constant _TIMELOCK_DELAY = uint24(5 days);
     IZeroExSettlerDeployerSafeGuard internal guard;
     uint256 internal pokeCounter;
 
     Vm.Wallet[] internal owners;
+    /// The EOA that creates the Safe and is its sole owner until the handover.
+    Vm.Wallet internal safeCreator;
 
     bytes32 internal constant _DOMAIN_SEPARATOR_TYPEHASH =
         keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
@@ -253,6 +268,7 @@ contract TestSafeGuard is Test {
         for (uint256 i; i < oldOwners.length + 1; i++) {
             owners.push(vm.createWallet(vm.deriveKey(mnemonic, uint32(i)), string.concat("Owner #", i.itoa())));
         }
+        safeCreator = vm.createWallet(vm.deriveKey(mnemonic, uint32(owners.length)), "SafeCreator");
 
         vm.startPrank(address(_safe));
         for (uint256 i; i < owners.length; i++) {
@@ -492,6 +508,111 @@ contract TestSafeGuard is Test {
         address prev = _safePrevOwner(owner);
         vm.prank(address(safe));
         ISafeSetup(address(safe)).removeOwner(prev, owner, threshold);
+    }
+
+    // ----- 1.4.1 migration / atomic installation helpers -----
+
+    /// Rewinds the fork's Safe to the state a newly-created deployment Safe is in: still on the 1.3.0
+    /// singleton, no Guard, and owned solely by the EOA that created it.
+    function _rewindToCreatorOwned() internal {
+        vm.store(address(safe), keccak256("guard_manager.guard.address"), bytes32(0));
+        vm.prank(address(safe));
+        ISafeSetup(address(safe)).addOwnerWithThreshold(safeCreator.addr, 1);
+        for (uint256 i; i < owners.length; i++) {
+            _removeOwnerDirect(owners[i].addr, 1);
+        }
+    }
+
+    /// Flips the proxy's singleton to SafeL2 1.4.1 and its fallback handler to the 1.4.1
+    /// `CompatibilityFallbackHandler` by DELEGATECALLing the canonical `SafeMigration`.
+    function _migrateToOnePointFourPointOne() internal {
+        SafeTx memory t = SafeTx({
+            to: safeMigration,
+            value: 0,
+            data: abi.encodeCall(ISafeMigration.migrateL2WithFallbackHandler, ()),
+            operation: Operation.DelegateCall,
+            safeTxGas: 0,
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0)),
+            nonce: safe.nonce()
+        });
+        _exec(t, _signSafeEncoded(safeCreator, _safeTxHash(t)));
+    }
+
+    function _guardInitcode() internal view returns (bytes memory) {
+        return bytes.concat(
+            vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne"), abi.encode(address(safe))
+        );
+    }
+
+    function _predictGuard(bytes memory initcode) internal pure returns (address) {
+        return AddressDerivation.deriveDeterministicContract(factory, bytes32(0), keccak256(initcode));
+    }
+
+    /// The owner handover: each final owner is prepended to the Safe's owner list (so they are added in
+    /// reverse), then the creator — whose predecessor is consequently the last final owner — is removed and
+    /// `threshold` applied.
+    function _handoverCalls(uint256 threshold) internal view returns (Call[] memory calls) {
+        calls = new Call[](owners.length + 1);
+        for (uint256 i; i < owners.length; i++) {
+            calls[i] = Call({
+                to: address(safe),
+                value: 0,
+                data: abi.encodeCall(ISafeSetup.addOwnerWithThreshold, (owners[owners.length - i - 1].addr, 1))
+            });
+        }
+        calls[owners.length] = Call({
+            to: address(safe),
+            value: 0,
+            data: abi.encodeWithSignature(
+                "removeOwner(address,address,uint256)", owners[owners.length - 1].addr, safeCreator.addr, threshold
+            )
+        });
+    }
+
+    /// The tail of the installation batch: CREATE2 the Guard through the Safe Singleton Factory toehold,
+    /// install it, then set the timelock delay.
+    function _guardInstallCalls(bytes memory initcode, address predictedGuard)
+        internal
+        pure
+        returns (Call[] memory calls)
+    {
+        calls = new Call[](3);
+        calls[0] = Call({to: factory, value: 0, data: bytes.concat(bytes32(0), initcode)});
+        calls[1] = Call({to: address(safe), value: 0, data: abi.encodeCall(ISafeSetup.setGuard, (predictedGuard))});
+        calls[2] = Call({
+            to: predictedGuard,
+            value: 0,
+            data: abi.encodeCall(IZeroExSettlerDeployerSafeGuard.setDelay, (_TIMELOCK_DELAY))
+        });
+    }
+
+    function _concat(Call[] memory a, Call[] memory b) internal pure returns (Call[] memory result) {
+        result = new Call[](a.length + b.length);
+        for (uint256 i; i < a.length; i++) {
+            result[i] = a[i];
+        }
+        for (uint256 i; i < b.length; i++) {
+            result[a.length + i] = b[i];
+        }
+    }
+
+    /// The 1.4.1 `MultiSendCallOnly` transaction carrying `calls` verbatim, with no `check()` interleaving.
+    function _batchTx(Call[] memory calls) internal view returns (SafeTx memory) {
+        return SafeTx({
+            to: address(_MULTICALL_ONE_POINT_FOUR),
+            value: 0,
+            data: _buildMultiSendRaw(calls),
+            operation: Operation.DelegateCall,
+            safeTxGas: 0,
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0)),
+            nonce: safe.nonce()
+        });
     }
 
     // ===================================================================================================
@@ -883,9 +1004,6 @@ contract TestSafeGuard is Test {
         vm.store(address(safe), keccak256("guard_manager.guard.address"), bytes32(0));
 
         // migrate to 1.4.1
-        address onePointFourSingleton = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
-        address onePointFourFallback = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
-
         MigrationDummy migration = new MigrationDummy();
 
         {
@@ -1623,6 +1741,202 @@ contract TestSafeGuard is Test {
         emit ISafe.ExecutionSuccess(txHash, 0);
         _exec(t, signatures);
         assertEq(pokeCounter, 1);
+    }
+
+    // ===================================================================================================
+    // Atomic 1.4.1 migration and Guard installation, as performed on a new-chain deployment
+    // ===================================================================================================
+
+    function test_AtomicInstall_MigrateThenCreateInstallSetDelay_Succeeds() public returns (SafeTx memory t) {
+        _rewindToCreatorOwned();
+        _migrateToOnePointFourPointOne();
+
+        assertEq(safe.masterCopy(), onePointFourSingleton);
+        assertEq(
+            abi.decode(safe.getStorageAt(uint256(keccak256("fallback_manager.handler.address")), 1), (address)),
+            onePointFourFallback
+        );
+
+        bytes memory initcode = _guardInitcode();
+        address predictedGuard = _predictGuard(initcode);
+        assertEq(predictedGuard.code.length, 0);
+
+        // The Guard's `supportsInterface` (probed by `setGuard`) demands the final owner configuration, so
+        // the installation sub-calls trail the handover in a single batch. The batch carries no interleaved
+        // `check()` calls: the Safe reads the (still empty) Guard address once, before execution, so the
+        // transaction that installs the Guard is not itself subject to the Guard's checks.
+        t = _batchTx(_concat(_handoverCalls(3), _guardInstallCalls(initcode, predictedGuard)));
+        _exec(t, _signSafeEncoded(safeCreator, _safeTxHash(t)));
+
+        guard = IZeroExSettlerDeployerSafeGuard(predictedGuard);
+        assertGt(predictedGuard.code.length, 0);
+        assertEq(guard.safe(), address(safe));
+        assertEq(
+            abi.decode(safe.getStorageAt(uint256(keccak256("guard_manager.guard.address")), 1), (address)),
+            predictedGuard
+        );
+        assertEq(guard.delay(), _TIMELOCK_DELAY);
+        assertEq(guard.lockedDownBy(), address(0));
+
+        assertEq(ISafeSetup(address(safe)).getOwners().length, owners.length);
+        assertEq(safe.getThreshold(), 3);
+        assertFalse(safe.isOwner(safeCreator.addr));
+
+        vm.prank(address(safe));
+        assertTrue(guard.supportsInterface(_GUARD_INTERFACE_ID));
+    }
+
+    function test_AtomicInstall_Create2Prediction_MatchesDeployedAddress() external {
+        // The installation batch's `setGuard` and `setDelay` sub-calls name the Guard's address before it
+        // exists, so the derivation the deployment tooling performs is load-bearing.
+        bytes memory initcode = _guardInitcode();
+        address predictedGuard = _predictGuard(initcode);
+
+        assertEq(
+            predictedGuard,
+            address(
+                uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), factory, bytes32(0), keccak256(initcode)))))
+            )
+        );
+
+        (bool success, bytes memory returndata) = factory.call(bytes.concat(bytes32(0), initcode));
+        assertTrue(success);
+        assertEq(address(uint160(bytes20(returndata))), predictedGuard);
+        assertGt(predictedGuard.code.length, 0);
+        assertEq(IZeroExSettlerDeployerSafeGuard(predictedGuard).safe(), address(safe));
+    }
+
+    function test_AtomicInstall_GuardCreatedOutsideFactory_Reverts() external {
+        // The Guard's constructor demands a supported CREATE2 factory as its deployer, which is why the
+        // installation batch routes the deployment through the Safe Singleton Factory toehold.
+        bytes memory initcode = _guardInitcode();
+        address deployed;
+        // `deployed = new ZeroExSettlerDeployerSafeGuardOnePointFourPointOne(safe)`, tolerating the revert.
+        // The Guard is compiled for a different EVM version than this test, so it is reachable only as
+        // `vm.getCode` bytecode, and a failed `CREATE` must yield the zero address rather than bubble.
+        assembly ("memory-safe") {
+            deployed := create(0x00, add(0x20, initcode), mload(initcode))
+        }
+        assertEq(deployed, address(0));
+    }
+
+    function test_AtomicInstall_BeforeOwnerHandover_Reverts() external {
+        _rewindToCreatorOwned();
+        _migrateToOnePointFourPointOne();
+
+        bytes memory initcode = _guardInitcode();
+        address predictedGuard = _predictGuard(initcode);
+
+        // The 1-of-1 Safe fails the Guard's `supportsInterface` conditions, so `setGuard` reverts. Safe's
+        // `execute` swallows the inner reason, surfacing GS013, and the whole batch is rolled back.
+        SafeTx memory t = _batchTx(_guardInstallCalls(initcode, predictedGuard));
+        vm.expectRevert("GS013");
+        _exec(t, _signSafeEncoded(safeCreator, _safeTxHash(t)));
+        assertEq(predictedGuard.code.length, 0);
+
+        // The rejection comes from the ERC165 probe, not from the Guard's constructor: the constructor does
+        // not inspect the Safe's owners, so deploying against the same 1-of-1 Safe succeeds.
+        (bool success, bytes memory returndata) = factory.call(bytes.concat(bytes32(0), initcode));
+        assertTrue(success);
+        assertEq(address(uint160(bytes20(returndata))), predictedGuard);
+
+        vm.prank(address(safe));
+        assertFalse(IZeroExSettlerDeployerSafeGuard(predictedGuard).supportsInterface(_GUARD_INTERFACE_ID));
+    }
+
+    function test_AtomicInstall_ExcessiveFinalThreshold_Reverts() external {
+        _rewindToCreatorOwned();
+        _migrateToOnePointFourPointOne();
+
+        bytes memory initcode = _guardInitcode();
+        address predictedGuard = _predictGuard(initcode);
+
+        // A 4-of-5 handover leaves a single owner outside the threshold. The Guard requires slack of at least
+        // `_MINIMUM_THRESHOLD` so that a griefing owner can always be voted out, so the ERC165 probe fails and
+        // the entire batch — handover included — is rolled back.
+        SafeTx memory t = _batchTx(_concat(_handoverCalls(4), _guardInstallCalls(initcode, predictedGuard)));
+        vm.expectRevert("GS013");
+        _exec(t, _signSafeEncoded(safeCreator, _safeTxHash(t)));
+
+        assertEq(predictedGuard.code.length, 0);
+        assertTrue(safe.isOwner(safeCreator.addr));
+        assertEq(ISafeSetup(address(safe)).getOwners().length, 1);
+    }
+
+    function test_AtomicInstall_ReplayInstallBatch_RevertsGuardCheckNotEnforced() external {
+        SafeTx memory t = test_AtomicInstall_MigrateThenCreateInstallSetDelay_Succeeds();
+
+        // The very calldata that installed the Guard is inadmissible now that the Guard is watching: its
+        // sub-calls are not interleaved with `check()`.
+        t.nonce = safe.nonce();
+        bytes memory subcall = abi.encodeCall(ISafeSetup.addOwnerWithThreshold, (owners[owners.length - 2].addr, 1));
+        bytes memory expectedRevert = abi.encodeWithSelector(
+            IZeroExSettlerDeployerSafeGuard.GuardCheckNotEnforced.selector, uint256(1), address(safe), subcall
+        );
+
+        vm.expectRevert(expectedRevert);
+        _enqueue(t, hex"");
+
+        // The structural inspection precedes the timelock, so not even unanimity admits the batch.
+        bytes memory signatures = _sign(owners.length, _safeTxHash(t));
+        vm.expectRevert(expectedRevert);
+        _exec(t, signatures);
+    }
+
+    function test_AtomicInstall_SetDelayNotSafe_RevertsPermissionDenied() external {
+        test_AtomicInstall_MigrateThenCreateInstallSetDelay_Succeeds();
+
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.PermissionDenied.selector));
+        guard.setDelay(uint24(1 days));
+        assertEq(guard.delay(), _TIMELOCK_DELAY);
+    }
+
+    function test_AtomicInstall_TimelockGovernsSubsequentTransactions() external {
+        test_AtomicInstall_MigrateThenCreateInstallSetDelay_Succeeds();
+
+        {
+            SafeTx memory unqueued = _pokeTx(safe.nonce());
+            bytes32 unqueuedHash = _safeTxHash(unqueued);
+            vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NotQueued.selector, unqueuedHash));
+            _exec(unqueued, _sign(3, unqueuedHash));
+        }
+
+        (SafeTx memory t, bytes32 txHash, bytes memory signatures) = _enqueuePoke();
+        (uint256 timelockEnd,) = guard.txInfo(txHash);
+        assertEq(timelockEnd, vm.getBlockTimestamp() + _TIMELOCK_DELAY);
+
+        vm.warp(timelockEnd);
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TimelockNotElapsed.selector, txHash, timelockEnd)
+        );
+        _exec(t, signatures);
+
+        vm.warp(timelockEnd + 1 seconds);
+        vm.expectEmit(true, true, true, true, address(safe));
+        emit ISafeOnePointFour.ExecutionSuccess(txHash, 0);
+        _exec(t, signatures);
+
+        assertEq(pokeCounter, 1);
+    }
+
+    function test_AtomicInstall_WithoutMigration_Bricks() external {
+        _rewindToCreatorOwned();
+
+        bytes memory initcode = _guardInitcode();
+        address predictedGuard = _predictGuard(initcode);
+
+        SafeTx memory t = _batchTx(_concat(_handoverCalls(3), _guardInstallCalls(initcode, predictedGuard)));
+        _exec(t, _signSafeEncoded(safeCreator, _safeTxHash(t)));
+
+        guard = IZeroExSettlerDeployerSafeGuard(predictedGuard);
+        assertEq(safe.masterCopy(), onePointThreeSingleton);
+
+        (SafeTx memory p,, bytes memory signatures) = _enqueuePoke();
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.UnexpectedUpgrade.selector, onePointThreeSingleton)
+        );
+        _exec(p, signatures);
     }
 
     // Note on `UnexpectedUpgrade`: it is not reachable while the guard is installed. Changing the Safe's
