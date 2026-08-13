@@ -18,7 +18,6 @@ abstract contract Select is SettlerSwapAbstract {
     /// @notice Nest the uncapped fallback to exceed three candidates.
     uint256 private constant MAX_CANDIDATES = 3;
 
-    /// @dev Advisory attribution. BASIC can invoke the self-call directly.
     event Selected(bytes32 indexed candidateHash, uint256 score) anonymous;
 
     function _balanceOfOrZero(IERC20 token) private view returns (uint256) {
