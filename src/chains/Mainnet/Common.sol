@@ -81,9 +81,7 @@ abstract contract MainnetMixin is
         //// NOTICE: we re-implement the base `_dispatch` implementation here so that we can remove
         //// the `VELODROME` action JUST on this chain because it does little-to-no volume.
 
-        if (action == uint32(ISettlerActions.SELECT.selector)) {
-            _select(data);
-        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -196,6 +194,8 @@ abstract contract MainnetMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
+            _select(data);
         } else {
             return false;
         }

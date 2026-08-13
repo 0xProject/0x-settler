@@ -225,7 +225,8 @@ interface ISettlerActions {
 
     /// @dev Tries at most three candidates in order and commits the first that clears its target.
     ///      `token = 0` scores bare success. Score native output as WETH. A multi-candidate SELECT
-    ///      requires a nonzero `trialGasLimit`; the fallback is uncapped.
+    ///      requires a nonzero `trialGasLimit`; the fallback is uncapped. Place nested SELECT in
+    ///      the fallback unless its full reserve fits the enclosing trial's limit.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;

@@ -190,6 +190,20 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
+    function test_bounds_candidatesTablePastDataEnd_reverts() public {
+        bytes memory action = _malformedAction(1);
+        // Place a one-entry candidates table where only its length word fits in the action.
+        // Equivalent Solidity: `candidates.offset = action.end - arguments - 32; candidates.length = 1`.
+        assembly ("memory-safe") {
+            let actionEnd := add(add(action, 0x20), mload(action))
+            let arguments := add(action, 0x24)
+            mstore(add(action, 0x84), sub(sub(actionEnd, arguments), 0x20))
+            mstore(sub(actionEnd, 0x20), 0x01)
+        }
+
+        _runMalformed(action);
+    }
+
     function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
         bytes memory action = _malformedAction(1);
         // Move candidate 0 one word before the candidates offset table.
@@ -390,6 +404,51 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(buy.balanceOf(maker), 7 ether, "nested losing output rolled back");
         assertEq(sell.balanceOf(maker), 0, "nested losing input rolled back");
         assertEq(buy.balanceOf(recipient), 9 ether, "outer fallback committed");
+    }
+
+    function test_nestedSelect_finalFailureBubblesInnerMeasurementIdentity() public {
+        p0.set(5 ether, false);
+        bytes[] memory innerCandidate = _candidate(address(p0));
+        bytes[][] memory innerCandidates = new bytes[][](1);
+        innerCandidates[0] = innerCandidate;
+        bytes[] memory nestedCandidate =
+            ActionDataBuilder.build(_selectAction(0, address(buy), _unreachableTargets(1), innerCandidates));
+        bytes[][] memory outerCandidates = new bytes[][](1);
+        outerCandidates[0] = nestedCandidate;
+
+        vm.expectRevert(abi.encodeWithSelector(Measured.selector, 5 ether, _candidateHash(innerCandidate)));
+        _run(address(buy), _unreachableTargets(1), outerCandidates, 0);
+    }
+
+    function test_nestedSelect_uncappedOuterFallbackCanFundInnerReserve() public {
+        p0.set(7 ether, false);
+        bytes[][] memory innerCandidates =
+            _candidatePair(_candidate(address(new GasBurnerPool())), _candidate(address(p0)));
+        uint256[] memory innerTargets = new uint256[](2);
+        innerTargets[0] = 1;
+        innerTargets[1] = 7 ether;
+        bytes[] memory nestedCandidate =
+            ActionDataBuilder.build(_selectAction(300_000, address(buy), innerTargets, innerCandidates));
+        bytes[] memory emptyCandidate = new bytes[](0);
+        bytes[][] memory outerCandidates = _candidatePair(nestedCandidate, emptyCandidate);
+        uint256[] memory outerTargets = new uint256[](2);
+        outerTargets[0] = 7 ether;
+        uint256 before = vm.snapshotState();
+
+        _runAction(_selectAction(300_000, address(buy), outerTargets, outerCandidates), 0, 2_000_000);
+
+        assertEq(buy.balanceOf(recipient), 0, "empty outer fallback committed");
+        assertEq(p0.callCount(), 0, "equal caps cannot fund the inner reserve");
+        assertTrue(vm.revertToState(before));
+
+        outerCandidates[0] = emptyCandidate;
+        outerCandidates[1] = nestedCandidate;
+        outerTargets[0] = 1;
+        outerTargets[1] = 7 ether;
+        _runAction(_selectAction(300_000, address(buy), outerTargets, outerCandidates), 7 ether, 2_000_000);
+
+        assertEq(buy.balanceOf(recipient), 7 ether, "nested fallback committed");
+        assertEq(p0.callCount(), 1, "inner fallback ran");
     }
 
     function test_metaTxn_signedSelect_executes() public {

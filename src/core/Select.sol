@@ -15,8 +15,8 @@ abstract contract Select is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    /// @notice Candidates per SELECT action. The last candidate is the reliable fallback, so a
-    /// lot needs two and a middle rung needs three; deeper ladders only widen the decoder.
+    /// @notice Candidates per SELECT action. Two covers primary/fallback and three adds a middle
+    /// rung; nesting the uncapped fallback extends depth without widening this decoder.
     uint256 private constant MAX_CANDIDATES = 3;
 
     function _balanceOfOrZero(IERC20 token) private view returns (uint256) {
@@ -63,10 +63,8 @@ abstract contract Select is SettlerSwapAbstract {
             let dynamicStart := add(dataStart, 0x80)
             let targetsBase := add(dataStart, calldataload(add(0x40, dataStart)))
             let base := add(dataStart, calldataload(add(0x60, dataStart)))
-            if or(
-                or(lt(targetsBase, dynamicStart), gt(targetsBase, sub(dataEnd, 0x20))),
-                or(lt(base, dynamicStart), gt(base, sub(dataEnd, 0x20)))
-            ) { revert(0x00, 0x00) }
+            // Nonzero lengths, ordered starts, and the terminal bound also contain both tables.
+            if or(lt(targetsBase, dynamicStart), lt(base, dynamicStart)) { revert(0x00, 0x00) }
 
             let n := calldataload(base)
             if or(iszero(n), gt(n, MAX_CANDIDATES)) { revert(0x00, 0x00) }
@@ -75,14 +73,12 @@ abstract contract Select is SettlerSwapAbstract {
             let candsData := add(0x20, base)
             let targetsEnd := add(targetsData, shl(0x05, n))
             let candidatesBody := add(candsData, shl(0x05, n))
-            if or(lt(calldataload(targetsBase), n), or(gt(targetsEnd, base), gt(candidatesBody, dataEnd))) {
-                revert(0x00, 0x00)
-            }
+            if or(lt(calldataload(targetsBase), n), gt(targetsEnd, base)) { revert(0x00, 0x00) }
 
             let previous := sub(candidatesBody, 0x01)
             for { let i := 0x00 } lt(i, n) { i := add(0x01, i) } {
                 let start_ := add(candsData, calldataload(add(candsData, shl(0x05, i))))
-                if or(iszero(gt(start_, previous)), gt(start_, dataEnd)) { revert(0x00, 0x00) }
+                if iszero(gt(start_, previous)) { revert(0x00, 0x00) }
                 previous := start_
             }
 

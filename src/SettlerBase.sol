@@ -125,9 +125,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
         //// need to make sure that corresponding changes are made to that function.
 
-        if (action == uint32(ISettlerActions.SELECT.selector)) {
-            _select(data);
-        } else if (action == uint32(ISettlerActions.RFQ.selector)) {
+        if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -176,6 +174,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                     token.safeTransfer(recipient, balance);
                 }
             }
+        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
+            _select(data);
         } else {
             return false;
         }
