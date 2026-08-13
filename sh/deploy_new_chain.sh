@@ -138,23 +138,24 @@ fi
 
 decrypt_secrets
 
-declare guard_bytecode=0x
-if [[ $era_vm = [Ff]alse ]] ; then
-    # The Guard MUST compile with these exact settings
-    guard_bytecode="$(
-        export FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200
-        forge clean >&2
-        forge build src/deployer/SafeGuard.sol >&2
-        forge inspect src/deployer/SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne bytecode
-    )"
-fi
-declare -r guard_bytecode
-
 . "$project_root"/sh/common_deploy_settler.sh
 
 declare -r bridge_settler_skip_clean=Yes
 
 . "$project_root"/sh/common_deploy_bridge_settler.sh
+
+# The Guard MUST compile with these exact settings. The Foundry script reads this artifact with
+# `vm.getCode`, so this build must come after every `forge clean`, and the script build must skip
+# SafeGuard.sol so that the artifact survives.
+declare guard_bytecode=0x
+if [[ $era_vm = [Ff]alse ]] ; then
+    guard_bytecode="$(
+        export FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200
+        forge build src/deployer/SafeGuard.sol >&2
+        forge inspect src/deployer/SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne bytecode
+    )"
+fi
+declare -r guard_bytecode
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
@@ -366,6 +367,7 @@ forge script                                             \
     --no-storage-caching                                 \
     --gas-limit 100000000                                \
     --skip 'Flat.sol'                                    \
+    --skip 'src/deployer/SafeGuard.sol'                  \
     --skip 'CrossChainReceiverFactory.sol'               \
     --skip 'src/allowanceholder/*.sol'                   \
     --skip 'src/chains/*.sol'                            \
@@ -378,13 +380,13 @@ forge script                                             \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$safe_singleton_v141" "$safe_fallback_v141" "$safe_multicall_v141" "$safe_migration" "$safe_toehold" \
     2 3 4 5 1001 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" \
-    "$chain_display_name" "$constructor_args" "$guard_bytecode" "$(IFS=, ; echo "[${solvers[*]}]")"
+    "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 unset -v ICECOLDCOFFEE_DEPLOYER_KEY
 unset -v DEPLOYER_PROXY_DEPLOYER_KEY
 

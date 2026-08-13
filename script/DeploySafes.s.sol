@@ -70,6 +70,11 @@ interface ISafeGuardManager {
     function setGuard(address guard) external;
 }
 
+interface IZeroExSettlerDeployerSafeGuard {
+    function setDelay(uint24 newDelay) external;
+    function delay() external view returns (uint24);
+}
+
 interface ISafeMulticall {
     /// @dev Sends multiple transactions and reverts all if one fails.
     /// @param transactions Encoded transactions. Each transaction is encoded as a packed bytes of
@@ -112,6 +117,9 @@ contract DeploySafes is Script {
     bytes32 internal constant guardSlot = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
     // Arachnid's deterministic-deployment-proxy; the Safe Singleton Factory runs the same code
     bytes32 internal constant toeholdHash = 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
+    // keccak256 of the creation code of `ZeroExSettlerDeployerSafeGuardOnePointFourPointOne` compiled with solc
+    // 0.8.25, the London hardfork, and 200 optimizer runs; only this build lands the guard at its canonical address
+    bytes32 internal constant guardCreationHash = 0x2dc46f7baff22455573ac9bce9d7f9ea2ecff7444c84d0520ae7a252a266d405;
     // The migration bytecode etched during EraVm simulation is the EVM build; its immutables point at the
     // EVM-canonical v1.4.1 singleton rather than the chain's EraVm deployment, so the simulation needs code there.
     address internal constant singletonV141Canonical = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
@@ -391,7 +399,6 @@ contract DeploySafes is Script {
         string calldata initialDescriptionDao,
         string calldata chainDisplayName,
         bytes calldata constructorArgs,
-        bytes calldata guardCreationCode,
         address[] calldata solvers
     ) public {
         SafeCompatConfig memory safeCompatConfig = SafeCompatConfig({
@@ -626,6 +633,9 @@ contract DeploySafes is Script {
         bytes memory guardInitcode;
         if (!safeCompatConfig.isEraVm) {
             require(safeToehold.codehash == toeholdHash, "Safe toehold codehash");
+            bytes memory guardCreationCode =
+                vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne");
+            require(keccak256(guardCreationCode) == guardCreationHash, "guard creation code hash");
             guardInitcode = bytes.concat(guardCreationCode, abi.encode(upgradeSafe));
             predictedGuard =
                 AddressDerivation.deriveDeterministicContract(safeToehold, bytes32(0), keccak256(guardInitcode));
@@ -637,7 +647,7 @@ contract DeploySafes is Script {
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
         assert(changeOwnersCalls.length == upgradeOwners.length + 1);
         bytes[] memory upgradeSetupCalls =
-            new bytes[](11 + changeOwnersCalls.length + (safeCompatConfig.isEraVm ? 0 : 2));
+            new bytes[](11 + changeOwnersCalls.length + (safeCompatConfig.isEraVm ? 0 : 3));
         upgradeSetupCalls[0] = _encodeMultisend(deployerProxy, acceptOwnershipCall);
         upgradeSetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedSetDescriptionCall);
         upgradeSetupCalls[2] = _encodeMultisend(deployerProxy, takerSubmittedAuthorizeCall);
@@ -660,6 +670,10 @@ contract DeploySafes is Script {
                 _encodeMultisend(safeToehold, bytes.concat(bytes32(0), guardInitcode));
             upgradeSetupCalls[12 + changeOwnersCalls.length] =
                 _encodeMultisend(upgradeSafe, abi.encodeCall(ISafeGuardManager.setGuard, (predictedGuard)));
+            upgradeSetupCalls[13 + changeOwnersCalls.length] = _encodeMultisend(
+                predictedGuard,
+                abi.encodeCall(IZeroExSettlerDeployerSafeGuard.setDelay, (SafeConfig.upgradeSafeTimelockDelay))
+            );
         }
         bytes memory upgradeSetupCall = _encodeMultisend(upgradeSetupCalls);
 
@@ -820,6 +834,10 @@ contract DeploySafes is Script {
             require(predictedGuard.code.length != 0, "guard was not deployed");
             require(
                 address(uint160(uint256(vm.load(upgradeSafe, guardSlot)))) == predictedGuard, "guard was not installed"
+            );
+            require(
+                IZeroExSettlerDeployerSafeGuard(predictedGuard).delay() == SafeConfig.upgradeSafeTimelockDelay,
+                "guard delay was not set"
             );
         }
         require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
