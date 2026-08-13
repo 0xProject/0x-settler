@@ -149,9 +149,9 @@ declare -r bridge_settler_skip_clean=Yes
 # SafeGuard.sol so that the artifact survives.
 declare guard_bytecode=0x
 if [[ $era_vm = [Ff]alse ]] ; then
+    FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200 forge build src/deployer/SafeGuard.sol
     guard_bytecode="$(
-        export FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200
-        forge build src/deployer/SafeGuard.sol >&2
+        FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200
         forge inspect src/deployer/SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne bytecode
     )"
 fi
