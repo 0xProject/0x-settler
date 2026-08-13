@@ -7,9 +7,19 @@ function die {
 
 . "$project_root"/sh/common_bash_version_check.sh
 
+# `trap -p` requotes the trap body on output (each embedded single quote becomes '\''), so a
+# body containing a single quote cannot be recovered verbatim and re-registered. Reject such
+# cleanups (and such recovered bodies) instead of corrupting the trap. Cleanups run in the
+# reverse of registration order.
 function register_exit_cleanup {
     declare -r _register_exit_cleanup="$1"
     shift
+
+    if [[ $_register_exit_cleanup = *"'"* ]] ; then
+        die 'register_exit_cleanup: cleanup command must not contain a single quote:' \
+            "$_register_exit_cleanup"
+    fi
+
     declare _register_exit_trap
     _register_exit_trap="$(trap -p EXIT)"
 
@@ -23,6 +33,9 @@ function register_exit_cleanup {
     fi
     _register_exit_trap="${_register_exit_trap%\' EXIT}"
     _register_exit_trap="${_register_exit_trap#trap -- \'trap - EXIT; set +e; }"
+    if [[ $_register_exit_trap = *"'"* ]] ; then
+        die '`trap EXIT` cleanup contains a single quote; cannot add a new cleanup'
+    fi
     trap 'trap - EXIT; set +e; '"$_register_exit_cleanup"'; '"$_register_exit_trap" EXIT
 }
 
@@ -64,21 +77,8 @@ if [[ $cast_flavor != "$foundry_flavor" ]] ; then
         'cast:  '"$cast_version"
 fi
 
-function require_vanilla_foundry {
-    if [[ $foundry_flavor != vanilla ]] ; then
-        die 'This operation requires vanilla Foundry, but `forge` is the zkFoundry fork'
-    fi
-}
-
-function require_zk_foundry {
-    if [[ $era_vm != [Tt]rue ]] ; then
-        die 'This operation requested zkFoundry on a non-EraVM chain'
-    fi
-    if [[ $foundry_flavor != zkfoundry ]] ; then
-        die 'This operation requires the zkFoundry fork for EraVM bytecode' \
-            'Install it with `foundryup-zksync --install 0.1.9` and make sure it is first in PATH'
-    fi
-}
+declare -r vanilla_foundry_version=b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2
+declare -r zk_foundry_version=foundry-zksync-v0.1.9
 
 if ! hash curl &>/dev/null ; then
     die 'curl is not installed'
@@ -153,26 +153,43 @@ if [[ $foundry_flavor = zkfoundry ]] && [[ $era_vm = [Ff]alse ]] ; then
 fi
 
 if [[ $foundry_flavor = vanilla ]] ; then
-    if [[ $foundry_version != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
+    if [[ $foundry_version != *"$vanilla_foundry_version"* ]] ; then
         die 'Wrong vanilla Foundry version installed' \
             'Run `foundryup -i v1.5.1`' \
             'This doesn'"'"'t work on old versions of `foundryup`' \
             'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`'
     fi
-    if [[ $cast_version != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
+    if [[ $cast_version != *"$vanilla_foundry_version"* ]] ; then
         die 'Wrong vanilla cast version installed' \
             'Run `foundryup -i v1.5.1`'
     fi
 else
-    if [[ $foundry_version != *foundry-zksync-v0.1.9* ]] ; then
+    if [[ $foundry_version != *"$zk_foundry_version"* ]] ; then
         die 'Wrong zkFoundry version installed' \
-            'Run `foundryup-zksync --install 0.1.9`'
+            'Run `foundryup-zksync -i '"$zk_foundry_version"'`'
     fi
-    if [[ $cast_version != *foundry-zksync-v0.1.9* ]] ; then
+    if [[ $cast_version != *"$zk_foundry_version"* ]] ; then
         die 'Wrong zkFoundry cast version installed' \
-            'Run `foundryup-zksync --install 0.1.9`'
+            'Run `foundryup-zksync -i '"$zk_foundry_version"'`'
     fi
 fi
+
+function require_vanilla_foundry {
+    if [[ $foundry_flavor != vanilla ]] ; then
+        die 'This operation requires vanilla Foundry, but `forge` is the zkFoundry fork' \
+            'Run `foundryup -i v1.5.1` and make sure it is first in PATH'
+    fi
+}
+
+function require_zk_foundry {
+    if [[ $era_vm = [Ff]alse ]] ; then
+        die 'This operation requested zkFoundry on a non-EraVM chain'
+    fi
+    if [[ $foundry_flavor != zkfoundry ]] ; then
+        die 'This operation requires the zkFoundry fork for EraVM bytecode' \
+            'Install it with `foundryup-zksync -i '"$zk_foundry_version"'` and make sure it is first in PATH'
+    fi
+}
 
 if [[ $era_vm != [Ff]alse ]] ; then
     if (( $(get_config gasMultiplierPercent) < 500 )) ; then

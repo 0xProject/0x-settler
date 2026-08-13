@@ -816,7 +816,8 @@ contract DeploySafes is Script {
         {
             uint256 gasPrev = gasSplits[0];
             for (uint256 i = 1; i < gasSplits.length; i++) {
-                require(gasPrev + 15728639 > (gasPrev = gasSplits[i]), "transaction is likely to exceed EIP-7825 limit");
+                require(gasSplits[i] + 15728639 > gasPrev, "transaction is likely to exceed EIP-7825 limit");
+                gasPrev = gasSplits[i];
             }
         }
 

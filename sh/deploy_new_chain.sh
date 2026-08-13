@@ -121,6 +121,9 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
+# Even on EraVM chains, the Foundry script runs under the vanilla EVM simulator
+require_vanilla_foundry
+
 if [[ ! -f "$project_root"/sh/initial_description_taker.md ]] ; then
     die 'sh/initial_description_taker.md is missing'
 fi
@@ -150,10 +153,7 @@ declare -r bridge_settler_skip_clean=Yes
 declare guard_bytecode=0x
 if [[ $era_vm = [Ff]alse ]] ; then
     FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200 forge build src/deployer/SafeGuard.sol
-    guard_bytecode="$(
-        FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200
-        forge inspect src/deployer/SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne bytecode
-    )"
+    guard_bytecode="$(jq -Mr .bytecode.object < "$project_root"/out/SafeGuard.sol/ZeroExSettlerDeployerSafeGuardOnePointFourPointOne.json)"
 fi
 declare -r guard_bytecode
 
@@ -345,6 +345,13 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 fi
 declare -r -a maybe_broadcast
 
+# Mantle has funky gas rules; EraVm chains price in ergs, not gas
+declare -a maybe_tx_gas_limit=()
+if (( chainid != 5000 )) && [[ $era_vm = [Ff]alse ]] ; then
+    maybe_tx_gas_limit+=(--enable-tx-gas-limit)
+fi
+declare -r -a maybe_tx_gas_limit
+
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     if (( $(cast balance --rpc-url "$rpc_url" "$module_deployer") == 0 )) ; then
         die 'You forgot to send ETH to '"$module_deployer"'.'
@@ -366,6 +373,7 @@ forge script                                             \
     --slow                                               \
     --no-storage-caching                                 \
     --gas-limit 100000000                                \
+    "${maybe_tx_gas_limit[@]}"                           \
     --skip 'Flat.sol'                                    \
     --skip 'src/deployer/SafeGuard.sol'                  \
     --skip 'CrossChainReceiverFactory.sol'               \
@@ -380,7 +388,7 @@ forge script                                             \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
@@ -443,8 +451,12 @@ if [[ $era_vm != [Ff]alse ]] ; then
     echo '!!!                                                            !!!' >&2
     echo '!!! Do this IMMEDIATELY:                                       !!!' >&2
     echo '!!!   1. deploy the guard:                                     !!!' >&2
-    echo '!!!      BROADCAST=Yes ./sh/deploy_safeguard.sh '"$chain_name" >&2
-    echo '!!!   2. queue a transaction on the upgrade Safe that calls    !!!' >&2
-    echo '!!!      `setGuard(<guard>)`; collect signatures; execute it   !!!' >&2
+    printf '!!!      %-54s!!!\n' "BROADCAST=Yes ./sh/deploy_safeguard.sh $chain_name" >&2
+    echo '!!!   2. queue ONE multisend transaction on the upgrade Safe   !!!' >&2
+    echo '!!!      that calls `setGuard(<guard>)` and then               !!!' >&2
+    echo '!!!      `setDelay(432000)` (5 days); collect signatures;      !!!' >&2
+    echo '!!!      execute it                                            !!!' >&2
+    echo '!!!   3. add the guard address as `governance.timelock` in     !!!' >&2
+    echo '!!!      chain_config.json                                     !!!' >&2
     echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!' >&2
 fi

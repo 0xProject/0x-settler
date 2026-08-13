@@ -240,12 +240,8 @@ declare -r constructor_args
 
 declare predicted
 if [[ $era_vm = [Tt]rue ]] ; then
-    # EraVM needs zkSync artifacts so we switch to the zksync aware foundry version
-    foundryup-zksync -u foundry-zksync-v0.1.9 || true
-    if [[ $(forge --version) != *14afc70e251c89b7e2af6e6ac02e9ac6f095b5cc* ]] ; then
-        die 'Wrong foundry version installed' \
-            'Run `foundryup-zksync -i foundry-zksync-v0.1.9`'
-    fi
+    # EraVM bytecode requires zkSync-aware artifacts
+    require_zk_foundry
     forge clean
     forge build --zksync --zk-compile src/deployer/SafeGuard.sol
     declare art="$project_root/zkout/SafeGuard.sol/$guard_contract.json"
@@ -255,6 +251,7 @@ if [[ $era_vm = [Tt]rue ]] ; then
     declare -r bytecode_hash guard_bytecode
     predicted="$(predict_create2_era_vm "$factory" "$bytecode_hash" "$(cast keccak "$constructor_args")")"
 else
+    require_vanilla_foundry
     forge clean
     forge build src/deployer/SafeGuard.sol
     declare guard_bytecode initcode
