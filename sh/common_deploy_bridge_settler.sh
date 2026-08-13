@@ -7,18 +7,7 @@ flat_bridge_settler_source="$project_root"/src/flat/"$chain_display_name"BridgeS
 declare -r flat_bridge_settler_source
 
 if [[ "${bridge_settler_skip_clean-no}" == [Yy]es ]] ; then
-    declare swap_settler_trap
-    swap_settler_trap="$(trap -p EXIT)"
-
-    if [[ $swap_settler_trap != "trap -- 'trap - EXIT; set +e; "* ]] || [[ $swap_settler_trap != *"' EXIT" ]] ; then
-        echo '`trap EXIT` cleanup malformed; cannot add a new cleanup' >&2
-        exit 1
-    fi
-    swap_settler_trap="${swap_settler_trap%\' EXIT}"
-    swap_settler_trap="${swap_settler_trap#trap -- \'trap - EXIT; set +e; }"
-    trap 'trap - EXIT; set +e; '"$swap_settler_trap"'; rm -f '"$(_escape "$flat_bridge_settler_source")" EXIT
-
-    unset -v swap_settler_trap
+    register_exit_cleanup 'rm -f '"$(_escape "$flat_bridge_settler_source")"
 else
     trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_bridge_settler_source")" EXIT
 fi

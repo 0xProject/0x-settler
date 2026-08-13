@@ -126,8 +126,7 @@ safe="$(get_config governance.upgradeSafe)"
 declare -r safe
 
 if [[ ${safe:-null} == [nN][uU][lL][lL] ]] ; then
-    echo 'governance.upgradeSafe is missing from chain_config.json for chain "'"$chain_name"'"' >&2
-    exit 1
+    die 'governance.upgradeSafe is missing from chain_config.json for chain "'"$chain_name"'"'
 fi
 
 declare safe_codehash
@@ -140,8 +139,7 @@ if [[ $era_vm = [Tt]rue ]] ; then
         0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d|\
         0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f) ;;
         *)
-            echo 'Upgrade Safe ('"$safe"') is not a recognized EraVM Safe proxy (codehash '"$safe_codehash"')' >&2
-            exit 1
+            die 'Upgrade Safe ('"$safe"') is not a recognized EraVM Safe proxy (codehash '"$safe_codehash"')'
             ;;
     esac
 else
@@ -151,8 +149,7 @@ else
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000|\
         0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c) ;;
         *)
-            echo 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')' >&2
-            exit 1
+            die 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')'
             ;;
     esac
 fi
@@ -189,8 +186,7 @@ function predict_create2 {
 
 function predict_create2_era_vm {
     if (( ${#1} != 42 || ${#2} != 66 || ${#3} != 66 )) ; then
-        echo 'predict_create2_era_vm: argument has the wrong width' >&2
-        return 1
+        die 'predict_create2_era_vm: argument has the wrong width'
     fi
     declare _predict_out
     _predict_out="$(cast keccak "$(cast concat-hex "$(cast keccak zksyncCreate2)" "$(cast to-uint256 "$1")" "$(cast hash-zero)" "$2" "$3")")"
@@ -214,22 +210,19 @@ for _f in "${candidate_factories[@]}" ; do
     done
 done
 if [[ -z $guard_contract ]] ; then
-    echo 'No supported (factory, Safe version) pair produces the upgrade Safe'"'"'s singleton ('"$onchain_singleton"') on chain "'"$chain_name"'".' >&2
-    echo 'Either the Safe uses an unsupported version, or its singleton was deployed by a factory the Guard does not support.' >&2
-    exit 1
+    die 'No supported (factory, Safe version) pair produces the upgrade Safe'"'"'s singleton ('"$onchain_singleton"') on chain "'"$chain_name"'".' \
+        'Either the Safe uses an unsupported version, or its singleton was deployed by a factory the Guard does not support.'
 fi
 declare -r guard_contract factory
 
 if [[ $guard_contract == *OnePointThree* ]] ; then
-    echo 'Chain "'"$chain_name"'" runs Safe 1.3.0, whose Guard ('"$guard_contract"') cannot be deployed by this script.' >&2
-    echo 'The 1.3.0 Guard disables itself at construction unless the Safe already designates it as its guard' >&2
-    echo 'It must be created and enabled in one atomic transaction executed by the upgrade Safe' >&2
-    exit 1
+    die 'Chain "'"$chain_name"'" runs Safe 1.3.0, whose Guard ('"$guard_contract"') cannot be deployed by this script.' \
+        'The 1.3.0 Guard disables itself at construction unless the Safe already designates it as its guard' \
+        'It must be created and enabled in one atomic transaction executed by the upgrade Safe'
 fi
 
 if [[ $(cast code --rpc-url "$rpc_url" "$factory") == '0x' ]] ; then
-    echo 'The CREATE2 factory ('"$factory"') is not deployed on chain "'"$chain_name"'"' >&2
-    exit 1
+    die 'The CREATE2 factory ('"$factory"') is not deployed on chain "'"$chain_name"'"'
 fi
 
 declare signer
@@ -252,9 +245,8 @@ if [[ $era_vm = [Tt]rue ]] ; then
     # EraVM needs zkSync artifacts so we switch to the zksync aware foundry version
     foundryup-zksync -u foundry-zksync-v0.1.9 || true
     if [[ $(forge --version) != *14afc70e251c89b7e2af6e6ac02e9ac6f095b5cc* ]] ; then
-        echo 'Wrong foundry version installed' >&2
-        echo 'Run `foundryup-zksync -i foundry-zksync-v0.1.9`' >&2
-        exit 1
+        die 'Wrong foundry version installed' \
+            'Run `foundryup-zksync -i foundry-zksync-v0.1.9`'
     fi
     forge clean
     forge build --zksync --zk-compile src/deployer/SafeGuard.sol
