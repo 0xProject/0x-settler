@@ -136,9 +136,7 @@ else
 fi
 declare -r deployment_safe_address
 
-declare signer
-IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
-declare -r signer
+. "$project_root"/sh/common_submitter.sh
 
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
