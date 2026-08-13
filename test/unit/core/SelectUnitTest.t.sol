@@ -12,7 +12,7 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BaseSettlerMetaTxn} from "src/chains/Base/MetaTxn.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
 import {Select} from "src/core/Select.sol";
-import {Measured} from "src/core/SettlerErrors.sol";
+import {Shortfall} from "src/core/SettlerErrors.sol";
 import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
 import {Permit2Signature} from "test/utils/Permit2Signature.sol";
 
@@ -320,13 +320,13 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p2.callCount(), 0, "rung 2 never attempted");
     }
 
-    function test_allReservationsMiss_revertsLastMeasurement() public {
+    function test_allReservationsMiss_revertsLastShortfall() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
         p2.set(9 ether, false);
         bytes[][] memory candidates = _candidates3();
 
-        vm.expectRevert(abi.encodeWithSelector(Measured.selector, 9 ether, _candidateHash(candidates[2])));
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 9 ether, _candidateHash(candidates[2])));
         _run(address(buy), _unreachableTargets(3), candidates, 0);
     }
 
@@ -406,7 +406,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(buy.balanceOf(recipient), 9 ether, "outer fallback committed");
     }
 
-    function test_nestedSelect_finalFailureBubblesInnerMeasurementIdentity() public {
+    function test_nestedSelect_finalFailureBubblesInnerShortfallIdentity() public {
         p0.set(5 ether, false);
         bytes[] memory innerCandidate = _candidate(address(p0));
         bytes[][] memory innerCandidates = new bytes[][](1);
@@ -416,7 +416,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory outerCandidates = new bytes[][](1);
         outerCandidates[0] = nestedCandidate;
 
-        vm.expectRevert(abi.encodeWithSelector(Measured.selector, 5 ether, _candidateHash(innerCandidate)));
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 5 ether, _candidateHash(innerCandidate)));
         _run(address(buy), _unreachableTargets(1), outerCandidates, 0);
     }
 
@@ -551,18 +551,54 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p1.callCount(), 0, "second candidate not attempted without reserve");
     }
 
-    function test_basicSelfCall_executesWithoutAttribution() public {
-        bytes memory selfCall =
-            abi.encodeCall(Select.executeSelected, (new bytes[](0), IERC20(address(0)), 0, bytes32(uint256(1))));
-        bytes memory action = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, address(settler), 0, selfCall));
+    function _settlerLogs() internal returns (Vm.Log[] memory settlerLogs) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 n;
+        settlerLogs = new Vm.Log[](logs.length);
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter == address(settler)) {
+                settlerLogs[n++] = logs[i];
+            }
+        }
+        // Shrink the over-allocated array to the settler-emitted prefix.
+        // Equivalent Solidity: `settlerLogs.length = n`.
+        assembly ("memory-safe") {
+            mstore(settlerLogs, n)
+        }
+    }
+
+    function test_commit_emitsAttributionLog() public {
+        p0.set(7 ether, false);
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        uint256[] memory targets = new uint256[](1);
+        targets[0] = 7 ether;
 
         vm.recordLogs();
-        _runAction(action, 0);
+        _run(address(buy), targets, candidates, 7 ether);
 
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        for (uint256 i; i < logs.length; ++i) {
-            assertNotEq(logs[i].emitter, address(settler), "SELECT emits no attribution log");
-        }
+        Vm.Log[] memory logs = _settlerLogs();
+        assertEq(logs.length, 1, "exactly one attribution log");
+        assertEq(logs[0].topics.length, 1, "log1: single topic");
+        assertEq(logs[0].topics[0], _candidateHash(candidates[0]), "topic1 is the committed candidate hash");
+        assertEq(logs[0].data, abi.encode(uint256(7 ether)), "data is the committed score");
+    }
+
+    function test_missedTrial_emitsNoAttributionLog() public {
+        p0.set(5 ether, false);
+        p1.set(7 ether, false);
+        bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
+        uint256[] memory targets = new uint256[](2);
+        targets[0] = 6 ether; // first trial scores 5 ether, misses, and its frame's logs are discarded
+        targets[1] = 7 ether;
+
+        vm.recordLogs();
+        _run(address(buy), targets, candidates, 7 ether);
+
+        Vm.Log[] memory logs = _settlerLogs();
+        assertEq(logs.length, 1, "only the committed candidate's attribution log survives");
+        assertEq(logs[0].topics[0], _candidateHash(candidates[1]), "topic1 is the committed candidate hash");
+        assertEq(logs[0].data, abi.encode(uint256(7 ether)), "data is the committed score");
     }
 }
 

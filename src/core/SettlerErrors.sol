@@ -6,9 +6,10 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
 
-/// @notice Thrown when a SELECT candidate misses its target. SELECT supplies `candidateHash` as
-///         the hash of the exact encoded candidate frame whose score was measured.
-error Measured(uint256 score, bytes32 candidateHash);
+/// @notice Thrown when a SELECT trial's measured output falls short of its reservation `minOut`.
+///         SELECT supplies `candidateHash` as the hash of the exact encoded candidate frame whose
+///         score fell short.
+error Shortfall(uint256 score, bytes32 candidateHash);
 
 /// @notice Thrown when a validating a target contract to avoid certain types of targets
 error ConfusedDeputy();

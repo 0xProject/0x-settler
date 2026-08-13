@@ -31,13 +31,20 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 score = _balanceOfOrZero(token) - balBefore;
         if (score < minOut) {
             // A left-padded selector constant is smaller than Solidity's right-padded `bytes4`.
-            // Equivalent Solidity: `revert Measured(score, candidateHash)`.
+            // Equivalent Solidity: `revert Shortfall(score, candidateHash)`.
             assembly ("memory-safe") {
-                mstore(0x00, 0x56c925b8) // selector for `Measured(uint256,bytes32)`
+                mstore(0x00, 0x463e8fcd) // selector for `Shortfall(uint256,bytes32)`
                 mstore(0x20, score)
                 mstore(0x40, candidateHash)
                 revert(0x1c, 0x44)
             }
+        }
+        // Logs in reverted frames are discarded, so this survives exactly when this candidate
+        // commits -- receipt-level attribution of the committed candidate and its score.
+        // Equivalent Solidity pseudocode: `emit Selected(candidateHash, score)`.
+        assembly ("memory-safe") {
+            mstore(0x00, score)
+            log1(0x00, 0x20, candidateHash)
         }
     }
 
