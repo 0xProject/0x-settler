@@ -13,7 +13,7 @@ if [[ ${DECRYPT_SECRETS-yes} = [Nn]o ]] ; then
     function get_secret {
         declare _secret_value
         _secret_value="$(jq -Mr ."$1"."$2" <<<"$secrets")"
-        if [[ ${_secret_value:-unset} = 'unset' ]] || [[ $_secret_value = 'null' ]] ; then
+        if [[ ${_secret_value:-null} = [nN][uU][lL][lL] ]] ; then
             die 'Secret "'"$1"'.'"$2"'" requires decryption but DECRYPT_SECRETS=no'
         fi
         echo "$_secret_value"

@@ -107,7 +107,7 @@ fi
 declare -r chain_name="$1"
 shift
 
-if [[ $(jq -Mr .'"'"$chain_name"'"' < "$project_root"/api_secrets.json) == 'null' ]] ; then
+if [[ $(jq -Mr .'"'"$chain_name"'"' < "$project_root"/api_secrets.json) = [nN][uU][lL][lL] ]] ; then
     die "$chain_name"' is missing from api_secrets.json'
 fi
 
@@ -123,7 +123,7 @@ function get_config_strict {
     declare _get_config_strict_result
     _get_config_strict_result="$(get_config "$1")"
     declare -r _get_config_strict_result
-    if [[ $_get_config_strict_result = 'null' ]] ; then
+    if [[ ${_get_config_strict_result:-null} = [nN][uU][lL][lL] ]] ; then
         die 'Config key '"$1"' is missing for chain '"$chain_name"
     fi
     echo "$_get_config_strict_result"
@@ -209,7 +209,7 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
-if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url = 'null' ]] ; then
+if [[ ${rpc_url:-null} = [nN][uU][lL][lL] ]] ; then
     die '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"'
 fi
 

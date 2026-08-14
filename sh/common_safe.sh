@@ -14,7 +14,7 @@ declare -r safe_version
 declare multicall_address
 multicall_address="$(jq -Mr --arg chain "$chain_name" --arg version "v$safe_version" 'getpath([$chain, "safe", $version, "multiCall"])' < "$project_root"/chain_config.json)"
 declare -r multicall_address
-if [[ $multicall_address = 'null' ]] ; then
+if [[ ${multicall_address:-null} = [nN][uU][lL][lL] ]] ; then
     die 'Config key safe["v'"$safe_version"'"].multiCall is missing for chain '"$chain_name"
 fi
 
