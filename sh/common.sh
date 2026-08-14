@@ -9,24 +9,32 @@ function die {
 
 # `trap -p` emits the trap body as a single shell-quoted word, so `eval`ing its output inside
 # an array assignment recovers the body verbatim (embedded quotes included) without executing
-# any of it. Cleanups run in the reverse of registration order.
+# any of it. Cleanups run in the reverse of registration order and are newline-joined so that a
+# cleanup ending in a comment or `&` cannot swallow the cleanups registered before it.
 function register_exit_cleanup {
+    # In a subshell, `trap -p` reports the parent's traps, so composing here would rerun the
+    # parent's cleanups at subshell exit.
+    if (( BASH_SUBSHELL != 0 )) ; then
+        die '`register_exit_cleanup` must not be called in a subshell'
+    fi
+
     declare -r _register_exit_cleanup="$1"
     shift
 
+    declare -r IFS=' '
     declare -a _register_exit_trap
     eval "_register_exit_trap=( $(trap -p EXIT) )"
     declare -r -a _register_exit_trap
 
     if (( ${#_register_exit_trap[@]} == 0 )) || [[ ${_register_exit_trap[*]} = 'trap -- - EXIT' ]] ; then
-        trap 'trap - EXIT; set +e; '"$_register_exit_cleanup" EXIT
+        trap 'trap - EXIT; set +eu; '"$_register_exit_cleanup" EXIT
         return
     fi
 
-    if (( ${#_register_exit_trap[@]} != 4 )) || [[ ${_register_exit_trap[2]} != 'trap - EXIT; set +e; '* ]] ; then
+    if (( ${#_register_exit_trap[@]} != 4 )) || [[ ${_register_exit_trap[2]} != 'trap - EXIT; set +eu; '* ]] ; then
         die '`trap EXIT` cleanup malformed; cannot add a new cleanup'
     fi
-    trap 'trap - EXIT; set +e; '"$_register_exit_cleanup"'; '"${_register_exit_trap[2]#trap - EXIT; set +e; }" EXIT
+    trap 'trap - EXIT; set +eu; '"$_register_exit_cleanup"$'\n'"${_register_exit_trap[2]#trap - EXIT; set +eu; }" EXIT
 }
 
 if ! hash forge &>/dev/null ; then
