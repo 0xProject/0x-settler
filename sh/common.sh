@@ -7,36 +7,26 @@ function die {
 
 . "$project_root"/sh/common_bash_version_check.sh
 
-# `trap -p` requotes the trap body on output (each embedded single quote becomes '\''), so a
-# body containing a single quote cannot be recovered verbatim and re-registered. Reject such
-# cleanups (and such recovered bodies) instead of corrupting the trap. Cleanups run in the
-# reverse of registration order.
+# `trap -p` emits the trap body as a single shell-quoted word, so `eval`ing its output inside
+# an array assignment recovers the body verbatim (embedded quotes included) without executing
+# any of it. Cleanups run in the reverse of registration order.
 function register_exit_cleanup {
     declare -r _register_exit_cleanup="$1"
     shift
 
-    if [[ $_register_exit_cleanup = *"'"* ]] ; then
-        die 'register_exit_cleanup: cleanup command must not contain a single quote:' \
-            "$_register_exit_cleanup"
-    fi
+    declare -a _register_exit_trap
+    eval "_register_exit_trap=( $(trap -p EXIT) )"
+    declare -r -a _register_exit_trap
 
-    declare _register_exit_trap
-    _register_exit_trap="$(trap -p EXIT)"
-
-    if [[ -z $_register_exit_trap ]] || [[ $_register_exit_trap = 'trap -- - EXIT' ]] ; then
+    if (( ${#_register_exit_trap[@]} == 0 )) || [[ ${_register_exit_trap[*]} = 'trap -- - EXIT' ]] ; then
         trap 'trap - EXIT; set +e; '"$_register_exit_cleanup" EXIT
         return
     fi
 
-    if [[ $_register_exit_trap != "trap -- 'trap - EXIT; set +e; "* ]] || [[ $_register_exit_trap != *"' EXIT" ]] ; then
+    if (( ${#_register_exit_trap[@]} != 4 )) || [[ ${_register_exit_trap[2]} != 'trap - EXIT; set +e; '* ]] ; then
         die '`trap EXIT` cleanup malformed; cannot add a new cleanup'
     fi
-    _register_exit_trap="${_register_exit_trap%\' EXIT}"
-    _register_exit_trap="${_register_exit_trap#trap -- \'trap - EXIT; set +e; }"
-    if [[ $_register_exit_trap = *"'"* ]] ; then
-        die '`trap EXIT` cleanup contains a single quote; cannot add a new cleanup'
-    fi
-    trap 'trap - EXIT; set +e; '"$_register_exit_cleanup"'; '"$_register_exit_trap" EXIT
+    trap 'trap - EXIT; set +e; '"$_register_exit_cleanup"'; '"${_register_exit_trap[2]#trap - EXIT; set +e; }" EXIT
 }
 
 if ! hash forge &>/dev/null ; then
