@@ -7,10 +7,6 @@ function die {
 
 . "$project_root"/sh/common_bash_version_check.sh
 
-# `trap -p` emits the trap body as a single shell-quoted word, so `eval`ing its output inside
-# an array assignment recovers the body verbatim (embedded quotes included) without executing
-# any of it. Cleanups run in the reverse of registration order and are newline-joined so that a
-# cleanup ending in a comment or `&` cannot swallow the cleanups registered before it.
 function register_exit_cleanup {
     # In a subshell, `trap -p` reports the parent's traps, so composing here would rerun the
     # parent's cleanups at subshell exit.
@@ -21,6 +17,9 @@ function register_exit_cleanup {
     declare -r _register_exit_cleanup="$1"
     shift
 
+    # `trap -p` emits the trap body as a single shell-quoted word, so `eval`ing its output inside an
+    # array assignment recovers the body verbatim (embedded quotes included) without executing any
+    # of it.
     declare -r IFS=' '
     declare -a _register_exit_trap
     eval "_register_exit_trap=( $(trap -p EXIT) )"
@@ -34,6 +33,9 @@ function register_exit_cleanup {
     if (( ${#_register_exit_trap[@]} != 4 )) || [[ ${_register_exit_trap[2]} != 'trap - EXIT; set +eu; '* ]] ; then
         die '`trap EXIT` cleanup malformed; cannot add a new cleanup'
     fi
+
+    # Cleanups run in the reverse of registration order and are newline-joined so that a cleanup
+    # ending in a comment or `&` cannot swallow the cleanups registered before it.
     trap 'trap - EXIT; set +eu; '"$_register_exit_cleanup"$'\n'"${_register_exit_trap[2]#trap - EXIT; set +eu; }" EXIT
 }
 
