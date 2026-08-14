@@ -237,9 +237,7 @@ function verify_contract {
         _verify_extra_flags+=(--compiler-version "$1")
         shift
     fi
-    # EraVm artifacts must be verified through the zkSync flow; the flag threads into every verifier
-    # invocation below alongside --compiler-version.
-    if [[ $era_vm = [Tt]rue ]] ; then
+    if [[ $foundry_flavor == zkfoundry ]] ; then
         _verify_extra_flags+=(--zksync)
     fi
     declare -r -a _verify_extra_flags

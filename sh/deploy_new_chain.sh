@@ -345,13 +345,6 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 fi
 declare -r -a maybe_broadcast
 
-# Mantle has funky gas rules; EraVm chains price in ergs, not gas
-declare -a maybe_tx_gas_limit=()
-if (( chainid != 5000 )) && [[ $era_vm = [Ff]alse ]] ; then
-    maybe_tx_gas_limit+=(--enable-tx-gas-limit)
-fi
-declare -r -a maybe_tx_gas_limit
-
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     if (( $(cast balance --rpc-url "$rpc_url" "$module_deployer") == 0 )) ; then
         die 'You forgot to send ETH to '"$module_deployer"'.'
