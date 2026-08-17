@@ -116,7 +116,7 @@ error NotConverged();
 ///         the list of recognized pool managers.
 error UnknownPoolManagerId(uint8 poolManagerId);
 
-function revertUnknownPoolManagerId(uint8 poolManagerId) pure {
+function revertUnknownPoolManagerId(uint256 poolManagerId) pure {
     assembly ("memory-safe") {
         mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`
         mstore(0x20, and(0xff, poolManagerId))
