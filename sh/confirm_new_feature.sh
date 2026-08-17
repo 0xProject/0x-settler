@@ -180,40 +180,20 @@ declare -i auth_deadline
 auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
 declare -r -i auth_deadline
 
-declare -a calls=()
-
 declare setDescription_call
 setDescription_call="$(cast calldata "$setDescription_sig" $feature "$description")"
 declare -r setDescription_call
-
-calls+=(
-    "$(
-        cast concat-hex                                                  \
-        0x00                                                             \
-        "$deployer_address"                                              \
-        "$(cast to-uint256 0)"                                           \
-        "$(cast to-uint256 $(( (${#setDescription_call} - 2) / 2 )) )"   \
-        "$setDescription_call"
-    )"
-)
 
 declare authorize_call
 authorize_call="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" "$auth_deadline")"
 declare -r authorize_call
 
-calls+=(
-    "$(
-        cast concat-hex                                             \
-        0x00                                                        \
-        "$deployer_address"                                         \
-        "$(cast to-uint256 0)"                                      \
-        "$(cast to-uint256 $(( (${#authorize_call} - 2) / 2 )) )"   \
-        "$authorize_call"
-    )"
-)
-
 declare new_feature_calldata
-new_feature_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
+new_feature_calldata="$(
+    build_multisend_calldata \
+        "$deployer_address" "$setDescription_call" \
+        "$deployer_address" "$authorize_call"
+)"
 declare -r new_feature_calldata
 
 declare struct_json

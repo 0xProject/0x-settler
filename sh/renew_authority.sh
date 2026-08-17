@@ -175,15 +175,33 @@ function _compat_date {
     fi
 }
 
-declare auth_deadline_datestring
-# one year from the start of this month
-# MMDDhhmmCCYY
-auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
-declare -r auth_deadline_datestring
-declare -i auth_deadline
-# convert to UNIX timestamp
-auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
-declare -r -i auth_deadline
+declare use_sts_transactions=No
+if [[ $safe_url != 'NOT SUPPORTED' ]] && [[ ${FORCE_IGNORE_STS-No} != [Yy]es ]] ; then
+    use_sts_transactions=Yes
+    declare pending_transactions
+    pending_transactions="$(load_pending_sts_safe_transactions)"
+    declare -r pending_transactions
+    declare ready_transactions
+    ready_transactions="$(filter_sts_safe_transactions_with_threshold "$pending_transactions")"
+    declare -r ready_transactions
+    declare executable_transactions
+    executable_transactions="$(
+        filter_sts_safe_transactions_by_timelock executable "$ready_transactions"
+    )"
+    declare -r executable_transactions
+else
+    declare auth_deadline_datestring
+    # one year from the start of this month
+    # MMDDhhmmCCYY
+    auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
+    declare -r auth_deadline_datestring
+    declare -i default_auth_deadline
+    # convert to UNIX timestamp
+    default_auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
+    declare -r -i default_auth_deadline
+fi
+declare -r use_sts_transactions
+declare -r safe_signature_executor="$multicall_address"
 
 declare multisend_data=''
 declare -i tokenid
@@ -193,8 +211,75 @@ for tokenid in "${feature[@]}" ; do
     declare -a exec_args
     declare exec_call
 
-    renew_authority_calldata="$(cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" $auth_deadline)"
-    packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
+    if [[ $use_sts_transactions = Yes ]] ; then
+        declare matching_transactions='[]'
+        declare candidate_transaction
+        declare candidate_hash
+        declare candidate_deadline
+        declare candidate_calldata
+        while IFS= read -r candidate_transaction ; do
+            candidate_hash="$(jq -Mr '.safeTxHash | ascii_downcase' <<<"$candidate_transaction")"
+            if ! candidate_transaction="$(_load_sts_safe_transaction "$candidate_hash")" 2>/dev/null ; then
+                continue
+            fi
+            if ! candidate_deadline="$(
+                extract_authorize_deadline \
+                    "$(jq -Mr .data <<<"$candidate_transaction")" \
+                    "$tokenid" "$deployment_safe_address"
+            )" 2>/dev/null ; then
+                continue
+            fi
+            candidate_calldata="$(
+                cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" "$candidate_deadline"
+            )"
+            if ! _require_expected_sts_safe_transaction \
+                "$candidate_transaction" \
+                "$(target 0)" 0 "$candidate_calldata" 0 \
+                0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)" \
+                2>/dev/null
+            then
+                continue
+            fi
+            matching_transactions="$(
+                jq -Mc \
+                    --argjson transaction "$candidate_transaction" \
+                    '. + [$transaction]' \
+                    <<<"$matching_transactions"
+            )"
+        done < <(jq -Mc '.[]' <<<"$executable_transactions")
+
+        declare selected_transaction_hash
+        selected_transaction_hash="$(select_sts_safe_transaction_hash "$matching_transactions")"
+        declare selected_transaction
+        selected_transaction="$(_load_sts_safe_transaction "$selected_transaction_hash")"
+        declare selected_deadline
+        selected_deadline="$(
+            extract_authorize_deadline \
+                "$(jq -Mr .data <<<"$selected_transaction")" \
+                "$tokenid" "$deployment_safe_address"
+        )"
+        renew_authority_calldata="$(
+            cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" "$selected_deadline"
+        )"
+        _require_expected_sts_safe_transaction \
+            "$selected_transaction" \
+            "$(target 0)" 0 "$renew_authority_calldata" 0 \
+            0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)"
+        packed_signatures="$(pack_sts_transaction_signatures "$selected_transaction")"
+        unset -v selected_deadline
+        unset -v selected_transaction
+        unset -v selected_transaction_hash
+        unset -v matching_transactions
+        unset -v candidate_calldata
+        unset -v candidate_deadline
+        unset -v candidate_hash
+        unset -v candidate_transaction
+    else
+        renew_authority_calldata="$(
+            cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" $default_auth_deadline
+        )"
+        packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
+    fi
     exec_args=(
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         "$(target 0)" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"

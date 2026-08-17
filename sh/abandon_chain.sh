@@ -150,6 +150,39 @@ echo "Will set sole owner to: $initial_owner" >&2
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
 
+if [[ -n ${safe_guard:-} && $safe_guard != "$(cast address-zero)" ]] ; then
+    declare -r setGuard_sig='setGuard(address)'
+    declare remove_guard_call
+    remove_guard_call="$(cast calldata "$setGuard_sig" "$(cast address-zero)")"
+    declare -r remove_guard_call
+
+    declare packed_signatures
+    packed_signatures="$(retrieve_signatures abandon_chain_guard_removal "$remove_guard_call" 0 "$safe_address")"
+    declare -r packed_signatures
+
+    declare -r -a remove_guard_args=(
+        "$safe_address" "$execTransaction_sig"
+        # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        "$safe_address" 0 "$remove_guard_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    )
+
+    declare -i remove_guard_gas_estimate
+    remove_guard_gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" "${remove_guard_args[@]}")"
+    declare -r -i remove_guard_gas_estimate
+    declare -i remove_guard_gas_limit
+    remove_guard_gas_limit="$(apply_gas_multiplier $remove_guard_gas_estimate)"
+    declare -r -i remove_guard_gas_limit
+
+    if [[ $wallet_type = 'frame' ]] ; then
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $remove_guard_gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${remove_guard_args[@]}"
+    else
+        cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $remove_guard_gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${remove_guard_args[@]}"
+    fi
+
+    echo 'SafeGuard removed. Collect abandonment signatures, then rerun this script with the same arguments.' >&2
+    exit 0
+fi
+
 # Verify the initial owner is not already the only owner
 if (( ${#owners_array[@]} == 1 )) && [[ $(cast to-checksum "${owners_array[0]}") = $(cast to-checksum "$initial_owner") ]] ; then
     echo 'Safe is already abandoned (initial owner is the only owner)' >&2
@@ -171,42 +204,25 @@ while (( ${#current_owners[@]} > 1 )) ; do
     declare removeOwner_call
     removeOwner_call="$(cast calldata "$removeOwner_sig" "$sentinel" "$owner_to_remove" 1)"
 
-    calls+=(
-        "$(
-            cast concat-hex                                              \
-            0x00                                                         \
-            "$safe_address"                                              \
-            "$(cast to-uint256 0)"                                       \
-            "$(cast to-uint256 "$(((${#removeOwner_call} - 2) / 2))")"   \
-            "$removeOwner_call"
-        )"
-    )
+    calls+=("$safe_address" "$removeOwner_call")
 
     # Update working state
     current_owners=("${current_owners[@]:1}")
 done
 
-# Swap the last remaining owner with initial_owner
 declare last_owner="${current_owners[0]}"
 
-declare swapOwner_call
-swapOwner_call="$(cast calldata "$swapOwner_sig" "$sentinel" "$last_owner" "$initial_owner")"
-declare -r swapOwner_call
+if [[ $(cast to-checksum "$last_owner") != "$(cast to-checksum "$initial_owner")" ]] ; then
+    declare swapOwner_call
+    swapOwner_call="$(cast calldata "$swapOwner_sig" "$sentinel" "$last_owner" "$initial_owner")"
+    declare -r swapOwner_call
 
-calls+=(
-    "$(
-        cast concat-hex                                            \
-        0x00                                                       \
-        "$safe_address"                                            \
-        "$(cast to-uint256 0)"                                     \
-        "$(cast to-uint256 "$(((${#swapOwner_call} - 2) / 2))")"   \
-        "$swapOwner_call"
-    )"
-)
+    calls+=("$safe_address" "$swapOwner_call")
+fi
 
 # Wrap in multiSend call
 declare multisend_calldata
-multisend_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
+multisend_calldata="$(build_multisend_calldata "${calls[@]}")"
 declare -r multisend_calldata
 
 declare packed_signatures

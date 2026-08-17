@@ -40,6 +40,36 @@ declare -a owners_array
 IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
+declare -r safe_guard_slot=0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8
+declare installed_safe_guard
+installed_safe_guard="$(
+    cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$safe_guard_slot" 1 \
+    | cast parse-bytes32-address
+)"
+declare -r installed_safe_guard
+
+declare configured_safe_guard
+configured_safe_guard="$(get_config governance.timelock)"
+if [[ ${configured_safe_guard:-null} = [nN][uU][lL][lL] ]] ; then
+    configured_safe_guard="$(cast address-zero)"
+else
+    configured_safe_guard="$(cast to-checksum "$configured_safe_guard")"
+fi
+declare -r configured_safe_guard
+
+declare safe_guard
+if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
+    safe_guard="$(cast address-zero)"
+elif [[ $configured_safe_guard = "$(cast address-zero)" ]] ; then
+    die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
+elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
+    die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \
+        'Expected governance.timelock '"$configured_safe_guard"
+else
+    safe_guard="$configured_safe_guard"
+fi
+declare -r safe_guard
+
 function prev_owner {
     declare _prev_owner_inp="$1"
     shift
@@ -89,6 +119,53 @@ function target {
 #                  data                    variable
 declare -r multisend_sig='multiSend(bytes)'
 declare -r multisend_selector="$(cast sig "$multisend_sig")"
+
+function _encode_multisend_call {
+    declare -r _encode_multisend_call_target="$1"
+    shift
+
+    declare -r _encode_multisend_call_data="$1"
+    shift
+
+    cast concat-hex                                                    \
+        0x00                                                           \
+        "$_encode_multisend_call_target"                               \
+        "$(cast to-uint256 0)"                                        \
+        "$(cast to-uint256 $(( (${#_encode_multisend_call_data} - 2) / 2 )))" \
+        "$_encode_multisend_call_data"
+}
+
+function build_multisend_calldata {
+    if (( $# == 0 || $# % 2 != 0 )) ; then
+        die 'build_multisend_calldata expects one or more target/calldata pairs'
+    fi
+
+    declare _build_multisend_calldata_data=0x
+    declare _build_multisend_calldata_target
+    declare _build_multisend_calldata_call
+    while (( $# > 0 )) ; do
+        _build_multisend_calldata_target="$1"
+        shift
+        _build_multisend_calldata_call="$1"
+        shift
+
+        _build_multisend_calldata_data="$(
+            cast concat-hex \
+                "$_build_multisend_calldata_data" \
+                "$(_encode_multisend_call "$_build_multisend_calldata_target" "$_build_multisend_calldata_call")"
+        )"
+
+        if (( $# > 0 )) && [[ $safe_guard != "$(cast address-zero)" ]] ; then
+            _build_multisend_calldata_data="$(
+                cast concat-hex \
+                    "$_build_multisend_calldata_data" \
+                    "$(_encode_multisend_call "$safe_guard" 0x919840ad)"
+            )"
+        fi
+    done
+
+    cast calldata "$multisend_sig" "$_build_multisend_calldata_data"
+}
 
 declare -r execTransaction_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 declare -r execTransaction_selector="$(cast sig "$execTransaction_sig")"
