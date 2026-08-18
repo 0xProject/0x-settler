@@ -42,10 +42,8 @@ declare -r -a owners_array
 
 declare -r safe_guard_slot=0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8
 declare installed_safe_guard
-installed_safe_guard="$(
-    cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$safe_guard_slot" 1 \
-    | cast parse-bytes32-address
-)"
+installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$safe_guard_slot" 1)"
+installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
 declare -r installed_safe_guard
 
 declare configured_safe_guard
@@ -140,6 +138,12 @@ function build_multisend_calldata {
         die 'build_multisend_calldata expects one or more target/calldata pairs'
     fi
 
+    declare _build_multisend_calldata_guard
+    if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        _build_multisend_calldata_guard="$(cast to-checksum "$safe_guard")"
+    fi
+    declare -r _build_multisend_calldata_guard
+
     declare _build_multisend_calldata_data=0x
     declare _build_multisend_calldata_target
     declare _build_multisend_calldata_call
@@ -155,11 +159,11 @@ function build_multisend_calldata {
                 "$(_encode_multisend_call "$_build_multisend_calldata_target" "$_build_multisend_calldata_call")"
         )"
 
-        if (( $# > 0 )) && [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        if (( $# > 0 )) && [[ ${_build_multisend_calldata_guard:-null} != [nN][uU][lL][lL] ]] ; then
             _build_multisend_calldata_data="$(
                 cast concat-hex \
                     "$_build_multisend_calldata_data" \
-                    "$(_encode_multisend_call "$safe_guard" "$(cast calldata 'check()')")"
+                    "$(_encode_multisend_call "$_build_multisend_calldata_guard" "$(cast calldata 'check()')")"
             )"
         fi
     done

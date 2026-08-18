@@ -151,9 +151,8 @@ echo "Will set sole owner to: $initial_owner" >&2
 . "$project_root"/sh/common_gas.sh
 
 if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
-    declare -r setGuard_sig='setGuard(address)'
     declare remove_guard_call
-    remove_guard_call="$(cast calldata "$setGuard_sig" "$(cast address-zero)")"
+    remove_guard_call="$(cast calldata 'setGuard(address)' "$(cast address-zero)")"
     declare -r remove_guard_call
 
     declare packed_signatures
