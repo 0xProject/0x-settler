@@ -424,12 +424,12 @@ function _pack_safe_confirmations {
 }
 
 function _safe_confirmation_caller {
-    if [[ $safe_guard != "$(cast address-zero)" ]] ; then
-        echo "$safe_guard"
-    elif [[ -n ${safe_signature_executor:-} ]] ; then
-        echo "$safe_signature_executor"
-    elif [[ -n ${signer:-} ]] ; then
-        echo "$signer"
+    if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        cast to-checksum "$safe_guard"
+    elif [[ ${safe_signature_executor:-null} != [nN][uU][lL][lL] ]] ; then
+        cast to-checksum "$safe_signature_executor"
+    elif [[ ${signer:-null} = [nN][uU][lL][lL] ]] ; then
+        cast to-checksum "$signer"
     else
         cast address-zero
     fi

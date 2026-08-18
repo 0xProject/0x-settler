@@ -155,7 +155,7 @@ function build_multisend_calldata {
                 "$(_encode_multisend_call "$_build_multisend_calldata_target" "$_build_multisend_calldata_call")"
         )"
 
-        if (( $# > 0 )) && [[ $safe_guard != "$(cast address-zero)" ]] ; then
+        if (( $# > 0 )) && [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
             _build_multisend_calldata_data="$(
                 cast concat-hex \
                     "$_build_multisend_calldata_data" \
