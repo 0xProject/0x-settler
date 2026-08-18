@@ -204,7 +204,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             payer = address(this); // Subsequent hops are paid for by us.
             sellAmount = buyAmount;
             // Skip to next hop along path.
-            encodedPath = _shiftHopFromPathInPlace(encodedPath);
+            encodedPath = _shiftHopFromPathInPlace(encodedPath, swapCallbackData);
             assembly ("memory-safe") {
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
             }
@@ -248,13 +248,24 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     }
 
     // Skip past the first hop of an encoded uniswap path in-place.
-    function _shiftHopFromPathInPlace(bytes memory encodedPath) private pure returns (bytes memory) {
-        if (encodedPath.length < PATH_SKIP_HOP_SIZE) {
-            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
-        }
+    function _shiftHopFromPathInPlace(bytes memory encodedPath, bytes memory callbackData)
+        private
+        pure
+        returns (bytes memory)
+    {
         assembly ("memory-safe") {
-            let length := sub(mload(encodedPath), PATH_SKIP_HOP_SIZE)
-            encodedPath := add(encodedPath, PATH_SKIP_HOP_SIZE)
+            let vip := lt(SWAP_CALLBACK_PREFIX_DATA_SIZE, mload(callbackData))
+            let chop := add(0x18, mul(0x14, vip))
+
+            let length := mload(encodedPath)
+            if gt(chop, length) {
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x32) // code for array out-of-bounds
+                revert(0x1c, 0x24)
+            }
+            length := sub(length, chop)
+
+            encodedPath := add(encodedPath, chop)
             mstore(encodedPath, length)
         }
         return encodedPath;
