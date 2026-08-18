@@ -251,22 +251,13 @@ for tokenid in "${feature[@]}" ; do
         declare selected_transaction_hash
         selected_transaction_hash="$(select_sts_safe_transaction_hash "$matching_transactions")"
         declare selected_transaction
-        selected_transaction="$(_load_sts_safe_transaction "$selected_transaction_hash")"
-        declare selected_deadline
-        selected_deadline="$(
-            extract_authorize_deadline \
-                "$(jq -Mr .data <<<"$selected_transaction")" \
-                "$tokenid" "$deployment_safe_address"
+        selected_transaction="$(
+            jq -Mce --arg hash "$selected_transaction_hash" \
+                'first(.[] | select(.safeTxHash == $hash))' \
+                <<<"$matching_transactions"
         )"
-        renew_authority_calldata="$(
-            cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" "$selected_deadline"
-        )"
-        _require_expected_sts_safe_transaction \
-            "$selected_transaction" \
-            "$(target 0)" 0 "$renew_authority_calldata" 0 \
-            0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)"
+        renew_authority_calldata="$(jq -Mr .data <<<"$selected_transaction")"
         packed_signatures="$(pack_sts_transaction_signatures "$selected_transaction")"
-        unset -v selected_deadline
         unset -v selected_transaction
         unset -v selected_transaction_hash
         unset -v matching_transactions

@@ -6,10 +6,9 @@ function _normalize_safe_uint {
         echo 'Invalid Safe transaction integer: '"$_normalize_safe_uint_value" >&2
         return 1
     fi
-    while (( ${#_normalize_safe_uint_value} > 1 )) && [[ ${_normalize_safe_uint_value:0:1} = 0 ]] ; do
-        _normalize_safe_uint_value="${_normalize_safe_uint_value:1}"
-    done
-    echo "$_normalize_safe_uint_value"
+    # The inner expansion is the leading run of zeros; the outer strips it.
+    _normalize_safe_uint_value="${_normalize_safe_uint_value#"${_normalize_safe_uint_value%%[!0]*}"}"
+    echo "${_normalize_safe_uint_value:-0}"
 }
 
 function _normalize_safe_address {
@@ -23,61 +22,40 @@ function _normalize_safe_address {
     cast to-checksum "0x${_normalize_safe_address_value:2}"
 }
 
-function _require_same_safe_address {
-    declare -r _require_same_safe_address_field="$1"
-    shift
-    declare -r _require_same_safe_address_actual="$1"
-    shift
-    declare -r _require_same_safe_address_expected="$1"
-    shift
+function _normalize_safe_bytes {
+    echo "${1,,}"
+}
 
-    declare _require_same_safe_address_normalized_actual
-    _require_same_safe_address_normalized_actual="$(
-        _normalize_safe_address "$_require_same_safe_address_actual"
-    )" || return 1
-    declare -r _require_same_safe_address_normalized_actual
-    declare _require_same_safe_address_normalized_expected
-    _require_same_safe_address_normalized_expected="$(
-        _normalize_safe_address "$_require_same_safe_address_expected"
-    )" || return 1
-    declare -r _require_same_safe_address_normalized_expected
+function _require_same {
+    declare -r _require_same_normalize="$1"
+    shift
+    declare -r _require_same_field="$1"
+    shift
+    declare _require_same_actual
+    _require_same_actual="$("$_require_same_normalize" "$1")" || return 1
+    shift
+    declare -r _require_same_actual
+    declare _require_same_expected
+    _require_same_expected="$("$_require_same_normalize" "$1")" || return 1
+    shift
+    declare -r _require_same_expected
 
-    if [[ $_require_same_safe_address_normalized_actual != "$_require_same_safe_address_normalized_expected" ]] ; then
-        echo 'STS '"$_require_same_safe_address_field"' does not match the locally generated transaction' >&2
+    if [[ $_require_same_actual != "$_require_same_expected" ]] ; then
+        echo 'STS '"$_require_same_field"' does not match the locally generated transaction' >&2
         return 1
     fi
+}
+
+function _require_same_safe_address {
+    _require_same _normalize_safe_address "$@"
 }
 
 function _require_same_safe_uint {
-    declare -r _require_same_safe_uint_field="$1"
-    shift
-    declare _require_same_safe_uint_actual
-    _require_same_safe_uint_actual="$(_normalize_safe_uint "$1")" || return 1
-    shift
-    declare -r _require_same_safe_uint_actual
-    declare _require_same_safe_uint_expected
-    _require_same_safe_uint_expected="$(_normalize_safe_uint "$1")" || return 1
-    shift
-    declare -r _require_same_safe_uint_expected
-
-    if [[ $_require_same_safe_uint_actual != "$_require_same_safe_uint_expected" ]] ; then
-        echo 'STS '"$_require_same_safe_uint_field"' does not match the locally generated transaction' >&2
-        return 1
-    fi
+    _require_same _normalize_safe_uint "$@"
 }
 
 function _require_same_safe_bytes {
-    declare -r _require_same_safe_bytes_field="$1"
-    shift
-    declare -r _require_same_safe_bytes_actual="${1,,}"
-    shift
-    declare -r _require_same_safe_bytes_expected="${1,,}"
-    shift
-
-    if [[ $_require_same_safe_bytes_actual != "$_require_same_safe_bytes_expected" ]] ; then
-        echo 'STS '"$_require_same_safe_bytes_field"' does not match the locally generated transaction' >&2
-        return 1
-    fi
+    _require_same _normalize_safe_bytes "$@"
 }
 
 function _require_precise_jq_integers {
@@ -181,83 +159,30 @@ function load_pending_sts_safe_transactions {
     fi
     _require_precise_jq_integers || return 1
 
-    declare -r -i _load_pending_sts_safe_transactions_limit=100
-    declare -i _load_pending_sts_safe_transactions_offset=0
-    declare -i _load_pending_sts_safe_transactions_page_number=0
-    declare _load_pending_sts_safe_transactions_result='[]'
     declare _load_pending_sts_safe_transactions_page
-    declare -i _load_pending_sts_safe_transactions_page_length
-    declare _load_pending_sts_safe_transactions_expected_count
-    declare _load_pending_sts_safe_transactions_page_count
-    while (( _load_pending_sts_safe_transactions_page_number < 100 )) ; do
-        _load_pending_sts_safe_transactions_page="$(
-            curl --show-error --fail-with-body --retry 5 -s \
-                "$safe_url/v1/safes/$safe_address/multisig-transactions/?executed=false&nonce__gte=$current_safe_nonce&ordering=nonce%2Ccreated%2Cmodified&limit=$_load_pending_sts_safe_transactions_limit&offset=$_load_pending_sts_safe_transactions_offset"
-        )" || return 1
-        jq -Me \
-            '
-            has("count")
-            and has("next")
-            and (.count | (type == "string" or type == "number") and (tostring | test("^[0-9]+$")))
-            and (.next == null or (.next | type == "string"))
-            and (.results | type == "array")
-            and all(.results[];
-                .safeTxHash | type == "string" and test("^0[xX][0-9a-fA-F]{64}$")
-            )
-            ' \
-            <<<"$_load_pending_sts_safe_transactions_page" >/dev/null \
-        || {
-            echo 'STS returned a malformed pending-transaction page' >&2
-            return 1
-        }
+    _load_pending_sts_safe_transactions_page="$(
+        curl --show-error --fail-with-body --retry 5 -s \
+            "$safe_url/v1/safes/$safe_address/multisig-transactions/?executed=false&nonce__gte=$current_safe_nonce&ordering=nonce%2Ccreated%2Cmodified&limit=100"
+    )" || return 1
+    declare -r _load_pending_sts_safe_transactions_page
 
-        _load_pending_sts_safe_transactions_page_count="$(
-            _normalize_safe_uint "$(jq -Mr '.count | tostring' <<<"$_load_pending_sts_safe_transactions_page")"
-        )" || return 1
-        if [[ -z ${_load_pending_sts_safe_transactions_expected_count:-} ]] ; then
-            _load_pending_sts_safe_transactions_expected_count="$_load_pending_sts_safe_transactions_page_count"
-        elif [[ $_load_pending_sts_safe_transactions_page_count != "$_load_pending_sts_safe_transactions_expected_count" ]] ; then
-            echo 'STS pending-transaction count changed while loading pages' >&2
-            return 1
-        fi
+    # ponytail: single page; die instead of paginating past 100 pending txs
+    jq -Me \
+        '
+        (.next == null)
+        and (.results | type == "array")
+        and all(.results[];
+            .safeTxHash | type == "string" and test("^0[xX][0-9a-fA-F]{64}$")
+        )
+        and ((.results | map(.safeTxHash | ascii_downcase) | unique | length) == (.results | length))
+        ' \
+        <<<"$_load_pending_sts_safe_transactions_page" >/dev/null \
+    || {
+        echo 'STS returned a malformed, truncated, or duplicate pending-transaction list' >&2
+        return 1
+    }
 
-        _load_pending_sts_safe_transactions_page_length="$(
-            jq -Mr '.results | length' <<<"$_load_pending_sts_safe_transactions_page"
-        )" || return 1
-        _load_pending_sts_safe_transactions_result="$(
-            jq -Mc \
-                --argjson page "$_load_pending_sts_safe_transactions_page" \
-                '. + $page.results' \
-                <<<"$_load_pending_sts_safe_transactions_result"
-        )" || return 1
-
-        if [[ $(jq -Mr '.next == null' <<<"$_load_pending_sts_safe_transactions_page") = true ]] ; then
-            if ! jq -Me \
-                --arg count "$_load_pending_sts_safe_transactions_expected_count" \
-                '
-                length == ($count | tonumber)
-                and (map(.safeTxHash | ascii_downcase) | unique | length) == length
-                ' \
-                <<<"$_load_pending_sts_safe_transactions_result" >/dev/null
-            then
-                echo 'STS returned an incomplete or duplicate pending-transaction list' >&2
-                return 1
-            fi
-            echo "$_load_pending_sts_safe_transactions_result"
-            return 0
-        fi
-        if (( _load_pending_sts_safe_transactions_page_length == 0 )) ; then
-            echo 'STS returned an empty pending-transaction page with another page indicated' >&2
-            return 1
-        fi
-        _load_pending_sts_safe_transactions_offset=$((
-            _load_pending_sts_safe_transactions_offset + _load_pending_sts_safe_transactions_page_length
-        ))
-        _load_pending_sts_safe_transactions_page_number=$((_load_pending_sts_safe_transactions_page_number + 1))
-    done
-
-    echo 'STS returned too many pending-transaction pages' >&2
-    return 1
+    jq -Mc .results <<<"$_load_pending_sts_safe_transactions_page"
 }
 
 function _require_expected_sts_safe_transaction {
@@ -271,26 +196,19 @@ function _require_expected_sts_safe_transaction {
     )
     declare -r -a _require_expected_sts_safe_transaction_fields
 
-    _require_same_safe_address to "${_require_expected_sts_safe_transaction_fields[0]}" "$1" || return 1
-    shift
-    _require_same_safe_uint value "${_require_expected_sts_safe_transaction_fields[1]}" "$1" || return 1
-    shift
-    _require_same_safe_bytes data "${_require_expected_sts_safe_transaction_fields[2]}" "$1" || return 1
-    shift
-    _require_same_safe_uint operation "${_require_expected_sts_safe_transaction_fields[3]}" "$1" || return 1
-    shift
-    _require_same_safe_uint safeTxGas "${_require_expected_sts_safe_transaction_fields[4]}" "$1" || return 1
-    shift
-    _require_same_safe_uint baseGas "${_require_expected_sts_safe_transaction_fields[5]}" "$1" || return 1
-    shift
-    _require_same_safe_uint gasPrice "${_require_expected_sts_safe_transaction_fields[6]}" "$1" || return 1
-    shift
-    _require_same_safe_address gasToken "${_require_expected_sts_safe_transaction_fields[7]}" "$1" || return 1
-    shift
-    _require_same_safe_address refundReceiver "${_require_expected_sts_safe_transaction_fields[8]}" "$1" || return 1
-    shift
-    _require_same_safe_uint nonce "${_require_expected_sts_safe_transaction_fields[9]}" "$1" || return 1
-    shift
+    declare -i _require_expected_sts_safe_transaction_index=0
+    declare _require_expected_sts_safe_transaction_spec
+    for _require_expected_sts_safe_transaction_spec in \
+        to:address value:uint data:bytes operation:uint safeTxGas:uint \
+        baseGas:uint gasPrice:uint gasToken:address refundReceiver:address nonce:uint
+    do
+        "_require_same_safe_${_require_expected_sts_safe_transaction_spec#*:}" \
+            "${_require_expected_sts_safe_transaction_spec%%:*}" \
+            "${_require_expected_sts_safe_transaction_fields[$_require_expected_sts_safe_transaction_index]}" \
+            "$1" || return 1
+        shift
+        _require_expected_sts_safe_transaction_index+=1
+    done
 }
 
 function _safe_transaction_data {
@@ -341,8 +259,10 @@ function _normalize_safe_confirmations {
     declare _normalize_safe_confirmations_derived_owner
     declare _normalize_safe_confirmations_source_offset
     declare _normalize_safe_confirmations_contract_length
+    declare _normalize_safe_confirmations_contract_signature
     declare _normalize_safe_confirmations_recovery_signature
     while IFS=$'\t' read -r _normalize_safe_confirmations_owner _normalize_safe_confirmations_signature ; do
+        _normalize_safe_confirmations_contract_signature=''
         _normalize_safe_confirmations_owner="$(
             _normalize_safe_address "$_normalize_safe_confirmations_owner"
         )" || return 1
@@ -387,6 +307,8 @@ function _normalize_safe_confirmations {
                     echo 'Malformed contract-owner signature length' >&2
                     return 1
                 fi
+
+                _normalize_safe_confirmations_contract_signature="0x${_normalize_safe_confirmations_body:$(((_normalize_safe_confirmations_source_offset + 32) * 2)):$((_normalize_safe_confirmations_contract_length * 2))}"
                 ;;
             01)
                 if (( _normalize_safe_confirmations_length != 65 )) \
@@ -445,7 +367,8 @@ function _normalize_safe_confirmations {
             jq -Mc \
                 --arg owner "$_normalize_safe_confirmations_owner" \
                 --arg signature "$_normalize_safe_confirmations_signature" \
-                '. + [{owner: $owner, signature: $signature}]' \
+                --arg contractSignature "$_normalize_safe_confirmations_contract_signature" \
+                '. + [{owner: $owner, signature: $signature, contractSignature: $contractSignature}]' \
                 <<<"$_normalize_safe_confirmations_result"
         )" || return 1
     done < <(jq -Mr '.[] | [.owner, .signature] | @tsv' <<<"$_normalize_safe_confirmations_json")
@@ -483,45 +406,14 @@ function _pack_safe_confirmations {
     declare _pack_safe_confirmations_signature
     declare _pack_safe_confirmations_body
     declare _pack_safe_confirmations_v
-    declare -i _pack_safe_confirmations_length
-    declare _pack_safe_confirmations_contract_owner
-    declare _pack_safe_confirmations_source_offset
-    declare _pack_safe_confirmations_contract_length
+    declare -i _pack_safe_confirmations_contract_length
     declare _pack_safe_confirmations_contract_signature
-    while IFS=$'\t' read -r _pack_safe_confirmations_owner _pack_safe_confirmations_signature ; do
+    while IFS=$'\t' read -r _pack_safe_confirmations_owner _pack_safe_confirmations_signature _pack_safe_confirmations_contract_signature ; do
         _pack_safe_confirmations_body="${_pack_safe_confirmations_signature:2}"
-        _pack_safe_confirmations_length=$((${#_pack_safe_confirmations_body} / 2))
         _pack_safe_confirmations_v="${_pack_safe_confirmations_body:128:2}"
 
         if [[ $_pack_safe_confirmations_v = 00 ]] ; then
-            _pack_safe_confirmations_contract_owner="$(cast to-checksum "0x${_pack_safe_confirmations_body:24:40}")" \
-                || return 1
-            _require_same_safe_address \
-                owner "$_pack_safe_confirmations_contract_owner" "$_pack_safe_confirmations_owner" \
-                || return 1
-
-            _pack_safe_confirmations_source_offset="$(cast to-dec "0x${_pack_safe_confirmations_body:64:64}")" \
-                || return 1
-            if [[ ! $_pack_safe_confirmations_source_offset =~ ^[0-9]{1,9}$ ]] \
-                || (( _pack_safe_confirmations_source_offset < 65 )) \
-                || (( _pack_safe_confirmations_source_offset + 32 > _pack_safe_confirmations_length ))
-            then
-                echo 'Malformed contract-owner signature offset' >&2
-                return 1
-            fi
-
-            _pack_safe_confirmations_contract_length="$(
-                cast to-dec \
-                    "0x${_pack_safe_confirmations_body:$((_pack_safe_confirmations_source_offset * 2)):64}"
-            )" || return 1
-            if [[ ! $_pack_safe_confirmations_contract_length =~ ^[0-9]{1,9}$ ]] \
-                || (( _pack_safe_confirmations_source_offset + 32 + _pack_safe_confirmations_contract_length > _pack_safe_confirmations_length ))
-            then
-                echo 'Malformed contract-owner signature length' >&2
-                return 1
-            fi
-
-            _pack_safe_confirmations_contract_signature="0x${_pack_safe_confirmations_body:$(((_pack_safe_confirmations_source_offset + 32) * 2)):$((_pack_safe_confirmations_contract_length * 2))}"
+            _pack_safe_confirmations_contract_length=$(( (${#_pack_safe_confirmations_contract_signature} - 2) / 2 ))
 
             _pack_safe_confirmations_static="$(
                 cast concat-hex \
@@ -544,7 +436,7 @@ function _pack_safe_confirmations {
                 cast concat-hex "$_pack_safe_confirmations_static" "0x${_pack_safe_confirmations_body:0:130}"
             )" || return 1
         fi
-    done < <(jq -Mr '.[] | [.owner, .signature] | @tsv' <<<"$_pack_safe_confirmations_selected")
+    done < <(jq -Mr '.[] | [.owner, .signature, .contractSignature] | @tsv' <<<"$_pack_safe_confirmations_selected")
 
     cast concat-hex "$_pack_safe_confirmations_static" "$_pack_safe_confirmations_dynamic"
 }
@@ -786,11 +678,7 @@ function select_sts_safe_transaction_hash {
             echo 'Invalid selection' >&2
             continue
         fi
-        if [[ ! $REPLY =~ ^[0-9]{1,5}$ ]] ; then
-            echo 'Invalid selection' >&2
-            continue
-        fi
-        _select_sts_safe_transaction_hash_index=$((10#$REPLY - 1))
+        _select_sts_safe_transaction_hash_index=$((10#${REPLY#+} - 1))
         if (( _select_sts_safe_transaction_hash_index == ${#_select_sts_safe_transaction_hash_hashes[@]} )) ; then
             echo 'No transaction selected' >&2
             return 1

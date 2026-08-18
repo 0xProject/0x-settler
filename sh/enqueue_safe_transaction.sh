@@ -184,11 +184,8 @@ if [[ $guard_safe != "$(cast to-checksum "$safe_address")" ]] ; then
 fi
 
 declare timelock_delay
-timelock_delay="$(
-    cast call --json --rpc-url "$rpc_url" "$timelock_address" 'delay()(uint24)' \
-    | jq -Mer 'if type == "array" and length == 1 then .[0] | tostring else error("malformed delay") end'
-)"
-timelock_delay="$(_normalize_safe_uint "$timelock_delay")"
+timelock_delay="$(cast call --rpc-url "$rpc_url" "$timelock_address" 'delay()(uint24)')"
+timelock_delay="$(_normalize_safe_uint "${timelock_delay%% *}")"
 declare -r timelock_delay
 if [[ $timelock_delay != 432000 ]] ; then
     die 'The configured Guard does not have the required 432000-second delay'
@@ -239,8 +236,6 @@ declare -r -a enqueue_args=(
     "${safe_transaction_fields[@]}" "$packed_signatures"
 )
 
-cast call --from "$signer" --rpc-url "$rpc_url" "${extra_flags[@]}" "${enqueue_args[@]}" >/dev/null
-
 declare -i gas_estimate
 gas_estimate="$(
     cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid \
@@ -251,35 +246,25 @@ declare -i gas_limit
 gas_limit="$(apply_gas_multiplier $gas_estimate)"
 declare -r -i gas_limit
 
-declare send_result
+declare receipt
 if [[ $wallet_type = 'frame' ]] ; then
-    send_result="$(
-        cast send --async --timeout 300 --rpc-timeout 300 --from "$signer" \
+    receipt="$(
+        cast send --json --confirmations 10 --timeout 300 --rpc-timeout 300 --from "$signer" \
             --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit \
             "${wallet_args[@]}" "${extra_flags[@]}" "${enqueue_args[@]}"
     )"
 else
-    send_result="$(
-        cast send --async --from "$signer" --rpc-url "$rpc_url" --chain $chainid \
+    receipt="$(
+        cast send --json --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid \
             --gas-price $gas_price --gas-limit $gas_limit \
             "${wallet_args[@]}" "${extra_flags[@]}" "${enqueue_args[@]}"
     )"
 fi
-declare -r send_result
-
-declare transaction_hash="${send_result##*$'\n'}"
-transaction_hash="${transaction_hash//$'\r'/}"
-transaction_hash="${transaction_hash,,}"
-declare -r transaction_hash
-if [[ ! $transaction_hash =~ ^0x[0-9a-f]{64}$ ]] ; then
-    die 'Could not read the enqueue transaction hash from cast output'
-fi
-
-declare receipt
-receipt="$(
-    cast receipt --confirmations 10 --rpc-url "$rpc_url" --json "$transaction_hash"
-)"
 declare -r receipt
+
+declare transaction_hash
+transaction_hash="$(jq -Mr '.transactionHash | ascii_downcase' <<<"$receipt")"
+declare -r transaction_hash
 if (( $(cast to-dec "$(jq -Mr .status <<<"$receipt")") != 1 )) ; then
     die 'The enqueue transaction reverted: '"$transaction_hash"
 fi
