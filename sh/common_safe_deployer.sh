@@ -218,7 +218,7 @@ function _is_current_safe_owner {
             return 0
         fi
     done
-    return 1
+    die
 }
 
 function _normalize_safe_confirmations {
@@ -545,16 +545,14 @@ function filter_sts_safe_transactions_by_timelock {
     if [[ $_filter_sts_safe_transactions_by_timelock_state != unqueued \
         && $_filter_sts_safe_transactions_by_timelock_state != executable ]]
     then
-        echo 'Unrecognized timelock transaction state' >&2
-        return 1
+        die 'Unrecognized timelock transaction state'
     fi
     if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} = [nN][uU][lL][lL] ]] ; then
         if [[ $_filter_sts_safe_transactions_by_timelock_state = executable ]] ; then
             echo "$_filter_sts_safe_transactions_by_timelock_json"
             return 0
         fi
-        echo 'The upgrade Safe does not have an installed Guard' >&2
-        return 1
+        die 'The upgrade Safe does not have an installed Guard'
     fi
 
     declare _filter_sts_safe_transactions_by_timelock_timestamp=0
@@ -591,7 +589,7 @@ function filter_sts_safe_transactions_by_timelock {
             ' \
             <<<"$_filter_sts_safe_transactions_by_timelock_info_output" >/dev/null
         then
-            return 1
+            die
         fi
         _filter_sts_safe_transactions_by_timelock_end="$(
             _normalize_safe_uint "$(
@@ -634,8 +632,7 @@ function select_sts_safe_transaction_hash {
     )
     declare -r -a _select_sts_safe_transaction_hash_hashes
     if (( ${#_select_sts_safe_transaction_hash_hashes[@]} == 0 )) ; then
-        echo 'No pending Safe transactions match this operation and have enough valid confirmations' >&2
-        return 1
+        die 'No pending Safe transactions match this operation and have enough valid confirmations'
     fi
 
     declare -a _select_sts_safe_transaction_hash_labels
@@ -662,13 +659,12 @@ function select_sts_safe_transaction_hash {
         fi
         _select_sts_safe_transaction_hash_index=$((10#${REPLY#+} - 1))
         if (( _select_sts_safe_transaction_hash_index == ${#_select_sts_safe_transaction_hash_hashes[@]} )) ; then
-            echo 'No transaction selected' >&2
-            return 1
+            die 'No transaction selected'
         fi
         echo "${_select_sts_safe_transaction_hash_hashes[$_select_sts_safe_transaction_hash_index]}"
         return 0
     done
-    return 1
+    die
 }
 
 function extract_authorize_deadline {
@@ -680,7 +676,7 @@ function extract_authorize_deadline {
     shift
 
     if [[ ! $_extract_authorize_deadline_data =~ ^0x[0-9a-f]{200}$ ]] ; then
-        return 1
+        die
     fi
     declare _extract_authorize_deadline_deadline
     _extract_authorize_deadline_deadline="$(
@@ -719,25 +715,25 @@ function extract_last_multisend_call_data {
     declare _extract_last_multisend_call_data_result
     while (( ${#_extract_last_multisend_call_data_calls} > 0 )) ; do
         if (( ${#_extract_last_multisend_call_data_calls} < 170 )) ; then
-            return 1
+            die
         fi
         _extract_last_multisend_call_data_length="$(
             cast to-dec "0x${_extract_last_multisend_call_data_calls:106:64}"
         )"
         if [[ ! $_extract_last_multisend_call_data_length =~ ^[0-9]{1,9}$ ]] ; then
-            return 1
+            die
         fi
         _extract_last_multisend_call_data_record_length=$((
             170 + _extract_last_multisend_call_data_length * 2
         ))
         if (( _extract_last_multisend_call_data_record_length > ${#_extract_last_multisend_call_data_calls} )) ; then
-            return 1
+            die
         fi
         _extract_last_multisend_call_data_result="0x${_extract_last_multisend_call_data_calls:170:$((_extract_last_multisend_call_data_length * 2))}"
         _extract_last_multisend_call_data_calls="${_extract_last_multisend_call_data_calls:$_extract_last_multisend_call_data_record_length}"
     done
     if [[ -z ${_extract_last_multisend_call_data_result:-} ]] ; then
-        return 1
+        die
     fi
     echo "$_extract_last_multisend_call_data_result"
 }

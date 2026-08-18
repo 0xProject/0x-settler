@@ -16,7 +16,7 @@ function contains {
         fi
     done
 
-    return 1
+    die
 }
 
 if ! contains "${signer-unset}" "${owners_array[@]}" ; then
@@ -58,8 +58,7 @@ function sign_call {
         declare -r typedDataRPC
         _sign_call_result="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data '@-' <<<"$typedDataRPC")"
         if [[ $_sign_call_result = *error* ]] ; then
-            echo "$_sign_call_result" >&2
-            return 1
+            die "$_sign_call_result"
         fi
         _sign_call_result="$(jq -Mr .result <<<"$_sign_call_result")"
     else
