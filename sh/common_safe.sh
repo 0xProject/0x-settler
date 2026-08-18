@@ -53,11 +53,23 @@ if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
 fi
 declare -r configured_safe_guard
 
+# governance.timelock describes the Guard on the upgrade Safe; no other Safe may have one
+declare upgrade_safe_address
+upgrade_safe_address="$(get_config governance.upgradeSafe)"
+if [[ ${upgrade_safe_address:-null} = [nN][uU][lL][lL] ]] ; then
+    upgrade_safe_address="$(cast address-zero)"
+else
+    upgrade_safe_address="$(cast to-checksum "$upgrade_safe_address")"
+fi
+declare -r upgrade_safe_address
+
 declare safe_guard
 if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
     if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
         die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
     fi
+elif [[ $(cast to-checksum "$safe_address") != "$upgrade_safe_address" ]] ; then
+    die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
 elif [[ $configured_safe_guard = "$(cast address-zero)" ]] ; then
     die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
 elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
@@ -139,7 +151,7 @@ function build_multisend_calldata {
     fi
 
     declare _build_multisend_calldata_guard
-    if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+    if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
         _build_multisend_calldata_guard="$(cast to-checksum "$safe_guard")"
     fi
     declare -r _build_multisend_calldata_guard

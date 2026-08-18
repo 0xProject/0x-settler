@@ -147,7 +147,19 @@ declare prev_owner_addr
 prev_owner_addr="$(prev_owner "$old_owner")"
 declare -r prev_owner_addr
 
-declare -r -i new_threshold=2
+declare -i new_threshold=2
+if [[ $safe_guard != "$(cast address-zero)" ]] ; then
+    if (( ${#owners_array[@]} <= 4 )) ; then
+        die 'The Guard requires at least 4 owners; removing one of '"${#owners_array[@]}"' would revert'
+    fi
+    new_threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getThreshold()(uint256)')"
+    # The Guard requires ownerCount - threshold >= 2 after execution; lower the
+    # threshold when removing an owner would otherwise violate that
+    if (( ${#owners_array[@]} - new_threshold == 2 )) ; then
+        new_threshold=$((new_threshold - 1))
+    fi
+fi
+declare -r -i new_threshold
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare removeOwner_call
 removeOwner_call="$(cast calldata "$removeOwner_sig" "$prev_owner_addr" "$old_owner" $new_threshold)"
