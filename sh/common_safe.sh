@@ -50,16 +50,16 @@ declare -r installed_safe_guard
 
 declare configured_safe_guard
 configured_safe_guard="$(get_config governance.timelock)"
-if [[ ${configured_safe_guard:-null} = [nN][uU][lL][lL] ]] ; then
-    configured_safe_guard="$(cast address-zero)"
-else
+if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
     configured_safe_guard="$(cast to-checksum "$configured_safe_guard")"
 fi
 declare -r configured_safe_guard
 
 declare safe_guard
 if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
-    safe_guard="$(cast address-zero)"
+    if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
+    fi
 elif [[ $configured_safe_guard = "$(cast address-zero)" ]] ; then
     die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
 elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
