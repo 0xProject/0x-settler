@@ -155,7 +155,9 @@ function build_multisend_calldata {
                 "$(_encode_multisend_call "$_build_multisend_calldata_target" "$_build_multisend_calldata_call")"
         )"
 
-        if (( $# > 0 )) && [[ $safe_guard != "$(cast address-zero)" ]] ; then
+        # multisend_safe_guard, when set, is the Guard that will be installed when this
+        # multisend executes, if that differs from the Guard installed now
+        if (( $# > 0 )) && [[ ${multisend_safe_guard-$safe_guard} != "$(cast address-zero)" ]] ; then
             _build_multisend_calldata_data="$(
                 cast concat-hex \
                     "$_build_multisend_calldata_data" \

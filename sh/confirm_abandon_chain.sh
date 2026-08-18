@@ -161,15 +161,17 @@ if [[ -n ${safe_guard:-} && $safe_guard != "$(cast address-zero)" ]] ; then
 
     declare struct_json
     struct_json="$(eip712_json "$remove_guard_call" 0 "$safe_address")"
-    declare -r struct_json
 
     declare signature
     signature="$(sign_call "$struct_json")"
-    declare -r signature
 
     save_signature abandon_chain_guard_removal "$remove_guard_call" "$signature" 0 "$safe_address"
-    echo 'SafeGuard removal submitted. After it executes, rerun this script with the same arguments to sign the abandonment transaction.' >&2
-    exit 0
+    echo 'SafeGuard removal signed. Now signing the abandonment transaction for the next nonce.' >&2
+
+    # The abandonment executes at the next nonce, after the Guard is removed, so its
+    # multisend must not contain check() sub-calls
+    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+    declare -r multisend_safe_guard="$(cast address-zero)"
 fi
 
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'

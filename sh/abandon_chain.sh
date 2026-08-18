@@ -156,14 +156,14 @@ if [[ -n ${safe_guard:-} && $safe_guard != "$(cast address-zero)" ]] ; then
     remove_guard_call="$(cast calldata "$setGuard_sig" "$(cast address-zero)")"
     declare -r remove_guard_call
 
-    declare packed_signatures
-    packed_signatures="$(retrieve_signatures abandon_chain_guard_removal "$remove_guard_call" 0 "$safe_address")"
-    declare -r packed_signatures
+    declare remove_guard_signatures
+    remove_guard_signatures="$(retrieve_signatures abandon_chain_guard_removal "$remove_guard_call" 0 "$safe_address")"
+    declare -r remove_guard_signatures
 
     declare -r -a remove_guard_args=(
         "$safe_address" "$execTransaction_sig"
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-        "$safe_address" 0 "$remove_guard_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+        "$safe_address" 0 "$remove_guard_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$remove_guard_signatures"
     )
 
     declare -i remove_guard_gas_estimate
@@ -179,8 +179,12 @@ if [[ -n ${safe_guard:-} && $safe_guard != "$(cast address-zero)" ]] ; then
         cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $remove_guard_gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${remove_guard_args[@]}"
     fi
 
-    echo 'SafeGuard removed. Collect abandonment signatures, then rerun this script with the same arguments.' >&2
-    exit 0
+    echo 'SafeGuard removed. Executing the abandonment transaction at the next nonce.' >&2
+
+    # The abandonment executes now that the Guard is removed, so its multisend must
+    # not contain check() sub-calls
+    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+    declare -r multisend_safe_guard="$(cast address-zero)"
 fi
 
 # Verify the initial owner is not already the only owner
