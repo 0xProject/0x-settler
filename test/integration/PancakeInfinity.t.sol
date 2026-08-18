@@ -20,15 +20,12 @@ import {tmp} from "src/utils/512Math.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {PoolKey, PoolId, IPancakeInfinityPoolManager} from "src/core/PancakeInfinity.sol";
 import {
-    PancakeInfinity,
-    PoolKey,
-    VAULT,
-    CL_MANAGER,
-    BIN_MANAGER,
-    PoolId,
-    IPancakeInfinityPoolManager
-} from "src/core/PancakeInfinity.sol";
+    pancakeInfinityVault,
+    pancakeInfinityClManager,
+    pancakeInfinityBinManager
+} from "src/core/pancakeInfinityForks/PancakeInfinity.sol";
 
 interface IPancakeInfinityCLPoolManagerSlot0 {
     function getSlot0(bytes32 poolId) external view returns (uint160 sqrtPriceX96);
@@ -89,10 +86,22 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         }
     }
 
+    function vault() internal pure virtual returns (address) {
+        return pancakeInfinityVault;
+    }
+
+    function clPoolManager() internal pure virtual returns (address) {
+        return pancakeInfinityClManager;
+    }
+
+    function binPoolManager() internal pure virtual returns (address) {
+        return pancakeInfinityBinManager;
+    }
+
     function _setPancakeInfinityLabels() private {
-        vm.label(address(VAULT), "Vault");
-        vm.label(address(CL_MANAGER), "CLPoolManager");
-        vm.label(address(BIN_MANAGER), "BINPoolManager");
+        vm.label(vault(), "Vault");
+        vm.label(clPoolManager(), "CLPoolManager");
+        vm.label(binPoolManager(), "BINPoolManager");
     }
 
     function _readSlot0Cold(bytes32 poolId_) private view returns (uint160 sqrtPriceX96) {
@@ -105,7 +114,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function _readSlot0AndRevert(bytes32 poolId_) external view {
-        uint160 sqrtPriceX96 = IPancakeInfinityCLPoolManagerSlot0(address(CL_MANAGER)).getSlot0(poolId_);
+        uint160 sqrtPriceX96 = IPancakeInfinityCLPoolManagerSlot0(clPoolManager()).getSlot0(poolId_);
         assembly ("memory-safe") {
             mstore(0x00, sqrtPriceX96)
             revert(0x00, 0x20)
@@ -138,10 +147,8 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     function pancakeInfinityFills(IERC20 fromToken, IERC20 toToken) internal view virtual returns (bytes memory) {
         bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
-        PoolKey memory poolKey = (managerId == 0
-                ? IPancakeInfinityPoolManager(CL_MANAGER)
-                : IPancakeInfinityPoolManager(BIN_MANAGER))
-        .poolIdToPoolKey(PoolId.wrap(poolId_));
+        PoolKey memory poolKey = IPancakeInfinityPoolManager(managerId == 0 ? clPoolManager() : binPoolManager())
+            .poolIdToPoolKey(PoolId.wrap(poolId_));
 
         return abi.encodePacked(
             uint24(1_000_000),

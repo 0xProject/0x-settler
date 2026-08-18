@@ -12,7 +12,7 @@ import {Hanji} from "../../core/Hanji.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3RobinhoodFactory,
@@ -35,6 +35,8 @@ import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../cor
 import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {orvexVault, orvexClManager} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
 
@@ -42,7 +44,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji {
+abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, PancakeInfinity {
     using FastLogic for bool;
 
     constructor() {
@@ -59,7 +61,8 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+            .or(action == uint32(ISettlerActions.EKUBOV3.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -73,8 +76,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+            } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
                 sellToEkuboV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
@@ -140,6 +145,19 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return ROBINHOOD_POOL_MANAGER;
+    }
+
+    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
+        return orvexVault;
+    }
+
+    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
+        return orvexClManager;
+    }
+
+    // Orvex does not have a Bin pool manager
+    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
+        revertUnknownPoolManagerId(1);
     }
 
     // I hate Solidity inheritance

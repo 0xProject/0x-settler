@@ -2,6 +2,10 @@
 
 ### Breaking changes
 
+* Update `RENEGADE` signature: replace `target` and `baseForQuote` with
+  `recipient`, `buyToken`, `maxSellAmount`, `refundNativeEth`, and
+  `maxRefundAmount`
+* SolidlyV3 UniV3 fork removed from Sonic
 * All proportional-amount action arguments are now denominated in parts-per-million (`ppm`; denominator 1_000_000) instead of basis points (`bps`; denominator 10_000)
   * Affects the `bps` (now `ppm`) argument of `UNISWAPV3`, `UNISWAPV2`, `BASIC`, `VELODROME`, `MAKERPSM`, `DODOV1`, `DODOV2`, `MAVERICKV2`, `EULERSWAP`, `HANJI`, `UNISWAPV4`, `BALANCERV3`, `PANCAKE_INFINITY`, `EKUBO`, and `EKUBOV3` actions.
   * Affects the `maxBps` (now `maxPpm`) argument of `POSITIVE_SLIPPAGE`
@@ -10,7 +14,6 @@
   * `BALANCERV3` wrap/unwrap flags move from bits 15/14 to bits 23/22 of the fill's proportion field
   * The Ekubo forwarding-extension flag moves from bit 15 to bit 23
   * The Permit2 balance-proportional sell amount sentinel widens: `permit.permitted.amount > type(uint256).max - 1_000_000` now encodes a proportion in `ppm` as `type(uint256).max - (1_000_000 - ppm)`
-* SolidlyV3 UniV3 fork removed from Sonic
 
 ### Non-breaking changes
 
@@ -21,6 +24,13 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add Orvex CL PancakeInfinity fork to RobinHood chain
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
+
+## 2026-07-27
+
+### Non-breaking changes
+
 * Add `HANJI` action for the Hanji order book liquidity source on RobinHood
 * Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to HyperEVM
 

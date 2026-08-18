@@ -232,9 +232,7 @@ if [[ $(cast code --rpc-url "$rpc_url" "$factory") == '0x' ]] ; then
     exit 1
 fi
 
-declare signer
-IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
-declare -r signer
+. "$project_root"/sh/common_submitter.sh
 
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
@@ -298,7 +296,7 @@ declare -r -a deploy_args zk_tx_flags
 declare -i gas_limit
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}")"
+    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}")"
     declare -r -i gas_estimate
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
 else
@@ -324,7 +322,114 @@ fi
 declare -r -a maybe_broadcast
 declare -r submit_rpc
 
-cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}"
+if [[ ${BROADCAST-no} = [Yy]es && $era_vm = [Tt]rue ]] ; then
+    # Frame only builds standard Ethereum transaction types, but publishing the guard
+    # bytecode rides exclusively on the factory-deps field of EraVM's native EIP-712
+    # transaction type (0x71). That type is authorized by an EIP-712 typed-data
+    # signature, which Frame does provide: collect Frame's signature over the
+    # transaction via eth_signTypedData_v4, then serialize the transaction ourselves
+    # and broadcast it directly to the chain's RPC.
+    if [[ $wallet_type != 'frame' ]] ; then
+        echo 'The EraVM deployment flow only supports the "frame" wallet type' >&2
+        exit 1
+    fi
+
+    declare -i nonce
+    nonce="$(cast nonce --rpc-url "$rpc_url" "$signer")"
+    declare -r -i nonce
+    # protocol default gas-per-pubdata limit for type 0x71 transactions
+    declare -r -i gas_per_pubdata=0xc350
+
+    declare typed_data
+    typed_data="$(jq -Mcn \
+        --arg from "$(cast to-dec "$signer")" \
+        --arg to "$(cast to-dec "$factory")" \
+        --arg gasLimit "$gas_limit" \
+        --arg gasPerPubdata "$gas_per_pubdata" \
+        --arg maxFee "$gas_price" \
+        --arg nonce "$nonce" \
+        --arg data "${deploy_args[1]}" \
+        --arg depHash "$bytecode_hash" \
+        --arg chainId "$chainid" \
+        '{
+          "types": {
+            "EIP712Domain": [
+              {"name": "name", "type": "string"},
+              {"name": "version", "type": "string"},
+              {"name": "chainId", "type": "uint256"}
+            ],
+            "Transaction": [
+              {"name": "txType", "type": "uint256"},
+              {"name": "from", "type": "uint256"},
+              {"name": "to", "type": "uint256"},
+              {"name": "gasLimit", "type": "uint256"},
+              {"name": "gasPerPubdataByteLimit", "type": "uint256"},
+              {"name": "maxFeePerGas", "type": "uint256"},
+              {"name": "maxPriorityFeePerGas", "type": "uint256"},
+              {"name": "paymaster", "type": "uint256"},
+              {"name": "nonce", "type": "uint256"},
+              {"name": "value", "type": "uint256"},
+              {"name": "data", "type": "bytes"},
+              {"name": "factoryDeps", "type": "bytes32[]"},
+              {"name": "paymasterInput", "type": "bytes"}
+            ]
+          },
+          "primaryType": "Transaction",
+          "domain": {"name": "zkSync", "version": "2", "chainId": $chainId},
+          "message": {
+            "txType": "113",
+            "from": $from,
+            "to": $to,
+            "gasLimit": $gasLimit,
+            "gasPerPubdataByteLimit": $gasPerPubdata,
+            "maxFeePerGas": $maxFee,
+            "maxPriorityFeePerGas": $maxFee,
+            "paymaster": "0",
+            "nonce": $nonce,
+            "value": "0",
+            "data": $data,
+            "factoryDeps": [$depHash],
+            "paymasterInput": "0x"
+          }
+        }')"
+    declare -r typed_data
+
+    declare signature
+    echo 'Requesting EIP-712 signature from Frame' >&2
+    signature="$(cast rpc --rpc-url 'http://127.0.0.1:1248' --raw eth_signTypedData_v4 "$(jq -Mcn --arg signer "$signer" --arg typed_data "$typed_data" '[$signer, $typed_data]')" | jq -Mr .)"
+    if (( ${#signature} != 132 )) ; then
+        echo 'Frame returned a malformed signature: '"$signature" >&2
+        exit 1
+    fi
+    # the bootloader's DefaultAccount accepts only v in {27,28}
+    declare -i sig_v
+    sig_v=$(( 16#${signature:130:2} ))
+    if (( sig_v < 27 )) ; then
+        signature="${signature:0:130}$(printf '%02x' $(( sig_v + 27 )))"
+    fi
+    declare -r signature
+
+    # `cast to-rlp` encodes JSON numbers as canonical RLP integers (zero is the empty
+    # byte string); hex strings are encoded as raw byte strings.
+    declare raw_tx
+    raw_tx="$(cast concat-hex 0x71 "$(cast to-rlp "$(jq -Mcn \
+        --argjson nonce "$nonce" \
+        --argjson gasPrice "$gas_price" \
+        --argjson gasLimit "$gas_limit" \
+        --arg to "$factory" \
+        --arg data "${deploy_args[1]}" \
+        --argjson chainId "$chainid" \
+        --arg from "$signer" \
+        --argjson gasPerPubdata "$gas_per_pubdata" \
+        --arg dep "$guard_bytecode" \
+        --arg sig "$signature" \
+        '[$nonce, $gasPrice, $gasPrice, $gasLimit, $to, 0, $data, $chainId, "0x", "0x", $chainId, $from, $gasPerPubdata, [$dep], $sig, []]')")")"
+    declare -r raw_tx
+
+    cast publish --rpc-url "$rpc_url" "$raw_tx"
+else
+    cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "${zk_tx_flags[@]}" "${deploy_args[@]}"
+fi
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
