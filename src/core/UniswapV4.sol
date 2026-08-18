@@ -29,12 +29,6 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note[];
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     function _POOL_MANAGER() internal view virtual returns (IPoolManager);
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has a

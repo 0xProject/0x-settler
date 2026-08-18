@@ -251,12 +251,6 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
 
     using UnsafeVault for IBalancerV3Vault;
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     //// How to generate `fills` for BalancerV3:
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. Swapping

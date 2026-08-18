@@ -208,12 +208,6 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
     using UnsafePancakeInfinityPoolManager for IPancakeInfinityCLPoolManager;
     using UnsafePancakeInfinityBinPoolManager for IPancakeInfinityBinPoolManager;
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     //// How to generate `fills` for Pancake Infinity:
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the

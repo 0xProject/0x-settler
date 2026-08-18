@@ -8,6 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import {BASIS, ETH_ADDRESS} from "./Constants.sol";
 
 import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
@@ -51,7 +52,6 @@ type NotePtr is uint256;
 /// signature `TokenHashCollision(address,address)`.
 library NotesLib {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// This is the maximum number of tokens that may be involved in an action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
@@ -372,8 +372,6 @@ using StateLib for State global;
 library Encoder {
     using FastLogic for bool;
 
-    uint256 internal constant BASIS = 1_000_000;
-
     function encode(
         uint256 unlockSelector,
         address recipient,
@@ -480,8 +478,6 @@ library Decoder {
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-
-    uint256 internal constant BASIS = 1_000_000;
 
     /// Update `state` for the next fill packed in `data`. This also may allocate/append `Note`s
     /// into `notes`. Returns the suffix of the bytes that are not consumed in the decoding

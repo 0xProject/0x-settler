@@ -139,12 +139,6 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     using NotesLib for NotesLib.Note[];
     using UnsafeEkuboCore for IEkuboCore;
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     //// How to generate `fills` for Ekubo
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the
