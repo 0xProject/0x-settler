@@ -69,11 +69,11 @@ elif [[ $(cast to-checksum "$safe_address") != "${upgrade_safe_address:-null}" ]
     die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
 elif [[ $configured_safe_guard = "$(cast address-zero)" ]] ; then
     die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
-elif [[ $(cast to-checksum "installed_safe_guard") != "$(cast to-checksum "$configured_safe_guard")" ]] ; then
+elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
     die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \
         'Expected governance.timelock '"$configured_safe_guard"
 else
-    safe_guard="$(cast to-checksum "$configured_safe_guard")"
+    safe_guard="$configured_safe_guard"
 fi
 declare -r safe_guard
 
@@ -148,7 +148,7 @@ function build_multisend_calldata {
 
     declare _build_multisend_calldata_guard
     if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
-        _build_multisend_calldata_guard="$(cast to-checksum "$safe_guard")"
+        _build_multisend_calldata_guard="$(cast to-checksum "${SAFE_GUARD_OVERRIDE:-$safe_guard}")"
     fi
     declare -r _build_multisend_calldata_guard
 

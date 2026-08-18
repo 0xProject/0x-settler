@@ -218,7 +218,7 @@ function _is_current_safe_owner {
             return 0
         fi
     done
-    die
+    return 1
 }
 
 function _normalize_safe_confirmations {

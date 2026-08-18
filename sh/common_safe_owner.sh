@@ -15,8 +15,7 @@ function contains {
             return 0
         fi
     done
-
-    die
+    return 1
 }
 
 if ! contains "${signer-unset}" "${owners_array[@]}" ; then
