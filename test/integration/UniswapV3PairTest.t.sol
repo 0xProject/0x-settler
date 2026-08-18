@@ -102,13 +102,13 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
-    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3Path().length == 0) skipIf(toToken() != WETH) {
+    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3PathVIP().length == 0) skipIf(toToken() != WETH) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         Settler _settler = settler;
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3Path(), sig, 0 wei)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3PathVIP(), sig, 0 wei)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (address(WETH), 10_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
