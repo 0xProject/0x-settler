@@ -10,6 +10,11 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {
+    pancakeInfinityVault,
+    pancakeInfinityClManager,
+    pancakeInfinityBinManager
+} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
@@ -175,6 +180,18 @@ abstract contract BnbMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return BNB_POOL_MANAGER;
+    }
+
+    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
+        return pancakeInfinityVault;
+    }
+
+    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
+        return pancakeInfinityClManager;
+    }
+
+    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
+        return pancakeInfinityBinManager;
     }
 
     function _EVC() internal pure override returns (IEVC) {

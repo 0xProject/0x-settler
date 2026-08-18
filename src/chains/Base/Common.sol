@@ -11,6 +11,11 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {
+    pancakeInfinityVault,
+    pancakeInfinityClManager,
+    pancakeInfinityBinManager
+} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
@@ -246,6 +251,18 @@ abstract contract BaseMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return BASE_POOL_MANAGER;
+    }
+
+    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
+        return pancakeInfinityVault;
+    }
+
+    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
+        return pancakeInfinityClManager;
+    }
+
+    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
+        return pancakeInfinityBinManager;
     }
 
     /*

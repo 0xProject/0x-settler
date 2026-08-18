@@ -9,7 +9,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Ternary} from "../utils/Ternary.sol";
-import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
+import {ZeroSellAmount, UnknownPoolManagerId, revertUnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 import {BalanceDelta} from "./UniswapV4Types.sol";
@@ -36,8 +36,6 @@ interface IPancakeInfinityVault {
     /// @return The data returned by the call to `ILockCallback(msg.sender).lockCallback(data)`
     function lock(bytes calldata data) external returns (bytes memory);
 }
-
-IPancakeInfinityVault constant VAULT = IPancakeInfinityVault(0x238a358808379702088667322f80aC48bAd5e6c4);
 
 /// @notice Interface for the callback executed when an address locks the vault
 interface IPancakeInfinityLockCallback {
@@ -91,9 +89,6 @@ interface IPancakeInfinityCLPoolManager is IPancakeInfinityPoolManager {
         external
         returns (BalanceDelta delta);
 }
-
-IPancakeInfinityCLPoolManager constant CL_MANAGER =
-    IPancakeInfinityCLPoolManager(0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b);
 
 interface IPancakeInfinityBinPoolManager is IPancakeInfinityPoolManager {
     /// @notice Peform a swap to a pool
@@ -194,9 +189,6 @@ library UnsafePancakeInfinityBinPoolManager {
     }
 }
 
-IPancakeInfinityBinPoolManager constant BIN_MANAGER =
-    IPancakeInfinityBinPoolManager(0xC697d2898e0D09264376196696c51D7aBbbAA4a9);
-
 abstract contract PancakeInfinity is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
@@ -213,6 +205,14 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
         assert(BASIS == Decoder.BASIS);
         assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
     }
+
+    function _PANCAKE_INFINITY_VAULT() internal pure virtual returns (address);
+
+    // A chain hosting a fork that lacks CL_MANAGER must unconditionally call `revertUnknownPoolManagerId(0)`
+    function _PANCAKE_INFINITY_CL_MANAGER() internal pure virtual returns (address);
+    
+    // A chain hosting a fork that lacks BIN_MANAGER must unconditionally call `revertUnknownPoolManagerId(1)`
+    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure virtual returns (address);
 
     //// How to generate `fills` for Pancake Infinity:
     ////
@@ -279,7 +279,10 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback
+            _PANCAKE_INFINITY_VAULT(),
+            data,
+            uint32(IPancakeInfinityLockCallback.lockAcquired.selector),
+            _pancakeInfinityCallback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -313,7 +316,10 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(VAULT), data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback
+            _PANCAKE_INFINITY_VAULT(),
+            data,
+            uint32(IPancakeInfinityLockCallback.lockAcquired.selector),
+            _pancakeInfinityCallback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -475,7 +481,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             }
 
             {
-                uint8 poolManagerId;
+                uint256 poolManagerId;
                 assembly ("memory-safe") {
                     poolManagerId := shr(0xf8, calldataload(data.offset))
                     data.offset := add(0x01, data.offset)
@@ -506,8 +512,8 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
 
                 Decoder.overflowCheck(data);
 
-                if (uint256(poolManagerId) == 0) {
-                    poolKey.poolManager = CL_MANAGER;
+                if (poolManagerId == 0) {
+                    poolKey.poolManager = IPancakeInfinityPoolManager(_PANCAKE_INFINITY_CL_MANAGER());
 
                     _pancakeInfinitySettleDelta(
                         state,
@@ -515,8 +521,8 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                             .unsafeSwap(poolKey, zeroForOne, amountSpecified, sqrtPriceLimitX96, hookData),
                         zeroForOne
                     );
-                } else if (uint256(poolManagerId) == 1) {
-                    poolKey.poolManager = BIN_MANAGER;
+                } else if (poolManagerId == 1) {
+                    poolKey.poolManager = IPancakeInfinityPoolManager(_PANCAKE_INFINITY_BIN_MANAGER());
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
@@ -527,11 +533,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                         zeroForOne
                     );
                 } else {
-                    assembly ("memory-safe") {
-                        mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`
-                        mstore(0x20, and(0xff, poolManagerId))
-                        revert(0x1c, 0x24)
-                    }
+                    revertUnknownPoolManagerId(poolManagerId);
                 }
             }
         }
