@@ -40,9 +40,8 @@ declare -a owners_array
 IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
-declare -r safe_guard_slot=0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8
 declare installed_safe_guard
-installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$safe_guard_slot" 1)"
+installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$(cast keccak 'guard_manager.guard.address')" 1)"
 installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
 declare -r installed_safe_guard
 
@@ -56,9 +55,7 @@ declare -r configured_safe_guard
 # governance.timelock describes the Guard on the upgrade Safe; no other Safe may have one
 declare upgrade_safe_address
 upgrade_safe_address="$(get_config governance.upgradeSafe)"
-if [[ ${upgrade_safe_address:-null} = [nN][uU][lL][lL] ]] ; then
-    upgrade_safe_address="$(cast address-zero)"
-else
+if [[ ${upgrade_safe_address:-null} != [nN][uU][lL][lL] ]] ; then
     upgrade_safe_address="$(cast to-checksum "$upgrade_safe_address")"
 fi
 declare -r upgrade_safe_address
@@ -68,7 +65,7 @@ if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
     if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
         die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
     fi
-elif [[ $(cast to-checksum "$safe_address") != "$upgrade_safe_address" ]] ; then
+elif [[ $(cast to-checksum "$safe_address") != "${upgrade_safe_address:-null}" ]] ; then
     die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
 elif [[ $configured_safe_guard = "$(cast address-zero)" ]] ; then
     die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"

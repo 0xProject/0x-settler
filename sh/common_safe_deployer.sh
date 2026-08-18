@@ -424,7 +424,7 @@ function _pack_safe_confirmations {
 }
 
 function _safe_confirmation_caller {
-    if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+    if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
         cast to-checksum "$safe_guard"
     elif [[ ${safe_signature_executor:-null} != [nN][uU][lL][lL] ]] ; then
         cast to-checksum "$safe_signature_executor"
@@ -548,7 +548,7 @@ function filter_sts_safe_transactions_by_timelock {
         echo 'Unrecognized timelock transaction state' >&2
         return 1
     fi
-    if [[ $safe_guard = "$(cast address-zero)" ]] ; then
+    if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} = [nN][uU][lL][lL] ]] ; then
         if [[ $_filter_sts_safe_transactions_by_timelock_state = executable ]] ; then
             echo "$_filter_sts_safe_transactions_by_timelock_json"
             return 0

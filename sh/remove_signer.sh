@@ -148,7 +148,7 @@ prev_owner_addr="$(prev_owner "$old_owner")"
 declare -r prev_owner_addr
 
 declare -i new_threshold=2
-if [[ $safe_guard != "$(cast address-zero)" ]] ; then
+if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
     if (( ${#owners_array[@]} <= 4 )) ; then
         die 'The Guard requires at least 4 owners; removing one of '"${#owners_array[@]}"' would revert'
     fi

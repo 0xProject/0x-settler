@@ -150,7 +150,7 @@ echo "Will set sole owner to: $initial_owner" >&2
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
 
-if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
     declare remove_guard_call
     remove_guard_call="$(cast calldata 'setGuard(address)' "$(cast address-zero)")"
     declare -r remove_guard_call

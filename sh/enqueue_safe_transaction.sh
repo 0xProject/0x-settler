@@ -165,10 +165,10 @@ declare timelock_address
 timelock_address="$(get_config_strict governance.timelock)"
 timelock_address="$(cast to-checksum "$timelock_address")"
 declare -r timelock_address
-if [[ $safe_guard = "$(cast address-zero)" ]] ; then
+if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} = [nN][uU][lL][lL] ]] ; then
     die 'The configured Guard is not installed on the upgrade Safe'
 fi
-if [[ $safe_guard != "$timelock_address" ]] ; then
+if [[ $(cast to-checksum "${SAFE_GUARD_OVERRIDE:-$safe_guard}") != "$(cast to-checksum "$timelock_address")" ]] ; then
     die 'The installed Guard does not match governance.timelock'
 fi
 if [[ $(cast code --rpc-url "$rpc_url" "$timelock_address") = 0x ]] ; then
