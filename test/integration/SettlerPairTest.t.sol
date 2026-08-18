@@ -270,6 +270,41 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
+    function testSettler_uniswapV3_sellToken_fee_sub_bp() public skipIf(uniswapV3Path().length == 0) {
+        uint256 feePpm = 30;
+        uint256 expectedFee = amount() * feePpm / 1_000_000;
+        uint256 burnBalanceBefore = fromToken().balanceOf(BURN_ADDRESS);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (
+                    address(fromToken()),
+                    feePpm,
+                    address(fromToken()),
+                    0x24,
+                    abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))
+                )
+            ),
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), 0))
+        );
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV3_sellToken_fee_sub_bp");
+        _settler.execute(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
+            }),
+            actions,
+            bytes32(0)
+        );
+        snapEnd();
+
+        assertEq(fromToken().balanceOf(BURN_ADDRESS), burnBalanceBefore + expectedFee);
+    }
+
     function testSettler_uniswapV2() public skipIf(uniswapV2Pool() == address(0)) {
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag

@@ -175,6 +175,22 @@ contract BasicUnitTest is Utils, Test {
         basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), ppm, POOL, offset, data);
     }
 
+    /// @dev A proportion below one basis point (here 30 ppm) sells a nonzero amount
+    function testBasicSellSubBasisPointProportion() public {
+        uint256 ppm = 30;
+        uint256 offset = 4;
+        uint256 value = 1_000_000;
+        uint256 amount = 30;
+        bytes4 selector = bytes4(hex"12345678");
+        bytes memory data = abi.encodePacked(selector, amount);
+
+        // 30 / 1_000_000 * value == amount
+        _mockExpectCall(address(POOL), amount, abi.encodePacked(selector, amount), abi.encode(true));
+
+        vm.deal(address(basic), value);
+        basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), ppm, POOL, offset, data);
+    }
+
     /// @dev When 0xeeee (native asset) is used we expect it to support a transfer with no data
     function testBasicSellTransferValue() public {
         uint256 ppm = 1_000_000;
