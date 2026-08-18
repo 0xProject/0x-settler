@@ -18,6 +18,8 @@ import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
+IERC20 constant wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+
 abstract contract SettlerPairTest is SettlerBasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
@@ -169,6 +171,24 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
+    function testSettler_uniswapV3VIP_multihop() public skipIf(uniswapV3PathVIP().length == 0) skipIf(toToken() != WETH) {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+        bytes memory path = uniswapV3PathVIP();
+        path = bytes.concat(path, abi.encodePacked(uint8(0), uint24(500), sqrtPriceLimitX96(toToken(), wBTC), wBTC));
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, permit, path, sig, 0))
+        );
+        ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
+        });
+
+        Settler _settler = settler;
+        vm.startPrank(FROM);
+        snapStartName("settler_uniswapV3VIP_multihop");
+        _settler.execute(slippage, actions, bytes32(0));
+        snapEnd();
+    }
+
     function testSettler_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
@@ -306,7 +326,6 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
         bytes memory permit2Action = abi.encodeCall(ISettlerActions.TRANSFER_FROM, (uniswapV2Pool(), permit, sig));
-        IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
         // |0|0|0|0|0|0|F|Z| - Z: zeroForOne flag, F: sellTokenHasFee flag
