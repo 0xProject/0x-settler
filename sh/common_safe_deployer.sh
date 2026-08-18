@@ -166,7 +166,7 @@ function load_pending_sts_safe_transactions {
     )" || return 1
     declare -r _load_pending_sts_safe_transactions_page
 
-    # ponytail: single page; die instead of paginating past 100 pending txs
+    # load only a single page; die instead of paginating past 100 pending txs
     jq -Me \
         '
         (.next == null)

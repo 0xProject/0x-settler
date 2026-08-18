@@ -153,7 +153,7 @@ fi
 . "$project_root"/sh/common_safe_owner.sh
 . "$project_root"/sh/common_wallet_type.sh
 
-if [[ -n ${safe_guard:-} && $safe_guard != "$(cast address-zero)" ]] ; then
+if [[ ${safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
     declare -r setGuard_sig='setGuard(address)'
     declare remove_guard_call
     remove_guard_call="$(cast calldata "$setGuard_sig" "$(cast address-zero)")"
