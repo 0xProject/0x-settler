@@ -159,7 +159,7 @@ function build_multisend_calldata {
             _build_multisend_calldata_data="$(
                 cast concat-hex \
                     "$_build_multisend_calldata_data" \
-                    "$(_encode_multisend_call "$safe_guard" 0x919840ad)"
+                    "$(_encode_multisend_call "$safe_guard" "$(cast calldata 'check()')")"
             )"
         fi
     done

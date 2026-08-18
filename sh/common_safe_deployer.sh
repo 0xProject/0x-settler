@@ -3,8 +3,7 @@ function _normalize_safe_uint {
     shift
 
     if [[ ! $_normalize_safe_uint_value =~ ^[0-9]+$ ]] ; then
-        echo 'Invalid Safe transaction integer: '"$_normalize_safe_uint_value" >&2
-        return 1
+        die 'Invalid Safe transaction integer: '"$_normalize_safe_uint_value"
     fi
     # The inner expansion is the leading run of zeros; the outer strips it.
     _normalize_safe_uint_value="${_normalize_safe_uint_value#"${_normalize_safe_uint_value%%[!0]*}"}"
@@ -16,8 +15,7 @@ function _normalize_safe_address {
     shift
 
     if [[ ! $_normalize_safe_address_value =~ ^0[xX][0-9a-fA-F]{40}$ ]] ; then
-        echo 'Invalid Safe transaction address: '"$_normalize_safe_address_value" >&2
-        return 1
+        die 'Invalid Safe transaction address: '"$_normalize_safe_address_value"
     fi
     cast to-checksum "0x${_normalize_safe_address_value:2}"
 }
@@ -41,8 +39,7 @@ function _require_same {
     declare -r _require_same_expected
 
     if [[ $_require_same_actual != "$_require_same_expected" ]] ; then
-        echo 'STS '"$_require_same_field"' does not match the locally generated transaction' >&2
-        return 1
+        die 'STS '"$_require_same_field"' does not match the locally generated transaction'
     fi
 }
 
@@ -60,8 +57,7 @@ function _require_same_safe_bytes {
 
 function _require_precise_jq_integers {
     if [[ $(jq -nr '9007199254740993') != 9007199254740993 ]] ; then
-        echo 'jq must preserve arbitrary-precision JSON integers for Safe transaction validation' >&2
-        return 1
+        die 'jq must preserve arbitrary-precision JSON integers for Safe transaction validation'
     fi
 }
 
@@ -70,13 +66,11 @@ function _load_sts_safe_transaction {
     shift
 
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-        echo 'The Safe Transaction Service is required for this operation' >&2
-        return 1
+        die 'The Safe Transaction Service is required for this operation'
     fi
     _require_precise_jq_integers || return 1
     if [[ ! $_load_sts_safe_transaction_hash =~ ^0x[0-9a-f]{64}$ ]] ; then
-        echo 'Malformed Safe transaction hash: '"$_load_sts_safe_transaction_hash" >&2
-        return 1
+        die 'Malformed Safe transaction hash: '"$_load_sts_safe_transaction_hash"
     fi
 
     declare _load_sts_safe_transaction_json
@@ -108,8 +102,7 @@ function _load_sts_safe_transaction {
         '
         <<<"$_load_sts_safe_transaction_json" >/dev/null \
     || {
-        echo 'STS returned a malformed or null Safe transaction field' >&2
-        return 1
+        die 'STS returned a malformed or null Safe transaction field'
     }
 
     _load_sts_safe_transaction_json="$(
@@ -154,8 +147,7 @@ function _load_sts_safe_transaction {
 
 function load_pending_sts_safe_transactions {
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
-        echo 'The Safe Transaction Service is required for this operation' >&2
-        return 1
+        die 'The Safe Transaction Service is required for this operation'
     fi
     _require_precise_jq_integers || return 1
 
@@ -178,8 +170,7 @@ function load_pending_sts_safe_transactions {
         ' \
         <<<"$_load_pending_sts_safe_transactions_page" >/dev/null \
     || {
-        echo 'STS returned a malformed, truncated, or duplicate pending-transaction list' >&2
-        return 1
+        die 'STS returned a malformed, truncated, or duplicate pending-transaction list'
     }
 
     jq -Mc .results <<<"$_load_pending_sts_safe_transactions_page"
@@ -246,8 +237,7 @@ function _normalize_safe_confirmations {
         ' \
         <<<"$_normalize_safe_confirmations_json" >/dev/null \
     || {
-        echo 'STS returned a malformed Safe confirmation' >&2
-        return 1
+        die 'STS returned a malformed Safe confirmation'
     }
 
     declare _normalize_safe_confirmations_result='[]'
@@ -267,8 +257,7 @@ function _normalize_safe_confirmations {
             _normalize_safe_address "$_normalize_safe_confirmations_owner"
         )" || return 1
         if ! _is_current_safe_owner "$_normalize_safe_confirmations_owner" ; then
-            echo 'Confirmation signer is not a current Safe owner: '"$_normalize_safe_confirmations_owner" >&2
-            return 1
+            die 'Confirmation signer is not a current Safe owner: '"$_normalize_safe_confirmations_owner"
         fi
 
         _normalize_safe_confirmations_signature="${_normalize_safe_confirmations_signature,,}"
@@ -293,8 +282,7 @@ function _normalize_safe_confirmations {
                     || (( _normalize_safe_confirmations_source_offset < 65 )) \
                     || (( _normalize_safe_confirmations_source_offset + 32 > _normalize_safe_confirmations_length ))
                 then
-                    echo 'Malformed contract-owner signature offset' >&2
-                    return 1
+                    die 'Malformed contract-owner signature offset'
                 fi
 
                 _normalize_safe_confirmations_contract_length="$(
@@ -304,8 +292,7 @@ function _normalize_safe_confirmations {
                 if [[ ! $_normalize_safe_confirmations_contract_length =~ ^[0-9]{1,9}$ ]] \
                     || (( _normalize_safe_confirmations_source_offset + 32 + _normalize_safe_confirmations_contract_length > _normalize_safe_confirmations_length ))
                 then
-                    echo 'Malformed contract-owner signature length' >&2
-                    return 1
+                    die 'Malformed contract-owner signature length'
                 fi
 
                 _normalize_safe_confirmations_contract_signature="0x${_normalize_safe_confirmations_body:$(((_normalize_safe_confirmations_source_offset + 32) * 2)):$((_normalize_safe_confirmations_contract_length * 2))}"
@@ -315,8 +302,7 @@ function _normalize_safe_confirmations {
                     || [[ ${_normalize_safe_confirmations_body:0:24} != 000000000000000000000000 ]] \
                     || [[ ${_normalize_safe_confirmations_body:64:64} != 0000000000000000000000000000000000000000000000000000000000000000 ]]
                 then
-                    echo 'Malformed approved-hash confirmation' >&2
-                    return 1
+                    die 'Malformed approved-hash confirmation'
                 fi
                 _normalize_safe_confirmations_derived_owner="$(
                     cast to-checksum "0x${_normalize_safe_confirmations_body:24:40}"
@@ -333,14 +319,12 @@ function _normalize_safe_confirmations {
                         "$_normalize_safe_confirmations_signing_hash" \
                         "$_normalize_safe_confirmations_signature" >/dev/null
                 then
-                    echo 'Invalid EIP-712 Safe confirmation from '"$_normalize_safe_confirmations_owner" >&2
-                    return 1
+                    die 'Invalid EIP-712 Safe confirmation from '"$_normalize_safe_confirmations_owner"
                 fi
                 ;;
             1f|20)
                 if (( _normalize_safe_confirmations_length != 65 )) ; then
-                    echo 'Malformed eth_sign Safe confirmation' >&2
-                    return 1
+                    die 'Malformed eth_sign Safe confirmation'
                 fi
                 _normalize_safe_confirmations_recovery_signature="${_normalize_safe_confirmations_signature:: -2}"
                 if [[ $_normalize_safe_confirmations_v = 1f ]] ; then
@@ -353,13 +337,11 @@ function _normalize_safe_confirmations {
                     "$_normalize_safe_confirmations_signing_hash" \
                     "$_normalize_safe_confirmations_recovery_signature" >/dev/null
                 then
-                    echo 'Invalid eth_sign Safe confirmation from '"$_normalize_safe_confirmations_owner" >&2
-                    return 1
+                    die 'Invalid eth_sign Safe confirmation from '"$_normalize_safe_confirmations_owner"
                 fi
                 ;;
             *)
-                echo 'Unsupported Safe confirmation type: 0x'"$_normalize_safe_confirmations_v" >&2
-                return 1
+                die 'Unsupported Safe confirmation type: 0x'"$_normalize_safe_confirmations_v"
                 ;;
         esac
 
