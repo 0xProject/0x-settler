@@ -30,11 +30,11 @@ function _require_same {
     declare -r _require_same_field="$1"
     shift
     declare _require_same_actual
-    _require_same_actual="$("$_require_same_normalize" "$1")" || return 1
+    _require_same_actual="$("$_require_same_normalize" "$1")"
     shift
     declare -r _require_same_actual
     declare _require_same_expected
-    _require_same_expected="$("$_require_same_normalize" "$1")" || return 1
+    _require_same_expected="$("$_require_same_normalize" "$1")"
     shift
     declare -r _require_same_expected
 
@@ -68,7 +68,7 @@ function _load_sts_safe_transaction {
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
         die 'The Safe Transaction Service is required for this operation'
     fi
-    _require_precise_jq_integers || return 1
+    _require_precise_jq_integers
     if [[ ! $_load_sts_safe_transaction_hash =~ ^0x[0-9a-f]{64}$ ]] ; then
         die 'Malformed Safe transaction hash: '"$_load_sts_safe_transaction_hash"
     fi
@@ -77,7 +77,7 @@ function _load_sts_safe_transaction {
     _load_sts_safe_transaction_json="$(
         curl --show-error --fail-with-body --retry 5 -s \
             "$safe_url/v1/multisig-transactions/$_load_sts_safe_transaction_hash/"
-    )" || return 1
+    )"
 
     jq -Me \
         '
@@ -116,7 +116,7 @@ function _load_sts_safe_transaction {
             | .refundReceiver |= ascii_downcase
             ' \
             <<<"$_load_sts_safe_transaction_json"
-    )" || return 1
+    )"
     declare -r _load_sts_safe_transaction_json
 
     declare -a _load_sts_safe_transaction_fields
@@ -128,19 +128,19 @@ function _load_sts_safe_transaction {
     declare -r -a _load_sts_safe_transaction_fields
 
     _require_same_safe_address \
-        safe "${_load_sts_safe_transaction_fields[0]}" "$safe_address" || return 1
+        safe "${_load_sts_safe_transaction_fields[0]}" "$safe_address"
     _require_same_safe_bytes \
-        safeTxHash "${_load_sts_safe_transaction_fields[1]}" "$_load_sts_safe_transaction_hash" || return 1
+        safeTxHash "${_load_sts_safe_transaction_fields[1]}" "$_load_sts_safe_transaction_hash"
 
     declare _load_sts_safe_transaction_computed_hash
     _load_sts_safe_transaction_computed_hash="$(
         cast call --rpc-url "$rpc_url" "$safe_address" \
             'getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256)(bytes32)' \
             "${_load_sts_safe_transaction_fields[@]:2}"
-    )" || return 1
+    )"
     declare -r _load_sts_safe_transaction_computed_hash
     _require_same_safe_bytes \
-        safeTxHash "$_load_sts_safe_transaction_computed_hash" "$_load_sts_safe_transaction_hash" || return 1
+        safeTxHash "$_load_sts_safe_transaction_computed_hash" "$_load_sts_safe_transaction_hash"
 
     echo "$_load_sts_safe_transaction_json"
 }
@@ -149,13 +149,13 @@ function load_pending_sts_safe_transactions {
     if [[ $safe_url = 'NOT SUPPORTED' ]] ; then
         die 'The Safe Transaction Service is required for this operation'
     fi
-    _require_precise_jq_integers || return 1
+    _require_precise_jq_integers
 
     declare _load_pending_sts_safe_transactions_page
     _load_pending_sts_safe_transactions_page="$(
         curl --show-error --fail-with-body --retry 5 -s \
             "$safe_url/v1/safes/$safe_address/multisig-transactions/?executed=false&nonce__gte=$current_safe_nonce&ordering=nonce%2Ccreated%2Cmodified&limit=100"
-    )" || return 1
+    )"
     declare -r _load_pending_sts_safe_transactions_page
 
     # load only a single page; die instead of paginating past 100 pending txs
@@ -196,7 +196,7 @@ function _require_expected_sts_safe_transaction {
         "_require_same_safe_${_require_expected_sts_safe_transaction_spec#*:}" \
             "${_require_expected_sts_safe_transaction_spec%%:*}" \
             "${_require_expected_sts_safe_transaction_fields[$_require_expected_sts_safe_transaction_index]}" \
-            "$1" || return 1
+            "$1"
         shift
         _require_expected_sts_safe_transaction_index+=1
     done
@@ -255,7 +255,7 @@ function _normalize_safe_confirmations {
         _normalize_safe_confirmations_contract_signature=''
         _normalize_safe_confirmations_owner="$(
             _normalize_safe_address "$_normalize_safe_confirmations_owner"
-        )" || return 1
+        )"
         if ! _is_current_safe_owner "$_normalize_safe_confirmations_owner" ; then
             die 'Confirmation signer is not a current Safe owner: '"$_normalize_safe_confirmations_owner"
         fi
@@ -269,15 +269,15 @@ function _normalize_safe_confirmations {
             00)
                 _normalize_safe_confirmations_derived_owner="$(
                     cast to-checksum "0x${_normalize_safe_confirmations_body:24:40}"
-                )" || return 1
+                )"
                 _require_same_safe_address \
                     owner \
                     "$_normalize_safe_confirmations_derived_owner" \
-                    "$_normalize_safe_confirmations_owner" || return 1
+                    "$_normalize_safe_confirmations_owner"
 
                 _normalize_safe_confirmations_source_offset="$(
                     cast to-dec "0x${_normalize_safe_confirmations_body:64:64}"
-                )" || return 1
+                )"
                 if [[ ! $_normalize_safe_confirmations_source_offset =~ ^[0-9]{1,9}$ ]] \
                     || (( _normalize_safe_confirmations_source_offset < 65 )) \
                     || (( _normalize_safe_confirmations_source_offset + 32 > _normalize_safe_confirmations_length ))
@@ -288,7 +288,7 @@ function _normalize_safe_confirmations {
                 _normalize_safe_confirmations_contract_length="$(
                     cast to-dec \
                         "0x${_normalize_safe_confirmations_body:$((_normalize_safe_confirmations_source_offset * 2)):64}"
-                )" || return 1
+                )"
                 if [[ ! $_normalize_safe_confirmations_contract_length =~ ^[0-9]{1,9}$ ]] \
                     || (( _normalize_safe_confirmations_source_offset + 32 + _normalize_safe_confirmations_contract_length > _normalize_safe_confirmations_length ))
                 then
@@ -306,11 +306,11 @@ function _normalize_safe_confirmations {
                 fi
                 _normalize_safe_confirmations_derived_owner="$(
                     cast to-checksum "0x${_normalize_safe_confirmations_body:24:40}"
-                )" || return 1
+                )"
                 _require_same_safe_address \
                     owner \
                     "$_normalize_safe_confirmations_derived_owner" \
-                    "$_normalize_safe_confirmations_owner" || return 1
+                    "$_normalize_safe_confirmations_owner"
                 ;;
             1b|1c)
                 if (( _normalize_safe_confirmations_length != 65 )) \
@@ -352,7 +352,7 @@ function _normalize_safe_confirmations {
                 --arg contractSignature "$_normalize_safe_confirmations_contract_signature" \
                 '. + [{owner: $owner, signature: $signature, contractSignature: $contractSignature}]' \
                 <<<"$_normalize_safe_confirmations_result"
-        )" || return 1
+        )"
     done < <(jq -Mr '.[] | [.owner, .signature] | @tsv' <<<"$_normalize_safe_confirmations_json")
 
     jq -Mce \
@@ -378,7 +378,7 @@ function _pack_safe_confirmations {
                 else error("not enough confirmations") end
             ' \
             <<<"$_pack_safe_confirmations_normalized"
-    )" || return 1
+    )"
     declare -r _pack_safe_confirmations_selected
 
     declare _pack_safe_confirmations_static=0x
@@ -403,20 +403,20 @@ function _pack_safe_confirmations {
                     "0x${_pack_safe_confirmations_body:0:64}" \
                     "$(cast to-uint256 $_pack_safe_confirmations_dynamic_offset)" \
                     0x00
-            )" || return 1
+            )"
             _pack_safe_confirmations_dynamic="$(
                 cast concat-hex \
                     "$_pack_safe_confirmations_dynamic" \
                     "$(cast to-uint256 $_pack_safe_confirmations_contract_length)" \
                     "$_pack_safe_confirmations_contract_signature"
-            )" || return 1
+            )"
             _pack_safe_confirmations_dynamic_offset=$((
                 _pack_safe_confirmations_dynamic_offset + 32 + _pack_safe_confirmations_contract_length
             ))
         else
             _pack_safe_confirmations_static="$(
                 cast concat-hex "$_pack_safe_confirmations_static" "0x${_pack_safe_confirmations_body:0:130}"
-            )" || return 1
+            )"
         fi
     done < <(jq -Mr '.[] | [.owner, .signature, .contractSignature] | @tsv' <<<"$_pack_safe_confirmations_selected")
 
@@ -451,19 +451,19 @@ function _validate_single_safe_confirmation {
             --arg owner "$_validate_single_safe_confirmation_owner" \
             --arg signature "$_validate_single_safe_confirmation_signature" \
             '[{owner: $owner, signature: $signature}]'
-    )" || return 1
+    )"
     declare -r _validate_single_safe_confirmation_json
     declare _validate_single_safe_confirmation_normalized
     _validate_single_safe_confirmation_normalized="$(
         _normalize_safe_confirmations \
             "$_validate_single_safe_confirmation_signing_hash" \
             "$_validate_single_safe_confirmation_json"
-    )" || return 1
+    )"
     declare -r _validate_single_safe_confirmation_normalized
     declare _validate_single_safe_confirmation_packed
     _validate_single_safe_confirmation_packed="$(
         _pack_safe_confirmations 1 "$_validate_single_safe_confirmation_normalized"
-    )" || return 1
+    )"
     declare -r _validate_single_safe_confirmation_packed
 
     cast call --from "$(_safe_confirmation_caller)" \
@@ -472,7 +472,7 @@ function _validate_single_safe_confirmation {
         "$_validate_single_safe_confirmation_signing_hash" \
         "$_validate_single_safe_confirmation_transaction_data" \
         "$_validate_single_safe_confirmation_packed" \
-        1 >/dev/null || return 1
+        1 >/dev/null
 
     echo "$_validate_single_safe_confirmation_normalized"
 }
@@ -484,7 +484,7 @@ function filter_sts_safe_transactions_with_threshold {
     declare -i _filter_sts_safe_transactions_with_threshold_threshold
     _filter_sts_safe_transactions_with_threshold_threshold="$(
         cast call --rpc-url "$rpc_url" "$safe_address" 'getThreshold()(uint256)'
-    )" || return 1
+    )"
     declare -r -i _filter_sts_safe_transactions_with_threshold_threshold
 
     declare _filter_sts_safe_transactions_with_threshold_result='[]'
@@ -506,10 +506,10 @@ function filter_sts_safe_transactions_with_threshold {
         _filter_sts_safe_transactions_with_threshold_hash="$(
             jq -Mr '.safeTxHash | ascii_downcase' \
                 <<<"$_filter_sts_safe_transactions_with_threshold_transaction"
-        )" || return 1
+        )"
         _filter_sts_safe_transactions_with_threshold_confirmations="$(
             jq -Mc .confirmations <<<"$_filter_sts_safe_transactions_with_threshold_transaction"
-        )" || return 1
+        )"
         if ! _filter_sts_safe_transactions_with_threshold_normalized="$(
             _normalize_safe_confirmations \
                 "$_filter_sts_safe_transactions_with_threshold_hash" \
@@ -520,7 +520,7 @@ function filter_sts_safe_transactions_with_threshold {
         fi
         _filter_sts_safe_transactions_with_threshold_count="$(
             jq -Mr length <<<"$_filter_sts_safe_transactions_with_threshold_normalized"
-        )" || return 1
+        )"
         if (( _filter_sts_safe_transactions_with_threshold_count < _filter_sts_safe_transactions_with_threshold_threshold )) ; then
             continue
         fi
@@ -530,7 +530,7 @@ function filter_sts_safe_transactions_with_threshold {
                 --argjson transaction "$_filter_sts_safe_transactions_with_threshold_transaction" \
                 '. + [$transaction]' \
                 <<<"$_filter_sts_safe_transactions_with_threshold_result"
-        )" || return 1
+        )"
     done < <(jq -Mc '.[]' <<<"$_filter_sts_safe_transactions_with_threshold_json")
 
     echo "$_filter_sts_safe_transactions_with_threshold_result"
@@ -561,10 +561,10 @@ function filter_sts_safe_transactions_by_timelock {
     if [[ $_filter_sts_safe_transactions_by_timelock_state = executable ]] ; then
         _filter_sts_safe_transactions_by_timelock_timestamp="$(
             cast block latest --rpc-url "$rpc_url" --field timestamp
-        )" || return 1
+        )"
         _filter_sts_safe_transactions_by_timelock_timestamp="$(
             _normalize_safe_uint "$_filter_sts_safe_transactions_by_timelock_timestamp"
-        )" || return 1
+        )"
     fi
 
     declare _filter_sts_safe_transactions_by_timelock_result='[]'
@@ -576,12 +576,12 @@ function filter_sts_safe_transactions_by_timelock {
         _filter_sts_safe_transactions_by_timelock_hash="$(
             jq -Mr '.safeTxHash | ascii_downcase' \
                 <<<"$_filter_sts_safe_transactions_by_timelock_transaction"
-        )" || return 1
+        )"
         _filter_sts_safe_transactions_by_timelock_info_output="$(
             cast call --json --rpc-url "$rpc_url" "$safe_guard" \
                 'txInfo(bytes32)(uint256,address)' \
                 "$_filter_sts_safe_transactions_by_timelock_hash"
-        )" || return 1
+        )"
         if ! jq -Me \
             '
             type == "array"
@@ -597,7 +597,7 @@ function filter_sts_safe_transactions_by_timelock {
             _normalize_safe_uint "$(
                 jq -Mr '.[0] | tostring' <<<"$_filter_sts_safe_transactions_by_timelock_info_output"
             )"
-        )" || return 1
+        )"
         if [[ $_filter_sts_safe_transactions_by_timelock_state = unqueued ]] ; then
             if [[ $_filter_sts_safe_transactions_by_timelock_end != 0 ]] ; then
                 continue
@@ -618,7 +618,7 @@ function filter_sts_safe_transactions_by_timelock {
                 --argjson transaction "$_filter_sts_safe_transactions_by_timelock_transaction" \
                 '. + [$transaction]' \
                 <<<"$_filter_sts_safe_transactions_by_timelock_result"
-        )" || return 1
+        )"
     done < <(jq -Mc '.[]' <<<"$_filter_sts_safe_transactions_by_timelock_json")
 
     echo "$_filter_sts_safe_transactions_by_timelock_result"
@@ -685,7 +685,7 @@ function extract_authorize_deadline {
     declare _extract_authorize_deadline_deadline
     _extract_authorize_deadline_deadline="$(
         cast to-dec "0x${_extract_authorize_deadline_data:138:64}"
-    )" || return 1
+    )"
     declare -r _extract_authorize_deadline_deadline
 
     declare _extract_authorize_deadline_expected
@@ -695,11 +695,11 @@ function extract_authorize_deadline {
             "$_extract_authorize_deadline_feature" \
             "$_extract_authorize_deadline_authority" \
             "$_extract_authorize_deadline_deadline"
-    )" || return 1
+    )"
     declare -r _extract_authorize_deadline_expected
     _require_same_safe_bytes \
         data "$_extract_authorize_deadline_data" "$_extract_authorize_deadline_expected" \
-        2>/dev/null || return 1
+        2>/dev/null
 
     echo "$_extract_authorize_deadline_deadline"
 }
@@ -711,7 +711,7 @@ function extract_last_multisend_call_data {
     declare _extract_last_multisend_call_data_calls
     _extract_last_multisend_call_data_calls="$(
         cast decode-calldata "$multisend_sig" "$_extract_last_multisend_call_data_calldata"
-    )" || return 1
+    )"
     _extract_last_multisend_call_data_calls="${_extract_last_multisend_call_data_calls:2}"
 
     declare _extract_last_multisend_call_data_length
@@ -723,7 +723,7 @@ function extract_last_multisend_call_data {
         fi
         _extract_last_multisend_call_data_length="$(
             cast to-dec "0x${_extract_last_multisend_call_data_calls:106:64}"
-        )" || return 1
+        )"
         if [[ ! $_extract_last_multisend_call_data_length =~ ^[0-9]{1,9}$ ]] ; then
             return 1
         fi
@@ -751,16 +751,15 @@ function _validate_safe_confirmations {
     shift
 
     declare _validate_safe_confirmations_computed_hash
-    _validate_safe_confirmations_computed_hash="$(cast keccak "$_validate_safe_confirmations_transaction_data")" \
-        || return 1
+    _validate_safe_confirmations_computed_hash="$(cast keccak "$_validate_safe_confirmations_transaction_data")"
     declare -r _validate_safe_confirmations_computed_hash
     _require_same_safe_bytes \
         safeTxHash \
         "$_validate_safe_confirmations_computed_hash" \
-        "$_validate_safe_confirmations_signing_hash" || return 1
+        "$_validate_safe_confirmations_signing_hash"
 
     declare _validate_safe_confirmations_caller
-    _validate_safe_confirmations_caller="$(_safe_confirmation_caller)" || return 1
+    _validate_safe_confirmations_caller="$(_safe_confirmation_caller)"
     declare -r _validate_safe_confirmations_caller
 
     cast call --from "$_validate_safe_confirmations_caller" \
@@ -779,8 +778,7 @@ function pack_sts_signatures {
     shift
 
     declare -i _pack_sts_signatures_threshold
-    _pack_sts_signatures_threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getThreshold()(uint256)')" \
-        || return 1
+    _pack_sts_signatures_threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getThreshold()(uint256)')"
     declare -r -i _pack_sts_signatures_threshold
 
     declare _pack_sts_signatures_normalized
@@ -788,13 +786,13 @@ function pack_sts_signatures {
         _normalize_safe_confirmations \
             "$_pack_sts_signatures_signing_hash" \
             "$_pack_sts_signatures_confirmations"
-    )" || return 1
+    )"
     declare -r _pack_sts_signatures_normalized
 
     declare _pack_sts_signatures_result
     _pack_sts_signatures_result="$(
         _pack_safe_confirmations "$_pack_sts_signatures_threshold" "$_pack_sts_signatures_normalized"
-    )" || return 1
+    )"
     declare -r _pack_sts_signatures_result
     _validate_safe_confirmations \
         "$_pack_sts_signatures_signing_hash" \
@@ -819,18 +817,18 @@ function pack_sts_transaction_signatures {
     declare _pack_sts_transaction_signatures_data
     _pack_sts_transaction_signatures_data="$(
         _safe_transaction_data "${_pack_sts_transaction_signatures_fields[@]}"
-    )" || return 1
+    )"
     declare -r _pack_sts_transaction_signatures_data
 
     declare _pack_sts_transaction_signatures_hash
     _pack_sts_transaction_signatures_hash="$(
         jq -Mr .safeTxHash <<<"$_pack_sts_transaction_signatures_json"
-    )" || return 1
+    )"
     declare -r _pack_sts_transaction_signatures_hash
     declare _pack_sts_transaction_signatures_confirmations
     _pack_sts_transaction_signatures_confirmations="$(
         jq -Mc .confirmations <<<"$_pack_sts_transaction_signatures_json"
-    )" || return 1
+    )"
     declare -r _pack_sts_transaction_signatures_confirmations
 
     pack_sts_signatures \
@@ -867,7 +865,7 @@ function retrieve_signatures {
     declare _retrieve_signatures_signing_hash
     _retrieve_signatures_signing_hash="$(
         eip712_hash "$_retrieve_signatures_call" $_retrieve_signatures_operation "$_retrieve_signatures_to"
-    )" || return 1
+    )"
     declare -r _retrieve_signatures_signing_hash
 
     declare _retrieve_signatures_transaction_data
@@ -875,12 +873,12 @@ function retrieve_signatures {
         _safe_transaction_data \
             "$_retrieve_signatures_to" 0 "$_retrieve_signatures_call" $_retrieve_signatures_operation \
             0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)"
-    )" || return 1
+    )"
     declare -r _retrieve_signatures_transaction_data
     _require_same_safe_bytes \
         safeTxHash \
         "$(cast keccak "$_retrieve_signatures_transaction_data")" \
-        "$_retrieve_signatures_signing_hash" || return 1
+        "$_retrieve_signatures_signing_hash"
 
     declare _retrieve_signatures_confirmations
     if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
@@ -898,8 +896,7 @@ function retrieve_signatures {
         for _retrieve_signatures_file in "${_retrieve_signatures_files[@]}" ; do
             _retrieve_signatures_signer="${_retrieve_signatures_file%%_$(nonce).txt}"
             _retrieve_signatures_signer="${_retrieve_signatures_signer##*_}"
-            _retrieve_signatures_signer="$(cast to-checksum "$_retrieve_signatures_signer")" \
-                || return 1
+            _retrieve_signatures_signer="$(cast to-checksum "$_retrieve_signatures_signer")"
             _retrieve_signatures_confirmation="$(<"$_retrieve_signatures_file")"
             if _is_current_safe_owner "$_retrieve_signatures_signer" ; then
                 if ! _retrieve_signatures_confirmation_json="$(
@@ -918,20 +915,18 @@ function retrieve_signatures {
                         --argjson confirmation "$_retrieve_signatures_confirmation_json" \
                         '. + $confirmation' \
                         <<<"$_retrieve_signatures_confirmations"
-                )" || return 1
+                )"
             fi
         done
     else
         declare _retrieve_signatures_transaction
-        _retrieve_signatures_transaction="$(_load_sts_safe_transaction "$_retrieve_signatures_signing_hash")" \
-            || return 1
+        _retrieve_signatures_transaction="$(_load_sts_safe_transaction "$_retrieve_signatures_signing_hash")"
         declare -r _retrieve_signatures_transaction
         _require_expected_sts_safe_transaction \
             "$_retrieve_signatures_transaction" \
             "$_retrieve_signatures_to" 0 "$_retrieve_signatures_call" $_retrieve_signatures_operation \
-            0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)" || return 1
-        _retrieve_signatures_confirmations="$(jq -Mc .confirmations <<<"$_retrieve_signatures_transaction")" \
-            || return 1
+            0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)"
+        _retrieve_signatures_confirmations="$(jq -Mc .confirmations <<<"$_retrieve_signatures_transaction")"
     fi
     declare -r _retrieve_signatures_confirmations
 
