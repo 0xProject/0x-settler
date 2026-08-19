@@ -405,11 +405,11 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         Decoder.overflowCheck(data);
 
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
-        unchecked {
-            // `amountIn` is always exactly `swapParams.amountGiven`
-            NotePtr sell = state.sell();
-            sell.setAmount(sell.amount() - amountIn);
-        }
+        // `amountIn` is always exactly `swapParams.amountGiven`, but `swapParams.amountGiven` can
+        // exceed `sell.amount()` if `bps` exceeds `BASIS`
+        NotePtr sell = state.sell();
+        sell.setAmount(sell.amount() - amountIn);
+
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
         // bits. However, `state.buy.amount` may be an agglomeration of values returned by ERC4626
