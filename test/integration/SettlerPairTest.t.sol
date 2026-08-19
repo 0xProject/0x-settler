@@ -62,8 +62,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         warmPermit2Nonce(MAKER);
     }
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
-    function uniswapV3PathVIP() internal virtual returns (bytes memory);
+    function uniswapV3Path() internal virtual override returns (bytes memory);
     function uniswapV2Pool() internal virtual returns (address);
     function getCurveV2PoolData() internal pure virtual returns (ICurveV2Pool.CurveV2PoolData memory);
 
