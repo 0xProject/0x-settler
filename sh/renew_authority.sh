@@ -192,7 +192,7 @@ for tokenid in "${feature[@]}" ; do
         unset -v selected_transaction
     else
         renew_authority_calldata="$(
-            build_authorize_calldata \
+            cast calldata 'authorize(uint128,address,uint40)(bool)' \
                 $tokenid "$deployment_safe_address" $default_auth_deadline
         )"
         packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"

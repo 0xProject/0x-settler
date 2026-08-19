@@ -182,7 +182,7 @@ else
 
     declare authorize_call
     authorize_call="$(
-        build_authorize_calldata \
+        cast calldata 'authorize(uint128,address,uint40)(bool)' \
             $feature "$deployment_safe_address" "$auth_deadline"
     )"
     declare -r authorize_call

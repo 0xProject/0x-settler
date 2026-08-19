@@ -706,7 +706,7 @@ function select_authorize_sts_safe_transaction {
         fi
 
         _select_authorize_sts_safe_transaction_authorize_call="$(
-            build_authorize_calldata \
+            cast calldata 'authorize(uint128,address,uint40)(bool)' \
                 "$_select_authorize_sts_safe_transaction_feature" \
                 "$_select_authorize_sts_safe_transaction_authority" \
                 "$_select_authorize_sts_safe_transaction_deadline"
@@ -814,10 +814,6 @@ function default_authorize_deadline {
     fi
 }
 
-function build_authorize_calldata {
-    cast calldata 'authorize(uint128,address,uint40)(bool)' "$@"
-}
-
 function extract_authorize_deadline {
     declare -r _extract_authorize_deadline_data="${1,,}"
     shift
@@ -837,7 +833,7 @@ function extract_authorize_deadline {
 
     declare _extract_authorize_deadline_expected
     _extract_authorize_deadline_expected="$(
-        build_authorize_calldata \
+        cast calldata 'authorize(uint128,address,uint40)(bool)' \
             "$_extract_authorize_deadline_feature" \
             "$_extract_authorize_deadline_authority" \
             "$_extract_authorize_deadline_deadline"
