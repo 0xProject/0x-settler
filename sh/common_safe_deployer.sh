@@ -176,6 +176,10 @@ function load_pending_sts_safe_transactions {
     jq -Mc .results <<<"$_load_pending_sts_safe_transactions_page"
 }
 
+function sts_safe_transactions_enabled {
+    [[ $safe_url != 'NOT SUPPORTED' && ${FORCE_IGNORE_STS-No} != [Yy]es ]]
+}
+
 function _require_expected_sts_safe_transaction {
     declare -r _require_expected_sts_safe_transaction_json="$1"
     shift
@@ -622,6 +626,134 @@ function filter_sts_safe_transactions_by_timelock {
     echo "$_filter_sts_safe_transactions_by_timelock_result"
 }
 
+function load_executable_sts_safe_transactions {
+    declare _load_executable_sts_safe_transactions_pending
+    _load_executable_sts_safe_transactions_pending="$(load_pending_sts_safe_transactions)"
+    declare -r _load_executable_sts_safe_transactions_pending
+
+    declare _load_executable_sts_safe_transactions_ready
+    _load_executable_sts_safe_transactions_ready="$(
+        filter_sts_safe_transactions_with_threshold \
+            "$_load_executable_sts_safe_transactions_pending"
+    )"
+    declare -r _load_executable_sts_safe_transactions_ready
+
+    filter_sts_safe_transactions_by_timelock \
+        executable "$_load_executable_sts_safe_transactions_ready"
+}
+
+function select_authorize_sts_safe_transaction {
+    declare -r _select_authorize_sts_safe_transaction_json="$1"
+    shift
+    declare -r _select_authorize_sts_safe_transaction_feature="$1"
+    shift
+    declare -r _select_authorize_sts_safe_transaction_authority="$1"
+    shift
+
+    declare _select_authorize_sts_safe_transaction_description_call
+    declare -i _select_authorize_sts_safe_transaction_operation=0
+    if (( $# > 0 )) ; then
+        _select_authorize_sts_safe_transaction_description_call="$1"
+        shift
+        _select_authorize_sts_safe_transaction_operation=1
+    fi
+    declare -r _select_authorize_sts_safe_transaction_description_call
+    declare -r -i _select_authorize_sts_safe_transaction_operation
+
+    declare _select_authorize_sts_safe_transaction_target
+    _select_authorize_sts_safe_transaction_target="$(
+        target $_select_authorize_sts_safe_transaction_operation
+    )"
+    declare -r _select_authorize_sts_safe_transaction_target
+
+    declare _select_authorize_sts_safe_transaction_matches='[]'
+    declare _select_authorize_sts_safe_transaction_candidate
+    declare _select_authorize_sts_safe_transaction_hash
+    declare _select_authorize_sts_safe_transaction_authorize_call
+    declare _select_authorize_sts_safe_transaction_deadline
+    declare _select_authorize_sts_safe_transaction_calldata
+    while IFS= read -r _select_authorize_sts_safe_transaction_candidate ; do
+        _select_authorize_sts_safe_transaction_hash="$(
+            jq -Mr \
+                '.safeTxHash | ascii_downcase' \
+                <<<"$_select_authorize_sts_safe_transaction_candidate"
+        )"
+        if ! _select_authorize_sts_safe_transaction_candidate="$(
+            _load_sts_safe_transaction \
+                "$_select_authorize_sts_safe_transaction_hash"
+        )" 2>/dev/null ; then
+            continue
+        fi
+
+        _select_authorize_sts_safe_transaction_authorize_call="$(
+            jq -Mr .data <<<"$_select_authorize_sts_safe_transaction_candidate"
+        )"
+        if (( _select_authorize_sts_safe_transaction_operation == 1 )) \
+            && ! _select_authorize_sts_safe_transaction_authorize_call="$(
+                extract_last_multisend_call_data \
+                    "$_select_authorize_sts_safe_transaction_authorize_call"
+            )" 2>/dev/null
+        then
+            continue
+        fi
+        if ! _select_authorize_sts_safe_transaction_deadline="$(
+            extract_authorize_deadline \
+                "$_select_authorize_sts_safe_transaction_authorize_call" \
+                "$_select_authorize_sts_safe_transaction_feature" \
+                "$_select_authorize_sts_safe_transaction_authority"
+        )" 2>/dev/null ; then
+            continue
+        fi
+
+        _select_authorize_sts_safe_transaction_authorize_call="$(
+            build_authorize_calldata \
+                "$_select_authorize_sts_safe_transaction_feature" \
+                "$_select_authorize_sts_safe_transaction_authority" \
+                "$_select_authorize_sts_safe_transaction_deadline"
+        )"
+        if (( _select_authorize_sts_safe_transaction_operation == 1 )) ; then
+            _select_authorize_sts_safe_transaction_calldata="$(
+                build_multisend_calldata \
+                    "$deployer_address" \
+                    "$_select_authorize_sts_safe_transaction_description_call" \
+                    "$deployer_address" \
+                    "$_select_authorize_sts_safe_transaction_authorize_call"
+            )"
+        else
+            _select_authorize_sts_safe_transaction_calldata="$_select_authorize_sts_safe_transaction_authorize_call"
+        fi
+        if ! _require_expected_sts_safe_transaction \
+            "$_select_authorize_sts_safe_transaction_candidate" \
+            "$_select_authorize_sts_safe_transaction_target" 0 \
+            "$_select_authorize_sts_safe_transaction_calldata" \
+            $_select_authorize_sts_safe_transaction_operation \
+            0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)" \
+            2>/dev/null
+        then
+            continue
+        fi
+
+        _select_authorize_sts_safe_transaction_matches="$(
+            jq -Mc \
+                --argjson transaction \
+                    "$_select_authorize_sts_safe_transaction_candidate" \
+                '. + [$transaction]' \
+                <<<"$_select_authorize_sts_safe_transaction_matches"
+        )"
+    done < <(jq -Mc '.[]' <<<"$_select_authorize_sts_safe_transaction_json")
+
+    declare _select_authorize_sts_safe_transaction_selected_hash
+    _select_authorize_sts_safe_transaction_selected_hash="$(
+        select_sts_safe_transaction_hash \
+            "$_select_authorize_sts_safe_transaction_matches"
+    )"
+    declare -r _select_authorize_sts_safe_transaction_selected_hash
+    jq -Mce \
+        --arg hash "$_select_authorize_sts_safe_transaction_selected_hash" \
+        'first(.[] | select(.safeTxHash == $hash))' \
+        <<<"$_select_authorize_sts_safe_transaction_matches"
+}
+
 function select_sts_safe_transaction_hash {
     declare -r _select_sts_safe_transaction_hash_json="$1"
     shift
@@ -667,6 +799,25 @@ function select_sts_safe_transaction_hash {
     die
 }
 
+function default_authorize_deadline {
+    declare _default_authorize_deadline_datestring
+    # MMDDhhmmCCYY: midnight UTC on the first of this month next year
+    _default_authorize_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
+    declare -r _default_authorize_deadline_datestring
+
+    if date -d '1 second' &>/dev/null ; then
+        date -u \
+            -d "${_default_authorize_deadline_datestring:8:4}-${_default_authorize_deadline_datestring:0:2}-${_default_authorize_deadline_datestring:2:2}T${_default_authorize_deadline_datestring:4:2}:${_default_authorize_deadline_datestring:6:2}:00-00:00" \
+            +%s
+    else
+        date -u -j "$_default_authorize_deadline_datestring" +%s
+    fi
+}
+
+function build_authorize_calldata {
+    cast calldata 'authorize(uint128,address,uint40)(bool)' "$@"
+}
+
 function extract_authorize_deadline {
     declare -r _extract_authorize_deadline_data="${1,,}"
     shift
@@ -686,8 +837,7 @@ function extract_authorize_deadline {
 
     declare _extract_authorize_deadline_expected
     _extract_authorize_deadline_expected="$(
-        cast calldata \
-            'authorize(uint128,address,uint40)(bool)' \
+        build_authorize_calldata \
             "$_extract_authorize_deadline_feature" \
             "$_extract_authorize_deadline_authority" \
             "$_extract_authorize_deadline_deadline"
@@ -877,7 +1027,7 @@ function retrieve_signatures {
         "$_retrieve_signatures_signing_hash"
 
     declare _retrieve_signatures_confirmations
-    if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
+    if ! sts_safe_transactions_enabled ; then
         _retrieve_signatures_confirmations='[]'
         declare -a _retrieve_signatures_files
         mapfile -t _retrieve_signatures_files < <(
