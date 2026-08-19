@@ -83,7 +83,7 @@ contract DAIWETHTest is
     function uniswapV3PathVIP()
         internal
         view
-        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
+        override(SettlerPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(uint8(0), uint24(3000), sqrtPriceLimitX96FromTo(), toToken());

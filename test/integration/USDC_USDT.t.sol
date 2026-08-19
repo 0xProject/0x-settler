@@ -75,7 +75,7 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Te
     function uniswapV3PathVIP()
         internal
         view
-        override(SettlerPairTest, BalancerV3Test, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
+        override(SettlerPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(uint8(0), uint24(100), sqrtPriceLimitX96FromTo(), toToken());

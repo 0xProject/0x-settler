@@ -389,7 +389,6 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     }
 
     function testSettler_uniswapV2_multihop() public skipIf(uniswapV2Pool() == address(0)) skipIf(toToken() != WETH) {
-        IERC20 wBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
