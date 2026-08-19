@@ -102,7 +102,11 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
-    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3PathVIP().length == 0) skipIf(toToken() != WETH) {
+    function testSettler_uniswapV3VIP_toNative()
+        public
+        skipIf(uniswapV3PathVIP().length == 0)
+        skipIf(toToken() != WETH)
+    {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         Settler _settler = settler;

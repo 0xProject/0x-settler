@@ -171,13 +171,16 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP_multihop() public skipIf(uniswapV3PathVIP().length == 0) skipIf(toToken() != WETH) {
+    function testSettler_uniswapV3VIP_multihop()
+        public
+        skipIf(uniswapV3PathVIP().length == 0)
+        skipIf(toToken() != WETH)
+    {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes memory path = uniswapV3PathVIP();
         path = bytes.concat(path, abi.encodePacked(uint8(0), uint24(500), sqrtPriceLimitX96(toToken(), wBTC), wBTC));
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, permit, path, sig, 0))
-        );
+        bytes[] memory actions =
+            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, permit, path, sig, 0)));
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
