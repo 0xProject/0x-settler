@@ -151,11 +151,11 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3_multiplex2() public skipIf(uniswapV3PathVIP().length == 0) {
+    function testSettler_uniswapV3_multiplex2() public skipIf(uniswapV3Path().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 5_000, uniswapV3PathVIP(), 0)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3PathVIP(), 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 5_000, uniswapV3Path(), 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
         );
 
         Settler _settler = settler;
