@@ -130,7 +130,7 @@ declare -r safe_address
 
 declare -r erc721_ownerof_sig='ownerOf(uint256)(address)'
 
-if [[ ${deployer_address:-unset} = 'unset' ]] || [[ $deployer_address = 'null' ]] ; then
+if [[ ${deployer_address:-null} = [nN][uU][lL][lL] ]] ; then
     die '`deployment.deployer` is unset in `chain_config.json`' \
         'If this is your first time running this script after deploying a new chain,' \
         'add the relevant address, but DO NOT commit.'

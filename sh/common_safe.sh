@@ -4,12 +4,19 @@ declare -r safe_url
 
 declare safe_version
 safe_version="$(cast call --rpc-url "$rpc_url" "$safe_address" 'VERSION()(string)')"
-safe_version="${safe_version//\"/}"
+if [[ $safe_version =~ ^\"([0-9]+\.[0-9]+\.[0-9]+)\"$ ]] ; then
+    safe_version="${BASH_REMATCH[1]}"
+else
+    die 'Safe '"$safe_address"' returned an unrecognized `VERSION()`: '"$safe_version"
+fi
 declare -r safe_version
 
 declare multicall_address
-multicall_address="$(get_config_strict 'safe["v'"$safe_version"'"].multiCall')"
+multicall_address="$(jq -Mr --arg chain "$chain_name" --arg version "v$safe_version" 'getpath([$chain, "safe", $version, "multiCall"])' < "$project_root"/chain_config.json)"
 declare -r multicall_address
+if [[ ${multicall_address:-null} = [nN][uU][lL][lL] ]] ; then
+    die 'Config key safe["v'"$safe_version"'"].multiCall is missing for chain '"$chain_name"
+fi
 
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"

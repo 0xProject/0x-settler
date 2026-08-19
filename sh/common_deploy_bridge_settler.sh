@@ -7,9 +7,9 @@ flat_bridge_settler_source="$project_root"/src/flat/"$chain_display_name"BridgeS
 declare -r flat_bridge_settler_source
 
 if [[ "${bridge_settler_skip_clean-no}" == [Yy]es ]] ; then
-    register_exit_cleanup 'rm -f '"$(_escape "$flat_bridge_settler_source")"
+    register_exit_cleanup 'rm -f '"$(printf '%q' "$flat_bridge_settler_source")"
 else
-    trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_bridge_settler_source")" EXIT
+    trap 'trap - EXIT; set +eu; rm -f '"$(printf '%q' "$flat_bridge_settler_source")" EXIT
 fi
 
 forge flatten -o "$flat_bridge_settler_source" src/chains/"$chain_display_name"/BridgeSettler.sol >/dev/null

@@ -105,6 +105,7 @@ library SafeConfig {
     }
 
     uint256 internal constant upgradeSafeThreshold = 3;
+    uint24 internal constant upgradeSafeTimelockDelay = 5 days;
 
     function getUpgradeSafeSigners() internal view returns (address[] memory) {
         address[] memory result = new address[](5);
