@@ -80,6 +80,15 @@ contract DAIWETHTest is
         return abi.encodePacked(fromToken(), uint8(0), uint24(3000), sqrtPriceLimitX96FromTo(), toToken());
     }
 
+    function uniswapV3PathVIP()
+        internal
+        view
+        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
+        returns (bytes memory)
+    {
+        return abi.encodePacked(uint8(0), uint24(3000), sqrtPriceLimitX96FromTo(), toToken());
+    }
+
     function uniswapV3PathCompat() internal pure override(UniswapV3PairTest, ZeroExPairTest) returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint24(3000), toToken());
     }
