@@ -31,7 +31,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
-    function uniswapV3Path() internal virtual override returns (bytes memory);
     function uniswapV2Pool() internal virtual returns (address);
 
     function testAllowanceHolder_uniswapV3() public skipIf(uniswapV3Path().length == 0) {

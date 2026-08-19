@@ -39,16 +39,6 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     uint256 private constant Q96 = 1 << 96;
     uint256 private constant SQRT_2_Q96 = 112045541949572279837463876454;
 
-    function uniswapV3Path()
-        internal
-        view
-        virtual
-        override(AllowanceHolderPairTest, SettlerMetaTxnPairTest)
-        returns (bytes memory)
-    {
-        return bytes("");
-    }
-
     function uniswapV2Pool() internal view virtual override returns (address) {
         return address(0);
     }

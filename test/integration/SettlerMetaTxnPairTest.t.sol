@@ -60,8 +60,6 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         warmPermit2Nonce(MAKER);
     }
 
-    function uniswapV3Path() internal virtual override returns (bytes memory);
-
     function testSettler_metaTxn_shortAction() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
