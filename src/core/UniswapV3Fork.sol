@@ -72,19 +72,18 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
 
-    /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
-    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96))
-    uint256 private constant PATH_SKIP_HOP_SIZE = 0x18;
-    uint256 private constant PATH_SKIP_ADDRESS_SIZE = 0x14;
-    /// @dev The size of the swap callback prefix data without the Permit2 data. When the Permit2
-    ///      `permit` object is present, `sellToken` and `permit.permitted.token` are the same and
-    ///      alias
+    /// @dev Minimum size of an encoded swap path:
+    ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96) | address(outputToken))
+    uint256 private constant SINGLE_HOP_PATH_SIZE = 0x40;
+    /// @dev The size of each hop after the input token:
+    ///      sizeof(uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96) | address(outputToken))
+    uint256 private constant PATH_HOP_SIZE = 0x2c;
+    uint256 private constant PATH_INPUT_TOKEN_SIZE = 0x14;
+    /// @dev The size of the swap callback prefix data before the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x28;
-    /// @dev The offset from the pointer to the length of the swap callback prefix data to the start
-    ///      of the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x34;
-    uint256 private constant PERMIT_PERMITTED_DATA_SIZE = 0x34;
-    uint256 private constant PERMIT_DATA_SIZE = 0x74;
+    /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
+    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x48;
+    uint256 private constant PERMIT_DATA_SIZE = 0x60;
     uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
@@ -99,16 +98,34 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         internal
         returns (uint256 buyAmount)
     {
+        if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
+        IERC20 inputToken = IERC20(address(bytes20(encodedPath)));
+        // Reframe the path around its first hop without copying it.
+        // Equivalent to `encodedPath = encodedPath[20:]`.
+        assembly ("memory-safe") {
+            let pathLength := sub(mload(encodedPath), PATH_INPUT_TOKEN_SIZE)
+            encodedPath := add(PATH_INPUT_TOKEN_SIZE, encodedPath)
+            mstore(encodedPath, pathLength)
+        }
+        bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE);
+        // Pack the payer and token across word boundaries without another allocation.
+        // Equivalent to `swapCallbackData = abi.encodePacked(address(this), inputToken)`.
+        assembly ("memory-safe") {
+            mstore(add(0x28, swapCallbackData), inputToken)
+            mstore(add(0x14, swapCallbackData), address())
+            mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
+        }
         buyAmount = _uniV3ForkSwap(
             recipient,
             encodedPath,
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
+            (inputToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
             minBuyAmount,
-            address(this), // payer
-            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
+            swapCallbackData
         );
     }
 
@@ -126,22 +143,22 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bytes memory sig,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData = new bytes(
-            (SWAP_CALLBACK_PREFIX_DATA_SIZE - 20) + // `sellToken` and `permit.permitted.token` are the same and alias
-            PERMIT_DATA_SIZE +
-            ISFORWARDED_DATA_SIZE +
-            sig.length
-        );
+        if (encodedPath.length < PATH_HOP_SIZE) {
+            Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+        }
+        bytes memory swapCallbackData =
+            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
+        // Pack the permitted token after the zero payer while preserving the Permit2 tail.
+        // Equivalent to replacing `swapCallbackData[:40]` with `abi.encodePacked(address(0), permit.permitted.token)`.
+        assembly ("memory-safe") {
+            let length := mload(swapCallbackData)
+            mstore(add(0x28, swapCallbackData), mload(mload(permit)))
+            mstore(add(0x14, swapCallbackData), 0x00)
+            mstore(swapCallbackData, length)
+        }
 
-        buyAmount = _uniV3ForkSwap(
-            recipient,
-            encodedPath,
-            _permitToSellAmount(permit),
-            minBuyAmount,
-            address(0), // payer
-            swapCallbackData
-        );
+        buyAmount = _uniV3ForkSwap(recipient, encodedPath, _permitToSellAmount(permit), minBuyAmount, swapCallbackData);
     }
 
     // Executes successive swaps along an encoded uniswap path.
@@ -150,7 +167,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bytes memory encodedPath,
         uint256 sellAmount,
         uint256 minBuyAmount,
-        address payer,
         bytes memory swapCallbackData
     ) internal returns (uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {
@@ -158,8 +174,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         }
 
         IERC20 outputToken;
-        bool isPathMultiHop = true;
-        while (isPathMultiHop) {
+        while (true) {
+            bool isPathMultiHop = encodedPath.length > PATH_HOP_SIZE;
             bool zeroForOne;
             IUniswapV3Pool pool;
             uint160 sqrtPriceLimitX96;
@@ -169,23 +185,24 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 uint8 forkId;
                 uint24 poolId;
                 IERC20 token1;
-                (token0, forkId, poolId, sqrtPriceLimitX96, token1) =
-                    _decodeFirstPoolInfoFromPath(encodedPath, swapCallbackData);
+                // Decode the packed hop without an ABI allocation.
+                // Equivalent to extracting path slices `[0:1]`, `[1:4]`, `[4:24]`, and `[24:44]`.
+                assembly ("memory-safe") {
+                    token0 := mload(add(0x28, swapCallbackData))
+                    forkId := mload(add(0x01, encodedPath))
+                    poolId := mload(add(0x04, encodedPath))
+                    sqrtPriceLimitX96 := mload(add(0x18, encodedPath))
+                    token1 := mload(add(PATH_HOP_SIZE, encodedPath))
+                }
 
-                IERC20 sellToken = token0;
                 outputToken = token1;
                 (token0, token1) = (zeroForOne = token0 < token1).maybeSwap(token1, token0);
                 address factory;
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
                 pool = _toPool(forkId, factory, initHash, token0, token1, poolId);
-
-                // Skip to next hop along path.
-                encodedPath = _shiftHopFromPathInPlace(encodedPath, swapCallbackData);
-                _updateSwapCallbackData(swapCallbackData, sellToken, payer);
             }
 
-            isPathMultiHop = encodedPath.length > 20;
             // Intermediate tokens go to this contract. Final tokens go to `recipient`.
             address to = isPathMultiHop.ternary(address(this), recipient);
 
@@ -208,69 +225,33 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 }
                 buyAmount = uint256(_buyAmount);
             }
+            if (!isPathMultiHop) {
+                // Done.
+                break;
+            }
             // Continue with next hop.
-            payer = address(this); // Subsequent hops are paid for by us.
             sellAmount = buyAmount;
+            // Advance the path in place without copying it.
+            // Equivalent to `encodedPath = encodedPath[44:]`.
             assembly ("memory-safe") {
+                let pathLength := sub(mload(encodedPath), PATH_HOP_SIZE)
+                encodedPath := add(PATH_HOP_SIZE, encodedPath)
+                mstore(encodedPath, pathLength)
+            }
+            if (encodedPath.length < PATH_HOP_SIZE) {
+                Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+            }
+            // Subsequent callbacks contain only the Settler payer and intermediate token.
+            // Equivalent to `swapCallbackData = abi.encodePacked(address(this), outputToken)`.
+            assembly ("memory-safe") {
+                mstore(add(0x28, swapCallbackData), outputToken)
+                mstore(add(0x14, swapCallbackData), address())
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
             }
         }
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(outputToken, minBuyAmount, buyAmount);
         }
-    }
-
-    function _decodeFirstPoolInfoFromPath(bytes memory encodedPath, bytes memory callbackData)
-        private
-        pure
-        returns (IERC20 inputToken, uint8 forkId, uint24 poolId, uint160 sqrtPriceLimitX96, IERC20 outputToken)
-    {
-        assembly ("memory-safe") {
-            // Solidity cleans dirty bits automatically
-
-            let vip := lt(SWAP_CALLBACK_PREFIX_DATA_SIZE, mload(callbackData))
-            inputToken := mload(add(PATH_SKIP_ADDRESS_SIZE, encodedPath))
-            inputToken := xor(
-                inputToken,
-                mul(xor(inputToken, mload(add(SWAP_CALLBACK_PREFIX_DATA_SIZE, callbackData))), vip)
-            )
-
-            let pathStart := mul(PATH_SKIP_ADDRESS_SIZE, iszero(vip))
-            let cursor := add(pathStart, encodedPath)
-            forkId := mload(add(0x01, cursor))
-            poolId := mload(add(0x04, cursor))
-            sqrtPriceLimitX96 := mload(add(PATH_SKIP_HOP_SIZE, cursor))
-            outputToken := mload(add(add(PATH_SKIP_HOP_SIZE, PATH_SKIP_ADDRESS_SIZE), cursor))
-            if gt(add(add(PATH_SKIP_HOP_SIZE, PATH_SKIP_ADDRESS_SIZE), pathStart), mload(encodedPath)) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // code for array out-of-bounds
-                revert(0x1c, 0x24)
-            }
-        }
-    }
-
-    // Skip past the first hop of an encoded uniswap path in-place.
-    function _shiftHopFromPathInPlace(bytes memory encodedPath, bytes memory callbackData)
-        private
-        pure
-        returns (bytes memory)
-    {
-        assembly ("memory-safe") {
-            let vip := lt(SWAP_CALLBACK_PREFIX_DATA_SIZE, mload(callbackData))
-            let chop := add(PATH_SKIP_HOP_SIZE, mul(PATH_SKIP_ADDRESS_SIZE, iszero(vip)))
-
-            let length := mload(encodedPath)
-            if gt(chop, length) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x32) // code for array out-of-bounds
-                revert(0x1c, 0x24)
-            }
-            length := sub(length, chop)
-
-            encodedPath := add(encodedPath, chop)
-            mstore(encodedPath, length)
-        }
-        return encodedPath;
     }
 
     function _encodePermit2Data(
@@ -280,25 +261,12 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bool isForwarded
     ) private pure {
         assembly ("memory-safe") {
-            // copy and `token` and `permittedAmount`. because `token` aliases `sellToken`, which is
-            // packed with `payer`, we skip past the padding
-            mcopy(
-                add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData),
-                add(0x0c, mload(permit)),
-                PERMIT_PERMITTED_DATA_SIZE
-            )
-            // copy `nonce` and `deadline`
-            mcopy(
-                add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_PERMITTED_DATA_SIZE), swapCallbackData),
-                add(0x20, permit),
-                0x40
-            )
-            // copy `isForwarded`
+            mstore(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(add(0x20, mload(permit))))
+            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20), swapCallbackData), add(0x20, permit), 0x40)
             mstore8(
                 add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData),
                 lt(0x00, isForwarded)
             )
-            // copy `sig`
             mcopy(
                 add(
                     add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), ISFORWARDED_DATA_SIZE),
@@ -307,16 +275,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 add(0x20, sig),
                 mload(sig)
             )
-        }
-    }
-
-    // Update `swapCallbackData` in place with new values.
-    function _updateSwapCallbackData(bytes memory swapCallbackData, IERC20 sellToken, address payer) private pure {
-        assembly ("memory-safe") {
-            let length := mload(swapCallbackData)
-            mstore(add(0x28, swapCallbackData), sellToken) // when the Permit2 `permit` object is present, this is a no-op
-            mstore(add(0x14, swapCallbackData), payer)
-            mstore(swapCallbackData, length)
         }
     }
 
@@ -412,9 +370,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := shr(0xf8, calldataload(add(PERMIT_DATA_SIZE, permit2Data.offset)))
-                sig.offset := add(add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE), permit2Data.offset)
-                sig.length := sub(permit2Data.length, add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE))
+                isForwarded := lt(0x00, shr(0xf8, calldataload(add(0x74, permit2Data.offset))))
+                sig.offset := add(0x75, permit2Data.offset)
+                sig.length := sub(permit2Data.length, 0x75)
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
                 ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
