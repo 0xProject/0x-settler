@@ -49,6 +49,16 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         return bytes("");
     }
 
+    function uniswapV3PathVIP()
+        internal
+        view
+        virtual
+        override(AllowanceHolderPairTest, SettlerMetaTxnPairTest)
+        returns (bytes memory)
+    {
+        return bytes("");
+    }
+
     function uniswapV2Pool() internal view virtual override returns (address) {
         return address(0);
     }

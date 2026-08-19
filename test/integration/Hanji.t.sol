@@ -81,6 +81,10 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         return new bytes(0); // Not used for Hanji tests
     }
 
+    function uniswapV3PathVIP() internal virtual override returns (bytes memory) {
+        return new bytes(0); // Not used for Hanji tests
+    }
+
     function uniswapV2Pool() internal virtual override returns (address) {
         return address(0); // Not used for Hanji tests
     }
