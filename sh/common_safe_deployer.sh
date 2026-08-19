@@ -642,116 +642,53 @@ function load_executable_sts_safe_transactions {
         executable "$_load_executable_sts_safe_transactions_ready"
 }
 
-function select_authorize_sts_safe_transaction {
-    declare -r _select_authorize_sts_safe_transaction_json="$1"
+function select_sts_safe_transaction {
+    declare -r _select_sts_safe_transaction_json="$1"
     shift
-    declare -r _select_authorize_sts_safe_transaction_feature="$1"
-    shift
-    declare -r _select_authorize_sts_safe_transaction_authority="$1"
+    declare -r _select_sts_safe_transaction_selector="${1,,}"
     shift
 
-    declare _select_authorize_sts_safe_transaction_description_call
-    declare -i _select_authorize_sts_safe_transaction_operation=0
-    if (( $# > 0 )) ; then
-        _select_authorize_sts_safe_transaction_description_call="$1"
-        shift
-        _select_authorize_sts_safe_transaction_operation=1
+    if [[ ! $_select_sts_safe_transaction_selector =~ ^0x[0-9a-f]{8}$ ]] ; then
+        die 'Malformed Safe transaction selector: '"$_select_sts_safe_transaction_selector"
     fi
-    declare -r _select_authorize_sts_safe_transaction_description_call
-    declare -r -i _select_authorize_sts_safe_transaction_operation
 
-    declare _select_authorize_sts_safe_transaction_target
-    _select_authorize_sts_safe_transaction_target="$(
-        target $_select_authorize_sts_safe_transaction_operation
-    )"
-    declare -r _select_authorize_sts_safe_transaction_target
-
-    declare _select_authorize_sts_safe_transaction_matches='[]'
-    declare _select_authorize_sts_safe_transaction_candidate
-    declare _select_authorize_sts_safe_transaction_hash
-    declare _select_authorize_sts_safe_transaction_authorize_call
-    declare _select_authorize_sts_safe_transaction_deadline
-    declare _select_authorize_sts_safe_transaction_calldata
-    while IFS= read -r _select_authorize_sts_safe_transaction_candidate ; do
-        _select_authorize_sts_safe_transaction_hash="$(
+    declare _select_sts_safe_transaction_matches='[]'
+    declare _select_sts_safe_transaction_candidate
+    declare _select_sts_safe_transaction_hash
+    while IFS= read -r _select_sts_safe_transaction_candidate ; do
+        _select_sts_safe_transaction_hash="$(
             jq -Mr \
                 '.safeTxHash | ascii_downcase' \
-                <<<"$_select_authorize_sts_safe_transaction_candidate"
+                <<<"$_select_sts_safe_transaction_candidate"
         )"
-        if ! _select_authorize_sts_safe_transaction_candidate="$(
-            _load_sts_safe_transaction \
-                "$_select_authorize_sts_safe_transaction_hash"
+        if ! _select_sts_safe_transaction_candidate="$(
+            _load_sts_safe_transaction "$_select_sts_safe_transaction_hash"
         )" 2>/dev/null ; then
             continue
         fi
-
-        _select_authorize_sts_safe_transaction_authorize_call="$(
-            jq -Mr .data <<<"$_select_authorize_sts_safe_transaction_candidate"
-        )"
-        if (( _select_authorize_sts_safe_transaction_operation == 1 )) \
-            && ! _select_authorize_sts_safe_transaction_authorize_call="$(
-                extract_last_multisend_call_data \
-                    "$_select_authorize_sts_safe_transaction_authorize_call"
-            )" 2>/dev/null
-        then
-            continue
-        fi
-        if ! _select_authorize_sts_safe_transaction_deadline="$(
-            extract_authorize_deadline \
-                "$_select_authorize_sts_safe_transaction_authorize_call" \
-                "$_select_authorize_sts_safe_transaction_feature" \
-                "$_select_authorize_sts_safe_transaction_authority"
-        )" 2>/dev/null ; then
-            continue
-        fi
-
-        _select_authorize_sts_safe_transaction_authorize_call="$(
-            cast calldata 'authorize(uint128,address,uint40)(bool)' \
-                "$_select_authorize_sts_safe_transaction_feature" \
-                "$_select_authorize_sts_safe_transaction_authority" \
-                "$_select_authorize_sts_safe_transaction_deadline"
-        )"
-        if (( _select_authorize_sts_safe_transaction_operation == 1 )) ; then
-            _select_authorize_sts_safe_transaction_calldata="$(
-                build_multisend_calldata \
-                    "$deployer_address" \
-                    "$_select_authorize_sts_safe_transaction_description_call" \
-                    "$deployer_address" \
-                    "$_select_authorize_sts_safe_transaction_authorize_call"
-            )"
-        else
-            _select_authorize_sts_safe_transaction_calldata="$_select_authorize_sts_safe_transaction_authorize_call"
-        fi
-        if ! _require_expected_sts_safe_transaction \
-            "$_select_authorize_sts_safe_transaction_candidate" \
-            "$_select_authorize_sts_safe_transaction_target" 0 \
-            "$_select_authorize_sts_safe_transaction_calldata" \
-            $_select_authorize_sts_safe_transaction_operation \
-            0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)" \
-            2>/dev/null
+        if [[ $(jq -Mr '.data[0:10]' <<<"$_select_sts_safe_transaction_candidate") \
+            != "$_select_sts_safe_transaction_selector" ]]
         then
             continue
         fi
 
-        _select_authorize_sts_safe_transaction_matches="$(
+        _select_sts_safe_transaction_matches="$(
             jq -Mc \
-                --argjson transaction \
-                    "$_select_authorize_sts_safe_transaction_candidate" \
+                --argjson transaction "$_select_sts_safe_transaction_candidate" \
                 '. + [$transaction]' \
-                <<<"$_select_authorize_sts_safe_transaction_matches"
+                <<<"$_select_sts_safe_transaction_matches"
         )"
-    done < <(jq -Mc '.[]' <<<"$_select_authorize_sts_safe_transaction_json")
+    done < <(jq -Mc '.[]' <<<"$_select_sts_safe_transaction_json")
 
-    declare _select_authorize_sts_safe_transaction_selected_hash
-    _select_authorize_sts_safe_transaction_selected_hash="$(
-        select_sts_safe_transaction_hash \
-            "$_select_authorize_sts_safe_transaction_matches"
+    declare _select_sts_safe_transaction_selected_hash
+    _select_sts_safe_transaction_selected_hash="$(
+        select_sts_safe_transaction_hash "$_select_sts_safe_transaction_matches"
     )"
-    declare -r _select_authorize_sts_safe_transaction_selected_hash
+    declare -r _select_sts_safe_transaction_selected_hash
     jq -Mce \
-        --arg hash "$_select_authorize_sts_safe_transaction_selected_hash" \
+        --arg hash "$_select_sts_safe_transaction_selected_hash" \
         'first(.[] | select(.safeTxHash == $hash))' \
-        <<<"$_select_authorize_sts_safe_transaction_matches"
+        <<<"$_select_sts_safe_transaction_matches"
 }
 
 function select_sts_safe_transaction_hash {
@@ -799,19 +736,52 @@ function select_sts_safe_transaction_hash {
     die
 }
 
-function default_authorize_deadline {
-    declare _default_authorize_deadline_datestring
-    # MMDDhhmmCCYY: midnight UTC on the first of this month next year
-    _default_authorize_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
-    declare -r _default_authorize_deadline_datestring
+function validate_sts_safe_transaction {
+    declare -r _validate_sts_safe_transaction_json="$1"
+    shift
+    declare -r _validate_sts_safe_transaction_signature="$1"
+    shift
+    declare -r -i _validate_sts_safe_transaction_operation="$1"
+    shift
+    declare -r _validate_sts_safe_transaction_expected_calldata="$1"
+    shift
 
-    if date -d '1 second' &>/dev/null ; then
-        date -u \
-            -d "${_default_authorize_deadline_datestring:8:4}-${_default_authorize_deadline_datestring:0:2}-${_default_authorize_deadline_datestring:2:2}T${_default_authorize_deadline_datestring:4:2}:${_default_authorize_deadline_datestring:6:2}:00-00:00" \
-            +%s
-    else
-        date -u -j "$_default_authorize_deadline_datestring" +%s
+    if (( _validate_sts_safe_transaction_operation != 0 \
+        && _validate_sts_safe_transaction_operation != 1 ))
+    then
+        die 'Unsupported Safe transaction operation: '"$_validate_sts_safe_transaction_operation"
     fi
+
+    declare _validate_sts_safe_transaction_calldata
+    _validate_sts_safe_transaction_calldata="$(
+        jq -Mr .data <<<"$_validate_sts_safe_transaction_json"
+    )"
+    declare -r _validate_sts_safe_transaction_calldata
+
+    declare _validate_sts_safe_transaction_selector
+    _validate_sts_safe_transaction_selector="$(
+        cast sig "$_validate_sts_safe_transaction_signature"
+    )"
+    declare -r _validate_sts_safe_transaction_selector
+    _require_same_safe_bytes \
+        selector \
+        "${_validate_sts_safe_transaction_calldata:0:10}" \
+        "$_validate_sts_safe_transaction_selector"
+
+    if ! cast decode-calldata \
+        "$_validate_sts_safe_transaction_signature" \
+        "$_validate_sts_safe_transaction_calldata" \
+        >/dev/null
+    then
+        die 'Malformed calldata for signature: '"$_validate_sts_safe_transaction_signature"
+    fi
+
+    _require_expected_sts_safe_transaction \
+        "$_validate_sts_safe_transaction_json" \
+        "$(target $_validate_sts_safe_transaction_operation)" 0 \
+        "$_validate_sts_safe_transaction_expected_calldata" \
+        $_validate_sts_safe_transaction_operation \
+        0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$(nonce)"
 }
 
 function extract_authorize_deadline {

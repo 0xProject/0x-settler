@@ -5,6 +5,41 @@ function die {
     exit 1
 }
 
+function utc_month_start_after {
+    declare -r _utc_month_start_after_months="$1"
+    shift
+    if [[ ! $_utc_month_start_after_months =~ ^[0-9]+$ ]] ; then
+        die 'Invalid month offset: '"$_utc_month_start_after_months"
+    fi
+
+    declare _utc_month_start_after_current
+    _utc_month_start_after_current="$(date -u '+%Y %m')"
+    declare -r _utc_month_start_after_current
+    declare -i _utc_month_start_after_index
+    _utc_month_start_after_index=$((
+        ${_utc_month_start_after_current% *} * 12
+        + 10#${_utc_month_start_after_current#* } - 1
+        + 10#$_utc_month_start_after_months
+    ))
+    declare -r -i _utc_month_start_after_index
+    declare -r -i _utc_month_start_after_year=$((_utc_month_start_after_index / 12))
+    declare -r -i _utc_month_start_after_month=$((_utc_month_start_after_index % 12 + 1))
+
+    declare _utc_month_start_after_date
+    if date -d '1 second' &>/dev/null ; then
+        printf -v _utc_month_start_after_date \
+            '%04d-%02d-01T00:00:00-00:00' \
+            $_utc_month_start_after_year $_utc_month_start_after_month
+        date -u -d "$_utc_month_start_after_date" +%s
+    else
+        # BSD date accepts MMDDhhmmCCYY rather than ISO 8601.
+        printf -v _utc_month_start_after_date \
+            '%02d010000%04d' \
+            $_utc_month_start_after_month $_utc_month_start_after_year
+        date -u -j "$_utc_month_start_after_date" +%s
+    fi
+}
+
 . "$project_root"/sh/common_bash_version_check.sh
 
 function register_exit_cleanup {

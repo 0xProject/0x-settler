@@ -167,11 +167,12 @@ if sts_safe_transactions_enabled ; then
     declare -r executable_transactions
 else
     declare -i default_auth_deadline
-    default_auth_deadline="$(default_authorize_deadline)"
+    default_auth_deadline="$(utc_month_start_after 12)"
     declare -r -i default_auth_deadline
 fi
 declare -r use_sts_transactions
 declare -r safe_signature_executor="$multicall_address"
+declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 declare multisend_data=''
 declare -i tokenid
@@ -184,15 +185,27 @@ for tokenid in "${feature[@]}" ; do
     if [[ $use_sts_transactions = Yes ]] ; then
         declare selected_transaction
         selected_transaction="$(
-            select_authorize_sts_safe_transaction \
-                "$executable_transactions" "$tokenid" "$deployment_safe_address"
+            select_sts_safe_transaction \
+                "$executable_transactions" "$(cast sig "$authorize_sig")"
         )"
-        renew_authority_calldata="$(jq -Mr .data <<<"$selected_transaction")"
+        declare selected_deadline
+        selected_deadline="$(
+            extract_authorize_deadline \
+                "$(jq -Mr .data <<<"$selected_transaction")" \
+                "$tokenid" "$deployment_safe_address"
+        )"
+        renew_authority_calldata="$(
+            cast calldata "$authorize_sig" \
+                $tokenid "$deployment_safe_address" "$selected_deadline"
+        )"
+        validate_sts_safe_transaction \
+            "$selected_transaction" "$authorize_sig" 0 "$renew_authority_calldata"
         packed_signatures="$(pack_sts_transaction_signatures "$selected_transaction")"
+        unset -v selected_deadline
         unset -v selected_transaction
     else
         renew_authority_calldata="$(
-            cast calldata 'authorize(uint128,address,uint40)(bool)' \
+            cast calldata "$authorize_sig" \
                 $tokenid "$deployment_safe_address" $default_auth_deadline
         )"
         packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"

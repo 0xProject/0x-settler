@@ -153,6 +153,7 @@ description="${description:1:$((${#description} - 2))}"
 declare -r description
 
 declare -r setDescription_sig='setDescription(uint128,string)(string)'
+declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 declare setDescription_call
 setDescription_call="$(cast calldata "$setDescription_sig" $feature "$description")"
@@ -167,22 +168,43 @@ if sts_safe_transactions_enabled ; then
 
     declare selected_transaction
     selected_transaction="$(
-        select_authorize_sts_safe_transaction \
-            "$executable_transactions" "$feature" "$deployment_safe_address" \
-            "$setDescription_call"
+        select_sts_safe_transaction "$executable_transactions" "$multisend_selector"
     )"
     declare -r selected_transaction
 
-    new_feature_calldata="$(jq -Mr .data <<<"$selected_transaction")"
+    declare selected_authorize_call
+    selected_authorize_call="$(
+        extract_last_multisend_call_data "$(jq -Mr .data <<<"$selected_transaction")"
+    )"
+    declare -r selected_authorize_call
+    declare -i auth_deadline
+    auth_deadline="$(
+        extract_authorize_deadline \
+            "$selected_authorize_call" "$feature" "$deployment_safe_address"
+    )"
+    declare -r -i auth_deadline
+    declare authorize_call
+    authorize_call="$(
+        cast calldata "$authorize_sig" \
+            $feature "$deployment_safe_address" "$auth_deadline"
+    )"
+    declare -r authorize_call
+    new_feature_calldata="$(
+        build_multisend_calldata \
+            "$deployer_address" "$setDescription_call" \
+            "$deployer_address" "$authorize_call"
+    )"
+    validate_sts_safe_transaction \
+        "$selected_transaction" "$multisend_sig" 1 "$new_feature_calldata"
     packed_signatures="$(pack_sts_transaction_signatures "$selected_transaction")"
 else
     declare -i auth_deadline
-    auth_deadline="$(default_authorize_deadline)"
+    auth_deadline="$(utc_month_start_after 12)"
     declare -r -i auth_deadline
 
     declare authorize_call
     authorize_call="$(
-        cast calldata 'authorize(uint128,address,uint40)(bool)' \
+        cast calldata "$authorize_sig" \
             $feature "$deployment_safe_address" "$auth_deadline"
     )"
     declare -r authorize_call
