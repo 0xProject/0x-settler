@@ -179,6 +179,9 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         path = bytes.concat(path, abi.encodePacked(uint8(0), uint24(500), sqrtPriceLimitX96(toToken(), wBTC), wBTC));
         bytes[] memory actions =
             ActionDataBuilder.build(abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, permit, path, sig, 0)));
+        uint256 buyBalanceBefore = wBTC.balanceOf(FROM);
+        uint256 recipientIntermediateBalanceBefore = toToken().balanceOf(FROM);
+        uint256 settlerIntermediateBalanceBefore = toToken().balanceOf(address(settler));
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
@@ -188,6 +191,10 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV3VIP_multihop");
         _settler.execute(slippage, actions, bytes32(0));
         snapEnd();
+
+        assertGt(wBTC.balanceOf(FROM), buyBalanceBefore);
+        assertEq(toToken().balanceOf(FROM), recipientIntermediateBalanceBefore);
+        assertEq(toToken().balanceOf(address(_settler)), settlerIntermediateBalanceBefore);
     }
 
     function testSettler_uniswapV3() public skipIf(uniswapV3Path().length == 0) {

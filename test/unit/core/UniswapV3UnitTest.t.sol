@@ -272,13 +272,15 @@ contract UniswapV3UnitTest is Utils, Test {
 
     address POOL;
     bytes encodedPath;
+    bytes encodedPathVIP;
 
     constructor() {
         address token0 = TOKEN0;
         address token1 = TOKEN1;
         bool zeroForOne = token0 < token1;
         uint160 sqrtPriceLimitX96 = zeroForOne ? 4295128740 : 1461446703485210103287273052203988822378723970341;
-        encodedPath = abi.encodePacked(TOKEN0, uint8(0), uint24(500), sqrtPriceLimitX96, TOKEN1);
+        encodedPathVIP = abi.encodePacked(uint8(0), uint24(500), sqrtPriceLimitX96, TOKEN1);
+        encodedPath = bytes.concat(abi.encodePacked(TOKEN0), encodedPathVIP);
 
         (token0, token1) = zeroForOne ? (token0, token1) : (token1, token0);
         uint24 fee = 500;
@@ -400,7 +402,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, encodedPath, permitTransfer, hex"deadbeef", minBuyAmount);
+        uni.sell(RECIPIENT, encodedPathVIP, permitTransfer, hex"deadbeef", minBuyAmount);
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -431,7 +433,7 @@ contract UniswapV3UnitTest is Utils, Test {
         address(uni)
             .call(
                 abi.encodePacked(
-                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPath, permitTransfer, hex"", minBuyAmount)),
+                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPathVIP, permitTransfer, hex"", minBuyAmount)),
                     address(this) // Forward on true msg.sender
                 )
             );
@@ -463,7 +465,7 @@ contract UniswapV3UnitTest is Utils, Test {
         (bool success, bytes memory returndata) = address(uni)
             .call(
                 abi.encodePacked(
-                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPath, permitTransfer, hex"", amount)), address(this)
+                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPathVIP, permitTransfer, hex"", amount)), address(this)
                 )
             );
         if (!success) {
