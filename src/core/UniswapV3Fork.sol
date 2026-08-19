@@ -75,10 +75,13 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
     ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96))
     uint256 private constant PATH_SKIP_HOP_SIZE = 0x2c;
-    /// @dev The size of the swap callback prefix data before the Permit2 data.
+    /// @dev The size of the swap callback prefix data without the Permit2 data. When the Permit2
+    ///      `permit` object is present, `sellToken` and `permit.permitted.token` are the same and
+    ///      alias
     uint256 private constant SWAP_CALLBACK_PREFIX_DATA_SIZE = 0x28;
-    /// @dev The offset from the pointer to the length of the swap callback prefix data to the start of the Permit2 data.
-    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x48;
+    /// @dev The offset from the pointer to the length of the swap callback prefix data to the start
+    ///      of the Permit2 data.
+    uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x34;
     uint256 private constant PERMIT_DATA_SIZE = 0x80;
     uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
     /// @dev Mask of lower 3 bytes.
@@ -122,7 +125,10 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bytes memory swapCallbackData = new bytes(
-            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length
+            (SWAP_CALLBACK_PREFIX_DATA_SIZE - 20) + // `sellToken` and `permit.permitted.token` are the same and alias
+            PERMIT_DATA_SIZE +
+            ISFORWARDED_DATA_SIZE +
+            sig.length
         );
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
@@ -297,7 +303,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     function _updateSwapCallbackData(bytes memory swapCallbackData, IERC20 sellToken, address payer) private pure {
         assembly ("memory-safe") {
             let length := mload(swapCallbackData)
-            mstore(add(0x28, swapCallbackData), sellToken)
+            mstore(add(0x28, swapCallbackData), sellToken) // when the Permit2 `permit` object is present, this is a no-op
             mstore(add(0x14, swapCallbackData), payer)
             mstore(swapCallbackData, length)
         }
@@ -395,7 +401,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := lt(0x00, shr(0xf8, calldataload(add(0x74, permit2Data.offset))))
+                isForwarded := shr(0xf8, calldataload(add(0x74, permit2Data.offset)))
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
