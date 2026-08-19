@@ -150,8 +150,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         }
 
         IERC20 outputToken;
-        while (true) {
-            bool isPathMultiHop = _isPathMultiHop(encodedPath);
+        bool isPathMultiHop = true;
+        while (isPathMultiHop) {
             bool zeroForOne;
             IUniswapV3Pool pool;
             uint160 sqrtPriceLimitX96;
@@ -171,9 +171,13 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
                 pool = _toPool(forkId, factory, initHash, token0, token1, poolId);
+
+                // Skip to next hop along path.
+                encodedPath = _shiftHopFromPathInPlace(encodedPath, swapCallbackData);
                 _updateSwapCallbackData(swapCallbackData, sellToken, payer);
             }
 
+            isPathMultiHop = encodedPath.length > 20;
             // Intermediate tokens go to this contract. Final tokens go to `recipient`.
             address to = isPathMultiHop.ternary(address(this), recipient);
 
@@ -196,15 +200,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 }
                 buyAmount = uint256(_buyAmount);
             }
-            if (!isPathMultiHop) {
-                // Done.
-                break;
-            }
             // Continue with next hop.
             payer = address(this); // Subsequent hops are paid for by us.
             sellAmount = buyAmount;
-            // Skip to next hop along path.
-            encodedPath = _shiftHopFromPathInPlace(encodedPath, swapCallbackData);
             assembly ("memory-safe") {
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
             }
@@ -212,11 +210,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(outputToken, minBuyAmount, buyAmount);
         }
-    }
-
-    // Return whether or not an encoded uniswap path contains more than one hop.
-    function _isPathMultiHop(bytes memory encodedPath) private pure returns (bool) {
-        return encodedPath.length > PATH_SKIP_HOP_SIZE;
     }
 
     function _decodeFirstPoolInfoFromPath(bytes memory encodedPath, bytes memory callbackData)
@@ -234,12 +227,13 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 mul(xor(inputToken, mload(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, callbackData))), vip)
             )
 
-            let cursor := add(mul(0x14, vip), encodedPath)
+            let pathStart := mul(0x14, iszero(vip))
+            let cursor := add(pathStart, encodedPath)
             forkId := mload(add(0x01, cursor))
             poolId := mload(add(0x04, cursor))
             sqrtPriceLimitX96 := mload(add(0x18, cursor))
             outputToken := mload(add(0x2c, cursor))
-            if gt(add(0x4c, cursor), mload(encodedPath)) {
+            if gt(add(0x2c, pathStart), mload(encodedPath)) {
                 mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                 mstore(0x20, 0x32) // code for array out-of-bounds
                 revert(0x1c, 0x24)
@@ -255,7 +249,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     {
         assembly ("memory-safe") {
             let vip := lt(SWAP_CALLBACK_PREFIX_DATA_SIZE, mload(callbackData))
-            let chop := add(0x18, mul(0x14, vip))
+            let chop := add(0x18, mul(0x14, iszero(vip)))
 
             let length := mload(encodedPath)
             if gt(chop, length) {
