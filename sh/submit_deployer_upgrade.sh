@@ -121,6 +121,10 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
+die 'Duncan wrote this for his own use' \
+    'If you are not Duncan, you are going to have a bad time' \
+    'If you are not using a frame wallet, doubly so'
+
 declare safe_address
 safe_address="$(get_config governance.upgradeSafe)"
 declare -r safe_address
