@@ -108,7 +108,12 @@ contract USDCWETHTest is
         return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
-    function uniswapV3PathVIP() internal view override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest) returns (bytes memory) {
+    function uniswapV3PathVIP()
+        internal
+        view
+        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
+        returns (bytes memory)
+    {
         return abi.encodePacked(uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 

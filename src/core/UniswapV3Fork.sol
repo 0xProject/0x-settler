@@ -281,9 +281,17 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         assembly ("memory-safe") {
             // copy and `token` and `permittedAmount`. because `token` aliases `sellToken`, which is
             // packed with `payer`, we skip past the padding
-            mcopy(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), add(0x0c, mload(permit)), PERMIT_PERMITTED_DATA_SIZE)
+            mcopy(
+                add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData),
+                add(0x0c, mload(permit)),
+                PERMIT_PERMITTED_DATA_SIZE
+            )
             // copy `nonce` and `deadline`
-            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_PERMITTED_DATA_SIZE), swapCallbackData), add(0x20, permit), 0x40)
+            mcopy(
+                add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_PERMITTED_DATA_SIZE), swapCallbackData),
+                add(0x20, permit),
+                0x40
+            )
             // copy `isForwarded`
             mstore8(
                 add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData),
