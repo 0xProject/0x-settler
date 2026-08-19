@@ -92,10 +92,6 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         return new bytes(0);
     }
 
-    function uniswapV3PathVIP() internal override returns (bytes memory) {
-        return new bytes(0);
-    }
-
     uint256 internal _amountOut;
 
     function amountOut() internal view virtual returns (uint256) {

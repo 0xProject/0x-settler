@@ -275,11 +275,4 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         virtual
         override(SettlerMetaTxnPairTest, AllowanceHolderPairTest)
         returns (bytes memory);
-
-    function uniswapV3PathVIP()
-        internal
-        view
-        virtual
-        override(SettlerMetaTxnPairTest, AllowanceHolderPairTest)
-        returns (bytes memory);
 }
