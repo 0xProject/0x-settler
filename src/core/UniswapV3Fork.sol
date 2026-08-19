@@ -82,7 +82,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @dev The offset from the pointer to the length of the swap callback prefix data to the start
     ///      of the Permit2 data.
     uint256 private constant SWAP_CALLBACK_PERMIT2DATA_OFFSET = 0x34;
-    uint256 private constant PERMIT_DATA_SIZE = 0x80;
+    uint256 private constant PERMIT_PERMITTED_DATA_SIZE = 0x34;
+    uint256 private constant PERMIT_DATA_SIZE = 0x74;
     uint256 private constant ISFORWARDED_DATA_SIZE = 0x01;
     /// @dev Mask of lower 3 bytes.
     uint256 private constant UINT24_MASK = 0xffffff;
@@ -230,7 +231,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             inputToken := mload(add(0x14, encodedPath))
             inputToken := xor(
                 inputToken,
-                mul(xor(inputToken, mload(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, callbackData))), vip)
+                mul(xor(inputToken, mload(add(SWAP_CALLBACK_PREFIX_DATA_SIZE, callbackData))), vip)
             )
 
             let pathStart := mul(0x14, iszero(vip))
@@ -278,10 +279,11 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bool isForwarded
     ) private pure {
         assembly ("memory-safe") {
-            // copy `permittedAmount` and `token`
-            mcopy(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(permit), 0x40)
+            // copy and `token` and `permittedAmount`. because `token` aliases `sellToken`, which is
+            // packed with `payer`, we skip past the padding
+            mcopy(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), add(0x0c, mload(permit)), PERMIT_PERMITTED_DATA_SIZE)
             // copy `nonce` and `deadline`
-            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x40), swapCallbackData), add(0x20, permit), 0x40)
+            mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_PERMITTED_DATA_SIZE), swapCallbackData), add(0x20, permit), 0x40)
             // copy `isForwarded`
             mstore8(
                 add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData),
@@ -401,9 +403,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := shr(0xf8, calldataload(add(0x74, permit2Data.offset)))
-                sig.offset := add(0x75, permit2Data.offset)
-                sig.length := sub(permit2Data.length, 0x75)
+                isForwarded := shr(0xf8, calldataload(add(PERMIT_DATA_SIZE, permit2Data.offset)))
+                sig.offset := add(add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE), permit2Data.offset)
+                sig.length := sub(permit2Data.length, add(PERMIT_DATA_SIZE, ISFORWARDED_DATA_SIZE))
             }
             ISignatureTransfer.SignatureTransferDetails memory transferDetails =
                 ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amount});
