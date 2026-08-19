@@ -74,7 +74,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
 
     /// @dev How many bytes to skip ahead in an encoded path to start at the next hop:
     ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96))
-    uint256 private constant PATH_SKIP_HOP_SIZE = 0x2c;
+    uint256 private constant PATH_SKIP_HOP_SIZE = 0x18;
+    uint256 private constant PATH_SKIP_ADDRESS_SIZE = 0x14;
     /// @dev The size of the swap callback prefix data without the Permit2 data. When the Permit2
     ///      `permit` object is present, `sellToken` and `permit.permitted.token` are the same and
     ///      alias
@@ -228,19 +229,19 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             // Solidity cleans dirty bits automatically
 
             let vip := lt(SWAP_CALLBACK_PREFIX_DATA_SIZE, mload(callbackData))
-            inputToken := mload(add(0x14, encodedPath))
+            inputToken := mload(add(PATH_SKIP_ADDRESS_SIZE, encodedPath))
             inputToken := xor(
                 inputToken,
                 mul(xor(inputToken, mload(add(SWAP_CALLBACK_PREFIX_DATA_SIZE, callbackData))), vip)
             )
 
-            let pathStart := mul(0x14, iszero(vip))
+            let pathStart := mul(PATH_SKIP_ADDRESS_SIZE, iszero(vip))
             let cursor := add(pathStart, encodedPath)
             forkId := mload(add(0x01, cursor))
             poolId := mload(add(0x04, cursor))
-            sqrtPriceLimitX96 := mload(add(0x18, cursor))
-            outputToken := mload(add(0x2c, cursor))
-            if gt(add(0x2c, pathStart), mload(encodedPath)) {
+            sqrtPriceLimitX96 := mload(add(PATH_SKIP_HOP_SIZE, cursor))
+            outputToken := mload(add(add(PATH_SKIP_HOP_SIZE, PATH_SKIP_ADDRESS_SIZE), cursor))
+            if gt(add(add(PATH_SKIP_HOP_SIZE, PATH_SKIP_ADDRESS_SIZE), pathStart), mload(encodedPath)) {
                 mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                 mstore(0x20, 0x32) // code for array out-of-bounds
                 revert(0x1c, 0x24)
@@ -256,7 +257,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     {
         assembly ("memory-safe") {
             let vip := lt(SWAP_CALLBACK_PREFIX_DATA_SIZE, mload(callbackData))
-            let chop := add(0x18, mul(0x14, iszero(vip)))
+            let chop := add(PATH_SKIP_HOP_SIZE, mul(PATH_SKIP_ADDRESS_SIZE, iszero(vip)))
 
             let length := mload(encodedPath)
             if gt(chop, length) {
