@@ -296,7 +296,7 @@ declare -r -i gas_limit
 declare -a maybe_broadcast=()
 declare submit_rpc
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(send --chain $chainid)
+    maybe_broadcast+=(send --timeout 300 --rpc-timeout 300 --confirmations 10 --chain $chainid)
     if [[ $wallet_type = 'frame' ]] ; then
         submit_rpc='http://127.0.0.1:1248'
         maybe_broadcast+=(--unlocked)
