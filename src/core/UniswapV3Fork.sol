@@ -101,28 +101,29 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         if (encodedPath.length < SINGLE_HOP_PATH_SIZE) {
             Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
         }
-        IERC20 inputToken = IERC20(address(bytes20(encodedPath)));
-        // Reframe the path around its first hop without copying it.
-        // Equivalent to `encodedPath = encodedPath[20:]`.
+        IERC20 inputToken;
+        // inputToken = IERC20(address(bytes20(encodedPath)));
+        // encodedPath = encodedPath[20:];
         assembly ("memory-safe") {
             let pathLength := sub(mload(encodedPath), PATH_INPUT_TOKEN_SIZE)
             encodedPath := add(PATH_INPUT_TOKEN_SIZE, encodedPath)
+            inputToken := mload(encodedPath)
             mstore(encodedPath, pathLength)
         }
+
+        // bytes memory swapCallbackData = abi.encodePacked(address(this), inputToken)
         bytes memory swapCallbackData = new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE);
-        // Pack the payer and token across word boundaries without another allocation.
-        // Equivalent to `swapCallbackData = abi.encodePacked(address(this), inputToken)`.
         assembly ("memory-safe") {
             mstore(add(0x28, swapCallbackData), inputToken)
             mstore(add(0x14, swapCallbackData), address())
             mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
         }
+
         buyAmount = _uniV3ForkSwap(
             recipient,
             encodedPath,
-            // We don't care about phantom overflow here because reserves are
-            // limited to 128 bits. Any token balance that would overflow here
-            // would also break UniV3.
+            // We don't care about phantom overflow here because reserves are limited to 128
+            // bits. Any token balance that would overflow here would also break UniV3.
             (inputToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
             minBuyAmount,
             swapCallbackData
@@ -149,8 +150,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
-        // Pack the permitted token after the zero payer while preserving the Permit2 tail.
-        // Equivalent to replacing `swapCallbackData[:40]` with `abi.encodePacked(address(0), permit.permitted.token)`.
+
+        // swapCallbackData[:40] = abi.encodePacked(address(0), permit.permitted.token)
         assembly ("memory-safe") {
             let length := mload(swapCallbackData)
             mstore(add(0x28, swapCallbackData), mload(mload(permit)))
@@ -185,8 +186,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 uint8 forkId;
                 uint24 poolId;
                 IERC20 token1;
-                // Decode the packed hop without an ABI allocation.
-                // Equivalent to extracting path slices `[0:1]`, `[1:4]`, `[4:24]`, and `[24:44]`.
                 assembly ("memory-safe") {
                     token0 := mload(add(0x28, swapCallbackData))
                     forkId := mload(add(0x01, encodedPath))
@@ -229,10 +228,11 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // Done.
                 break;
             }
+
             // Continue with next hop.
             sellAmount = buyAmount;
-            // Advance the path in place without copying it.
-            // Equivalent to `encodedPath = encodedPath[44:]`.
+
+            // encodedPath = encodedPath[44:]
             assembly ("memory-safe") {
                 let pathLength := sub(mload(encodedPath), PATH_HOP_SIZE)
                 encodedPath := add(PATH_HOP_SIZE, encodedPath)
@@ -241,8 +241,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             if (encodedPath.length < PATH_HOP_SIZE) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }
+
             // Subsequent callbacks contain only the Settler payer and intermediate token.
-            // Equivalent to `swapCallbackData = abi.encodePacked(address(this), outputToken)`.
+            // swapCallbackData = abi.encodePacked(address(this), outputToken)
             assembly ("memory-safe") {
                 mstore(add(0x28, swapCallbackData), outputToken)
                 mstore(add(0x14, swapCallbackData), address())
@@ -370,7 +371,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := lt(0x00, shr(0xf8, calldataload(add(0x74, permit2Data.offset))))
+                isForwarded := shr(0xf8, calldataload(add(0x74, permit2Data.offset)))
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }
