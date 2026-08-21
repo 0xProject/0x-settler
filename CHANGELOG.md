@@ -9,7 +9,8 @@
 * For the actions `UNISWAPV3_VIP` and `METATXN_UNISWAPV3_VIP`, remove the first
   token (the sell token) from `path`, shortening the encoded length by 20
   bytes. This token is now read from `permit`. Intermediate hop tokens and the
-  final buy token are unchanged. The non-VIP `UNISWAPV3` action is unchanged.
+  final buy token are unchanged. The non-VIP `UNISWAPV3` action is
+  unchanged. Immunefi bug report 88903
 
 ### Non-breaking changes
 
@@ -21,7 +22,10 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add Orvex CL PancakeInfinity fork to RobinHood chain
-  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+    `METATXN_PANCAKE_INFINITY_VIP`
+* Fix a bug in the BalancerV3 actions that allowed `bps > 10000`. Immunefi bug
+  89191
 
 ## 2026-07-27
 
