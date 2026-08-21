@@ -6,6 +6,10 @@
   `recipient`, `buyToken`, `maxSellAmount`, `refundNativeEth`, and
   `maxRefundAmount`
 * SolidlyV3 UniV3 fork removed from Sonic
+* For the actions `UNISWAPV3_VIP` and `METATXN_UNISWAPV3_VIP`, remove the first
+  token (the sell token) from `path`, shortening the encoded length by 20
+  bytes. This token is now read from `permit`. Intermediate hop tokens and the
+  final buy token are unchanged. The non-VIP `UNISWAPV3` action is unchanged.
 
 ### Non-breaking changes
 

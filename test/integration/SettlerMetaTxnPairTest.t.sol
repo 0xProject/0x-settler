@@ -60,8 +60,6 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         warmPermit2Nonce(MAKER);
     }
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
-
     function testSettler_metaTxn_shortAction() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
@@ -169,12 +167,12 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_metaTxn_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
+    function testSettler_metaTxn_uniswapV3VIP() public skipIf(uniswapV3PathVIP().length == 0) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, permit, uniswapV3Path(), 0))
+            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, permit, uniswapV3PathVIP(), 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);

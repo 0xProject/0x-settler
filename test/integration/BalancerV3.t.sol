@@ -268,11 +268,4 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
-
-    function uniswapV3Path()
-        internal
-        view
-        virtual
-        override(SettlerMetaTxnPairTest, AllowanceHolderPairTest)
-        returns (bytes memory);
 }

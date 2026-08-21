@@ -31,7 +31,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
     function uniswapV2Pool() internal virtual returns (address);
 
     function testAllowanceHolder_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
@@ -82,7 +81,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
+    function testAllowanceHolder_uniswapV3VIP() public skipIf(uniswapV3PathVIP().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -94,7 +93,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         amount(),
                         0 /* nonce */
                     ),
-                    uniswapV3Path(),
+                    uniswapV3PathVIP(),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -130,7 +129,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP_contract() public skipIf(uniswapV3Path().length == 0) {
+    function testAllowanceHolder_uniswapV3VIP_contract() public skipIf(uniswapV3PathVIP().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -142,7 +141,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         amount(),
                         0 /* nonce */
                     ),
-                    uniswapV3Path(),
+                    uniswapV3PathVIP(),
                     new bytes(0), // sig (empty)
                     0
                 )
