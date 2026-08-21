@@ -187,7 +187,7 @@ contract TestSafeGuard is Test {
     function setUp() public {
         ISafeSetup _safe = ISafeSetup(address(safe));
 
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 23183520);
+        vm.createSelectFork("mainnet", 23183520);
         vm.label(address(this), "FoundryTest");
 
         string memory mnemonic = "test test test test test test test test test test test junk";

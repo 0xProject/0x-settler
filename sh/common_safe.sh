@@ -67,7 +67,7 @@ if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
     fi
 elif [[ $(cast to-checksum "$safe_address") != "${upgrade_safe_address:-null}" ]] ; then
     die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
-elif [[ $configured_safe_guard = "$(cast address-zero)" ]] ; then
+elif [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
     die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
 elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
     die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \

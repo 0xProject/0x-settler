@@ -432,7 +432,7 @@ function _safe_confirmation_caller {
         cast to-checksum "$safe_guard"
     elif [[ ${safe_signature_executor:-null} != [nN][uU][lL][lL] ]] ; then
         cast to-checksum "$safe_signature_executor"
-    elif [[ ${signer:-null} = [nN][uU][lL][lL] ]] ; then
+    elif [[ ${signer:-null} != [nN][uU][lL][lL] ]] ; then
         cast to-checksum "$signer"
     else
         cast address-zero
