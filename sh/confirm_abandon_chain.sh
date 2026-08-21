@@ -153,6 +153,27 @@ fi
 . "$project_root"/sh/common_safe_owner.sh
 . "$project_root"/sh/common_wallet_type.sh
 
+if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
+    declare -r setGuard_sig='setGuard(address)'
+    declare remove_guard_call
+    remove_guard_call="$(cast calldata "$setGuard_sig" "$(cast address-zero)")"
+    declare -r remove_guard_call
+
+    declare struct_json
+    struct_json="$(eip712_json "$remove_guard_call" 0 "$safe_address")"
+
+    declare signature
+    signature="$(sign_call "$struct_json")"
+
+    save_signature abandon_chain_guard_removal "$remove_guard_call" "$signature" 0 "$safe_address"
+    echo 'SafeGuard removal signed. Now signing the abandonment transaction for the next nonce.' >&2
+
+    # The abandonment executes at the next nonce, after the Guard is removed, so its
+    # multisend must not contain check() sub-calls
+    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+    SAFE_GUARD_OVERRIDE=null
+fi
+
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare -r swapOwner_sig='swapOwner(address,address,address)'
 declare -r sentinel='0x0000000000000000000000000000000000000001'
@@ -168,41 +189,24 @@ while (( ${#current_owners[@]} > 1 )) ; do
     declare removeOwner_call
     removeOwner_call="$(cast calldata "$removeOwner_sig" "$sentinel" "$owner_to_remove" 1)"
 
-    calls+=(
-        "$(
-            cast concat-hex                                              \
-            0x00                                                         \
-            "$safe_address"                                              \
-            "$(cast to-uint256 0)"                                       \
-            "$(cast to-uint256 "$(((${#removeOwner_call} - 2) / 2))")"   \
-            "$removeOwner_call"
-        )"
-    )
+    calls+=("$safe_address" "$removeOwner_call")
 
     # Update working state
     current_owners=("${current_owners[@]:1}")
 done
 
-# Swap the last remaining owner with initial_owner
 declare last_owner="${current_owners[0]}"
 
-declare swapOwner_call
-swapOwner_call="$(cast calldata "$swapOwner_sig" "$sentinel" "$last_owner" "$initial_owner")"
+if [[ $(cast to-checksum "$last_owner") != "$(cast to-checksum "$initial_owner")" ]] ; then
+    declare swapOwner_call
+    swapOwner_call="$(cast calldata "$swapOwner_sig" "$sentinel" "$last_owner" "$initial_owner")"
 
-calls+=(
-    "$(
-        cast concat-hex                                            \
-        0x00                                                       \
-        "$safe_address"                                            \
-        "$(cast to-uint256 0)"                                     \
-        "$(cast to-uint256 "$(((${#swapOwner_call} - 2) / 2))")"   \
-        "$swapOwner_call"
-    )"
-)
+    calls+=("$safe_address" "$swapOwner_call")
+fi
 
 # Wrap in multiSend call
 declare multisend_calldata
-multisend_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
+multisend_calldata="$(build_multisend_calldata "${calls[@]}")"
 declare -r multisend_calldata
 
 # Sign the transaction (operation=1 for delegatecall to multicall)
