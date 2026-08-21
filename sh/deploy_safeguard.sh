@@ -126,8 +126,7 @@ safe="$(get_config governance.upgradeSafe)"
 declare -r safe
 
 if [[ ${safe:-null} == [nN][uU][lL][lL] ]] ; then
-    echo 'governance.upgradeSafe is missing from chain_config.json for chain "'"$chain_name"'"' >&2
-    exit 1
+    die 'governance.upgradeSafe is missing from chain_config.json for chain "'"$chain_name"'"'
 fi
 
 declare safe_codehash
@@ -140,8 +139,7 @@ if [[ $era_vm = [Tt]rue ]] ; then
         0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d|\
         0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f) ;;
         *)
-            echo 'Upgrade Safe ('"$safe"') is not a recognized EraVM Safe proxy (codehash '"$safe_codehash"')' >&2
-            exit 1
+            die 'Upgrade Safe ('"$safe"') is not a recognized EraVM Safe proxy (codehash '"$safe_codehash"')'
             ;;
     esac
 else
@@ -151,8 +149,7 @@ else
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000|\
         0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c) ;;
         *)
-            echo 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')' >&2
-            exit 1
+            die 'Upgrade Safe ('"$safe"') is not a recognized Safe proxy (codehash '"$safe_codehash"')'
             ;;
     esac
 fi
@@ -189,8 +186,7 @@ function predict_create2 {
 
 function predict_create2_era_vm {
     if (( ${#1} != 42 || ${#2} != 66 || ${#3} != 66 )) ; then
-        echo 'predict_create2_era_vm: argument has the wrong width' >&2
-        return 1
+        die 'predict_create2_era_vm: argument has the wrong width'
     fi
     declare _predict_out
     _predict_out="$(cast keccak "$(cast concat-hex "$(cast keccak zksyncCreate2)" "$(cast to-uint256 "$1")" "$(cast hash-zero)" "$2" "$3")")"
@@ -214,22 +210,19 @@ for _f in "${candidate_factories[@]}" ; do
     done
 done
 if [[ -z $guard_contract ]] ; then
-    echo 'No supported (factory, Safe version) pair produces the upgrade Safe'"'"'s singleton ('"$onchain_singleton"') on chain "'"$chain_name"'".' >&2
-    echo 'Either the Safe uses an unsupported version, or its singleton was deployed by a factory the Guard does not support.' >&2
-    exit 1
+    die 'No supported (factory, Safe version) pair produces the upgrade Safe'"'"'s singleton ('"$onchain_singleton"') on chain "'"$chain_name"'".' \
+        'Either the Safe uses an unsupported version, or its singleton was deployed by a factory the Guard does not support.'
 fi
 declare -r guard_contract factory
 
 if [[ $guard_contract == *OnePointThree* ]] ; then
-    echo 'Chain "'"$chain_name"'" runs Safe 1.3.0, whose Guard ('"$guard_contract"') cannot be deployed by this script.' >&2
-    echo 'The 1.3.0 Guard disables itself at construction unless the Safe already designates it as its guard' >&2
-    echo 'It must be created and enabled in one atomic transaction executed by the upgrade Safe' >&2
-    exit 1
+    die 'Chain "'"$chain_name"'" runs Safe 1.3.0, whose Guard ('"$guard_contract"') cannot be deployed by this script.' \
+        'The 1.3.0 Guard disables itself at construction unless the Safe already designates it as its guard' \
+        'It must be created and enabled in one atomic transaction executed by the upgrade Safe'
 fi
 
 if [[ $(cast code --rpc-url "$rpc_url" "$factory") == '0x' ]] ; then
-    echo 'The CREATE2 factory ('"$factory"') is not deployed on chain "'"$chain_name"'"' >&2
-    exit 1
+    die 'The CREATE2 factory ('"$factory"') is not deployed on chain "'"$chain_name"'"'
 fi
 
 . "$project_root"/sh/common_submitter.sh
@@ -247,13 +240,8 @@ declare -r constructor_args
 
 declare predicted
 if [[ $era_vm = [Tt]rue ]] ; then
-    # EraVM needs zkSync artifacts so we switch to the zksync aware foundry version
-    foundryup-zksync -u foundry-zksync-v0.1.9 || true
-    if [[ $(forge --version) != *14afc70e251c89b7e2af6e6ac02e9ac6f095b5cc* ]] ; then
-        echo 'Wrong foundry version installed' >&2
-        echo 'Run `foundryup-zksync -i foundry-zksync-v0.1.9`' >&2
-        exit 1
-    fi
+    # EraVM bytecode requires zkSync-aware artifacts
+    require_zk_foundry
     forge clean
     forge build --zksync --zk-compile src/deployer/SafeGuard.sol
     declare art="$project_root/zkout/SafeGuard.sol/$guard_contract.json"
@@ -263,6 +251,7 @@ if [[ $era_vm = [Tt]rue ]] ; then
     declare -r bytecode_hash guard_bytecode
     predicted="$(predict_create2_era_vm "$factory" "$bytecode_hash" "$(cast keccak "$constructor_args")")"
 else
+    require_vanilla_foundry
     forge clean
     forge build src/deployer/SafeGuard.sol
     declare guard_bytecode initcode
@@ -307,7 +296,7 @@ declare -r -i gas_limit
 declare -a maybe_broadcast=()
 declare submit_rpc
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(send --chain $chainid)
+    maybe_broadcast+=(send --timeout 300 --rpc-timeout 300 --confirmations 10 --chain $chainid)
     if [[ $wallet_type = 'frame' ]] ; then
         submit_rpc='http://127.0.0.1:1248'
         maybe_broadcast+=(--unlocked)
@@ -330,8 +319,7 @@ if [[ ${BROADCAST-no} = [Yy]es && $era_vm = [Tt]rue ]] ; then
     # transaction via eth_signTypedData_v4, then serialize the transaction ourselves
     # and broadcast it directly to the chain's RPC.
     if [[ $wallet_type != 'frame' ]] ; then
-        echo 'The EraVM deployment flow only supports the "frame" wallet type' >&2
-        exit 1
+        die 'The EraVM deployment flow only supports the "frame" wallet type'
     fi
 
     declare -i nonce
@@ -398,8 +386,7 @@ if [[ ${BROADCAST-no} = [Yy]es && $era_vm = [Tt]rue ]] ; then
     echo 'Requesting EIP-712 signature from Frame' >&2
     signature="$(cast rpc --rpc-url 'http://127.0.0.1:1248' --raw eth_signTypedData_v4 "$(jq -Mcn --arg signer "$signer" --arg typed_data "$typed_data" '[$signer, $typed_data]')" | jq -Mr .)"
     if (( ${#signature} != 132 )) ; then
-        echo 'Frame returned a malformed signature: '"$signature" >&2
-        exit 1
+        die 'Frame returned a malformed signature: '"$signature"
     fi
     # the bootloader's DefaultAccount accepts only v in {27,28}
     declare -i sig_v
