@@ -276,6 +276,15 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    function FLUXPOOL(
+        address sellToken,
+        uint256 bps,
+        bytes32 poolId,
+        bool zeroForOne,
+        address buyToken,
+        uint256 minBuyAmount
+    ) external;
+
     function RENEGADE(
         address recipient,
         address sellToken,
