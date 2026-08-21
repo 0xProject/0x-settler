@@ -408,7 +408,7 @@ See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for the
 ## Key Constants
 
 ```solidity
-uint256 internal constant BASIS = 10_000;  // BPS denominator
+uint256 internal constant BASIS = 1_000_000;  // ppm (parts-per-million) proportion denominator
 IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 ```
 

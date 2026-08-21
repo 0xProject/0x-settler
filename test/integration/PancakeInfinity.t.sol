@@ -151,7 +151,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             .poolIdToPoolKey(PoolId.wrap(poolId_));
 
         return abi.encodePacked(
-            uint16(10_000),
+            uint24(1_000_000),
             sqrtPriceLimitX96(fromToken, toToken),
             bytes1(0x01),
             toToken,
@@ -205,7 +205,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
                 abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY,
-                    (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, pancakeInfinityFills(), 0)
+                    (recipient(), address(fromToken()), 1_000_000, false, hashMul, hashMod, pancakeInfinityFills(), 0)
                 )
             )
         );
@@ -421,9 +421,9 @@ contract USDTWBNBTest is PancakeInfinityTest {
         for (uint256 i; i < actions.length; i++) {
             data[i] = actions[i];
         }
-        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (bnb, 10_000, wbnb, 0, ""));
+        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (bnb, 1_000_000, wbnb, 0, ""));
         data[actions.length + 1] = abi.encodeCall(
-            ISettlerActions.BASIC, (wbnb, 10_000, wbnb, 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+            ISettlerActions.BASIC, (wbnb, 1_000_000, wbnb, 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
         );
         return data;
     }

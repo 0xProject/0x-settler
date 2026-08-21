@@ -89,11 +89,11 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
 
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
-    /// @param bps proportion of current balance of the first token in the path to sell.
+    /// @param ppm proportion of current balance of the first token in the path to sell.
     /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
+    function sellToUniswapV3(address recipient, uint256 ppm, bytes memory encodedPath, uint256 minBuyAmount)
         internal
         returns (uint256 buyAmount)
     {
@@ -103,7 +103,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
-            (IERC20(address(bytes20(encodedPath))).fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
+            (IERC20(address(bytes20(encodedPath))).fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS),
             minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
