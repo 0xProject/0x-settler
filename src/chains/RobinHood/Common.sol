@@ -9,6 +9,7 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
 import {Hanji} from "../../core/Hanji.sol";
+import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -44,7 +45,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, PancakeInfinity {
+abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, PancakeInfinity, Bebop {
     using FastLogic for bool;
 
     constructor() {
@@ -94,6 +95,18 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                ISettlerActions.BebopOrder memory order,
+                ISettlerActions.BebopMakerSignature memory makerSignature,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
+
+            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else {
             return false;
         }
@@ -168,5 +181,15 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

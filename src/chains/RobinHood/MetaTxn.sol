@@ -77,7 +77,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, Permit2PaymentAbstract)
+        override(SettlerMetaTxn, RobinHoodMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

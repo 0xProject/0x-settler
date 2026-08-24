@@ -8,17 +8,21 @@ import {RobinHoodSettlerMetaTxn} from "src/chains/RobinHood/MetaTxn.sol";
 import {orvexVault, orvexClManager} from "src/core/pancakeInfinityForks/OrvexCL.sol";
 
 import {PancakeInfinityTest} from "./PancakeInfinity.t.sol";
+import {BebopPairTest} from "./BebopPairTest.t.sol";
+import {BasePairTest} from "./BasePairTest.t.sol";
+import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
 abstract contract OrvexCLTest is PancakeInfinityTest {
-    function _testBlockNumber() internal pure override returns (uint256) {
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
         return 30443000;
     }
 
-    function _testChainId() internal pure override returns (string memory) {
+    function _testChainId() internal pure virtual override returns (string memory) {
         return "robinhood";
     }
 
-    function settlerInitCode() internal override returns (bytes memory) {
+    function settlerInitCode() internal virtual override returns (bytes memory) {
         return bytes.concat(type(RobinHoodSettler).creationCode, abi.encode(bytes20(0)));
     }
 
@@ -40,7 +44,32 @@ abstract contract OrvexCLTest is PancakeInfinityTest {
     }
 }
 
-contract OrvexWETHNVDATest is OrvexCLTest {
+contract OrvexWETHNVDATest is BebopPairTest, OrvexCLTest {
+    function setUp() public override(PancakeInfinityTest, BebopPairTest) {
+        super.setUp();
+    }
+
+    function _testBlockNumber() internal pure override(MainnetDefaultFork, OrvexCLTest) returns (uint256) {
+        return super._testBlockNumber();
+    }
+
+    function _testChainId() internal pure override(MainnetDefaultFork, OrvexCLTest) returns (string memory) {
+        return super._testChainId();
+    }
+
+    function settlerInitCode() internal override(OrvexCLTest, SettlerBasePairTest) returns (bytes memory) {
+        return super.settlerInitCode();
+    }
+
+    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken)
+        internal
+        view
+        override(BasePairTest, PancakeInfinityTest)
+        returns (uint160)
+    {
+        return super.sqrtPriceLimitX96(sellToken, buyToken);
+    }
+
     function _testName() internal pure override returns (string memory) {
         return "Orvex-WETH-NVDA";
     }
