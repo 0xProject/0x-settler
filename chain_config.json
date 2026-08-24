@@ -37,7 +37,8 @@
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3",
+      "timelock": "0xecFC0A72Ec520fcEdCB1D7e663D0e728D76344F8"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -486,7 +487,8 @@
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3",
+      "timelock": "0xecFC0A72Ec520fcEdCB1D7e663D0e728D76344F8"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -784,7 +786,8 @@
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
-      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3",
+      "timelock": "0xecFC0A72Ec520fcEdCB1D7e663D0e728D76344F8"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -986,7 +989,8 @@
     "governance": {
       "upgradeSafe": "0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A",
       "deploymentSafe": "0xcF20bD8fbd83C484a34A3f48B30612b42E87e7bb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "timelock": "0x9Ee6c2b1F81eFC371e6fD5fb6A9D3578c36bb969"
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
   },
