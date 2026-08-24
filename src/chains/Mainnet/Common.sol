@@ -71,6 +71,8 @@ abstract contract MainnetMixin is
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
+    event CredibleCheckImpact();
+
     function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
@@ -194,6 +196,8 @@ abstract contract MainnetMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.CREDIBLE_CHECK_IMPACT.selector)) {
+            emit CredibleCheckImpact();
         } else {
             return false;
         }
