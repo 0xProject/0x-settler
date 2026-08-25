@@ -66,6 +66,9 @@ abstract contract FluxPool is SettlerSwapAbstract {
         IERC20 sellToken;
         uint256 sellAmount;
         // Decode the callback and packed token/amount without allocating memory.
+        // Equivalent Solidity pseudocode:
+        // (tokenToPay, amountToPay, bytes memory callbackData) = abi.decode(data, (IERC20, uint256, bytes));
+        // sellToken = IERC20(address(bytes20(callbackData[:20]))); sellAmount = uint256(bytes32(callbackData[20:]));
         assembly ("memory-safe") {
             tokenToPay := calldataload(data.offset)
             amountToPay := calldataload(add(0x20, data.offset))

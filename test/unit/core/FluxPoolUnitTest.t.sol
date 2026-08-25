@@ -16,7 +16,8 @@ contract FluxSwapMock {
     enum CallbackMode {
         Normal,
         WrongToken,
-        WrongAmount
+        WrongAmount,
+        WrongLength
     }
 
     CallbackMode internal callbackMode;
@@ -39,7 +40,8 @@ contract FluxSwapMock {
         uint256 sellAmount = uint256(bytes32(callbackData[20:]));
         IERC20 callbackToken = callbackMode == CallbackMode.WrongToken ? IERC20(address(0xdead)) : sellToken;
         uint256 callbackAmount = callbackMode == CallbackMode.WrongAmount ? sellAmount + 1 : sellAmount;
-        IFluxSwapCallback(msg.sender).fluxSwapCallback(callbackToken, callbackAmount, callbackData);
+        bytes calldata callbackData_ = callbackMode == CallbackMode.WrongLength ? callbackData[:0] : callbackData;
+        IFluxSwapCallback(msg.sender).fluxSwapCallback(callbackToken, callbackAmount, callbackData_);
         return buyAmount;
     }
 }
@@ -98,6 +100,12 @@ contract FluxPoolUnitTest is Test {
 
     function testFluxPoolRejectsWrongCallbackAmount() public {
         fluxSwap.configure(FluxSwapMock.CallbackMode.WrongAmount, buyToken, BUY_AMOUNT);
+        vm.expectRevert(ConfusedDeputy.selector);
+        _execute(1_000_000, buyToken, MIN_BUY_AMOUNT);
+    }
+
+    function testFluxPoolRejectsWrongCallbackLength() public {
+        fluxSwap.configure(FluxSwapMock.CallbackMode.WrongLength, buyToken, BUY_AMOUNT);
         vm.expectRevert(ConfusedDeputy.selector);
         _execute(1_000_000, buyToken, MIN_BUY_AMOUNT);
     }
