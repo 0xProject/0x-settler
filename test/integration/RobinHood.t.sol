@@ -37,7 +37,7 @@ contract RobinHoodWETHNVDATest is BebopPairTest, OrvexCLTest {
     }
 
     function _testName() internal pure override returns (string memory) {
-        return "Orvex-WETH-NVDA";
+        return "RobinHood-WETH-NVDA";
     }
 
     function fromToken() internal pure override returns (IERC20) {
