@@ -136,34 +136,34 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
             fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
         } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
-            (address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) =
+            (address recipient, uint256 ppm, bytes memory path, uint256 amountOutMin) =
                 abi.decode(data, (address, uint256, bytes, uint256));
 
-            sellToUniswapV3(recipient, bps, path, amountOutMin);
+            sellToUniswapV3(recipient, ppm, path, amountOutMin);
         } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
-            (address recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 amountOutMin) =
+            (address recipient, address sellToken, uint256 ppm, address pool, uint24 swapInfo, uint256 amountOutMin) =
                 abi.decode(data, (address, address, uint256, address, uint24, uint256));
 
-            sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
+            sellToUniswapV2(recipient, sellToken, ppm, pool, swapInfo, amountOutMin);
         } else if (action == uint32(ISettlerActions.BASIC.selector)) {
-            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
+            (IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory _data) =
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
-            basicSellToPool(sellToken, bps, pool, offset, _data);
+            basicSellToPool(sellToken, ppm, pool, offset, _data);
         } else if (action == uint32(ISettlerActions.VELODROME.selector)) {
-            (address recipient, uint256 bps, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
+            (address recipient, uint256 ppm, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
 
-            sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
+            sellToVelodrome(recipient, ppm, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256));
             bool isETH = (token == ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
-                    cap = balance * maxBps / BASIS;
+                    cap = balance * maxPpm / BASIS;
                     balance -= expectedAmount;
                 }
                 balance = (balance > cap).ternary(cap, balance);

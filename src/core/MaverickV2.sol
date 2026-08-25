@@ -221,19 +221,19 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
     function sellToMaverickV2(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         IMaverickV2Pool pool,
         bool tokenAIn,
         int32 tickLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         uint256 sellAmount;
-        if (bps != 0) {
+        if (ppm != 0) {
             unchecked {
                 // We don't care about phantom overflow here because reserves
                 // are limited to 128 bits. Any token balance that would
                 // overflow here would also break MaverickV2.
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS);
             }
             sellToken.safeTransfer(address(pool), sellAmount);
         } else {

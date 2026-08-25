@@ -147,16 +147,16 @@ contract MakerPSMDummy is MakerPSM {
         revert("unimplemented");
     }
 
-    function sellToPool(address recipient, uint256 bps) public {
-        super.sellToMakerPsm(recipient, bps, false, 0, psm, dai);
+    function sellToPool(address recipient, uint256 ppm) public {
+        super.sellToMakerPsm(recipient, ppm, false, 0, psm, dai);
     }
 
-    function buyFromPool(address recipient, uint256 bps) public {
-        super.sellToMakerPsm(recipient, bps, true, 0, psm, dai);
+    function buyFromPool(address recipient, uint256 ppm) public {
+        super.sellToMakerPsm(recipient, ppm, true, 0, psm, dai);
     }
 
-    function sellToPool(address recipient, uint256 bps, uint256 amountOutMin) public {
-        super.sellToMakerPsm(recipient, bps, false, amountOutMin, psm, dai);
+    function sellToPool(address recipient, uint256 ppm, uint256 amountOutMin) public {
+        super.sellToMakerPsm(recipient, ppm, false, amountOutMin, psm, dai);
     }
 
 }
@@ -213,7 +213,7 @@ contract MakerPSMUnitTest is Utils, Test {
     }
 
     function testMakerPSMBuy() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
 
         _mockExpectCall(
@@ -224,18 +224,18 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tout.selector), abi.encode(100));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.buyGem.selector, RECIPIENT, 99998), abi.encode(amount));
 
-        psm.buyFromPool(RECIPIENT, bps);
+        psm.buyFromPool(RECIPIENT, ppm);
     }
 
     function testMakerPSMSell() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
 
         _mockExpectCall(PSM_GEM, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(0));
 
-        psm.sellToPool(RECIPIENT, bps);
+        psm.sellToPool(RECIPIENT, ppm);
     }
 }
 
@@ -263,7 +263,7 @@ contract MakerUsddPSMUnitTest is MakerPSMUnitTest {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
 
-        psm.sellToPool(RECIPIENT, 10_000, amountOutMin);
+        psm.sellToPool(RECIPIENT, 1_000_000, amountOutMin);
     }
 
     function testSell_DssPsm_CalculatesFee() public {
@@ -277,6 +277,6 @@ contract MakerUsddPSMUnitTest is MakerPSMUnitTest {
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(tin));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
 
-        psm.sellToPool(RECIPIENT, 10_000, expectedOut);
+        psm.sellToPool(RECIPIENT, 1_000_000, expectedOut);
     }
 }

@@ -77,10 +77,6 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         return IHanjiPool(0xE27d2334Ab6402956c2E6E517d16fa206B3053ae);
     }
 
-    function uniswapV3Path() internal virtual override returns (bytes memory) {
-        return new bytes(0); // Not used for Hanji tests
-    }
-
     function uniswapV2Pool() internal virtual override returns (address) {
         return address(0); // Not used for Hanji tests
     }
@@ -102,12 +98,12 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
     // ========== HELPER FUNCTIONS ==========
 
     /// @dev Builds a standard HANJI action with common parameters
-    function _buildHanjiAction(bool unwrap, uint256 bps, uint256 minBuyAmount) internal view returns (bytes memory) {
+    function _buildHanjiAction(bool unwrap, uint256 ppm, uint256 minBuyAmount) internal view returns (bytes memory) {
         return abi.encodeCall(
             ISettlerActions.HANJI,
             (
                 unwrap ? ETH_ADDRESS : address(fromToken()),
-                bps,
+                ppm,
                 address(hanjiPool()),
                 sellScalingFactor(),
                 buyScalingFactor(),
@@ -152,7 +148,7 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
         return ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
-            _buildHanjiAction(false, 10_000, 0)
+            _buildHanjiAction(false, 1_000_000, 0)
         );
     }
 }
@@ -213,9 +209,9 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(fromToken()), 10_000, address(fromToken()), 4, abi.encodeCall(IWMON.withdraw, (0)))
+                (address(fromToken()), 1_000_000, address(fromToken()), 4, abi.encodeCall(IWMON.withdraw, (0)))
             ),
-            _buildHanjiAction(true, 10_000, 0)
+            _buildHanjiAction(true, 1_000_000, 0)
         );
 
         (uint256 spent, uint256 received) = _executeHanji(actions, "hanji_sellNativeForUsdc");
@@ -233,7 +229,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
-            _buildHanjiAction(false, 10_000, type(uint128).max)
+            _buildHanjiAction(false, 1_000_000, type(uint128).max)
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -301,7 +297,7 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
-            _buildHanjiAction(false, 10_000, type(uint128).max)
+            _buildHanjiAction(false, 1_000_000, type(uint128).max)
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({

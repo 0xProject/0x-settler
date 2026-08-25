@@ -65,7 +65,15 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
                 ISettlerActions.MAVERICKV2,
-                (FROM, address(fromToken()), 10_000, maverickV2Pool(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
+                (
+                    FROM,
+                    address(fromToken()),
+                    1_000_000,
+                    maverickV2Pool(),
+                    maverickV2TokenAIn(),
+                    maverickV2TickLimit(),
+                    0
+                )
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({

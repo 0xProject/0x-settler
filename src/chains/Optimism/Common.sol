@@ -54,7 +54,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -62,12 +62,12 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -75,7 +75,7 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
