@@ -155,4 +155,13 @@ library Math {
             r := sub(xor(sub(x, y), m), m)
         }
     }
+
+    function sub(uint256 x, uint256 y) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(x, y)
+        }
+        if (r > x) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+    }
 }
