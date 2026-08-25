@@ -26,6 +26,9 @@
   * The Permit2 balance-proportional sell amount sentinel widens:
     `permit.permitted.amount > type(uint256).max - 1_000_000` now encodes a
     proportion in `ppm` as `type(uint256).max - (1_000_000 - ppm)`
+  * Note that the `UNISWAPV2` action *STILL* contains a basis-point-denominated
+    packed field (the swap fee) in the upper 16 bits of `swapInfo`. This
+    behavior remains unchanged.
 * For the actions `UNISWAPV3_VIP` and `METATXN_UNISWAPV3_VIP`, remove the first
   token (the sell token) from `path`, shortening the encoded length by 20
   bytes. This token is now read from `permit`. Intermediate hop tokens and the
