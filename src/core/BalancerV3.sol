@@ -403,7 +403,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         // `amountIn` is always exactly `swapParams.amountGiven`, but `swapParams.amountGiven` can
         // exceed `sell.amount()` if `ppm` exceeds `BASIS`
         NotePtr sell = state.sell();
-        sell.setAmount(sell.amount().sub(amountIn));
+        sell.setAmount(sell.amount().checkedSub(amountIn));
 
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60

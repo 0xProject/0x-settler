@@ -156,9 +156,9 @@ library Math {
         }
     }
 
-    function sub(uint256 x, uint256 y) internal pure returns (uint256 r) {
-        assembly ("memory-safe") {
-            r := sub(x, y)
+    function checkedSub(uint256 x, uint256 y) internal pure returns (uint256 r) {
+        unchecked {
+            r = x - y;
         }
         if (r > x) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
