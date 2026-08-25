@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-
 import {RobinHoodSettler} from "src/chains/RobinHood/TakerSubmitted.sol";
 import {RobinHoodSettlerMetaTxn} from "src/chains/RobinHood/MetaTxn.sol";
 import {orvexVault, orvexClManager} from "src/core/pancakeInfinityForks/OrvexCL.sol";
@@ -10,15 +8,15 @@ import {orvexVault, orvexClManager} from "src/core/pancakeInfinityForks/OrvexCL.
 import {PancakeInfinityTest} from "./PancakeInfinity.t.sol";
 
 abstract contract OrvexCLTest is PancakeInfinityTest {
-    function _testBlockNumber() internal pure override returns (uint256) {
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
         return 30443000;
     }
 
-    function _testChainId() internal pure override returns (string memory) {
+    function _testChainId() internal pure virtual override returns (string memory) {
         return "robinhood";
     }
 
-    function settlerInitCode() internal override returns (bytes memory) {
+    function settlerInitCode() internal virtual override returns (bytes memory) {
         return bytes.concat(type(RobinHoodSettler).creationCode, abi.encode(bytes20(0)));
     }
 
@@ -37,27 +35,5 @@ abstract contract OrvexCLTest is PancakeInfinityTest {
     // Orvex does not have a Bin pool manager
     function binPoolManager() internal pure override returns (address) {
         return address(0);
-    }
-}
-
-contract OrvexWETHNVDATest is OrvexCLTest {
-    function _testName() internal pure override returns (string memory) {
-        return "Orvex-WETH-NVDA";
-    }
-
-    function fromToken() internal pure override returns (IERC20) {
-        return IERC20(0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73); // WETH
-    }
-
-    function toToken() internal pure override returns (IERC20) {
-        return IERC20(0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC); // NVDA
-    }
-
-    function poolId() internal view virtual override returns (bytes32) {
-        return bytes32(0x257df135116403937e4b04b22b796e6746d965090fef574b684c9c294c542490);
-    }
-
-    function amount() internal view virtual override returns (uint256) {
-        return 0.1 ether;
     }
 }

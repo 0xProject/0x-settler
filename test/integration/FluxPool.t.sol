@@ -85,7 +85,7 @@ contract FluxPoolIntegrationTest is SettlerBasePairTest {
     function _executeFluxPool() private {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.FLUXPOOL, (address(USDT), 10_000, POOL_ID, true, address(WBNB), 1))
+            abi.encodeCall(ISettlerActions.FLUXPOOL, (address(USDT), 1_000_000, POOL_ID, true, address(WBNB), 1))
         );
         ISettlerBase.AllowedSlippage memory slippage =
             ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: WBNB, minAmountOut: 1});

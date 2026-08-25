@@ -107,12 +107,7 @@ contract USDTWETHTest is
         */
     }
 
-    function uniswapV3Path()
-        internal
-        view
-        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
-        returns (bytes memory)
-    {
+    function uniswapV3Path() internal view override returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
@@ -139,10 +134,10 @@ contract USDTWETHTest is
         for (uint256 i; i < actions.length; i++) {
             data[i] = actions[i];
         }
-        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (address(ETH), 10_000, address(_weth), 0, ""));
+        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (address(ETH), 1_000_000, address(_weth), 0, ""));
         data[actions.length + 1] = abi.encodeCall(
             ISettlerActions.BASIC,
-            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+            (_weth, 1_000_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
         );
         return data;
     }

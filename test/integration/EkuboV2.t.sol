@@ -70,14 +70,14 @@ abstract contract EkuboV2Test is SettlerMetaTxnPairTest {
     function ekuboV2Fills() internal view returns (bytes memory) {
         (IERC20 fromToken, IERC20 toToken) = ekuboV2Tokens();
         return abi.encodePacked(
-            uint16(10_000), ekuboV2SqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboV2PoolConfig()
+            uint24(1_000_000), ekuboV2SqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboV2PoolConfig()
         );
     }
 
     function ekuboV2ExtensionFills() internal view returns (bytes memory) {
         (IERC20 fromToken, IERC20 toToken) = ekuboV2Tokens();
         return abi.encodePacked(
-            uint16(42768),
+            uint24(2 ** 23 | 1_000_000),
             ekuboV2SqrtRatio(fromToken, toToken),
             bytes1(0x01),
             address(toToken),
@@ -116,7 +116,7 @@ abstract contract EkuboV2Test is SettlerMetaTxnPairTest {
                 abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
                 abi.encodeCall(
                     ISettlerActions.EKUBO,
-                    (ekuboV2Recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, ekuboV2Fills(), 0)
+                    (ekuboV2Recipient(), address(fromToken()), 1_000_000, false, hashMul, hashMod, ekuboV2Fills(), 0)
                 )
             )
         );
@@ -152,7 +152,7 @@ abstract contract EkuboV2Test is SettlerMetaTxnPairTest {
                     (
                         ekuboV2Recipient(),
                         address(fromToken()),
-                        10_000,
+                        1_000_000,
                         false,
                         hashMul,
                         hashMod,

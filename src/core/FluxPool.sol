@@ -34,7 +34,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
 
     function sellToFluxPool(
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bytes32 poolId,
         bool zeroForOne,
         IERC20 buyToken,
@@ -42,7 +42,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
     ) internal {
         uint256 sellAmount;
         unchecked {
-            sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+            sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / BASIS;
         }
 
         uint256 balanceBefore = buyToken.fastBalanceOf(address(this));
@@ -65,7 +65,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
         uint256 amountToPay;
         IERC20 sellToken;
         uint256 sellAmount;
-        // Avoid allocating callback bytes; equivalent to decoding the arguments and unpacking the token and amount.
+        // Decode the callback and packed token/amount without allocating memory.
         assembly ("memory-safe") {
             tokenToPay := calldataload(data.offset)
             amountToPay := calldataload(add(0x20, data.offset))

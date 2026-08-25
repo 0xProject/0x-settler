@@ -8,7 +8,8 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {PlasmaBridgeSettler} from "src/chains/Plasma/BridgeSettler.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
-import {IOFT, ETH} from "src/core/LayerZeroOFT.sol";
+import {IOFT} from "src/core/LayerZeroOFT.sol";
+import {ETH_ADDRESS} from "src/core/Constants.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 
@@ -113,7 +114,7 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
         bytes[] memory bridgeActions = ActionDataBuilder.build(
             abi.encodeCall(
                 IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
-                (address(ETH), oft, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))).popSelector())
+                (ETH_ADDRESS, oft, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))).popSelector())
             )
         );
         sendParam.amountLD = amount;
@@ -151,9 +152,9 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
         bytes[] memory bridgeActions = ActionDataBuilder.build(
             abi.encodeCall(
                 IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
-                (address(ETH), oft, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))).popSelector())
+                (ETH_ADDRESS, oft, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))).popSelector())
             ),
-            abi.encodeCall(IBridgeSettlerActions.BASIC, (address(ETH), 10000, address(this), 0, bytes("")))
+            abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 1_000_000, address(this), 0, bytes("")))
         );
         sendParam.amountLD = amount - dust;
 

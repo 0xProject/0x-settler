@@ -116,7 +116,7 @@ abstract contract Hanji is SettlerSwapAbstract {
 
     function sellToHanji(
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,
@@ -128,9 +128,9 @@ abstract contract Hanji is SettlerSwapAbstract {
         uint256 sellAmount;
         unchecked {
             if (sendNative) {
-                sellAmount = address(this).balance * bps / BASIS;
+                sellAmount = address(this).balance * ppm / BASIS;
             } else {
-                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+                sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / BASIS;
                 sellToken.safeApproveIfBelow(pool, sellAmount);
             }
         }

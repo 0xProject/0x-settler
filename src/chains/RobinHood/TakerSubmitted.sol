@@ -54,12 +54,7 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, RobinHoodMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
