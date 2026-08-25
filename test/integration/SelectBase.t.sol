@@ -64,11 +64,10 @@ contract SelectBase is SettlerBasePairTest {
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
         bytes[][] memory candidates = _twoCandidates(type(uint256).max, 0);
         uint256[] memory targets = new uint256[](2);
+        bytes[] memory actions = _selectActions(address(0), targets, candidates);
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        snapStartName("settler_selectFallbackRescue");
-        _runSelect(address(0), targets, candidates, 1);
-        snapEnd();
+        _snapExecute("settler_selectFallbackRescue", actions, 1);
         uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
 
         assertGt(received, 1, "alternate route paid recipient");
@@ -78,11 +77,10 @@ contract SelectBase is SettlerBasePairTest {
 
     function testFirstCandidateSuccess_commitsImmediately() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
+        bytes[] memory actions = _selectActions(address(0), new uint256[](2), candidates);
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
 
-        snapStartName("settler_selectFirstCandidate");
-        _runSelect(address(0), new uint256[](2), candidates, 1);
-        snapEnd();
+        _snapExecute("settler_selectFirstCandidate", actions, 1);
 
         assertGt(USDC.balanceOf(RECIPIENT) - beforeBalance, 1, "first candidate paid recipient");
     }
@@ -95,35 +93,53 @@ contract SelectBase is SettlerBasePairTest {
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
         vm.expectRevert();
-        _runSelect(address(USDC), targets, candidates, 0);
+        _execute(_selectActions(address(USDC), targets, candidates), 0);
 
         assertEq(USDC.balanceOf(RECIPIENT), beforeBalance, "no candidate committed");
     }
 
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
+        // Foundry snapshot/revert restores EIP-2929 account and slot warmth; isolated gas probes verified it.
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
 
         uint256[] memory targets = new uint256[](2);
         targets[0] = type(uint256).max;
         targets[1] = aerodromeOutput;
+        bytes[] memory actions = _selectActions(address(USDC), targets, candidates);
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        snapStartName("settler_selectLadderCommit");
-        _runSelect(address(USDC), targets, candidates, aerodromeOutput);
-        snapEnd();
+        _snapExecute("settler_selectLadderCommit", actions, aerodromeOutput);
         uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
 
         assertEq(received, aerodromeOutput, "first reachable rung committed");
     }
 
-    function _runSelect(address token, uint256[] memory targets, bytes[][] memory candidates, uint256 minOut) internal {
-        bytes[] memory actions = ActionDataBuilder.build(
+    function testTwoActionCandidate_commits() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = new bytes[](2);
+        candidates[0][0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3, (address(settler), 5_000, _path(UNISWAP_V3_FORK_ID, UNISWAP_V3_FEE), 0)
+        );
+        candidates[0][1] = abi.encodeCall(
+            ISettlerActions.UNISWAPV3, (address(settler), 10_000, _path(AERODROME_V3_FORK_ID, AERODROME_TICK_SPACING), 0)
+        );
+
+        uint256 firstActionOutput = _standaloneOutput(candidates[0]);
+        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        _execute(_selectActions(address(0), new uint256[](1), candidates), firstActionOutput + 1);
+
+        assertGt(USDC.balanceOf(RECIPIENT) - beforeBalance, firstActionOutput, "second action added output");
+    }
+
+    function _selectActions(address token, uint256[] memory targets, bytes[][] memory candidates)
+        internal
+        returns (bytes[] memory)
+    {
+        return ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
             abi.encodeCall(ISettlerActions.SELECT, (SELECT_GAS_CAP, token, targets, candidates))
         );
-
-        _execute(actions, minOut);
     }
 
     function _standaloneOutput(bytes[] memory candidate) internal returns (uint256 output) {
@@ -141,6 +157,16 @@ contract SelectBase is SettlerBasePairTest {
             actions,
             bytes32(0)
         );
+    }
+
+    function _snapExecute(string memory name, bytes[] memory actions, uint256 minOut) internal {
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage({recipient: RECIPIENT, buyToken: USDC, minAmountOut: minOut});
+        vm.startPrank(FROM, FROM);
+        snapStartName(name);
+        settler.execute(slippage, actions, bytes32(0));
+        snapEnd();
+        vm.stopPrank();
     }
 
     function _twoCandidates(uint256 uniswapMinOut, uint256 aerodromeMinOut)

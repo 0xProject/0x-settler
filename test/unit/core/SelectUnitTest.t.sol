@@ -11,7 +11,6 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BaseSettlerMetaTxn} from "src/chains/Base/MetaTxn.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
-import {Select} from "src/core/Select.sol";
 import {Shortfall} from "src/core/SettlerErrors.sol";
 import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
 import {Permit2Signature} from "test/utils/Permit2Signature.sol";
@@ -20,15 +19,6 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
     function _candidate(address p) internal pure returns (bytes[] memory c) {
         c = new bytes[](1);
         c[0] = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, p, 0, abi.encodeCall(Pool.swap, ())));
-    }
-
-    function _candidateHash(bytes[] memory c) internal pure returns (bytes32 result) {
-        bytes memory e = abi.encode(c);
-        // Hash the candidate's ABI frame without copying it.
-        // Equivalent Solidity: `result = keccak256(abi.encode(c)[32:])`.
-        assembly ("memory-safe") {
-            result := keccak256(add(e, 0x40), sub(mload(e), 0x20))
-        }
     }
 
     function _unreachableTargets(uint256 n) internal pure returns (uint256[] memory targets) {
@@ -40,6 +30,8 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     uint256 internal constant MAKER_PRIVATE_KEY = 0x123456;
     uint256 internal constant METATXN_TAKER_PRIVATE_KEY = 0x654321;
+    // The private callback tag: selector for `executeSelected(bytes[],address,uint256)`.
+    bytes4 internal constant SELECT_CALLBACK_TAG = 0x1bbdbb47;
     bytes32 internal constant META_TXN_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
     );
@@ -133,6 +125,11 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runAction(_selectAction(TEST_GAS_CAP, token, targets, candidates), minOut);
     }
 
+    function _unarmedCallbackCall() internal pure returns (bytes memory) {
+        // A well-formed callback payload: actions offset 0x60, zero token/minOut, empty actions array.
+        return abi.encodeWithSelector(SELECT_CALLBACK_TAG, uint256(0x60), uint256(0), uint256(0), uint256(0));
+    }
+
     function _selectAction(uint256 gasCap, address token, uint256[] memory targets, bytes[][] memory candidates)
         internal
         pure
@@ -181,27 +178,21 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
-    function test_bounds_targetsRegionPastDataEnd_reverts() public {
+    function test_bounds_targetsOffsetNotCanonical_reverts() public {
         bytes memory action = _malformedAction(1);
-        // Point the targets array one word past the signed SELECT action.
-        // Equivalent Solidity: `action.targets.offset = action.end + 32`.
+        // Move the targets tail one word past its canonical 0x80 offset.
         assembly ("memory-safe") {
-            let actionEnd := add(add(action, 0x20), mload(action))
-            let arguments := add(action, 0x24)
-            mstore(add(action, 0x64), add(sub(actionEnd, arguments), 0x20))
+            mstore(add(action, 0x64), 0xa0)
         }
 
         _runMalformed(action);
     }
 
-    function test_bounds_candidatesTablePastDataEnd_reverts() public {
+    function test_bounds_candidatesOffsetNotCanonical_reverts() public {
         bytes memory action = _malformedAction(1);
-        // Place a one-entry table where only its length word fits.
+        // Move the candidates tail one word past `0xa0 + 0x20 * n`.
         assembly ("memory-safe") {
-            let actionEnd := add(add(action, 0x20), mload(action))
-            let arguments := add(action, 0x24)
-            mstore(add(action, 0x84), sub(sub(actionEnd, arguments), 0x20))
-            mstore(sub(actionEnd, 0x20), 0x01)
+            mstore(add(action, 0x84), add(0x20, mload(add(action, 0x84))))
         }
 
         _runMalformed(action);
@@ -277,28 +268,100 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
-    function test_bounds_trailingBytesAfterLastCandidate_reverts() public {
-        bytes memory action = bytes.concat(_malformedAction(1), abi.encode(bytes32(0)));
+    function test_trailingBytes_joinLastFrame_trialStillRuns() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        // Trailing bytes become part of the last frame slice; the decoder ignores them and the
+        // trial still runs to its measured Shortfall.
+        bytes memory action = bytes.concat(
+            _selectAction(TEST_GAS_CAP, address(0), _unreachableTargets(1), candidates), abi.encode(bytes32(0))
+        );
 
-        _runMalformed(action);
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 0));
+        _runAction(action, 0);
     }
 
     function test_bounds_zeroCandidates_reverts() public {
         _runMalformed(_malformedAction(0));
     }
 
-    function test_bounds_fourCandidates_reverts() public {
-        _runMalformed(_malformedAction(4));
+    function test_bounds_candidateCountMismatch_reverts() public {
+        bytes memory action = _malformedAction(1);
+        assembly ("memory-safe") {
+            let dataStart := add(action, 0x24)
+            let base := add(dataStart, mload(add(action, 0x84)))
+            mstore(base, 0x02)
+        }
+
+        _runMalformed(action);
     }
 
-    function test_bounds_threeCandidates_passes() public {
-        p2.set(7 ether, false);
-        uint256[] memory targets = _unreachableTargets(3);
-        targets[2] = 7 ether;
+    function test_bounds_oversizedCandidateCountWrappedOffsets_reverts() public {
+        bytes memory action = _malformedAction(1);
+        // For n = 2^256 - 1, `0xa0 + 0x20 * n` wraps to 0x80.
+        assembly ("memory-safe") {
+            mstore(add(action, 0x84), 0x80)
+            mstore(add(action, 0xa4), not(0x00))
+        }
 
-        _run(address(buy), targets, _candidates3(), 7 ether);
+        _runMalformed(action);
+    }
+
+    function testFuzz_bounds_canonicalEncodingAcceptedAndOffsetPerturbationRejected(
+        uint8 candidateCount,
+        uint128 offsetDelta
+    ) public {
+        uint256 n = bound(candidateCount, 1, 8);
+        uint256 delta = bound(offsetDelta, 1, type(uint128).max);
+        bytes[][] memory candidates = new bytes[][](n);
+        for (uint256 i; i < n; ++i) {
+            candidates[i] = new bytes[](0);
+        }
+
+        _run(address(0), new uint256[](n), candidates, 0);
+
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](n), candidates);
+        assembly ("memory-safe") {
+            mstore(add(action, 0x84), add(delta, mload(add(action, 0x84))))
+        }
+        _runMalformed(action);
+    }
+
+    function test_ladder_fourCandidates_commitsFourth() public {
+        p0.set(4 ether, false);
+        p1.set(5 ether, false);
+        p2.set(7 ether, false);
+        bytes[][] memory candidates = new bytes[][](4);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(p1));
+        candidates[2] = _candidate(address(p2));
+        candidates[3] = _candidate(address(p2));
+        uint256[] memory targets = _unreachableTargets(4);
+        targets[3] = 7 ether;
+
+        _run(address(buy), targets, candidates, 7 ether);
 
         assertEq(buy.balanceOf(recipient), 7 ether);
+        assertEq(p2.callCount(), 1, "only the committed fourth call persists");
+    }
+
+    function test_bounds_gapBeforeFirstCandidate_reverts() public {
+        bytes memory action = _malformedAction(1);
+        bytes memory gapped = new bytes(action.length + 0x20);
+        // Splice a zero word between the offset table and the frame and point candidate 0 past
+        // it. The frame bytes are untouched, so without the first-offset pin this action would
+        // validate and commit; only the gap is invalid.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let table0 := add(add(action, 0x44), candidatesOffset)
+            let frame := add(0x20, table0)
+            let prefix := sub(frame, add(action, 0x20))
+            mcopy(add(gapped, 0x20), add(action, 0x20), prefix)
+            mcopy(add(add(gapped, 0x40), prefix), frame, sub(mload(action), prefix))
+            mstore(add(add(gapped, 0x44), candidatesOffset), 0x40)
+        }
+        vm.expectRevert(new bytes(0));
+        _runAction(gapped, 0);
     }
 
     function test_fallback_primaryRevert_commitsAlternate() public {
@@ -329,7 +392,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         p2.set(9 ether, false);
         bytes[][] memory candidates = _candidates3();
 
-        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 9 ether, _candidateHash(candidates[2])));
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 9 ether));
         _run(address(buy), _unreachableTargets(3), candidates, 0);
     }
 
@@ -385,7 +448,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(sell.balanceOf(maker), 1 ether, "maker received the committed input");
     }
 
-    function test_nestedSelect_losingOuterCandidateRollsBackInnerPermit() public {
+    function test_safety_failedTrial_clearsOperatorSlotForNextTrial() public {
         uint256 nonce = 45;
         _fundRfq(7 ether);
         p0.set(9 ether, false);
@@ -419,7 +482,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory outerCandidates = new bytes[][](1);
         outerCandidates[0] = nestedCandidate;
 
-        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 5 ether, _candidateHash(innerCandidate)));
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 5 ether));
         _run(address(buy), _unreachableTargets(1), outerCandidates, 0);
     }
 
@@ -500,15 +563,21 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     function testFuzz_shortNestedAction_revertsCleanly(uint256 len) public {
         len = bound(len, 0, 3);
-        vm.prank(address(settler));
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = ActionDataBuilder.build(new bytes(len));
         vm.expectPartialRevert(ActionInvalid.selector);
-        Select(address(settler))
-            .executeSelected(ActionDataBuilder.build(new bytes(len)), IERC20(address(0)), 0, bytes32(0));
+        _run(address(0), new uint256[](1), candidates, 0);
     }
 
-    function test_executeSelected_externalCaller_reverts() public {
-        vm.expectRevert(bytes(""));
-        Select(address(settler)).executeSelected(new bytes[](0), IERC20(address(0)), 0, bytes32(0));
+    function test_safety_directExternalOldSelector_doesNothingDangerous() public {
+        address caller = makeAddr("untrusted caller");
+
+        vm.recordLogs();
+        vm.prank(caller, caller);
+        (bool success,) = address(settler).call(_unarmedCallbackCall());
+
+        assertFalse(success, "unarmed selector rejected");
+        assertEq(vm.getRecordedLogs().length, 0, "no logs");
     }
 
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
@@ -552,35 +621,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p1.callCount(), 0, "second candidate not attempted without reserve");
     }
 
-    function _settlerLog() internal returns (Vm.Log memory result) {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        uint256 n;
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter == address(settler)) {
-                result = logs[i];
-                n++;
-            }
-        }
-        assertEq(n, 1, "exactly one attribution log");
-    }
-
-    function test_commit_emitsAttributionLog() public {
-        p0.set(7 ether, false);
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _candidate(address(p0));
-        uint256[] memory targets = new uint256[](1);
-        targets[0] = 7 ether;
-
-        vm.recordLogs();
-        _run(address(buy), targets, candidates, 7 ether);
-
-        Vm.Log memory log = _settlerLog();
-        assertEq(log.topics.length, 1, "log1: single topic");
-        assertEq(log.topics[0], _candidateHash(candidates[0]), "topic is the candidate hash");
-        assertEq(log.data, abi.encode(uint256(7 ether)), "data is the score");
-    }
-
-    function test_missedTrial_emitsNoAttributionLog() public {
+    function test_select_emitsNoSettlerLogs() public {
         p0.set(5 ether, false);
         p1.set(7 ether, false);
         bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
@@ -591,27 +632,97 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         vm.recordLogs();
         _run(address(buy), targets, candidates, 7 ether);
 
-        Vm.Log memory log = _settlerLog();
-        assertEq(log.topics[0], _candidateHash(candidates[1]), "topic is the candidate hash");
-        assertEq(log.data, abi.encode(uint256(7 ether)), "data is the score");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            assertTrue(logs[i].emitter != address(settler), "neither the miss nor the commit logs from Settler");
+        }
+        assertEq(buy.balanceOf(recipient), 7 ether, "second candidate committed");
     }
 
-    function test_basicSelfCall_emitsCallerChosenAttribution() public {
-        bytes32 candidateHash = bytes32(uint256(1));
-        bytes memory selfCall =
-            abi.encodeCall(Select.executeSelected, (new bytes[](0), IERC20(address(0)), 0, candidateHash));
-        bytes memory action = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, address(settler), 0, selfCall));
+    function test_safety_basicSelfCallOldSelector_withoutArmedCallback_isInert() public {
+        bytes memory action = abi.encodeCall(
+            ISettlerActions.BASIC, (address(0), 0, address(settler), 0, _unarmedCallbackCall())
+        );
 
         vm.recordLogs();
+        vm.expectRevert();
         _runAction(action, 0);
 
-        Vm.Log memory log = _settlerLog();
-        assertEq(log.topics[0], candidateHash, "topic is caller chosen");
-        assertEq(log.data, abi.encode(uint256(0)), "data is zero score");
+        assertEq(vm.getRecordedLogs().length, 0, "no logs");
     }
 }
 
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
+
+/// @dev Separate contract: SelectUnitTest sits at the unit-profile deploy-gas ceiling.
+contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
+    BaseSettler internal settler;
+    MockERC20 internal buy;
+    Pool internal p0;
+    address internal recipient = makeAddr("recipient");
+    address internal taker = makeAddr("taker");
+
+    function setUp() public {
+        deployPermit2();
+        settler = new BaseSettler(bytes20(0));
+        buy = new MockERC20("Buy", "BUY", 18);
+        p0 = new Pool(IERC20(address(buy)));
+        buy.mint(address(p0), 1_000 ether);
+        p0.set(7 ether, false);
+    }
+
+    /// @dev One candidate, one authored action, with the frame's inner action offset overwritten.
+    function _perturbedAction(uint256 offset) internal view returns (bytes memory action) {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = new bytes[](1);
+        candidates[0][0] =
+            abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, address(p0), 0, abi.encodeCall(Pool.swap, ())));
+        action = abi.encodeCall(ISettlerActions.SELECT, (400_000, address(0), new uint256[](1), candidates));
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let frame := add(add(action, 0x64), candidatesOffset)
+            mstore(add(0x20, frame), offset)
+        }
+    }
+
+    function _execute(bytes memory action) internal {
+        vm.prank(taker, taker);
+        settler.execute(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
+            }),
+            ActionDataBuilder.build(action),
+            bytes32(0)
+        );
+    }
+
+    /// @dev The frame copy is the isolation boundary: the self-call's calldata ends at the frame
+    ///      end, so an inner action offset pointing past it reads zeros and fails the decoder.
+    function test_innerOffsetPastFrame_revertsActionInvalid() public {
+        vm.expectPartialRevert(ActionInvalid.selector);
+        _execute(_perturbedAction(0x2000));
+    }
+
+    /// @dev Any perturbation of the inner action offset either decodes the authored candidate or
+    ///      reverts the trial whole. Forward reads cannot pass the trial-calldata boundary; negative
+    ///      offsets alias only the caller-derived callback head.
+    function testFuzz_innerOffsetPerturbation_containedToTrial(uint256 offset) public {
+        bytes memory action = _perturbedAction(offset);
+        vm.prank(taker, taker);
+        try settler.execute(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
+            }),
+            ActionDataBuilder.build(action),
+            bytes32(0)
+        ) {
+            assertEq(buy.balanceOf(recipient), 7 ether, "a committing offset decoded the authored action");
+        } catch {
+            assertEq(buy.balanceOf(recipient), 0, "a failed trial paid nothing");
+        }
+        assertEq(buy.balanceOf(address(settler)), 0, "no residue either way");
+    }
+}
 
 contract Pool {
     IERC20 internal immutable t;

@@ -7,6 +7,7 @@ interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
     /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
+
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -223,7 +224,7 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Tries one-to-three funded candidates and commits the first to meet its target. A score
+    /// @dev Tries funded candidates in order and commits the first to meet its target. A score
     ///      is the increase in Settler-held `token`. Zero token scores success. Score native as WETH.
     ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
     ///      Nest in the fallback unless its full reserve fits the enclosing trial.

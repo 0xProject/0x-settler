@@ -95,6 +95,12 @@ library TransientStorage {
         }
     }
 
+    function clearOperatorAndCallback() internal {
+        assembly ("memory-safe") {
+            tstore(_OPERATOR_SLOT, 0x00)
+        }
+    }
+
     function getAndClearCallback()
         internal
         returns (function(bytes calldata) internal returns (bytes memory) callback)
