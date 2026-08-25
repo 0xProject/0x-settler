@@ -18,6 +18,7 @@
   Immunefi bug 78645
 * Add Orvex CL PancakeInfinity fork to RobinHood chain
   * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and `METATXN_PANCAKE_INFINITY_VIP`
+* Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to Monad
 
 ## 2026-07-27
 
