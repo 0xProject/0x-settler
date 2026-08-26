@@ -18,7 +18,7 @@ import {
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
 import {aboreanCLSwapFactory, aboreanCLSwapInitHash, aboreanCLSwapForkId} from "../../core/univ3forks/AboreanCL.sol";
-import {konaV3Factory, konaV3InitHash, konaV3ForkId, IPunchSwapV3Callback} from "../../core/univ3forks/KonaV3.sol";
+import {konaV3Factory, konaV3InitHash, konaV3ForkId, IKonaV3Callback} from "../../core/univ3forks/KonaV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -66,7 +66,7 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
         } else if (forkId == konaV3ForkId) {
             factory = konaV3Factory;
             initHash = konaV3InitHash;
-            callbackSelector = uint32(IPunchSwapV3Callback.punchSwapV3SwapCallback.selector);
+            callbackSelector = uint32(IKonaV3Callback.punchSwapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
