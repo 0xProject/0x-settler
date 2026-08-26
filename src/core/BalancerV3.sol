@@ -420,11 +420,10 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
 
     function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, State state) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
-        unchecked {
-            // `amountIn` is always exactly `wrapParams.amountGiven`
-            NotePtr sell = state.sell();
-            sell.setAmount(sell.amount() - amountIn);
-        }
+        // `amountIn` is always exactly `wrapParams.amountGiven`, but `wrapParams.amountGiven` can
+        // exceed `sell.amount()` if `ppm` exceeds `BASIS`
+        NotePtr sell = state.sell();
+        sell.setAmount(sell.amount().checkedSub(amountIn));
         // `amountOut` may depend on the behavior of the ERC4626 vault. We can make no assumptions
         // about the reasonableness of the range of values that may be returned.
         NotePtr buy = state.buy();
