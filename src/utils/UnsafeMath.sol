@@ -155,13 +155,4 @@ library Math {
             r := sub(xor(sub(x, y), m), m)
         }
     }
-
-    function checkedSub(uint256 x, uint256 y) internal pure returns (uint256 r) {
-        unchecked {
-            r = x - y;
-        }
-        if (r > x) {
-            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-        }
-    }
 }

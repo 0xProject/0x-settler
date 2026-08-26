@@ -7,7 +7,8 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
-import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
+import {Panic} from "../utils/Panic.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
@@ -248,7 +249,6 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note[];
     using Ternary for bool;
-    using Math for uint256;
 
     using UnsafeVault for IBalancerV3Vault;
 
@@ -400,10 +400,11 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         Decoder.overflowCheck(data);
 
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
-        // `amountIn` is always exactly `swapParams.amountGiven`, but `swapParams.amountGiven` can
-        // exceed `sell.amount()` if `ppm` exceeds `BASIS`
-        NotePtr sell = state.sell();
-        sell.setAmount(sell.amount().checkedSub(amountIn));
+        unchecked {
+            // `amountIn` is always exactly `swapParams.amountGiven`
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
+        }
 
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
@@ -420,10 +421,11 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
 
     function _erc4626WrapUnwrap(IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams, State state) private {
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeErc4626BufferWrapOrUnwrap(wrapParams);
-        // `amountIn` is always exactly `wrapParams.amountGiven`, but `wrapParams.amountGiven` can
-        // exceed `sell.amount()` if `ppm` exceeds `BASIS`
-        NotePtr sell = state.sell();
-        sell.setAmount(sell.amount().checkedSub(amountIn));
+        unchecked {
+            // `amountIn` is always exactly `wrapParams.amountGiven`
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
+        }
         // `amountOut` may depend on the behavior of the ERC4626 vault. We can make no assumptions
         // about the reasonableness of the range of values that may be returned.
         NotePtr buy = state.buy();
@@ -513,13 +515,18 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                 data.length := sub(data.length, 0x03)
                 // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
-
             data = Decoder.updateState(state, notes, data);
 
             if (ppm & 0xc00000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
                 unchecked {
-                    swapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(BASIS);
+                    uint256 sellAmount = state.sell().amount();
+                    uint256 amountGiven = (sellAmount * ppm).unsafeDiv(BASIS);
+                    if (amountGiven > sellAmount) {
+                        // `ppm` is over `BASIS`
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                    }
+                    swapParams.amountGiven = amountGiven;
                 }
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
@@ -534,7 +541,13 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                 }
                 ppm &= 0x3fffff;
                 unchecked {
-                    wrapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(BASIS);
+                    uint256 sellAmount = state.sell().amount();
+                    uint256 amountGiven = (sellAmount * ppm).unsafeDiv(BASIS);
+                    if (amountGiven > sellAmount) {
+                        // `ppm` is over `BASIS`
+                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                    }
+                    wrapParams.amountGiven = amountGiven;
                 }
 
                 _erc4626WrapUnwrap(wrapParams, state);
