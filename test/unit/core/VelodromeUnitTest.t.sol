@@ -118,6 +118,16 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
+    function _setOperatorAndTryCall(
+        address,
+        uint256,
+        bytes memory,
+        uint32,
+        function(bytes calldata) internal returns (bytes memory)
+    ) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
     modifier metaTx(address, bytes32) override {
         revert("unimplemented");
         _;

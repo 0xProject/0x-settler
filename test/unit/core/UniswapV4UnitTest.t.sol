@@ -303,6 +303,16 @@ contract UniswapV4Stub is UniswapV4 {
         return returndata;
     }
 
+    function _setOperatorAndTryCall(
+        address,
+        uint256,
+        bytes memory,
+        uint32,
+        function(bytes calldata) internal returns (bytes memory)
+    ) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
     modifier metaTx(address msgSender, bytes32 witness) override {
         revert("unimplemented");
         _;

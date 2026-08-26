@@ -100,7 +100,8 @@ contract SelectBase is SettlerBasePairTest {
 
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
-        // Foundry snapshot/revert restores EIP-2929 account and slot warmth; isolated gas probes verified it.
+        // `vm.revertToState` restores EIP-2929 coldness, so this pre-run does not warm the snapped
+        // execute below. Measured: account 2611 cold / 108 warm / 2614 after revert; slot 2108/2/2114.
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
 
         uint256[] memory targets = new uint256[](2);

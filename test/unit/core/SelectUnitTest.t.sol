@@ -166,6 +166,16 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runAction(action, 0);
     }
 
+    function test_bounds_dirtyTokenUpperBits_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(0, address(buy), new uint256[](1), candidates);
+        // Dirty the most significant byte of the 160-bit `token` word (selector, gasCap, token).
+        action[0x24] = 0x01;
+        _runMalformed(action);
+        assertEq(p0.callCount(), 0, "no trial ran on a dirty token");
+    }
+
     function test_bounds_candidateOffsetIntoTable_reverts() public {
         bytes memory action = _malformedAction(1);
         // Point candidate 0 at its own offset-table entry instead of its encoded body.

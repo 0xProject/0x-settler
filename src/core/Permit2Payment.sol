@@ -233,6 +233,29 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
+
+    /// @dev Revert-tolerant variant of `_setOperatorAndCall` for trial calls: the call runs under
+    ///      an explicit gas limit, failure returns `false` instead of bubbling, and returndata is
+    ///      not copied so the caller can inspect only the trial it cares about. The trust
+    ///      requirements on `target` above apply here too.
+    function _setOperatorAndTryCall(
+        address target,
+        uint256 gasLimit,
+        bytes memory data,
+        uint32 selector,
+        function(bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bool success) {
+        TransientStorage.setOperatorAndCallback(target, selector, callback);
+        assembly ("memory-safe") {
+            success := call(gasLimit, target, 0x00, add(0x20, data), mload(data), 0x00, 0x00)
+        }
+        if (success) {
+            TransientStorage.checkSpentOperatorAndCallback();
+        } else {
+            // The failed call reverted its own tstore changes but not ours.
+            TransientStorage.clearOperatorAndCallback();
+        }
+    }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {

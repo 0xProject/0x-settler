@@ -195,7 +195,7 @@ abstract contract MainnetMixin is
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.SELECT.selector)) {
-            _select(data);
+            select(data);
         } else {
             return false;
         }

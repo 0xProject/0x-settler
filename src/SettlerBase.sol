@@ -175,7 +175,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                 }
             }
         } else if (action == uint32(ISettlerActions.SELECT.selector)) {
-            _select(data);
+            select(data);
         } else {
             return false;
         }
