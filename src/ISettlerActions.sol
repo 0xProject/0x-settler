@@ -225,7 +225,7 @@ interface ISettlerActions {
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
     /// @dev Tries funded candidates in order and commits the first to meet its target. A score
-    ///      is the increase in Settler-held `token`; a zero target commits any non-reverting
+    ///      is the increase in Settler-held `token`. A zero target commits any non-reverting
     ///      candidate. Native output only scores if wrapped within the candidate.
     ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
     ///      Put a nested `SELECT` in the final candidate unless its full reserve fits the enclosing trial.

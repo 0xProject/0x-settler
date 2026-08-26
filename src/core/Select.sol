@@ -26,9 +26,9 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 minOut;
         // Read the trusted callback body without writing memory:
         // `[0x00 actions=0x60][0x20 token][0x40 minOut][0x60 actions length][0x80 offsets/frames]`.
-        // `select` built this payload with the fixed `0x60` head, a verified-clean `token`, and
-        // copied only this frame. Forward reads past the trial calldata return zero; a failing action
-        // reverts only this trial.
+        // `select` built this payload with the fixed `0x60` head and a verified-clean `token`,
+        // and copied only this candidate's frame. Reads past the end of the trial calldata
+        // return zero. A failing action reverts only this trial.
         assembly ("memory-safe") {
             actions.length := calldataload(add(0x60, data.offset))
             actions.offset := add(0x80, data.offset)
@@ -77,7 +77,7 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(xor(calldataload(base), n), err)
             err := or(gt(add(tableSize, candsData), dataEnd), err)
             // The first frame starts at the offset-table end, so every byte belongs to the head,
-            // a table, or exactly one frame. Strict ordering then bounds each later start below;
+            // a table, or exactly one frame. Strict ordering bounds each later start below.
             // `maxOffset` bounds it above.
             err := or(xor(calldataload(candsData), tableSize), err)
 
@@ -159,8 +159,8 @@ abstract contract Select is SettlerSwapAbstract {
     }
 
     function _runActions(bytes[] calldata actions) internal {
-        // Nested `CHECK_SLIPPAGE` receives zeroed slippage. Ordinary flavors return without
-        // transferring; mandatory-slippage flavors revert only the trial.
+        // A nested `CHECK_SLIPPAGE` sees this zeroed struct, so it transfers nothing. Where the
+        // slippage check is mandatory it reverts, which kills only its own trial.
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {
