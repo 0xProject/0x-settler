@@ -19,6 +19,9 @@ contract MainnetSelectDispatchTest is Test {
         vm.mockCall(
             0xdAC17F958D2ee523a2206206994597C13D831ec7, abi.encodeCall(IERC20.decimals, ()), abi.encode(uint8(6))
         );
+        vm.mockCall(
+            0xdAC17F958D2ee523a2206206994597C13D831ec7, abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(0)
+        );
         settler = new MainnetSettler(bytes20(0));
     }
 
@@ -30,7 +33,8 @@ contract MainnetSelectDispatchTest is Test {
         targets[0] = target;
 
         actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (0, address(0), targets, candidates));
+        actions[0] =
+            abi.encodeCall(ISettlerActions.SELECT, (0, 0xdAC17F958D2ee523a2206206994597C13D831ec7, targets, candidates));
     }
 
     function _execute(bytes[] memory actions) private {

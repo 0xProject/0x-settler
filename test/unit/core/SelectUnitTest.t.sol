@@ -126,7 +126,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
     }
 
     function _unarmedCallbackCall() internal pure returns (bytes memory) {
-        // A well-formed callback payload: actions offset 0x60, zero token/minOut, empty actions array.
+        // An ABI-shaped callback payload: actions offset 0x60, zero token/minOut, empty actions array.
         return abi.encodeWithSelector(SELECT_CALLBACK_TAG, uint256(0x60), uint256(0), uint256(0), uint256(0));
     }
 
@@ -143,7 +143,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         for (uint256 i; i < candidatesLength; ++i) {
             candidates[i] = _candidate(address(p0));
         }
-        action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](candidatesLength), candidates);
+        action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](candidatesLength), candidates);
     }
 
     function _runAction(bytes memory action, uint256 minOut) internal {
@@ -174,6 +174,13 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         action[0x24] = 0x01;
         _runMalformed(action);
         assertEq(p0.callCount(), 0, "no trial ran on a dirty token");
+    }
+
+    function test_bounds_zeroToken_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        _runMalformed(_selectAction(0, address(0), new uint256[](1), candidates));
+        assertEq(p0.callCount(), 0, "no trial ran on a zero token");
     }
 
     function test_bounds_candidateOffsetIntoTable_reverts() public {
@@ -284,7 +291,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         // Trailing bytes become part of the last frame slice; the decoder ignores them and the
         // trial still runs to its measured Shortfall.
         bytes memory action = bytes.concat(
-            _selectAction(TEST_GAS_CAP, address(0), _unreachableTargets(1), candidates), abi.encode(bytes32(0))
+            _selectAction(TEST_GAS_CAP, address(buy), _unreachableTargets(1), candidates), abi.encode(bytes32(0))
         );
 
         vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 0));
@@ -328,9 +335,9 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
             candidates[i] = new bytes[](0);
         }
 
-        _run(address(0), new uint256[](n), candidates, 0);
+        _run(address(buy), new uint256[](n), candidates, 0);
 
-        bytes memory action = _selectAction(TEST_GAS_CAP, address(0), new uint256[](n), candidates);
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](n), candidates);
         assembly ("memory-safe") {
             mstore(add(action, 0x84), add(delta, mload(add(action, 0x84))))
         }
@@ -377,7 +384,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
     function test_fallback_primaryRevert_commitsAlternate() public {
         p0.set(10 ether, true);
         p1.set(7 ether, false);
-        _run(address(0), new uint256[](3), _candidates3(), 7 ether);
+        _run(address(buy), new uint256[](3), _candidates3(), 7 ether);
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate's output only (primary rolled back)");
         assertEq(p1.callCount(), 1, "alternate committed");
         assertEq(p2.callCount(), 0, "third candidate never reached");
@@ -423,7 +430,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         targets[0] = 1;
 
         vm.expectRevert("leg reverted");
-        _run(address(0), targets, candidates, 0);
+        _run(address(buy), targets, candidates, 0);
     }
 
     function test_losingRfq_rollsBackMakerPermitAndTransfers() public {
@@ -541,7 +548,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         candidates[0] = new bytes[](0);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(metaTxn), permit)),
-            _selectAction(0, address(0), new uint256[](1), candidates)
+            _selectAction(0, address(sell), new uint256[](1), candidates)
         );
 
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
@@ -576,7 +583,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory candidates = new bytes[][](1);
         candidates[0] = ActionDataBuilder.build(new bytes(len));
         vm.expectPartialRevert(ActionInvalid.selector);
-        _run(address(0), new uint256[](1), candidates, 0);
+        _run(address(buy), new uint256[](1), candidates, 0);
     }
 
     function test_safety_directExternalOldSelector_doesNothingDangerous() public {
@@ -593,7 +600,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
     function test_fallback_gasCap_stallingCandidateCannotStarve() public {
         p1.set(7 ether, false);
         bytes[][] memory candidates = _candidatePair(_candidate(_gasBurner()), _candidate(address(p1)));
-        _runAction(_selectAction(300_000, address(0), new uint256[](2), candidates), 7 ether, 1_500_000);
+        _runAction(_selectAction(300_000, address(buy), new uint256[](2), candidates), 7 ether, 1_500_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "alternate committed despite the staller");
     }
 
@@ -604,7 +611,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         candidates[0] = _candidate(_gasBurner());
         candidates[1] = _candidate(_gasBurner());
         candidates[2] = _candidate(address(finisher));
-        _runAction(_selectAction(300_000, address(0), new uint256[](3), candidates), 7 ether, 1_200_000);
+        _runAction(_selectAction(300_000, address(buy), new uint256[](3), candidates), 7 ether, 1_200_000);
         assertEq(buy.balanceOf(recipient), 7 ether, "final fallback candidate committed");
         assertEq(finisher.callCount(), 1, "final candidate ran uncapped");
     }
@@ -614,7 +621,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
 
         vm.expectRevert();
-        _runAction(_selectAction(0, address(0), new uint256[](2), candidates), 0, 1_000_000);
+        _runAction(_selectAction(0, address(buy), new uint256[](2), candidates), 0, 1_000_000);
 
         assertEq(p0.callCount(), 0, "first candidate not attempted without a cap");
     }
@@ -625,7 +632,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
 
         vm.expectRevert();
-        _runAction(_selectAction(300_000, address(0), new uint256[](2), candidates), 0, 500_000);
+        _runAction(_selectAction(300_000, address(buy), new uint256[](2), candidates), 0, 500_000);
 
         assertEq(p0.callCount(), 0, "first candidate not attempted without reserve");
         assertEq(p1.callCount(), 0, "second candidate not attempted without reserve");
@@ -687,7 +694,7 @@ contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
         candidates[0] = new bytes[](1);
         candidates[0][0] =
             abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, address(p0), 0, abi.encodeCall(Pool.swap, ())));
-        action = abi.encodeCall(ISettlerActions.SELECT, (400_000, address(0), new uint256[](1), candidates));
+        action = abi.encodeCall(ISettlerActions.SELECT, (400_000, address(buy), new uint256[](1), candidates));
         assembly ("memory-safe") {
             let candidatesOffset := mload(add(action, 0x84))
             let frame := add(add(action, 0x64), candidatesOffset)

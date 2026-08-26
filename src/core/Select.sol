@@ -18,10 +18,6 @@ abstract contract Select is SettlerSwapAbstract {
     // bytes4(keccak256("executeSelected(bytes[],address,uint256)"))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
-    function _balanceOfOrZero(IERC20 token) private view returns (uint256) {
-        return address(token) == address(0) ? 0 : token.fastBalanceOf(address(this));
-    }
-
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
         bytes[] calldata actions;
         IERC20 token;
@@ -37,9 +33,9 @@ abstract contract Select is SettlerSwapAbstract {
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
         }
-        uint256 balBefore = _balanceOfOrZero(token);
+        uint256 balBefore = token.fastBalanceOf(address(this));
         _runActions(actions);
-        uint256 score = _balanceOfOrZero(token) - balBefore;
+        uint256 score = token.fastBalanceOf(address(this)) - balBefore;
         if (score < minOut) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`
@@ -59,14 +55,14 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 n;
         // Validate the canonical outer SELECT head and candidate-frame table without writing memory:
         // `[0x00 gasCap][0x20 token][0x40 targets=0x80][0x60 candidates=0xa0+0x20*n]`, then
-        // `[0x80 n][0xa0 targets][candidates length/table/frames]`. Dirty upper bits in `token` throw.
+        // `[0x80 n][0xa0 targets][candidates length/table/frames]`. A zero or dirty `token` throws.
         assembly ("memory-safe") {
             let dataStart := data.offset
             dataEnd := add(dataStart, data.length)
             let err := or(lt(dataEnd, dataStart), gt(dataEnd, calldatasize()))
             gasCap := calldataload(dataStart)
             token := calldataload(add(0x20, dataStart))
-            err := or(shr(0xa0, token), err)
+            err := or(or(shr(0xa0, token), iszero(token)), err)
             n := calldataload(add(dataStart, 0x80))
             let tableSize := shl(0x05, n)
             let candidatesOffset := add(0xa0, tableSize)

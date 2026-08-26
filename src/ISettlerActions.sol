@@ -225,7 +225,8 @@ interface ISettlerActions {
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
     /// @dev Tries funded candidates in order and commits the first to meet its target. A score
-    ///      is the increase in Settler-held `token`. Zero token scores success. Score native as WETH.
+    ///      is the increase in Settler-held `token`; a zero target commits any non-reverting
+    ///      candidate. Score native as WETH.
     ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
     ///      Nest in the fallback unless its full reserve fits the enclosing trial.
     // Pre-req: Funded

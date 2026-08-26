@@ -64,7 +64,7 @@ contract SelectBase is SettlerBasePairTest {
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
         bytes[][] memory candidates = _twoCandidates(type(uint256).max, 0);
         uint256[] memory targets = new uint256[](2);
-        bytes[] memory actions = _selectActions(address(0), targets, candidates);
+        bytes[] memory actions = _selectActions(address(USDC), targets, candidates);
 
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
         _snapExecute("settler_selectFallbackRescue", actions, 1);
@@ -77,7 +77,7 @@ contract SelectBase is SettlerBasePairTest {
 
     function testFirstCandidateSuccess_commitsImmediately() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
-        bytes[] memory actions = _selectActions(address(0), new uint256[](2), candidates);
+        bytes[] memory actions = _selectActions(address(USDC), new uint256[](2), candidates);
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
 
         _snapExecute("settler_selectFirstCandidate", actions, 1);
@@ -100,8 +100,7 @@ contract SelectBase is SettlerBasePairTest {
 
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
-        // `vm.revertToState` restores EIP-2929 coldness, so this pre-run does not warm the snapped
-        // execute below. Measured: account 2611 cold / 108 warm / 2614 after revert; slot 2108/2/2114.
+        // `vm.revertToState` restores EIP-2929 coldness, so this pre-run does not warm the snapped execute.
         uint256 aerodromeOutput = _standaloneOutput(candidates[1]);
 
         uint256[] memory targets = new uint256[](2);
@@ -128,7 +127,7 @@ contract SelectBase is SettlerBasePairTest {
 
         uint256 firstActionOutput = _standaloneOutput(candidates[0]);
         uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        _execute(_selectActions(address(0), new uint256[](1), candidates), firstActionOutput + 1);
+        _execute(_selectActions(address(USDC), new uint256[](1), candidates), firstActionOutput + 1);
 
         assertGt(USDC.balanceOf(RECIPIENT) - beforeBalance, firstActionOutput, "second action added output");
     }
