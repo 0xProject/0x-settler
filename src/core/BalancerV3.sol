@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
@@ -248,6 +248,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note[];
     using Ternary for bool;
+    using Math for uint256;
 
     using UnsafeVault for IBalancerV3Vault;
 
@@ -402,7 +403,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         // `amountIn` is always exactly `swapParams.amountGiven`, but `swapParams.amountGiven` can
         // exceed `sell.amount()` if `ppm` exceeds `BASIS`
         NotePtr sell = state.sell();
-        sell.setAmount(sell.amount() - amountIn);
+        sell.setAmount(sell.amount().checkedSub(amountIn));
 
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
