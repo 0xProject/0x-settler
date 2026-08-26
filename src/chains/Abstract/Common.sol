@@ -18,6 +18,7 @@ import {
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
 import {aboreanCLSwapFactory, aboreanCLSwapInitHash, aboreanCLSwapForkId} from "../../core/univ3forks/AboreanCL.sol";
+import {konaV3Factory, konaV3InitHash, konaV3ForkId, IPunchSwapV3Callback} from "../../core/univ3forks/KonaV3.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -45,7 +46,7 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
     }
 
     function _isEraVmUniV3Fork(uint8 forkId) internal pure virtual override returns (bool) {
-        return (forkId == uniswapV3ForkId).or(forkId == aboreanCLSwapForkId);
+        return (forkId == uniswapV3ForkId).or(forkId == aboreanCLSwapForkId).or(forkId == konaV3ForkId);
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -62,6 +63,10 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
             factory = aboreanCLSwapFactory;
             initHash = aboreanCLSwapInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == konaV3ForkId) {
+            factory = konaV3Factory;
+            initHash = konaV3InitHash;
+            callbackSelector = uint32(IPunchSwapV3Callback.punchSwapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

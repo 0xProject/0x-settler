@@ -52,6 +52,7 @@
   1_000_000`). Immunefi bug 89191
 * Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to Monad
 * Add `BEBOP` action on RobinHood chain
+* Add Kona V3 UniV3 fork to Abstract with fork ID 47
 
 ## 2026-07-27
 
