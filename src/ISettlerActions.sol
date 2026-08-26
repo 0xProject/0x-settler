@@ -226,9 +226,9 @@ interface ISettlerActions {
 
     /// @dev Tries funded candidates in order and commits the first to meet its target. A score
     ///      is the increase in Settler-held `token`; a zero target commits any non-reverting
-    ///      candidate. Score native as WETH.
+    ///      candidate. Native output only scores if wrapped within the candidate.
     ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
-    ///      Nest in the fallback unless its full reserve fits the enclosing trial.
+    ///      Put a nested `SELECT` in the final candidate unless its full reserve fits the enclosing trial.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;

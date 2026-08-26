@@ -18,6 +18,8 @@ abstract contract Select is SettlerSwapAbstract {
     // bytes4(keccak256("executeSelected(bytes[],address,uint256)"))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
+    uint256 private constant _SELECT_OVERHEAD_GAS = 0x10000;
+
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
         bytes[] calldata actions;
         IERC20 token;
@@ -53,26 +55,27 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 candsData;
         uint256 dataEnd;
         uint256 n;
-        // Validate the canonical outer SELECT head and candidate-frame table without writing memory:
+        // Require the canonical encoding of the SELECT head and candidate-frame table:
         // `[0x00 gasCap][0x20 token][0x40 targets=0x80][0x60 candidates=0xa0+0x20*n]`, then
-        // `[0x80 n][0xa0 targets][candidates length/table/frames]`. A zero or dirty `token` throws.
+        // `[0x80 n][0xa0 targets][candidates length/table/frames]`. The fixed offsets keep the
+        // head and tables contiguous. A zero or dirty `token` reverts.
         assembly ("memory-safe") {
             let dataStart := data.offset
             dataEnd := add(dataStart, data.length)
-            let err := or(lt(dataEnd, dataStart), gt(dataEnd, calldatasize()))
+            let err := or(lt(calldatasize(), dataEnd), lt(dataEnd, dataStart))
             gasCap := calldataload(dataStart)
             token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
-            n := calldataload(add(dataStart, 0x80))
+            n := calldataload(add(0x80, dataStart))
             let tableSize := shl(0x05, n)
             let candidatesOffset := add(0xa0, tableSize)
-            let base := add(dataStart, candidatesOffset)
+            let base := add(candidatesOffset, dataStart)
             candsData := add(0x20, base)
             err := or(xor(0x80, calldataload(add(0x40, dataStart))), err)
             err := or(xor(calldataload(add(0x60, dataStart)), candidatesOffset), err)
             err := or(or(iszero(n), gt(n, div(data.length, 0x20))), err)
             err := or(xor(calldataload(base), n), err)
-            err := or(gt(add(candsData, tableSize), dataEnd), err)
+            err := or(gt(add(tableSize, candsData), dataEnd), err)
             // The first frame starts at the offset-table end, so every byte belongs to the head,
             // a table, or exactly one frame. Strict ordering then bounds each later start below;
             // `maxOffset` bounds it above.
@@ -82,13 +85,13 @@ abstract contract Select is SettlerSwapAbstract {
             let previous := tableSize
             let maxOffset := sub(dataEnd, candsData)
             for { let i := 0x01 } and(iszero(err), lt(i, n)) { i := add(0x01, i) } {
-                let offset := calldataload(add(candsData, shl(0x05, i)))
+                let offset := calldataload(add(shl(0x05, i), candsData))
                 err := or(or(gt(offset, maxOffset), iszero(gt(offset, previous))), err)
                 previous := offset
             }
             if err { revert(0x00, 0x00) }
 
-            targetsData := add(dataStart, 0xa0)
+            targetsData := add(0xa0, dataStart)
         }
 
         for (uint256 i; i < n; i = i.unsafeInc()) {
@@ -97,40 +100,41 @@ abstract contract Select is SettlerSwapAbstract {
             bool isLast;
             // Allocate one callback buffer per trial. Memory layout:
             // `[0x00 len=0x64+frame][0x20 selector][0x24 actions=0x60][0x44 token]`
-            // `[0x64 target][0x84 frame]`. Reserve through the rounded frame end
-            // before the trial call crosses into Solidity.
+            // `[0x64 target][0x84 frame]`. Writing the length last overwrites the selector
+            // word's 28-byte zero prefix, avoiding a selector `PUSH32`.
             assembly ("memory-safe") {
-                let start := add(candsData, calldataload(add(candsData, shl(0x05, i))))
+                let start := add(calldataload(add(shl(0x05, i), candsData)), candsData)
                 let next := dataEnd
                 let remaining := sub(n, i)
-                let later := sub(remaining, 0x01)
+                let later := gt(remaining, 0x01)
                 isLast := iszero(later)
                 if later {
-                    next := add(candsData, calldataload(add(candsData, shl(0x05, add(i, 0x01)))))
+                    next := add(calldataload(add(shl(0x05, add(0x01, i)), candsData)), candsData)
                 }
                 let len := sub(next, start)
                 callData := mload(0x40)
                 let cd := add(0x20, callData)
+                mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
                 mstore(callData, add(0x64, len))
-                mstore(cd, shl(0xe0, _EXECUTE_SELECTED_SELECTOR))
                 mstore(add(0x04, cd), 0x60)
                 mstore(add(0x24, cd), token)
                 let dst := add(0x64, cd)
                 calldatacopy(dst, start, len)
-                mstore(add(0x44, cd), calldataload(add(targetsData, shl(0x05, i))))
-                mstore(0x40, and(add(add(dst, len), 0x1f), not(0x1f)))
+                mstore(add(0x44, cd), calldataload(add(shl(0x05, i), targetsData)))
+                mstore(0x40, add(dst, len))
 
                 gasLimit := gas()
                 if later {
-                    // Reserve every remaining trial's cap plus loop overhead before capping this
-                    // trial. The `gasCap/63` term covers EIP-150's retained sixty-fourth on the
-                    // final uncapped call: `C + floor(C/63)` forwards exactly `C`. Capped trials
-                    // need no retention term because `remaining >= 2` makes 63/64 of `gasLimit`
-                    // exceed `gasCap`. The check re-runs before every capped trial and fails closed.
+                    // Reserve every remaining trial's cap plus `_SELECT_OVERHEAD_GAS` of loop
+                    // overhead before capping this trial. The `gasCap/63` term covers EIP-150's
+                    // retained sixty-fourth on the final uncapped call: `C + floor(C/63)` forwards
+                    // exactly `C`. Capped trials need no retention term because `remaining >= 2`
+                    // makes 63/64 of `gasLimit` exceed `gasCap`. The check re-runs before every
+                    // capped trial and reverts if the reserve no longer fits.
                     let totalCap := mul(gasCap, remaining)
                     if or(
                         or(iszero(gasCap), gt(gasCap, div(gasLimit, remaining))),
-                        lt(gasLimit, add(add(totalCap, div(gasCap, 0x3f)), 0x10000))
+                        lt(gasLimit, add(add(totalCap, div(gasCap, 0x3f)), _SELECT_OVERHEAD_GAS))
                     ) {
                         revert(0x00, 0x00)
                     }
@@ -155,9 +159,8 @@ abstract contract Select is SettlerSwapAbstract {
     }
 
     function _runActions(bytes[] calldata actions) internal {
-        // A zeroed slippage struct makes a nested `CHECK_SLIPPAGE` a no-op (it takes the
-        // `minAmountOut == 0 && buyToken == 0` early return and transfers nothing), except under a
-        // mandatory slippage check, where it reverts only the trial.
+        // Nested `CHECK_SLIPPAGE` receives zeroed slippage. Ordinary flavors return without
+        // transferring; mandatory-slippage flavors revert only the trial.
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {
@@ -168,7 +171,7 @@ abstract contract Select is SettlerSwapAbstract {
             bool tooShort;
             // A length that wrapped in `decodeCall`'s selector slice has upper bits set.
             assembly ("memory-safe") {
-                tooShort := iszero(iszero(shr(0xe0, data.length)))
+                tooShort := shr(0xe0, data.length)
                 data.length := mul(data.length, iszero(tooShort))
             }
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.
