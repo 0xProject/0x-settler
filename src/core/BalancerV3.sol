@@ -517,17 +517,19 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             }
             data = Decoder.updateState(state, notes, data);
 
+            uint256 amountGiven;
+            unchecked {
+                uint256 sellAmount = state.sell().amount();
+                amountGiven = (sellAmount * (ppm & 0x3fffff)).unsafeDiv(BASIS);
+                if (amountGiven > sellAmount) {
+                    // `ppm` is over `BASIS`
+                    Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                }
+            }
+
             if (ppm & 0xc00000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
-                unchecked {
-                    uint256 sellAmount = state.sell().amount();
-                    uint256 amountGiven = (sellAmount * ppm).unsafeDiv(BASIS);
-                    if (amountGiven > sellAmount) {
-                        // `ppm` is over `BASIS`
-                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-                    }
-                    swapParams.amountGiven = amountGiven;
-                }
+                swapParams.amountGiven = amountGiven;
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
                 Decoder.overflowCheck(data);
@@ -539,16 +541,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
                     wrapParams.wrappedToken = IERC4626(address(state.sell().token()));
                 }
-                ppm &= 0x3fffff;
-                unchecked {
-                    uint256 sellAmount = state.sell().amount();
-                    uint256 amountGiven = (sellAmount * ppm).unsafeDiv(BASIS);
-                    if (amountGiven > sellAmount) {
-                        // `ppm` is over `BASIS`
-                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-                    }
-                    wrapParams.amountGiven = amountGiven;
-                }
+                wrapParams.amountGiven = amountGiven;
 
                 _erc4626WrapUnwrap(wrapParams, state);
             }
