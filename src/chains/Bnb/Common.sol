@@ -97,10 +97,10 @@ abstract contract BnbMixin is
 
             sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
-            (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, IERC20 buyToken, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, uint256, bytes32, bool, IERC20, uint256));
+            (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
 
-            sellToFluxPool(sellToken, ppm, poolId, zeroForOne, buyToken, minBuyAmount);
+            sellToFluxPool(sellToken, ppm, poolId, zeroForOne, minBuyAmount);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,

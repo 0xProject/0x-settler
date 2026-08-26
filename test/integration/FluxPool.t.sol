@@ -61,8 +61,11 @@ contract FluxPoolIntegrationTest is SettlerBasePairTest {
 
     function testFluxPool() public {
         uint256 vaultBalanceBefore = USDT.balanceOf(FLUX_VAULT);
+        (ISettlerBase.AllowedSlippage memory slippage, bytes[] memory actions) = _fluxPoolCall(1);
+
+        vm.prank(FROM);
         snapStartName("settler_fluxPool");
-        _executeFluxPool();
+        settler.execute(slippage, actions, bytes32(0));
         snapEnd();
 
         assertEq(USDT.balanceOf(FROM), 0);
@@ -73,25 +76,36 @@ contract FluxPoolIntegrationTest is SettlerBasePairTest {
     function testFluxPoolRequiresQuoteCurveAllowlist() public {
         _setAllowed(FLUX_QUOTE_CURVE, QUOTE_CURVE_ALLOWLIST_SLOT, false);
         vm.expectRevert(abi.encodeWithSelector(FluxError.selector, uint16(2007)));
-        _executeFluxPool();
+        _executeFluxPool(1);
     }
 
     function testFluxPoolRequiresVaultAllowlist() public {
         _setAllowed(FLUX_VAULT, VAULT_ALLOWLIST_SLOT, false);
         vm.expectRevert(abi.encodeWithSelector(FluxError.selector, uint16(4003)));
-        _executeFluxPool();
+        _executeFluxPool(1);
     }
 
-    function _executeFluxPool() private {
-        bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.FLUXPOOL, (address(USDT), 1_000_000, POOL_ID, true, address(WBNB), 1))
-        );
-        ISettlerBase.AllowedSlippage memory slippage =
-            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: WBNB, minAmountOut: 1});
+    function testFluxPoolEnforcesMinimumOutput() public {
+        vm.expectRevert(abi.encodeWithSelector(FluxError.selector, uint16(3001)));
+        _executeFluxPool(EXPECTED_AMOUNT_OUT + 1);
+    }
+
+    function _executeFluxPool(uint256 minBuyAmount) private {
+        (ISettlerBase.AllowedSlippage memory slippage, bytes[] memory actions) = _fluxPoolCall(minBuyAmount);
 
         vm.prank(FROM);
         settler.execute(slippage, actions, bytes32(0));
+    }
+
+    function _fluxPoolCall(uint256 minBuyAmount)
+        private
+        returns (ISettlerBase.AllowedSlippage memory slippage, bytes[] memory actions)
+    {
+        actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(ISettlerActions.FLUXPOOL, (address(USDT), 1_000_000, POOL_ID, true, minBuyAmount))
+        );
+        slippage = ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: WBNB, minAmountOut: 1});
     }
 
     function _setAllowed(address target, uint256 slot, bool allowed) private {

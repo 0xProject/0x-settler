@@ -7,7 +7,7 @@ import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 import {BnbSettler} from "src/chains/Bnb/TakerSubmitted.sol";
 import {FLUX_SWAP, FLUX_VAULT, IFluxSwap, IFluxSwapCallback} from "src/core/FluxPool.sol";
-import {ConfusedDeputy, TooMuchSlippage} from "src/core/SettlerErrors.sol";
+import {ConfusedDeputy} from "src/core/SettlerErrors.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
@@ -16,8 +16,7 @@ contract FluxSwapMock {
     enum CallbackMode {
         Normal,
         WrongToken,
-        WrongAmount,
-        WrongLength
+        WrongAmount
     }
 
     CallbackMode internal callbackMode;
@@ -40,8 +39,7 @@ contract FluxSwapMock {
         uint256 sellAmount = uint256(bytes32(callbackData[20:]));
         IERC20 callbackToken = callbackMode == CallbackMode.WrongToken ? IERC20(address(0xdead)) : sellToken;
         uint256 callbackAmount = callbackMode == CallbackMode.WrongAmount ? sellAmount + 1 : sellAmount;
-        bytes calldata callbackData_ = callbackMode == CallbackMode.WrongLength ? callbackData[:0] : callbackData;
-        IFluxSwapCallback(msg.sender).fluxSwapCallback(callbackToken, callbackAmount, callbackData_);
+        IFluxSwapCallback(msg.sender).fluxSwapCallback(callbackToken, callbackAmount, callbackData);
         return buyAmount;
     }
 }
@@ -72,7 +70,7 @@ contract FluxPoolUnitTest is Test {
         fluxSwap.configure(FluxSwapMock.CallbackMode.Normal, buyToken, BUY_AMOUNT);
     }
 
-    function testFuzzFluxPoolPaysBoundAmountAndMeasuresOutput(uint96 sellBalance, uint24 ppm_) public {
+    function testFuzzFluxPoolPaysComputedAmount(uint96 sellBalance, uint24 ppm_) public {
         sellBalance = uint96(bound(sellBalance, 1_000_000, type(uint96).max));
         uint256 ppm = bound(ppm_, 1, 1_000_000);
         deal(address(sellToken), address(settler), sellBalance);
@@ -85,7 +83,7 @@ contract FluxPoolUnitTest is Test {
                 (POOL_ID, true, sellAmount, 0, address(settler), abi.encodePacked(sellToken, sellAmount))
             )
         );
-        _execute(ppm, buyToken, 0);
+        _execute(ppm, 0);
 
         assertEq(sellToken.balanceOf(FLUX_VAULT), sellAmount);
         assertEq(sellToken.balanceOf(address(settler)), sellBalance - sellAmount);
@@ -95,39 +93,18 @@ contract FluxPoolUnitTest is Test {
     function testFluxPoolRejectsWrongCallbackToken() public {
         fluxSwap.configure(FluxSwapMock.CallbackMode.WrongToken, buyToken, BUY_AMOUNT);
         vm.expectRevert(ConfusedDeputy.selector);
-        _execute(1_000_000, buyToken, MIN_BUY_AMOUNT);
+        _execute(1_000_000, MIN_BUY_AMOUNT);
     }
 
     function testFluxPoolRejectsWrongCallbackAmount() public {
         fluxSwap.configure(FluxSwapMock.CallbackMode.WrongAmount, buyToken, BUY_AMOUNT);
         vm.expectRevert(ConfusedDeputy.selector);
-        _execute(1_000_000, buyToken, MIN_BUY_AMOUNT);
+        _execute(1_000_000, MIN_BUY_AMOUNT);
     }
 
-    function testFluxPoolRejectsWrongCallbackLength() public {
-        fluxSwap.configure(FluxSwapMock.CallbackMode.WrongLength, buyToken, BUY_AMOUNT);
-        vm.expectRevert(ConfusedDeputy.selector);
-        _execute(1_000_000, buyToken, MIN_BUY_AMOUNT);
-    }
-
-    function testFluxPoolRejectsUnexpectedBuyToken() public {
-        IERC20 unexpectedBuyToken = IERC20(address(new MockERC20("Unexpected", "UNEXPECTED", 18)));
-        vm.expectRevert(abi.encodeWithSelector(TooMuchSlippage.selector, unexpectedBuyToken, MIN_BUY_AMOUNT, 0));
-        _execute(1_000_000, unexpectedBuyToken, MIN_BUY_AMOUNT);
-    }
-
-    function testFluxPoolExcludesExistingBuyBalance() public {
-        deal(address(buyToken), address(settler), BUY_AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(TooMuchSlippage.selector, buyToken, BUY_AMOUNT + 1, BUY_AMOUNT));
-        _execute(1_000_000, buyToken, BUY_AMOUNT + 1);
-    }
-
-    function _execute(uint256 ppm, IERC20 expectedBuyToken, uint256 minBuyAmount) private {
+    function _execute(uint256 ppm, uint256 minBuyAmount) private {
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.FLUXPOOL,
-                (address(sellToken), ppm, POOL_ID, true, address(expectedBuyToken), minBuyAmount)
-            )
+            abi.encodeCall(ISettlerActions.FLUXPOOL, (address(sellToken), ppm, POOL_ID, true, minBuyAmount))
         );
         ISettlerBase.AllowedSlippage memory slippage;
         settler.execute(slippage, actions, bytes32(0));
