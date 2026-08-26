@@ -18,6 +18,8 @@ abstract contract Select is SettlerSwapAbstract {
     // bytes4(keccak256("executeSelected(bytes[],address,uint256)"))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
+    // Adding one failing empty candidate measured 8,426 gas (solc 0.8.34 via-IR, 2026-08-26).
+    // 0x10000 leaves 57,110 gas for input-dependent copy cost and is rechecked per capped trial.
     uint256 private constant _SELECT_OVERHEAD_GAS = 0x10000;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
@@ -73,7 +75,7 @@ abstract contract Select is SettlerSwapAbstract {
             candsData := add(0x20, base)
             err := or(xor(0x80, calldataload(add(0x40, dataStart))), err)
             err := or(xor(calldataload(add(0x60, dataStart)), candidatesOffset), err)
-            err := or(or(iszero(n), gt(n, div(data.length, 0x20))), err)
+            err := or(or(iszero(n), lt(shr(0x05, data.length), n)), err)
             err := or(xor(calldataload(base), n), err)
             err := or(gt(add(tableSize, candsData), dataEnd), err)
             // The first frame starts at the offset-table end, so every byte belongs to the head,
@@ -84,7 +86,7 @@ abstract contract Select is SettlerSwapAbstract {
             // Entry zero is already pinned to `tableSize` and bounded by the table-fit check above.
             let previous := tableSize
             let maxOffset := sub(dataEnd, candsData)
-            for { let i := 0x01 } and(iszero(err), lt(i, n)) { i := add(0x01, i) } {
+            for { let i := 0x01 } lt(i, n) { i := add(0x01, i) } {
                 let offset := calldataload(add(shl(0x05, i), candsData))
                 err := or(or(gt(offset, maxOffset), iszero(gt(offset, previous))), err)
                 previous := offset
@@ -113,14 +115,13 @@ abstract contract Select is SettlerSwapAbstract {
                 }
                 let len := sub(next, start)
                 callData := mload(0x40)
-                let cd := add(0x20, callData)
                 mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
                 mstore(callData, add(0x64, len))
-                mstore(add(0x04, cd), 0x60)
-                mstore(add(0x24, cd), token)
-                let dst := add(0x64, cd)
+                mstore(add(0x24, callData), 0x60)
+                mstore(add(0x44, callData), token)
+                let dst := add(0x84, callData)
                 calldatacopy(dst, start, len)
-                mstore(add(0x44, cd), calldataload(add(shl(0x05, i), targetsData)))
+                mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
                 mstore(0x40, add(dst, len))
 
                 gasLimit := gas()
