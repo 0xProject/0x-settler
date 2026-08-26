@@ -236,9 +236,8 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
 
     /// @dev Revert-tolerant variant of `_setOperatorAndCall` for trial calls: the call runs under
     ///      an explicit gas limit and failure returns `false` instead of bubbling. Returndata is
-    ///      left uncopied: a failed trial can relay large revert data from downstream calls, and
-    ///      the caller would pay to copy it outside the trial's gas cap. The trust requirements
-    ///      on `target` above apply here too.
+    ///      left uncopied so a failed call cannot charge the caller for large revert data. The
+    ///      trust requirements on `target` above apply here too.
     function _setOperatorAndTryCall(
         address target,
         uint256 gasLimit,
