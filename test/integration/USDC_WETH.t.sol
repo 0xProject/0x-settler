@@ -147,14 +147,6 @@ contract USDCWETHTest is
         return fromToken() < toToken();
     }
 
-    function recipient() internal view virtual override returns (address) {
-        return address(settler);
-    }
-
-    function metaTxnRecipient() internal view virtual override returns (address) {
-        return address(settlerMetaTxn);
-    }
-
     function ekuboV2BlockNumber() internal pure override returns (uint256) {
         return 22682485;
     }
