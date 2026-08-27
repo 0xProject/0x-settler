@@ -510,12 +510,14 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             uint256 ppm;
             assembly ("memory-safe") {
                 ppm := shr(0xe8, calldataload(data.offset))
-                data.offset := add(0x03, data.offset)
-                data.length := sub(data.length, 0x03)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
             if (ppm & 0x3fffff > BASIS) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
+            assembly ("memory-safe") {
+                data.offset := add(0x03, data.offset)
+                data.length := sub(data.length, 0x03)
+                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
             data = Decoder.updateState(state, notes, data);
 
