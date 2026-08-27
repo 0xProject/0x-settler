@@ -7,7 +7,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
-import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
@@ -248,7 +248,6 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note[];
     using Ternary for bool;
-    using Math for uint256;
 
     using UnsafeVault for IBalancerV3Vault;
 
@@ -400,10 +399,11 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         Decoder.overflowCheck(data);
 
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
-        // `amountIn` is always exactly `swapParams.amountGiven`, but `swapParams.amountGiven` can
-        // exceed `sell.amount()` if `ppm` exceeds `BASIS`
-        NotePtr sell = state.sell();
-        sell.setAmount(sell.amount().checkedSub(amountIn));
+        unchecked {
+            // `amountIn` is always exactly `swapParams.amountGiven`
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
+        }
 
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
@@ -507,14 +507,21 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
 
         while (data.length >= _HOP_DATA_LENGTH) {
             uint256 ppm;
-            assembly ("memory-safe") {
-                ppm := shr(0xe8, calldataload(data.offset))
+            {
+                uint256 _basis = BASIS;
+                assembly ("memory-safe") {
+                    ppm := shr(0xe8, calldataload(data.offset))
+                    if gt(and(0x3fffff, ppm), _basis) {
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x11) // arithmetic overflow
+                        revert(0x1c, 0x24)
+                    }
 
-                data.offset := add(0x03, data.offset)
-                data.length := sub(data.length, 0x03)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                    data.offset := add(0x03, data.offset)
+                    data.length := sub(data.length, 0x03)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
             }
-
             data = Decoder.updateState(state, notes, data);
 
             if (ppm & 0xc00000 == 0) {
