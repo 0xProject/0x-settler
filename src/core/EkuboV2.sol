@@ -272,9 +272,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             bytes calldata newData,
             State state,
             NotesLib.Note[] memory notes,
-            ISignatureTransfer.PermitTransferFrom calldata permit,
-            bool isForwarded,
-            bytes calldata sig
+            ,
+            ,
         ) = Decoder.initialize(data, hashMul, hashMod, address(this));
         {
             NotePtr globalSell = state.globalSell();
