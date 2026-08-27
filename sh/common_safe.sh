@@ -47,12 +47,12 @@ if [[ ${upgrade_safe_address:-null} != [nN][uU][lL][lL] ]] ; then
 fi
 declare -r upgrade_safe_address
 
-if [[ $(cast to-checksum "$safe_address") = "$upgrade_safe_address" ]] ; then
-    declare installed_safe_guard
-    installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$(cast keccak 'guard_manager.guard.address')" 1)"
-    installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
-    declare -r installed_safe_guard
+declare installed_safe_guard
+installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$(cast keccak 'guard_manager.guard.address')" 1)"
+installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
+declare -r installed_safe_guard
 
+if [[ $(cast to-checksum "$safe_address") = "${upgrade_safe_address:-null}" ]] ; then
     declare configured_safe_guard
     configured_safe_guard="$(get_config governance.timelock)"
     if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
@@ -65,8 +65,6 @@ if [[ $(cast to-checksum "$safe_address") = "$upgrade_safe_address" ]] ; then
         if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
             die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
         fi
-    elif [[ $(cast to-checksum "$safe_address") != "${upgrade_safe_address:-null}" ]] ; then
-        die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
     elif [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
         die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
     elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
@@ -76,6 +74,8 @@ if [[ $(cast to-checksum "$safe_address") = "$upgrade_safe_address" ]] ; then
         safe_guard="$configured_safe_guard"
     fi
     declare -r safe_guard
+elif [[ $installed_safe_guard != "$(cast address-zero)" ]] ; then
+    die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
 fi
 
 function prev_owner {
