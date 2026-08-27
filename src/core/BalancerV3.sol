@@ -10,6 +10,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
@@ -508,7 +509,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         while (data.length >= _HOP_DATA_LENGTH) {
             uint256 ppm;
             {
-                uint256 _basis = BASIS;
+                uint256 _basis = Constants.BASIS;
                 assembly ("memory-safe") {
                     ppm := shr(0xe8, calldataload(data.offset))
                     if gt(and(0x3fffff, ppm), _basis) {
@@ -527,7 +528,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             if (ppm & 0xc00000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
                 unchecked {
-                    swapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(BASIS);
+                    swapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(Constants.BASIS);
                 }
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
@@ -542,7 +543,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                 }
                 ppm &= 0x3fffff;
                 unchecked {
-                    wrapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(BASIS);
+                    wrapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(Constants.BASIS);
                 }
 
                 _erc4626WrapUnwrap(wrapParams, state);

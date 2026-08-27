@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
@@ -79,7 +80,7 @@ abstract contract DodoV2 is SettlerSwapAbstract {
         if (ppm != 0) {
             uint256 sellAmount;
             unchecked {
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
             }
             sellToken.safeTransfer(address(dodo), sellAmount);
         }
