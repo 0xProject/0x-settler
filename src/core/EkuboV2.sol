@@ -268,13 +268,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
-        (
-            bytes calldata newData,
-            State state,
-            NotesLib.Note[] memory notes,
-            ,
-            ,
-        ) = Decoder.initialize(data, hashMul, hashMod, address(this));
+        (bytes calldata newData, State state, NotesLib.Note[] memory notes,,,) =
+            Decoder.initialize(data, hashMul, hashMod, address(this));
         {
             NotePtr globalSell = state.globalSell();
             if (feeOnTransfer) {
@@ -319,16 +314,15 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 assembly ("memory-safe") {
                     let sellTokenShifted := shl(0x60, sellToken)
                     let buyTokenShifted := shl(0x60, buyToken)
-                    isToken1 :=
-                        or(
-                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
-                            and(
-                                iszero(
-                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
-                                ),
-                                lt(buyTokenShifted, sellTokenShifted)
-                            )
+                    isToken1 := or(
+                        eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
+                        and(
+                            iszero(
+                                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
+                            ),
+                            lt(buyTokenShifted, sellTokenShifted)
                         )
+                    )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
                 assembly ("memory-safe") {

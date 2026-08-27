@@ -374,8 +374,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < Constants.BASIS) {
                 sellAmount = Constants.BASIS - ~sellAmount;
-                sellAmount =
-                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(Constants.BASIS);
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
+                    .unsafeDiv(Constants.BASIS);
             }
         }
     }
@@ -390,8 +390,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < Constants.BASIS) {
                 sellAmount = Constants.BASIS - ~sellAmount;
-                sellAmount =
-                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(Constants.BASIS);
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
+                    .unsafeDiv(Constants.BASIS);
             }
         }
     }

@@ -205,7 +205,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
 
     // A chain hosting a fork that lacks CL_MANAGER must unconditionally call `revertUnknownPoolManagerId(0)`
     function _PANCAKE_INFINITY_CL_MANAGER() internal pure virtual returns (address);
-    
+
     // A chain hosting a fork that lacks BIN_MANAGER must unconditionally call `revertUnknownPoolManagerId(1)`
     function _PANCAKE_INFINITY_BIN_MANAGER() internal pure virtual returns (address);
 
