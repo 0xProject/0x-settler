@@ -16,17 +16,6 @@ import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 abstract contract BebopPairTest is SettlerBasePairTest {
     IBebopSettlement internal constant BEBOP = IBebopSettlement(0xbbbbbBB520d69a9775E85b458C58c648259FAD5F);
 
-    // EIP-712 domain separator for Bebop on mainnet:
-    // keccak256(abi.encode(
-    //     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-    //     keccak256("BebopSettlement"),
-    //     keccak256("2"),
-    //     1,
-    //     0xbbbbbBB520d69a9775E85b458C58c648259FAD5F
-    // ))
-    bytes32 internal constant BEBOP_DOMAIN_SEPARATOR =
-        0x31e9fc520926ab5a9e3842dc84bce011b96c3158dfd9cde10e518472a052d470;
-
     // From BebopSigning.sol:
     // keccak256("SingleOrder(uint64 partner_id,uint256 expiry,address taker_address,address maker_address,uint256 maker_nonce,address taker_token,address maker_token,uint256 taker_amount,uint256 maker_amount,address receiver,uint256 packed_commands)")
     bytes32 internal constant SINGLE_ORDER_TYPEHASH =
@@ -77,7 +66,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         uint256 makerAmount,
         address receiver,
         uint256 packedCommands
-    ) internal pure returns (bytes32) {
+    ) internal view returns (bytes32) {
         bytes32 structHash = keccak256(
             abi.encode(
                 SINGLE_ORDER_TYPEHASH,
@@ -94,8 +83,17 @@ abstract contract BebopPairTest is SettlerBasePairTest {
                 packedCommands
             )
         );
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("BebopSettlement"),
+                keccak256("2"),
+                block.chainid,
+                address(BEBOP)
+            )
+        );
 
-        return keccak256(abi.encodePacked("\x19\x01", BEBOP_DOMAIN_SEPARATOR, structHash));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 
     /// @dev Compute expected digest for a Bebop order executed through Settler

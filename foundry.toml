@@ -62,6 +62,7 @@ plasma = "${PLASMA_MAINNET_RPC_URL}"
 arbitrum = "${ARBITRUM_MAINNET_RPC_URL}"
 base = "${BASE_MAINNET_RPC_URL}"
 monad = "${MONAD_MAINNET_RPC_URL}"
+robinhood = "${ROBINHOOD_MAINNET_RPC_URL}"
 
 [lint]
 lint_on_build = false

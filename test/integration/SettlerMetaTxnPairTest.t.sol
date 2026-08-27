@@ -60,8 +60,6 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         warmPermit2Nonce(MAKER);
     }
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
-
     function testSettler_metaTxn_shortAction() public {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
@@ -139,7 +137,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -169,12 +167,12 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testSettler_metaTxn_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
+    function testSettler_metaTxn_uniswapV3VIP() public skipIf(uniswapV3PathVIP().length == 0) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, permit, uniswapV3Path(), 0))
+            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, permit, uniswapV3PathVIP(), 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -292,7 +290,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
                 ISettlerActions.BASIC,
                 (
                     address(toToken()),
-                    1_000,
+                    100_000,
                     address(toToken()),
                     0x24,
                     abi.encodeCall(toToken().transfer, (BURN_ADDRESS, 0))

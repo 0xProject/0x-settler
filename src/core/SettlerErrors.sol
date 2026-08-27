@@ -19,6 +19,16 @@ function revertConfusedDeputy() pure {
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
 
+/// @notice Thrown when Renegade action data is malformed
+error InvalidRenegadeData();
+
+function revertInvalidRenegadeData() pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0xaa81f37c) // selector for `InvalidRenegadeData()`
+        revert(0x1c, 0x04)
+    }
+}
+
 /// @notice Thrown when validating the caller against the expected caller
 error InvalidSender();
 
@@ -115,6 +125,14 @@ error NotConverged();
 /// @notice Thrown when the encoded pool manager ID as part of PancakeSwap Infinity fill is not on
 ///         the list of recognized pool managers.
 error UnknownPoolManagerId(uint8 poolManagerId);
+
+function revertUnknownPoolManagerId(uint256 poolManagerId) pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`
+        mstore(0x20, and(0xff, poolManagerId))
+        revert(0x1c, 0x24)
+    }
+}
 
 /// @notice Thrown when the `msg.value` is less than the minimum expected value.
 error Underpayment(uint256 msgValueMin, uint256 msgValueActual);

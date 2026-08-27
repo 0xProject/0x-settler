@@ -42,16 +42,70 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         snapEnd();
     }
 
-    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3Path().length == 0) skipIf(toToken() != WETH) {
+    function testUniswapV3UniversalRouterToNative()
+        public
+        skipIf(uniswapV3PathCompat().length == 0)
+        skipIf(toToken() != WETH)
+    {
+        bytes memory commands = new bytes(3);
+        bytes[] memory inputs = new bytes[](3);
+
+        IAllowanceTransfer.PermitSingle memory permit =
+            defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
+        bytes memory signature =
+            getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
+        bytes memory path = uniswapV3PathCompat();
+
+        (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
+        (commands[1], inputs[1]) = encodeV3Swap(RECIPIENT_ROUTER, amount(), 0 wei, path, true);
+        (commands[2], inputs[2]) = encodeUnwrapWeth(RECIPIENT_TAKER, slippageLimit());
+
+        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
+        require(success);
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("universalRouter_uniswapV3");
+        UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
+        snapEnd();
+        vm.stopPrank();
+    }
+
+    function testUniswapV3UniversalRouterFromNative()
+        public
+        skipIf(uniswapV3PathCompat().length == 0)
+        skipIf(fromToken() != WETH)
+    {
+        bytes memory commands = new bytes(2);
+        bytes[] memory inputs = new bytes[](2);
+
+        bytes memory path = uniswapV3PathCompat();
+
+        (commands[0], inputs[0]) = encodeWrapEth(RECIPIENT_ROUTER, CONTRACT_BALANCE);
+        (commands[1], inputs[1]) = encodeV3Swap(RECIPIENT_TAKER, CONTRACT_BALANCE, slippageLimit(), path, false);
+
+        vm.deal(FROM, amount());
+
+        vm.startPrank(FROM, FROM);
+        snapStartName("universalRouter_uniswapV3");
+        UNIVERSAL_ROUTER.execute{value: amount()}(commands, inputs, block.timestamp);
+        snapEnd();
+        vm.stopPrank();
+    }
+
+    function testSettler_uniswapV3VIP_toNative()
+        public
+        skipIf(uniswapV3PathVIP().length == 0)
+        skipIf(toToken() != WETH)
+    {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         Settler _settler = settler;
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3Path(), sig, 0 wei)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3PathVIP(), sig, 0 wei)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(WETH), 10_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
+                (address(WETH), 1_000_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
             )
         );
         ISettlerBase.AllowedSlippage memory slippage =
@@ -72,9 +126,9 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(ETH), 10_000, address(WETH), 4, abi.encodeWithSignature("deposit()", 0 wei))
+                (address(ETH), 1_000_000, address(WETH), 4, abi.encodeWithSignature("deposit()", 0 wei))
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), slippageLimit()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), slippageLimit()))
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether

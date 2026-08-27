@@ -47,12 +47,7 @@ contract USDCUSDTTest is SettlerPairTest, EulerSwapTest {
         return 1000e6;
     }
 
-    function uniswapV3Path()
-        internal
-        view
-        override(SettlerPairTest, AllowanceHolderPairTest)
-        returns (bytes memory)
-    {
+    function uniswapV3Path() internal view override returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint8(0), uint24(100), sqrtPriceLimitX96FromTo(), toToken());
     }
 

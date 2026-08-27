@@ -13,6 +13,7 @@ import {
     SignatureExpired,
     WitnessNotSpent
 } from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
@@ -319,10 +320,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     {
         sellAmount = permit.permitted.amount;
         unchecked {
-            if (~sellAmount < BASIS) {
-                sellAmount = BASIS - ~sellAmount;
-                sellAmount =
-                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
+            if (~sellAmount < Constants.BASIS) {
+                sellAmount = Constants.BASIS - ~sellAmount;
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
+                    .unsafeDiv(Constants.BASIS);
             }
         }
     }
@@ -335,10 +336,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     {
         sellAmount = permit.permitted.amount;
         unchecked {
-            if (~sellAmount < BASIS) {
-                sellAmount = BASIS - ~sellAmount;
-                sellAmount =
-                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
+            if (~sellAmount < Constants.BASIS) {
+                sellAmount = Constants.BASIS - ~sellAmount;
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
+                    .unsafeDiv(Constants.BASIS);
             }
         }
     }
@@ -556,10 +557,10 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
 
     function _toCanonicalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
         unchecked {
-            if (~sellAmount < BASIS) {
+            if (~sellAmount < Constants.BASIS) {
                 if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                    sellAmount = BASIS - ~sellAmount;
-                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
+                    sellAmount = Constants.BASIS - ~sellAmount;
+                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(Constants.BASIS);
                 }
             }
         }

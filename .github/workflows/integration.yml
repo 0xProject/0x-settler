@@ -52,6 +52,7 @@ jobs:
           ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
           BASE_MAINNET_RPC_URL: ${{ secrets.BASE_MAINNET_RPC_URL }}
           MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}
+          ROBINHOOD_MAINNET_RPC_URL: ${{ secrets.ROBINHOOD_MAINNET_RPC_URL }}
 
       - name: Install ArbOS foundry fork
         run: |

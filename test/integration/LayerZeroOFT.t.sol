@@ -7,7 +7,8 @@ import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
-import {IOFT, ETH} from "src/core/LayerZeroOFT.sol";
+import {IOFT} from "src/core/LayerZeroOFT.sol";
+import {ETH_ADDRESS} from "src/core/Constants.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 
@@ -67,4 +68,3 @@ contract LayerZeroOFTEthereumTest is BridgeSettlerIntegrationTest {
         assertEq(balanceAfter - balanceBefore, amount, "Assets were not received");
     }
 }
-

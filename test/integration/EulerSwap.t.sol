@@ -96,7 +96,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(fromToken()), 10_000, eulerSwapPool(), true, 0))
+            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(fromToken()), 1_000_000, eulerSwapPool(), true, 0))
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -124,7 +124,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(toToken()), 10_000, eulerSwapPool(), false, 0))
+            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(toToken()), 1_000_000, eulerSwapPool(), false, 0))
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({

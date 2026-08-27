@@ -127,15 +127,12 @@ declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
 
-declare signer
-IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
-declare -r signer
+. "$project_root"/sh/common_submitter.sh
 
 . "$project_root"/sh/common_wallet_type.sh
 
 if [[ $wallet_type != 'frame' ]] ; then
-    echo 'This script only works with Frame.sh wallets due to the overly long calldata' >&2
-    exit 1
+    die 'This script only works with Frame.sh wallets due to the overly long calldata'
 fi
 
 . "$project_root"/sh/common_safe_deployer.sh
@@ -278,13 +275,11 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
         jq -rM .result
     )
     if [[ $txid == [Nn][Uu][Ll][Ll] ]] ; then
-        echo 'Transaction submission failed' >&2
-        exit 1
+        die 'Transaction submission failed'
     fi
 
     if [[ $(cast receipt --rpc-url "$rpc_url" --confirmations 10 "$txid" status) != '1 (success)' ]] ; then
-        echo 'Transaction '"$txid"' failed' >&2
-        exit 1
+        die 'Transaction '"$txid"' failed'
     fi
 
     SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))

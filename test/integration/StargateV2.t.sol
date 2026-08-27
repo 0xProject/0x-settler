@@ -7,7 +7,8 @@ import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
-import {IStargateV2, IOFT, ETH} from "src/core/StargateV2.sol";
+import {IStargateV2, IOFT} from "src/core/StargateV2.sol";
+import {ETH_ADDRESS} from "src/core/Constants.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 
@@ -55,7 +56,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         bytes[] memory bridgeActions = ActionDataBuilder.build(
             abi.encodeCall(
                 IBridgeSettlerActions.BRIDGE_TO_STARGATE_V2,
-                (address(ETH), pool, abi.encode(sendParam, messagingFee, address(this)))
+                (ETH_ADDRESS, pool, abi.encode(sendParam, messagingFee, address(this)))
             )
         );
         uint256 excess = 10;
