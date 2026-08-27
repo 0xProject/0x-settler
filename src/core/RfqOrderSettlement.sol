@@ -8,6 +8,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import "./Constants.sol" as Constants;
 
 abstract contract RfqOrderSettlement is SettlerSwapAbstract {
     using Ternary for bool;
@@ -79,7 +80,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         bytes memory takerSig
     ) internal {
         if (!_hasMetaTxn()) {
-            assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
+            assert(makerPermit.permitted.amount <= type(uint256).max - Constants.BASIS);
         }
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
             _permitToTransferDetails(makerPermit, recipient);
@@ -131,7 +132,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         uint256 maxTakerAmount
     ) internal {
         if (!_hasMetaTxn()) {
-            assert(permit.permitted.amount <= type(uint256).max - BASIS);
+            assert(permit.permitted.amount <= type(uint256).max - Constants.BASIS);
         }
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered

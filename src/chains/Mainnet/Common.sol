@@ -26,6 +26,7 @@ import {Ternary} from "../../utils/Ternary.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import "../../core/Constants.sol" as Constants;
 
 import {
     uniswapV3MainnetFactory,
@@ -111,12 +112,12 @@ abstract contract MainnetMixin is
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256));
-            bool isETH = (token == ETH_ADDRESS);
+            bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
-                    cap = balance * maxPpm / BASIS;
+                    cap = balance * maxPpm / Constants.BASIS;
                     balance -= expectedAmount;
                 }
                 balance = (balance > cap).ternary(cap, balance);
