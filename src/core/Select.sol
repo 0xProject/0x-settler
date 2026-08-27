@@ -80,17 +80,17 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(gt(add(tableSize, candsData), dataEnd), err)
             // The first frame starts at the offset-table end, so every byte belongs to the head,
             // a table, or exactly one frame. Strict ordering bounds each later start below.
-            // `maxOffset` bounds it above.
+            // The upper bound on the last start then bounds them all.
             err := or(xor(calldataload(candsData), tableSize), err)
 
             // Entry zero is already pinned to `tableSize` and bounded by the table-fit check above.
             let previous := tableSize
-            let maxOffset := sub(dataEnd, candsData)
             for { let i := 0x01 } lt(i, n) { i := add(0x01, i) } {
                 let offset := calldataload(add(shl(0x05, i), candsData))
-                err := or(or(gt(offset, maxOffset), iszero(gt(offset, previous))), err)
+                err := or(iszero(gt(offset, previous)), err)
                 previous := offset
             }
+            err := or(gt(previous, sub(dataEnd, candsData)), err)
             if err { revert(0x00, 0x00) }
 
             targetsData := add(0xa0, dataStart)
@@ -115,13 +115,13 @@ abstract contract Select is SettlerSwapAbstract {
                 }
                 let len := sub(next, start)
                 callData := mload(0x40)
-                mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
-                mstore(callData, add(0x64, len))
-                mstore(add(0x24, callData), 0x60)
-                mstore(add(0x44, callData), token)
                 let dst := add(0x84, callData)
                 calldatacopy(dst, start, len)
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
+                mstore(add(0x44, callData), token)
+                mstore(add(0x24, callData), 0x60)
+                mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
+                mstore(callData, add(0x64, len))
                 mstore(0x40, add(dst, len))
 
                 gasLimit := gas()
@@ -131,7 +131,9 @@ abstract contract Select is SettlerSwapAbstract {
                     // retained sixty-fourth on the final uncapped call: `C + floor(C/63)` forwards
                     // exactly `C`. Capped trials need no retention term because `remaining >= 2`
                     // makes 63/64 of `gasLimit` exceed `gasCap`. The check re-runs before every
-                    // capped trial and reverts if the reserve no longer fits.
+                    // capped trial and reverts if the reserve no longer fits. The division in the
+                    // first test cannot overflow and passing it bounds `totalCap` by `gasLimit`,
+                    // so the `mul` cannot overflow either.
                     let totalCap := mul(gasCap, remaining)
                     if or(
                         or(iszero(gasCap), gt(gasCap, div(gasLimit, remaining))),
@@ -160,8 +162,8 @@ abstract contract Select is SettlerSwapAbstract {
     }
 
     function _runActions(bytes[] calldata actions) internal {
-        // A nested `CHECK_SLIPPAGE` sees this zeroed struct, so it transfers nothing. Where the
-        // slippage check is mandatory it reverts, which kills only its own trial.
+        // A nested `CHECK_SLIPPAGE` no-ops against this zeroed struct in taker-submitted Settler.
+        // The other flavors do not dispatch it, so there it reverts only its own trial.
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {

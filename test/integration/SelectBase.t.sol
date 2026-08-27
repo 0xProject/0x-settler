@@ -6,6 +6,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
+import {Shortfall} from "src/core/SettlerErrors.sol";
 
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
@@ -30,7 +31,7 @@ contract SelectBase is SettlerBasePairTest {
         // The pinned account has delegated code at this block. Signatures here expect an EOA.
         vm.etch(FROM, bytes(""));
         vm.label(RECIPIENT, "RECIPIENT");
-        safeApproveIfBelow(BASE_WETH, FROM, address(PERMIT2), AMOUNT);
+        safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), AMOUNT);
     }
 
     function settlerInitCode() internal pure override returns (bytes memory) {
@@ -64,25 +65,25 @@ contract SelectBase is SettlerBasePairTest {
     function testFallbackRescue_primaryRevert_commitsAlternate() public {
         bytes[][] memory candidates = _twoCandidates(type(uint256).max, 0);
         uint256[] memory targets = new uint256[](2);
-        bytes[] memory actions = _selectActions(address(USDC), targets, candidates);
+        bytes[] memory actions = _selectActions(address(toToken()), targets, candidates);
 
-        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
         _snapExecute("settler_selectFallbackRescue", actions, 1);
-        uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
+        uint256 received = toToken().balanceOf(RECIPIENT) - beforeBalance;
 
         assertGt(received, 1, "alternate route paid recipient");
-        assertEq(BASE_WETH.balanceOf(address(settler)), 0, "settler WETH consumed");
-        assertEq(USDC.balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
+        assertEq(fromToken().balanceOf(address(settler)), 0, "settler WETH consumed");
+        assertEq(toToken().balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
     }
 
     function testFirstCandidateSuccess_commitsImmediately() public {
-        bytes[][] memory candidates = _twoCandidates(0, 0);
-        bytes[] memory actions = _selectActions(address(USDC), new uint256[](2), candidates);
-        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        bytes[][] memory candidates = _twoCandidates(0, type(uint256).max);
+        bytes[] memory actions = _selectActions(address(toToken()), new uint256[](2), candidates);
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
 
         _snapExecute("settler_selectFirstCandidate", actions, 1);
 
-        assertGt(USDC.balanceOf(RECIPIENT) - beforeBalance, 1, "first candidate paid recipient");
+        assertGt(toToken().balanceOf(RECIPIENT) - beforeBalance, 1, "first candidate paid recipient");
     }
 
     function testAllReservationsMiss_reverts() public {
@@ -91,11 +92,11 @@ contract SelectBase is SettlerBasePairTest {
         targets[0] = type(uint256).max;
         targets[1] = type(uint256).max;
 
-        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        vm.expectRevert();
-        _execute(_selectActions(address(USDC), targets, candidates), 0);
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
+        vm.expectPartialRevert(Shortfall.selector);
+        _execute(_selectActions(address(toToken()), targets, candidates), 0);
 
-        assertEq(USDC.balanceOf(RECIPIENT), beforeBalance, "no candidate committed");
+        assertEq(toToken().balanceOf(RECIPIENT), beforeBalance, "no candidate committed");
     }
 
     function testLadderCommit_unreachableFirstTarget_commitsReachableSecondTarget() public {
@@ -106,11 +107,11 @@ contract SelectBase is SettlerBasePairTest {
         uint256[] memory targets = new uint256[](2);
         targets[0] = type(uint256).max;
         targets[1] = aerodromeOutput;
-        bytes[] memory actions = _selectActions(address(USDC), targets, candidates);
+        bytes[] memory actions = _selectActions(address(toToken()), targets, candidates);
 
-        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
         _snapExecute("settler_selectLadderCommit", actions, aerodromeOutput);
-        uint256 received = USDC.balanceOf(RECIPIENT) - beforeBalance;
+        uint256 received = toToken().balanceOf(RECIPIENT) - beforeBalance;
 
         assertEq(received, aerodromeOutput, "first reachable rung committed");
     }
@@ -126,10 +127,10 @@ contract SelectBase is SettlerBasePairTest {
         );
 
         uint256 firstActionOutput = _standaloneOutput(candidates[0]);
-        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
-        _execute(_selectActions(address(USDC), new uint256[](1), candidates), firstActionOutput + 1);
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
+        _execute(_selectActions(address(toToken()), new uint256[](1), candidates), firstActionOutput + 1);
 
-        assertGt(USDC.balanceOf(RECIPIENT) - beforeBalance, firstActionOutput, "second action added output");
+        assertGt(toToken().balanceOf(RECIPIENT) - beforeBalance, firstActionOutput, "second action added output");
     }
 
     function _selectActions(address token, uint256[] memory targets, bytes[][] memory candidates)
@@ -144,16 +145,16 @@ contract SelectBase is SettlerBasePairTest {
 
     function _standaloneOutput(bytes[] memory candidate) internal returns (uint256 output) {
         uint256 snapshot = vm.snapshotState();
-        uint256 beforeBalance = USDC.balanceOf(RECIPIENT);
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
         _execute(ActionDataBuilder.build(_getDefaultFromPermit2Action(), candidate[0]), 1);
-        output = USDC.balanceOf(RECIPIENT) - beforeBalance;
+        output = toToken().balanceOf(RECIPIENT) - beforeBalance;
         vm.revertToState(snapshot);
     }
 
     function _execute(bytes[] memory actions, uint256 minOut) internal {
         vm.prank(FROM, FROM);
         settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: RECIPIENT, buyToken: USDC, minAmountOut: minOut}),
+            ISettlerBase.AllowedSlippage({recipient: RECIPIENT, buyToken: toToken(), minAmountOut: minOut}),
             actions,
             bytes32(0)
         );
@@ -161,7 +162,7 @@ contract SelectBase is SettlerBasePairTest {
 
     function _snapExecute(string memory name, bytes[] memory actions, uint256 minOut) internal {
         ISettlerBase.AllowedSlippage memory slippage =
-            ISettlerBase.AllowedSlippage({recipient: RECIPIENT, buyToken: USDC, minAmountOut: minOut});
+            ISettlerBase.AllowedSlippage({recipient: RECIPIENT, buyToken: toToken(), minAmountOut: minOut});
         vm.startPrank(FROM, FROM);
         snapStartName(name);
         settler.execute(slippage, actions, bytes32(0));
@@ -185,6 +186,6 @@ contract SelectBase is SettlerBasePairTest {
     }
 
     function _path(uint8 forkId, uint24 poolId) internal pure returns (bytes memory) {
-        return abi.encodePacked(address(BASE_WETH), forkId, poolId, SQRT_PRICE_LIMIT_X96, address(USDC));
+        return abi.encodePacked(address(fromToken()), forkId, poolId, SQRT_PRICE_LIMIT_X96, address(toToken()));
     }
 }
