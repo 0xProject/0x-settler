@@ -8,6 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Panic} from "../utils/Panic.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
@@ -509,15 +510,12 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             uint256 ppm;
             assembly ("memory-safe") {
                 ppm := shr(0xe8, calldataload(data.offset))
-                if gt(and(0x3fffff, ppm), 0xf4240) {
-                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                    mstore(0x20, 0x11) // arithmetic overflow
-                    revert(0x1c, 0x24)
-                }
-
                 data.offset := add(0x03, data.offset)
                 data.length := sub(data.length, 0x03)
                 // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+            }
+            if (ppm & 0x3fffff > BASIS) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             }
             data = Decoder.updateState(state, notes, data);
 
