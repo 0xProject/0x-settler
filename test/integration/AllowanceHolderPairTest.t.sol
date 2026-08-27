@@ -31,7 +31,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
-    function uniswapV3Path() internal virtual returns (bytes memory);
     function uniswapV2Pool() internal virtual returns (address);
 
     function testAllowanceHolder_uniswapV3() public skipIf(uniswapV3Path().length == 0) {
@@ -50,7 +49,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 )
             ),
             // Execute UniswapV3 from the Settler balance
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), 0))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -82,7 +81,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
+    function testAllowanceHolder_uniswapV3VIP() public skipIf(uniswapV3PathVIP().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -94,7 +93,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         amount(),
                         0 /* nonce */
                     ),
-                    uniswapV3Path(),
+                    uniswapV3PathVIP(),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -130,7 +129,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapEnd();
     }
 
-    function testAllowanceHolder_uniswapV3VIP_contract() public skipIf(uniswapV3Path().length == 0) {
+    function testAllowanceHolder_uniswapV3VIP_contract() public skipIf(uniswapV3PathVIP().length == 0) {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 // Perform a transfer into directly to the UniswapV3 pool via AllowanceHolder on demand
@@ -142,7 +141,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                         amount(),
                         0 /* nonce */
                     ),
-                    uniswapV3Path(),
+                    uniswapV3PathVIP(),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -251,7 +250,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.BASIC,
                 (
                     address(fromToken()),
-                    1_000,
+                    100_000,
                     address(fromToken()),
                     0x24,
                     abi.encodeCall(fromToken().transfer, (BURN_ADDRESS, 0))

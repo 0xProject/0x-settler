@@ -119,24 +119,24 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
+. "$project_root"/sh/common.sh
+
+# Even on EraVM chains, the Foundry script runs under the vanilla EVM simulator
+require_vanilla_foundry
+
 if [[ ! -f "$project_root"/sh/initial_description_taker.md ]] ; then
-    echo 'sh/initial_description_taker.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_taker.md is missing'
 fi
 if [[ ! -f "$project_root"/sh/initial_description_metatx.md ]] ; then
-    echo 'sh/initial_description_metatx.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_metatx.md is missing'
 fi
 if [[ ! -f "$project_root"/sh/initial_description_bridge_settler.md ]] ; then
-    echo 'sh/initial_description_bridge_settler.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_bridge_settler.md is missing'
 fi
 if [[ ! -f "$project_root"/sh/initial_description_crosschain_intent.md ]] ; then
-    echo 'sh/initial_description_crosschain_intent.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_crosschain_intent.md is missing'
 fi
 
-. "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
 decrypt_secrets
@@ -146,6 +146,16 @@ decrypt_secrets
 declare -r bridge_settler_skip_clean=Yes
 
 . "$project_root"/sh/common_deploy_bridge_settler.sh
+
+# The Guard MUST compile with these exact settings. The Foundry script reads this artifact with
+# `vm.getCode`, so this build must come after every `forge clean`, and the script build must skip
+# SafeGuard.sol so that the artifact survives.
+declare guard_bytecode=0x
+if [[ $era_vm = [Ff]alse ]] ; then
+    FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200 forge build src/deployer/SafeGuard.sol
+    guard_bytecode="$(jq -Mr .bytecode.object < "$project_root"/out/SafeGuard.sol/ZeroExSettlerDeployerSafeGuardOnePointFourPointOne.json)"
+fi
+declare -r guard_bytecode
 
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
@@ -188,10 +198,10 @@ declare -r dao_description
 
 # safe constants
 declare safe_factory
-safe_factory="$(get_config safe.factory)"
+safe_factory="$(get_config_strict 'safe["v1.3.0"].factory')"
 declare -r safe_factory
 declare safe_singleton
-safe_singleton="$(get_config safe.singleton)"
+safe_singleton="$(get_config_strict 'safe["v1.3.0"].singleton')"
 declare -r safe_singleton
 declare safe_creation_sig
 safe_creation_sig='proxyCreationCode()(bytes)'
@@ -213,11 +223,26 @@ else
 fi
 declare -r safe_inithash
 declare safe_fallback
-safe_fallback="$(get_config safe.fallback)"
+safe_fallback="$(get_config_strict 'safe["v1.3.0"].fallback')"
 declare -r safe_fallback
 declare safe_multicall
-safe_multicall="$(get_config safe.multiCall)"
+safe_multicall="$(get_config_strict 'safe["v1.3.0"].multiCall')"
 declare -r safe_multicall
+declare safe_singleton_v141
+safe_singleton_v141="$(get_config_strict 'safe["v1.4.1"].singleton')"
+declare -r safe_singleton_v141
+declare safe_fallback_v141
+safe_fallback_v141="$(get_config_strict 'safe["v1.4.1"].fallback')"
+declare -r safe_fallback_v141
+declare safe_multicall_v141
+safe_multicall_v141="$(get_config_strict 'safe["v1.4.1"].multiCall')"
+declare -r safe_multicall_v141
+declare safe_migration
+safe_migration="$(get_config_strict 'safe["v1.3.0"].migration["v1.4.1"]')"
+declare -r safe_migration
+declare safe_toehold
+safe_toehold="$(get_config_strict 'safe["v1.4.1"].toehold')"
+declare -r safe_toehold
 
 # compute deployment safe
 declare -r setup_signature='setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 paymentAmount,address paymentReceiver)'
@@ -301,6 +326,17 @@ fi
 dao_safe="$(cast to-check-sum-address "0x${dao_safe:26:40}")"
 declare -r dao_safe
 
+# compute guard (timelock) address
+declare guard_address="$(cast address-zero)"
+if [[ $era_vm = [Ff]alse ]] ; then
+    declare guard_constructor_args
+    guard_constructor_args="$(cast abi-encode 'constructor(address)' "$upgrade_safe")"
+    declare -r guard_constructor_args
+    guard_address="$(cast keccak "$(cast concat-hex 0xff "$safe_toehold" "$(cast hash-zero)" "$(cast keccak "$(cast concat-hex "$guard_bytecode" "$guard_constructor_args")")")")"
+    guard_address="$(cast to-check-sum-address "0x${guard_address:26:40}")"
+fi
+declare -r guard_address
+
 . "$project_root"/sh/common_gas.sh
 
 declare -a maybe_broadcast=()
@@ -311,12 +347,10 @@ declare -r -a maybe_broadcast
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     if (( $(cast balance --rpc-url "$rpc_url" "$module_deployer") == 0 )) ; then
-        echo 'You forgot to send ETH to '"$module_deployer"'.' >&2
-        exit 1
+        die 'You forgot to send ETH to '"$module_deployer"'.'
     fi
     if (( $(cast balance --rpc-url "$rpc_url" "$proxy_deployer") == 0 )) ; then
-        echo 'You forgot to send ETH to '"$proxy_deployer"'.' >&2
-        exit 1
+        die 'You forgot to send ETH to '"$proxy_deployer"'.'
     fi
 fi
 
@@ -331,7 +365,10 @@ export DEPLOYER_PROXY_DEPLOYER_KEY
 forge script                                             \
     --slow                                               \
     --no-storage-caching                                 \
+    --gas-limit 100000000                                \
+    "${maybe_tx_gas_limit[@]}"                           \
     --skip 'Flat.sol'                                    \
+    --skip 'src/deployer/SafeGuard.sol'                  \
     --skip 'CrossChainReceiverFactory.sol'               \
     --skip 'src/allowanceholder/*.sol'                   \
     --skip 'src/chains/*.sol'                            \
@@ -344,11 +381,11 @@ forge script                                             \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
-    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
+    "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$dao_safe" "$guard_address" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$safe_singleton_v141" "$safe_fallback_v141" "$safe_multicall_v141" "$safe_migration" "$safe_toehold" \
     2 3 4 5 1001 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 unset -v ICECOLDCOFFEE_DEPLOYER_KEY
@@ -366,6 +403,15 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     verify_contract "$(cast abi-encode 'constructor(uint256)' 1)" "$deployer_impl" src/deployer/Deployer.sol:Deployer
 
+    if [[ $era_vm = [Ff]alse ]] ; then
+        echo 'Verified Deployer implementation -- now verifying SafeGuard (timelock)' >&2
+
+        (
+            export FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=200
+            verify_contract "$guard_constructor_args" "$guard_address" src/deployer/SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne 0.8.25
+        )
+    fi
+
     echo 'Run ./sh/verify_settler.sh and ./sh/verify_bridge_settler.sh to verify newly-deployed Settlers' >&2
 fi
 
@@ -375,8 +421,35 @@ echo '"governance": {' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
 echo '	"pause": "'"$ice_cold_coffee"'",' >&2
-echo '	"daoSafe": "'"$dao_safe"'"' >&2
+if [[ $era_vm = [Ff]alse ]] ; then
+    echo '	"daoSafe": "'"$dao_safe"'",' >&2
+    echo '	"timelock": "'"$guard_address"'"' >&2
+else
+    echo '	"daoSafe": "'"$dao_safe"'"' >&2
+fi
 echo '},' >&2
 echo '"deployment": {' >&2
 echo '	"deployer": "'"$deployer_proxy"'"' >&2
 echo '}' >&2
+
+if [[ $era_vm != [Ff]alse ]] ; then
+    echo '' >&2
+    echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!' >&2
+    echo '!!!                          DANGER                             !!!' >&2
+    echo '!!!                                                             !!!' >&2
+    echo '!!! The SafeGuard (timelock) is NOT deployed and NOT installed  !!!' >&2
+    echo '!!! EraVM cannot deploy the guard atomically with the Safes     !!!' >&2
+    echo '!!! The upgrade Safe is UNPROTECTED until the guard is          !!!' >&2
+    echo '!!! installed                                                   !!!' >&2
+    echo '!!!                                                             !!!' >&2
+    echo '!!! Do this IMMEDIATELY:                                        !!!' >&2
+    echo '!!!   1. deploy the guard:                                      !!!' >&2
+    printf '!!!      %-55s!!!\n' "BROADCAST=Yes ./sh/deploy_safeguard.sh $chain_name" >&2
+    echo '!!!   2. queue ONE multisend transaction on the upgrade Safe    !!!' >&2
+    echo '!!!      that calls `Safe.setGuard(<guard>)` and then           !!!' >&2
+    echo '!!!      `Guard.setDelay(432000)` (5 days); collect signatures; !!!' >&2
+    echo '!!!      execute it                                             !!!' >&2
+    echo '!!!   3. add the guard address as `governance.timelock` in      !!!' >&2
+    echo '!!!      chain_config.json                                      !!!' >&2
+    echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!' >&2
+fi

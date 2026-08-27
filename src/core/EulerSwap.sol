@@ -7,6 +7,7 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
@@ -895,7 +896,7 @@ abstract contract EulerSwap is SettlerSwapAbstract {
     function sellToEulerSwap(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         IEulerSwap pool,
         bool zeroForOne,
         uint256 amountOutMin
@@ -909,9 +910,9 @@ abstract contract EulerSwap is SettlerSwapAbstract {
         (uint256 inLimit,) = EulerSwapLib.calcLimits(_EVC(), pool, zeroForOne, p, reserve0, reserve1);
 
         uint256 sellAmount;
-        if (bps != 0) {
+        if (ppm != 0) {
             unchecked {
-                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+                sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
             }
             // If the sell amount is over the limit, any excess will be retained by Settler and sold
             // to subsequent liquidities in the actions list. If `pool` is the last liquidity, this

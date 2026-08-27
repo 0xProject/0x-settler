@@ -139,6 +139,7 @@ Chain-specific functionality is composed via mixins. When adding a new DEX:
 | Precede every assembly block with: brief justification + equivalent Solidity pseudocode | Documents intent for reviewers |
 | Mark assembly blocks `memory-safe` when criteria are met | Enables compiler optimizations |
 | Use hex for all numeric constants in assembly (e.g. `0x60` not `96`, `0x20` not `32`) | Codebase convention; keeps assembly style uniform |
+| Put constant arguments on the left of commutative operations (e.g. `add(0x40, data)`, not `add(data, 0x40)`) | Matches repo style and keeps assembly easy to scan |
 
 ### Gas Optimization
 
@@ -407,7 +408,7 @@ See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for the
 ## Key Constants
 
 ```solidity
-uint256 internal constant BASIS = 10_000;  // BPS denominator
+uint256 internal constant BASIS = 1_000_000;  // ppm (parts-per-million) proportion denominator
 IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 ```
 

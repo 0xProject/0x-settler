@@ -7,6 +7,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -116,7 +117,7 @@ abstract contract Hanji is SettlerSwapAbstract {
 
     function sellToHanji(
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,
@@ -124,13 +125,13 @@ abstract contract Hanji is SettlerSwapAbstract {
         uint256 priceLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bool sendNative = sellToken == ETH_ADDRESS;
+        bool sendNative = address(sellToken) == Constants.ETH_ADDRESS;
         uint256 sellAmount;
         unchecked {
             if (sendNative) {
-                sellAmount = address(this).balance * bps / BASIS;
+                sellAmount = address(this).balance * ppm / Constants.BASIS;
             } else {
-                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+                sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
                 sellToken.safeApproveIfBelow(pool, sellAmount);
             }
         }

@@ -2,7 +2,38 @@
 
 ### Breaking changes
 
+* Update `RENEGADE` signature: replace `target` and `baseForQuote` with
+  `recipient`, `buyToken`, `maxSellAmount`, `refundNativeEth`, and
+  `maxRefundAmount`
 * SolidlyV3 UniV3 fork removed from Sonic
+* All proportional-amount action arguments are now denominated in
+  parts-per-million (`ppm`; denominator 1_000_000) instead of basis points
+  (`bps`; denominator 10_000)
+  * Affects the `bps` (now `ppm`) argument of `UNISWAPV3`, `UNISWAPV2`, `BASIC`,
+    `VELODROME`, `MAKERPSM`, `DODOV1`, `DODOV2`, `MAVERICKV2`, `EULERSWAP`,
+    `HANJI`, `UNISWAPV4`, `BALANCERV3`, `PANCAKE_INFINITY`, `EKUBO`, and
+    `EKUBOV3` actions.
+  * Affects the `maxBps` (now `maxPpm`) argument of `POSITIVE_SLIPPAGE`
+  * Action selectors are unchanged (the arguments are `uint256` at the ABI
+    level); only the interpretation of the value changes
+  * In the packed `fills` encoding of `UNISWAPV4`, `BALANCERV3`,
+    `PANCAKE_INFINITY`, `EKUBO`, and `EKUBOV3`, the leading proportion field of
+    each fill (and the corresponding field of the non-VIP header) widens from 2
+    bytes to 3 bytes
+  * `BALANCERV3` wrap/unwrap flags move from bits 15/14 to bits 23/22 of the
+    fill's proportion field
+  * The Ekubo forwarding-extension flag moves from bit 15 to bit 23
+  * The Permit2 balance-proportional sell amount sentinel widens:
+    `permit.permitted.amount > type(uint256).max - 1_000_000` now encodes a
+    proportion in `ppm` as `type(uint256).max - (1_000_000 - ppm)`
+  * Note that the `UNISWAPV2` action *STILL* contains a basis-point-denominated
+    packed field (the swap fee) in the upper 16 bits of `swapInfo`. This
+    behavior remains unchanged.
+* For the actions `UNISWAPV3_VIP` and `METATXN_UNISWAPV3_VIP`, remove the first
+  token (the sell token) from `path`, shortening the encoded length by 20
+  bytes. This token is now read from `permit`. Intermediate hop tokens and the
+  final buy token are unchanged. The non-VIP `UNISWAPV3` action is
+  unchanged. Immunefi bug report 88903
 
 ### Non-breaking changes
 
@@ -13,6 +44,19 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add Orvex CL PancakeInfinity fork to RobinHood chain
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+    `METATXN_PANCAKE_INFINITY_VIP`
+* Add Alandale (Algebra-like) UniV3 fork to RobinHood with fork ID 46
+* Fix a bug in the BalancerV3 actions that allowed `bps > 10000` (now `ppm >
+  1_000_000`). Immunefi bug 89191
+* Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to Monad
+* Add `BEBOP` action on RobinHood chain
+
+## 2026-07-27
+
+### Non-breaking changes
+
 * Add `HANJI` action for the Hanji order book liquidity source on RobinHood
 * Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to HyperEVM
 

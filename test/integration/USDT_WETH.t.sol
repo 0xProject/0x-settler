@@ -104,12 +104,7 @@ contract USDTWETHTest is
         */
     }
 
-    function uniswapV3Path()
-        internal
-        view
-        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
-        returns (bytes memory)
-    {
+    function uniswapV3Path() internal view override returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
@@ -119,5 +114,9 @@ contract USDTWETHTest is
 
     function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {
         return 0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852;
+    }
+
+    function recipient() internal view virtual override returns (address) {
+        return address(settler);
     }
 }

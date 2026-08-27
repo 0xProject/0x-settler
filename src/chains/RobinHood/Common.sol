@@ -8,10 +8,11 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {Hanji} from "../../core/Hanji.sol";
+import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3RobinhoodFactory,
@@ -32,8 +33,11 @@ import {upFactory, upInitHash, upForkId} from "../../core/univ3forks/Up.sol";
 import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3forks/Sheriff.sol";
 import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
 import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
+import {alandaleFactory, alandaleInitHash, alandaleForkId} from "../../core/univ3forks/Alandale.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
+import {orvexVault, orvexClManager} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
 
@@ -41,7 +45,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
+abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji, PancakeInfinity, Bebop {
     using FastLogic for bool;
 
     constructor() {
@@ -58,11 +62,12 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+            .or(action == uint32(ISettlerActions.EKUBOV3.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -71,14 +76,16 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
                 revert("unimplemented");
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 address pool,
                 uint256 sellScalingFactor,
                 uint256 buyScalingFactor,
@@ -87,7 +94,19 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
                 uint256 minBuyAmount
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
-            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+            sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                ISettlerActions.BebopOrder memory order,
+                ISettlerActions.BebopMakerSignature memory makerSignature,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
+
+            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else {
             return false;
         }
@@ -132,6 +151,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
             factory = gigaDexV3Factory;
             initHash = gigaDexV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+        } else if (forkId == alandaleForkId) {
+            factory = alandaleFactory;
+            initHash = alandaleInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
@@ -139,6 +162,19 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return ROBINHOOD_POOL_MANAGER;
+    }
+
+    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
+        return orvexVault;
+    }
+
+    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
+        return orvexClManager;
+    }
+
+    // Orvex does not have a Bin pool manager
+    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
+        revertUnknownPoolManagerId(1);
     }
 
     // I hate Solidity inheritance
@@ -149,5 +185,15 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, Hanji {
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

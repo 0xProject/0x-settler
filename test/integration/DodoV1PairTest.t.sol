@@ -20,7 +20,9 @@ abstract contract DodoV1PairTest is SettlerBasePairTest {
     function testSettler_dodoV1() public skipIf(dodoV1Pool() == address(0)) {
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultFromPermit2Action(),
-            abi.encodeCall(ISettlerActions.DODOV1, (address(fromToken()), 10_000, dodoV1Pool(), dodoV1Direction(), 0))
+            abi.encodeCall(
+                ISettlerActions.DODOV1, (address(fromToken()), 1_000_000, dodoV1Pool(), dodoV1Direction(), 0)
+            )
         );
         Settler _settler = settler;
         uint256 beforeBalance = balanceOf(toToken(), FROM);

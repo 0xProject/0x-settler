@@ -47,7 +47,7 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -55,17 +55,17 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+            (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
-            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+            sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -73,7 +73,7 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -87,10 +87,10 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
 
             sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
-            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV2(recipient, sellToken, ppm, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }

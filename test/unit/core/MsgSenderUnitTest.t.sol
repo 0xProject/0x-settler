@@ -34,7 +34,7 @@ contract MsgSenderUnitTest is Test {
             ISettlerActions.BASIC,
             (
                 address(0),              // sellToken (no token transfer needed)
-                0,                       // bps
+                0,                       // ppm
                 address(callbackHelper), // pool
                 0,                       // offset
                 abi.encodeCall(MsgSenderCallbackHelper.checkMsgSender, (address(settler)))
@@ -64,7 +64,7 @@ contract MsgSenderUnitTest is Test {
             ISettlerActions.BASIC,
             (
                 address(0),              // sellToken (no token transfer needed)
-                0,                       // bps
+                0,                       // ppm
                 address(callbackHelper), // pool
                 0,                       // offset
                 abi.encodeCall(MsgSenderCallbackHelper.checkMsgSender, (address(settler)))

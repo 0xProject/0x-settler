@@ -62,6 +62,19 @@ interface ISafeModule {
     function enableModule(address module) external;
 }
 
+interface ISafeMigration {
+    function migrateL2WithFallbackHandler() external;
+}
+
+interface ISafeGuardManager {
+    function setGuard(address guard) external;
+}
+
+interface IZeroExSettlerDeployerSafeGuard {
+    function setDelay(uint24 newDelay) external;
+    function delay() external view returns (uint24);
+}
+
 interface ISafeMulticall {
     /// @dev Sends multiple transactions and reverts all if one fails.
     /// @param transactions Encoded transactions. Each transaction is encoded as a packed bytes of
@@ -87,6 +100,29 @@ contract DeploySafes is Script {
     bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
     bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
+    bytes32 internal constant singletonV141Hash = 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
+    bytes32 internal constant singletonV141HashEraVm =
+        0x520462ebe1156cd2d37b1d470c57f23e12fe0c4cda4c62502d96e03fa0cb44da;
+    bytes32 internal constant fallbackV141Hash = 0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9;
+    bytes32 internal constant fallbackV141HashEraVm =
+        0x331ff834e83e6e1596325f04eb7d16614155e324010af21f14e9c945e7669d5f;
+    bytes32 internal constant multicallV141Hash = 0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939;
+    bytes32 internal constant multicallV141HashEraVm =
+        0x44c70b30fed5c3a07358a52c2fb028f651031010ef99e4d8c3b45c208e88a264;
+    bytes32 internal constant migrationHash = 0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99;
+    bytes32 internal constant migrationHashEraVm = 0x6815c12fbdeb438fb0fb1e1484ac190ca2fc98065b93f95db846596c3c0eee70;
+    // keccak256("fallback_manager.handler.address")
+    bytes32 internal constant fallbackHandlerSlot = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+    // keccak256("guard_manager.guard.address")
+    bytes32 internal constant guardSlot = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
+    // Arachnid's deterministic-deployment-proxy; the Safe Singleton Factory runs the same code
+    bytes32 internal constant toeholdHash = 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
+    // keccak256 of the creation code of `ZeroExSettlerDeployerSafeGuardOnePointFourPointOne` compiled with solc
+    // 0.8.25, the London hardfork, and 200 optimizer runs; only this build lands the guard at its canonical address
+    bytes32 internal constant guardCreationHash = 0x2dc46f7baff22455573ac9bce9d7f9ea2ecff7444c84d0520ae7a252a266d405;
+    // The migration bytecode etched during EraVm simulation is the EVM build; its immutables point at the
+    // EVM-canonical v1.4.1 singleton rather than the chain's EraVm deployment, so the simulation needs code there.
+    address internal constant singletonV141Canonical = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     uint256 internal constant safeDeploymentSaltNonce = 0;
 
     // This is derived from calling `proxyCreationCode()` on the factory and then decoding the EraVm-style encoded
@@ -104,6 +140,10 @@ contract DeploySafes is Script {
         address safeSingleton;
         address safeFallback;
         address safeMulticall;
+        address safeSingletonV141;
+        address safeFallbackV141;
+        address safeMulticallV141;
+        address safeMigration;
         SafeBytecodes safeBytecodes;
     }
 
@@ -170,38 +210,39 @@ contract DeploySafes is Script {
         return subCalls;
     }
 
-    modifier eraVmCompat(
-        bool isEraVm,
-        uint256 privateKey,
-        ISafeExecute safe,
-        ISafeFactory safeFactory,
-        address safeSingleton,
-        address safeFallback,
-        address safeMulticall,
-        SafeBytecodes memory safeBytecodes
-    ) {
-        if (isEraVm) {
+    modifier eraVmCompat(SafeCompatConfig memory compatConfig, ISafeExecute safe) {
+        if (compatConfig.isEraVm) {
             (VmSafe.CallerMode callerMode, address msgSender, address txOrigin) = vm.readCallers();
             require(callerMode != VmSafe.CallerMode.Broadcast);
             if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
                 require(msgSender == txOrigin);
-                require(msgSender == vm.addr(privateKey));
+                require(msgSender == vm.addr(compatConfig.privateKey));
                 vm.stopBroadcast();
             }
 
-            bytes memory oldFactoryCode = address(safeFactory).code;
-            vm.etch(address(safeFactory), safeBytecodes.factoryCode);
-            bytes memory oldSingletonCode = safeSingleton.code;
-            vm.etch(safeSingleton, safeBytecodes.singletonCode);
-            bytes memory oldFallbackCode = safeFallback.code;
-            vm.etch(safeFallback, safeBytecodes.fallbackCode);
-            bytes memory oldMulticallCode = safeMulticall.code;
-            vm.etch(safeMulticall, safeBytecodes.multicallCode);
+            bytes memory oldFactoryCode = address(compatConfig.safeFactory).code;
+            vm.etch(address(compatConfig.safeFactory), compatConfig.safeBytecodes.factoryCode);
+            bytes memory oldSingletonCode = compatConfig.safeSingleton.code;
+            vm.etch(compatConfig.safeSingleton, compatConfig.safeBytecodes.singletonCode);
+            bytes memory oldFallbackCode = compatConfig.safeFallback.code;
+            vm.etch(compatConfig.safeFallback, compatConfig.safeBytecodes.fallbackCode);
+            bytes memory oldMulticallCode = compatConfig.safeMulticall.code;
+            vm.etch(compatConfig.safeMulticall, compatConfig.safeBytecodes.multicallCode);
+            bytes memory oldSingletonV141Code = compatConfig.safeSingletonV141.code;
+            vm.etch(compatConfig.safeSingletonV141, compatConfig.safeBytecodes.singletonV141Code);
+            bytes memory oldFallbackV141Code = compatConfig.safeFallbackV141.code;
+            vm.etch(compatConfig.safeFallbackV141, compatConfig.safeBytecodes.fallbackV141Code);
+            bytes memory oldMulticallV141Code = compatConfig.safeMulticallV141.code;
+            vm.etch(compatConfig.safeMulticallV141, compatConfig.safeBytecodes.multicallV141Code);
+            bytes memory oldMigrationCode = compatConfig.safeMigration.code;
+            vm.etch(compatConfig.safeMigration, compatConfig.safeBytecodes.migrationCode);
+            bytes memory oldSingletonV141CanonicalCode = singletonV141Canonical.code;
+            vm.etch(singletonV141Canonical, compatConfig.safeBytecodes.singletonV141Code);
 
             bytes memory oldSafeCode;
             if (address(safe) != address(0)) {
                 oldSafeCode = address(safe).code;
-                vm.etch(address(safe), safeBytecodes.proxyCode);
+                vm.etch(address(safe), compatConfig.safeBytecodes.proxyCode);
             }
 
             vm.startPrank(msgSender, txOrigin);
@@ -227,17 +268,22 @@ contract DeploySafes is Script {
                 }
             }
 
-            vm.etch(address(safeFactory), oldFactoryCode);
-            vm.etch(safeSingleton, oldSingletonCode);
-            vm.etch(safeFallback, oldFallbackCode);
-            vm.etch(safeMulticall, oldMulticallCode);
+            vm.etch(address(compatConfig.safeFactory), oldFactoryCode);
+            vm.etch(compatConfig.safeSingleton, oldSingletonCode);
+            vm.etch(compatConfig.safeFallback, oldFallbackCode);
+            vm.etch(compatConfig.safeMulticall, oldMulticallCode);
+            vm.etch(compatConfig.safeSingletonV141, oldSingletonV141Code);
+            vm.etch(compatConfig.safeFallbackV141, oldFallbackV141Code);
+            vm.etch(compatConfig.safeMulticallV141, oldMulticallV141Code);
+            vm.etch(compatConfig.safeMigration, oldMigrationCode);
+            vm.etch(singletonV141Canonical, oldSingletonV141CanonicalCode);
 
             if (address(safe) != address(0)) {
                 vm.etch(address(safe), oldSafeCode);
             }
 
             if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-                vm.startBroadcast(privateKey);
+                vm.startBroadcast(compatConfig.privateKey);
 
                 // repeat the call from the modified function, blindly, while broadcasting
                 {
@@ -256,16 +302,7 @@ contract DeploySafes is Script {
 
     function _createProxyWithNonce(SafeCompatConfig memory compatConfig, bytes memory initializer, uint256 saltNonce)
         private
-        eraVmCompat(
-            compatConfig.isEraVm,
-            compatConfig.privateKey,
-            ISafeExecute(address(0)),
-            compatConfig.safeFactory,
-            compatConfig.safeSingleton,
-            compatConfig.safeFallback,
-            compatConfig.safeMulticall,
-            compatConfig.safeBytecodes
-        )
+        eraVmCompat(compatConfig, ISafeExecute(address(0)))
         returns (address deployedSafe)
     {
         bool isEraVm = compatConfig.isEraVm;
@@ -308,20 +345,7 @@ contract DeploySafes is Script {
         address gasToken,
         address refundReceiver,
         bytes memory signatures
-    )
-        internal
-        eraVmCompat(
-            compatConfig.isEraVm,
-            compatConfig.privateKey,
-            safe,
-            compatConfig.safeFactory,
-            compatConfig.safeSingleton,
-            compatConfig.safeFallback,
-            compatConfig.safeMulticall,
-            compatConfig.safeBytecodes
-        )
-        returns (bool)
-    {
+    ) internal eraVmCompat(compatConfig, safe) returns (bool) {
         return safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );
@@ -329,16 +353,7 @@ contract DeploySafes is Script {
 
     function _getOwners(SafeCompatConfig memory compatConfig, ISafeOwners safe)
         internal
-        eraVmCompat(
-            compatConfig.isEraVm,
-            compatConfig.privateKey,
-            ISafeExecute(address(safe)),
-            compatConfig.safeFactory,
-            compatConfig.safeSingleton,
-            compatConfig.safeFallback,
-            compatConfig.safeMulticall,
-            compatConfig.safeBytecodes
-        )
+        eraVmCompat(compatConfig, ISafeExecute(address(safe)))
         returns (address[] memory)
     {
         return safe.getOwners();
@@ -363,10 +378,16 @@ contract DeploySafes is Script {
         address deploymentSafe,
         address upgradeSafe,
         address daoSafe,
+        address timelock,
         ISafeFactory safeFactory,
         address safeSingleton,
         address safeFallback,
         address safeMulticall,
+        address safeSingletonV141,
+        address safeFallbackV141,
+        address safeMulticallV141,
+        address safeMigration,
+        address safeToehold,
         Feature takerSubmittedFeature,
         Feature metaTxFeature,
         Feature intentFeature,
@@ -388,7 +409,11 @@ contract DeploySafes is Script {
             safeSingleton: safeSingleton,
             safeFallback: safeFallback,
             safeMulticall: safeMulticall,
-            safeBytecodes: SafeBytecodes("", "", "", "", "", "")
+            safeSingletonV141: safeSingletonV141,
+            safeFallbackV141: safeFallbackV141,
+            safeMulticallV141: safeMulticallV141,
+            safeMigration: safeMigration,
+            safeBytecodes: SafeBytecodes("", "", "", "", "", "", "", "", "", "")
         });
         safeCompatConfig.safeBytecodes.load(vm);
 
@@ -408,6 +433,22 @@ contract DeploySafes is Script {
         require(
             safeMulticall.codehash == (safeCompatConfig.isEraVm ? multicallHashEraVm : multicallHash),
             "Safe multicall codehash"
+        );
+        require(
+            safeSingletonV141.codehash == (safeCompatConfig.isEraVm ? singletonV141HashEraVm : singletonV141Hash),
+            "Safe v1.4.1 singleton codehash"
+        );
+        require(
+            safeFallbackV141.codehash == (safeCompatConfig.isEraVm ? fallbackV141HashEraVm : fallbackV141Hash),
+            "Safe v1.4.1 fallback codehash"
+        );
+        require(
+            safeMulticallV141.codehash == (safeCompatConfig.isEraVm ? multicallV141HashEraVm : multicallV141Hash),
+            "Safe v1.4.1 multicall codehash"
+        );
+        require(
+            safeMigration.codehash == (safeCompatConfig.isEraVm ? migrationHashEraVm : migrationHash),
+            "Safe migration codehash"
         );
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
@@ -463,8 +504,7 @@ contract DeploySafes is Script {
                 payable(address(0))
             )
         );
-        bytes32 daoSafeSalt =
-            keccak256(bytes.concat(keccak256(daoInitializer), bytes32(safeDeploymentSaltNonce)));
+        bytes32 daoSafeSalt = keccak256(bytes.concat(keccak256(daoInitializer), bytes32(safeDeploymentSaltNonce)));
 
         if (safeCompatConfig.isEraVm) {
             bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
@@ -502,8 +542,7 @@ contract DeploySafes is Script {
                 "upgrade safe address mismatch"
             );
             require(
-                AddressDerivation.deriveDeterministicContract(address(safeFactory), daoSafeSalt, initHash)
-                    == daoSafe,
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), daoSafeSalt, initHash) == daoSafe,
                 "dao safe address mismatch"
             );
         }
@@ -583,15 +622,34 @@ contract DeploySafes is Script {
         // DAO feature: initialize and authorize DAO Safe for feature 1001
         bytes memory daoSetDescriptionCall =
             abi.encodeCall(Deployer.setDescription, (daoFeature, initialDescriptionDao));
-        bytes memory daoAuthorizeCall = abi.encodeCall(
-            Deployer.authorize, (daoFeature, daoSafe, uint40(block.timestamp + 365 days))
-        );
+        bytes memory daoAuthorizeCall =
+            abi.encodeCall(Deployer.authorize, (daoFeature, daoSafe, uint40(block.timestamp + 365 days)));
+
+        // The guard (timelock) is created through the toehold and installed in the same Safe
+        // transaction that hands ownership to the final owners. EraVm cannot do this: publishing
+        // the guard bytecode requires the factory-deps field of a native EraVm transaction, which
+        // cannot ride inside a Safe transaction. On EraVm the operator deploys and installs the
+        // guard immediately after this script, out-of-band.
+        address predictedGuard;
+        bytes memory guardInitcode;
+        if (!safeCompatConfig.isEraVm) {
+            require(safeToehold.codehash == toeholdHash, "Safe toehold codehash");
+            bytes memory guardCreationCode =
+                vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne");
+            require(keccak256(guardCreationCode) == guardCreationHash, "guard creation code hash");
+            guardInitcode = bytes.concat(guardCreationCode, abi.encode(upgradeSafe));
+            predictedGuard =
+                AddressDerivation.deriveDeterministicContract(safeToehold, bytes32(0), keccak256(guardInitcode));
+            require(predictedGuard == timelock, "guard -- inithash/deployed address mismatch");
+            require(predictedGuard.code.length == 0, "guard is already deployed");
+        }
 
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
         bytes[] memory changeOwnersCalls =
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
         assert(changeOwnersCalls.length == upgradeOwners.length + 1);
-        bytes[] memory upgradeSetupCalls = new bytes[](11 + changeOwnersCalls.length);
+        bytes[] memory upgradeSetupCalls =
+            new bytes[](11 + changeOwnersCalls.length + (safeCompatConfig.isEraVm ? 0 : 3));
         upgradeSetupCalls[0] = _encodeMultisend(deployerProxy, acceptOwnershipCall);
         upgradeSetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedSetDescriptionCall);
         upgradeSetupCalls[2] = _encodeMultisend(deployerProxy, takerSubmittedAuthorizeCall);
@@ -605,6 +663,19 @@ contract DeploySafes is Script {
         upgradeSetupCalls[10] = _encodeMultisend(deployerProxy, daoAuthorizeCall);
         for (uint256 i; i < changeOwnersCalls.length; i++) {
             upgradeSetupCalls[i + 11] = changeOwnersCalls[i];
+        }
+        if (!safeCompatConfig.isEraVm) {
+            // The guard's `supportsInterface` (probed by the Safe during `setGuard`) demands that
+            // the Safe already run the v1.4.1 singleton and hold its final owners and threshold;
+            // these sub-calls must come after the owner handover.
+            upgradeSetupCalls[11 + changeOwnersCalls.length] =
+                _encodeMultisend(safeToehold, bytes.concat(bytes32(0), guardInitcode));
+            upgradeSetupCalls[12 + changeOwnersCalls.length] =
+                _encodeMultisend(upgradeSafe, abi.encodeCall(ISafeGuardManager.setGuard, (predictedGuard)));
+            upgradeSetupCalls[13 + changeOwnersCalls.length] = _encodeMultisend(
+                predictedGuard,
+                abi.encodeCall(IZeroExSettlerDeployerSafeGuard.setDelay, (SafeConfig.upgradeSafeTimelockDelay))
+            );
         }
         bytes memory upgradeSetupCall = _encodeMultisend(upgradeSetupCalls);
 
@@ -637,7 +708,7 @@ contract DeploySafes is Script {
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
-        uint256[] memory gasSplits = new uint256[](11);
+        uint256[] memory gasSplits = new uint256[](12);
 
         _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
@@ -657,8 +728,7 @@ contract DeploySafes is Script {
         gasSplits[3] = gasleft();
         address deployedDaoSafe;
         if (daoSafe.code.length == 0) {
-            deployedDaoSafe =
-                _createProxyWithNonce(safeCompatConfig, daoInitializer, safeDeploymentSaltNonce);
+            deployedDaoSafe = _createProxyWithNonce(safeCompatConfig, daoInitializer, safeDeploymentSaltNonce);
         } else {
             deployedDaoSafe = daoSafe;
         }
@@ -677,12 +747,36 @@ contract DeploySafes is Script {
         address deployedUpgradeSafe =
             _createProxyWithNonce(safeCompatConfig, upgradeInitializer, safeDeploymentSaltNonce);
 
-        // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
+        // migrate the upgrade safe to v1.4.1; the SafeGuard is only compatible with v1.4.1
         gasSplits[7] = gasleft();
         _execTransaction(
             safeCompatConfig,
             ISafeExecute(upgradeSafe),
-            safeMulticall,
+            safeMigration,
+            0,
+            abi.encodeCall(ISafeMigration.migrateL2WithFallbackHandler, ()),
+            ISafeExecute.Operation.DelegateCall,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            upgradeSignature
+        );
+        if (safeCompatConfig.isEraVm) {
+            // The etched EVM migration bytecode stored its immutable (EVM-canonical) addresses; the real EraVm
+            // migration contract stores the chain's EraVm deployments. We lie to the rest of the script about the
+            // simulated state so that it matches the on-chain outcome.
+            vm.store(upgradeSafe, bytes32(0), bytes32(uint256(uint160(safeSingletonV141))));
+            vm.store(upgradeSafe, fallbackHandlerSlot, bytes32(uint256(uint160(safeFallbackV141))));
+        }
+
+        // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
+        gasSplits[8] = gasleft();
+        _execTransaction(
+            safeCompatConfig,
+            ISafeExecute(upgradeSafe),
+            safeMulticallV141,
             0,
             upgradeSetupCall,
             ISafeExecute.Operation.DelegateCall,
@@ -694,13 +788,13 @@ contract DeploySafes is Script {
             upgradeSignature
         );
 
-        gasSplits[8] = gasleft();
+        gasSplits[9] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
         _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
         // add rollback module; deploy settlers; set new owners
-        gasSplits[9] = gasleft();
+        gasSplits[10] = gasleft();
         _execTransaction(
             safeCompatConfig,
             ISafeExecute(deploymentSafe),
@@ -716,13 +810,14 @@ contract DeploySafes is Script {
             deploymentSignature
         );
 
-        gasSplits[10] = gasleft();
+        gasSplits[11] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
         {
             uint256 gasPrev = gasSplits[0];
             for (uint256 i = 1; i < gasSplits.length; i++) {
-                require(gasPrev + 15728639 > (gasPrev = gasSplits[i]), "transaction is likely to exceed EIP-7825 limit");
+                require(gasSplits[i] + 15728639 > gasPrev, "transaction is likely to exceed EIP-7825 limit");
+                gasPrev = gasSplits[i];
             }
         }
 
@@ -730,6 +825,24 @@ contract DeploySafes is Script {
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
         require(deployedDaoSafe == daoSafe, "dao safe deployed/predicted safe mismatch");
         require(deployedUpgradeSafe == upgradeSafe, "upgrade deployed safe/predicted safe mismatch");
+        require(
+            address(uint160(uint256(vm.load(upgradeSafe, bytes32(0))))) == safeSingletonV141,
+            "upgrade safe not migrated to v1.4.1 singleton"
+        );
+        require(
+            address(uint160(uint256(vm.load(upgradeSafe, fallbackHandlerSlot)))) == safeFallbackV141,
+            "upgrade safe not migrated to v1.4.1 fallback"
+        );
+        if (!safeCompatConfig.isEraVm) {
+            require(predictedGuard.code.length != 0, "guard was not deployed");
+            require(
+                address(uint160(uint256(vm.load(upgradeSafe, guardSlot)))) == predictedGuard, "guard was not installed"
+            );
+            require(
+                IZeroExSettlerDeployerSafeGuard(predictedGuard).delay() == SafeConfig.upgradeSafeTimelockDelay,
+                "guard delay was not set"
+            );
+        }
         require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
         require(

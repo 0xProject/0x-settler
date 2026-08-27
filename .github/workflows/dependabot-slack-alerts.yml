@@ -22,10 +22,30 @@ jobs:
           app-id: ${{ secrets.ZEROEX_AUTOMATION_APP_ID }}
           private-key: ${{ secrets.ZEROEX_AUTOMATION_PRIVATE_KEY }}
 
-      # Latest version available at: https://github.com/kunalnagarco/action-cve/releases
       - name: Notify Vulnerabilities
-        uses: kunalnagarco/action-cve@v1.14.15
+        uses: actions/github-script@v9
+        env:
+          SLACK_WEBHOOK: ${{ secrets.DEPENDABOT_SLACK_WEBHOOK }}
         with:
-          severity: high,critical
-          token: "${{ steps.app-token.outputs.token }}"
-          slack_webhook: "${{ secrets.DEPENDABOT_SLACK_WEBHOOK }}"
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const severities = new Set(['high', 'critical']);
+            const alerts = await github.paginate(github.rest.dependabot.listAlertsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const hits = alerts.filter((a) => severities.has(a.security_advisory.severity));
+            if (hits.length === 0) return;
+            const lines = hits.map(
+              (a) =>
+                `• *${a.security_advisory.severity.toUpperCase()}* ${a.dependency.package.name}: ${a.security_advisory.summary} (<${a.html_url}|#${a.number}>)`,
+            );
+            const text = `*${hits.length} open Dependabot alert(s)* in ${context.repo.owner}/${context.repo.repo}\n${lines.join('\n')}`;
+            const res = await fetch(process.env.SLACK_WEBHOOK, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text }),
+            });
+            if (!res.ok) core.setFailed(`Slack webhook failed: ${res.status}`);

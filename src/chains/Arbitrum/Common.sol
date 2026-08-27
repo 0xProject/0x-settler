@@ -12,7 +12,7 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
-import {Renegade, ARBITRUM_SELECTOR} from "../../core/Renegade.sol";
+import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -64,6 +64,10 @@ abstract contract ArbitrumMixin is
         assert(block.chainid == 42161 || block.chainid == 31337);
     }
 
+    function _renegadeGasSponsorV2() internal pure override returns (address) {
+        return 0xcE7a8D45daa9a5B29f6d255552F577d53fF9EBcf;
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
@@ -77,7 +81,7 @@ abstract contract ArbitrumMixin is
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -85,12 +89,12 @@ abstract contract ArbitrumMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -98,19 +102,19 @@ abstract contract ArbitrumMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
                 int32 tickLimit,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, ppm, pool, tokenAIn, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -124,20 +128,37 @@ abstract contract ArbitrumMixin is
 
             sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
-            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV2(recipient, sellToken, ppm, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
-            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (IERC20 sellToken, uint256 ppm, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV1(sellToken, ppm, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (address target, IERC20 sellToken, bool baseForQuote, bytes memory renegadeData, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, bool, bytes, uint256));
+            (
+                address recipient,
+                IERC20 sellToken,
+                IERC20 buyToken,
+                uint256 maxSellAmount,
+                bool refundNativeEth,
+                uint256 maxRefundAmount,
+                bytes memory renegadeData,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, IERC20, uint256, bool, uint256, bytes, uint256));
 
-            sellToRenegade(target, sellToken, baseForQuote, renegadeData, minBuyAmount);
+            sellToRenegade(
+                recipient,
+                sellToken,
+                buyToken,
+                maxSellAmount,
+                refundNativeEth,
+                maxRefundAmount,
+                renegadeData,
+                minBuyAmount
+            );
         } else {
             return false;
         }
@@ -191,10 +212,6 @@ abstract contract ArbitrumMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return ARBITRUM_POOL_MANAGER;
-    }
-
-    function _renegadeSelector() internal pure override returns (uint32) {
-        return ARBITRUM_SELECTOR;
     }
 
     // I hate Solidity inheritance
