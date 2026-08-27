@@ -10,6 +10,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {ZeroSellAmount, UnknownPoolManagerId, revertUnknownPoolManagerId} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 import {BalanceDelta} from "./UniswapV4Types.sol";
@@ -204,7 +205,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
 
     // A chain hosting a fork that lacks CL_MANAGER must unconditionally call `revertUnknownPoolManagerId(0)`
     function _PANCAKE_INFINITY_CL_MANAGER() internal pure virtual returns (address);
-    
+
     // A chain hosting a fork that lacks BIN_MANAGER must unconditionally call `revertUnknownPoolManagerId(1)`
     function _PANCAKE_INFINITY_BIN_MANAGER() internal pure virtual returns (address);
 
@@ -436,7 +437,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                 }
 
                 data = Decoder.updateState(state, notes, data);
-                amountSpecified = int256((state.sell().amount() * ppm).unsafeDiv(BASIS)).unsafeNeg();
+                amountSpecified = int256((state.sell().amount() * ppm).unsafeDiv(Constants.BASIS)).unsafeNeg();
             }
             bool zeroForOne;
             {
@@ -568,7 +569,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                if (globalSellToken == ETH_ADDRESS) {
+                if (address(globalSellToken) == Constants.ETH_ADDRESS) {
                     IPancakeInfinityVault(msg.sender).unsafeSync(IERC20(address(0)));
                     IPancakeInfinityVault(msg.sender).unsafeSettle(debt);
                 } else {

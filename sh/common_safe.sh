@@ -40,19 +40,6 @@ declare -a owners_array
 IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
-declare installed_safe_guard
-installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$(cast keccak 'guard_manager.guard.address')" 1)"
-installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
-declare -r installed_safe_guard
-
-declare configured_safe_guard
-configured_safe_guard="$(get_config governance.timelock)"
-if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
-    configured_safe_guard="$(cast to-checksum "$configured_safe_guard")"
-fi
-declare -r configured_safe_guard
-
-# governance.timelock describes the Guard on the upgrade Safe; no other Safe may have one
 declare upgrade_safe_address
 upgrade_safe_address="$(get_config governance.upgradeSafe)"
 if [[ ${upgrade_safe_address:-null} != [nN][uU][lL][lL] ]] ; then
@@ -60,22 +47,36 @@ if [[ ${upgrade_safe_address:-null} != [nN][uU][lL][lL] ]] ; then
 fi
 declare -r upgrade_safe_address
 
-declare safe_guard
-if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
+declare installed_safe_guard
+installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$(cast keccak 'guard_manager.guard.address')" 1)"
+installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
+declare -r installed_safe_guard
+
+if [[ $(cast to-checksum "$safe_address") = "${upgrade_safe_address:-null}" ]] ; then
+    declare configured_safe_guard
+    configured_safe_guard="$(get_config governance.timelock)"
     if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
-        die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
+        configured_safe_guard="$(cast to-checksum "$configured_safe_guard")"
     fi
-elif [[ $(cast to-checksum "$safe_address") != "${upgrade_safe_address:-null}" ]] ; then
+    declare -r configured_safe_guard
+
+    declare safe_guard
+    if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
+        if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+            die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
+        fi
+    elif [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
+    elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
+        die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \
+            'Expected governance.timelock '"$configured_safe_guard"
+    else
+        safe_guard="$configured_safe_guard"
+    fi
+    declare -r safe_guard
+elif [[ $installed_safe_guard != "$(cast address-zero)" ]] ; then
     die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
-elif [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
-    die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
-elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
-    die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \
-        'Expected governance.timelock '"$configured_safe_guard"
-else
-    safe_guard="$configured_safe_guard"
 fi
-declare -r safe_guard
 
 function prev_owner {
     declare _prev_owner_inp="$1"

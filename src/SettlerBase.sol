@@ -22,6 +22,7 @@ import {Ternary} from "./utils/Ternary.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
+import "./core/Constants.sol" as Constants;
 
 /// @dev This library's ABIDecoding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
@@ -96,7 +97,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        bool isETH = (buyToken == ETH_ADDRESS);
+        bool isETH = (address(buyToken) == Constants.ETH_ADDRESS);
         uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
@@ -158,12 +159,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256));
-            bool isETH = (token == ETH_ADDRESS);
+            bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
-                    cap = balance * maxPpm / BASIS;
+                    cap = balance * maxPpm / Constants.BASIS;
                     balance -= expectedAmount;
                 }
                 balance = (balance > cap).ternary(cap, balance);
