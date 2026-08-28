@@ -232,6 +232,8 @@ interface ISettlerActions {
     ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
     ///      Put a nested `SELECT` in the final candidate unless its full reserve fits the enclosing trial.
     // Pre-req: Funded
+    // Each `candidates` frame runs from its offset to the next, the last to the end of the
+    // action data. `targets[i]` pairs with `candidates[i]`.
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
 

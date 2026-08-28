@@ -183,16 +183,17 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p0.callCount(), 0, "no trial ran on a zero token");
     }
 
-    function test_bounds_candidateOffsetIntoTable_reverts() public {
+    function test_bounds_candidateOffsetIntoTable_decodesAsEmpty() public {
         bytes memory action = _malformedAction(1);
-        // Point candidate 0 at its own offset-table entry instead of its encoded body.
-        // Equivalent Solidity: `action.candidates[0].offset = 0`.
+        // Point candidate 0 at its own offset-table entry. Valid overlap: the frame re-reads the
+        // table bytes, decodes as zero actions, and commits against the zero target.
         assembly ("memory-safe") {
             let candidatesOffset := mload(add(action, 0x84))
             mstore(add(add(action, 0x44), candidatesOffset), 0x00)
         }
 
-        _runMalformed(action);
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 0, "empty-decoded candidate committed");
     }
 
     function test_bounds_targetsOffsetIgnored() public {
@@ -259,17 +260,18 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
-    function test_bounds_overlappingCandidateOffsets_reverts() public {
+    function test_bounds_equalCandidateOffsets_firstFrameEmpty() public {
         bytes memory action = _malformedAction(2);
-        // Give both candidates the same frame start.
-        // Equivalent Solidity: `offset[1] = offset[0]`.
+        // Both candidates share a frame start, so candidate 0's frame is zero-length. It
+        // decodes as no actions and commits against the zero target.
         assembly ("memory-safe") {
             let candidatesOffset := mload(add(action, 0x84))
             let candidatesData := add(add(action, 0x44), candidatesOffset)
             mstore(add(candidatesData, 0x20), mload(candidatesData))
         }
 
-        _runMalformed(action);
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 0, "zero-length first candidate committed");
     }
 
     function test_bounds_candidateFrameOverlapsTargets_reverts() public {
@@ -361,12 +363,11 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p2.callCount(), 1, "only the committed fourth call persists");
     }
 
-    function test_bounds_gapBeforeFirstCandidate_reverts() public {
+    function test_bounds_gapBeforeFirstCandidate_framesStillExecute() public {
         bytes memory action = _malformedAction(1);
         bytes memory gapped = new bytes(action.length + 0x20);
         // Splice a zero word between the offset table and the frame and point candidate 0 past
-        // it. The frame bytes are untouched, so without the first-offset pin this action would
-        // validate and commit; only the gap is invalid.
+        // it. Valid gap: the frame bytes are untouched, so the candidate executes unchanged.
         assembly ("memory-safe") {
             let candidatesOffset := mload(add(action, 0x84))
             let table0 := add(add(action, 0x44), candidatesOffset)
@@ -376,8 +377,8 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
             mcopy(add(add(gapped, 0x40), prefix), frame, sub(mload(action), prefix))
             mstore(add(add(gapped, 0x44), candidatesOffset), 0x40)
         }
-        vm.expectRevert(new bytes(0));
         _runAction(gapped, 0);
+        assertEq(p0.callCount(), 1, "gapped frame executed unchanged");
     }
 
     function test_fallback_primaryRevert_commitsAlternate() public {

@@ -76,18 +76,16 @@ abstract contract Select is SettlerSwapAbstract {
             let base := add(candidatesOffset, dataStart)
             candsData := add(0x20, base)
             err := or(or(iszero(n), lt(shr(0x05, data.length), n)), err)
+            // Each candidate must pair with exactly one target. Policy rather than ABI validation.
             err := or(xor(calldataload(base), n), err)
             err := or(gt(add(tableSize, candsData), dataEnd), err)
-            // The first frame starts at the offset-table end, so every byte belongs to the head,
-            // a table, or exactly one frame. Strict ordering bounds each later start below.
-            // The upper bound on the last start then bounds them all.
-            err := or(xor(calldataload(candsData), tableSize), err)
 
-            // Entry zero is already pinned to `tableSize` and bounded by the table-fit check above.
-            let previous := tableSize
+            // Each frame runs from its start to the next start, the last to the end of `data`.
+            // Starts must not decrease, and the last must stay inside `data`.
+            let previous := calldataload(candsData)
             for { let i := 0x01 } lt(i, n) { i := add(0x01, i) } {
                 let offset := calldataload(add(shl(0x05, i), candsData))
-                err := or(iszero(gt(offset, previous)), err)
+                err := or(lt(offset, previous), err)
                 previous := offset
             }
             err := or(gt(previous, sub(dataEnd, candsData)), err)
