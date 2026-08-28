@@ -19,6 +19,27 @@ function revertConfusedDeputy() pure {
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
 
+/// @notice Thrown when a Deepstate route is empty, unsorted, or does not match the declared swap assets.
+error InvalidDeepstateRoute();
+
+function revertInvalidDeepstateRoute() pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0xea6e9fe6) // selector for `InvalidDeepstateRoute()`
+        revert(0x1c, 0x04)
+    }
+}
+
+/// @notice Thrown when a token transfer does not move the exact amount expected by Deepstate.
+error NonStandardDeepstateToken(IERC20 token);
+
+function revertNonStandardDeepstateToken(IERC20 token) pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0x88f1be27) // selector for `NonStandardDeepstateToken(address)`
+        mstore(0x20, token)
+        revert(0x1c, 0x24)
+    }
+}
+
 /// @notice Thrown when Renegade action data is malformed
 error InvalidRenegadeData();
 
