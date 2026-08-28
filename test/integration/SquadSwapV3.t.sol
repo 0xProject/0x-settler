@@ -58,13 +58,7 @@ contract SquadSwapV3Test is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV3_VIP,
-                (
-                    FROM,
-                    permit,
-                    abi.encodePacked(USDT, squadSwapV3ForkId, uint24(500), uint160(4295128740), WBNB),
-                    sig,
-                    0
-                )
+                (FROM, permit, abi.encodePacked(squadSwapV3ForkId, uint24(500), uint160(4295128740), WBNB), sig, 0)
             )
         );
 

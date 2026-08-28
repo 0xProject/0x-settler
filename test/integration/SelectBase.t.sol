@@ -120,10 +120,11 @@ contract SelectBase is SettlerBasePairTest {
         bytes[][] memory candidates = new bytes[][](1);
         candidates[0] = new bytes[](2);
         candidates[0][0] = abi.encodeCall(
-            ISettlerActions.UNISWAPV3, (address(settler), 5_000, _path(UNISWAP_V3_FORK_ID, UNISWAP_V3_FEE), 0)
+            ISettlerActions.UNISWAPV3, (address(settler), 500_000, _path(UNISWAP_V3_FORK_ID, UNISWAP_V3_FEE), 0)
         );
         candidates[0][1] = abi.encodeCall(
-            ISettlerActions.UNISWAPV3, (address(settler), 10_000, _path(AERODROME_V3_FORK_ID, AERODROME_TICK_SPACING), 0)
+            ISettlerActions.UNISWAPV3,
+            (address(settler), 1_000_000, _path(AERODROME_V3_FORK_ID, AERODROME_TICK_SPACING), 0)
         );
 
         uint256 firstActionOutput = _standaloneOutput(candidates[0]);
@@ -182,7 +183,7 @@ contract SelectBase is SettlerBasePairTest {
 
     function _candidate(bytes memory path, uint256 minOut) internal view returns (bytes[] memory candidate) {
         candidate = new bytes[](1);
-        candidate[0] = abi.encodeCall(ISettlerActions.UNISWAPV3, (address(settler), 10_000, path, minOut));
+        candidate[0] = abi.encodeCall(ISettlerActions.UNISWAPV3, (address(settler), 1_000_000, path, minOut));
     }
 
     function _path(uint8 forkId, uint24 poolId) internal pure returns (bytes memory) {

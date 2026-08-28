@@ -10,6 +10,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
@@ -251,12 +252,6 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
 
     using UnsafeVault for IBalancerV3Vault;
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     //// How to generate `fills` for BalancerV3:
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. Swapping
@@ -273,10 +268,10 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     ////
     //// Now that you have a list of fills, encode each fill as follows.
     //// First, decide if the fill is a swap or an ERC4626 wrap/unwrap.
-    //// Second, encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to
+    //// Second, encode the `ppm` for the fill as 3 bytes. Remember that this `ppm` is relative to
     //// the running balance at the moment that the fill is settled. If the fill is a wrap, set the
-    //// most significant bit of `bps`. If the fill is an unwrap, set the second most significant
-    //// bit of `bps`
+    //// most significant bit of `ppm`. If the fill is an unwrap, set the second most significant
+    //// bit of `ppm`
     //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. If the fill is a wrap, the buy token must be the
     //// ERC4626 vault. If the fill is an unwrap, the sell token must be the ERC4626 vault. If the
@@ -301,7 +296,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     function sellToBalancerV3(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -312,7 +307,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             uint32(IBalancerV3Vault.unlock.selector),
             recipient,
             sellToken,
-            bps,
+            ppm,
             feeOnTransfer,
             hashMul,
             hashMod,
@@ -410,6 +405,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             NotePtr sell = state.sell();
             sell.setAmount(sell.amount() - amountIn);
         }
+
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
         // bits. However, `state.buy.amount` may be an agglomeration of values returned by ERC4626
@@ -458,9 +454,9 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     }
 
     // the mandatory fields are
-    // 2 - sell bps
+    // 3 - sell ppm
     // 1 - pool key tokens case
-    uint256 private constant _HOP_DATA_LENGTH = 3;
+    uint256 private constant _HOP_DATA_LENGTH = 4;
 
     function balV3UnlockCallback(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -511,36 +507,43 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         */
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint256 bps;
-            assembly ("memory-safe") {
-                bps := shr(0xf0, calldataload(data.offset))
+            uint256 ppm;
+            {
+                uint256 _basis = Constants.BASIS;
+                assembly ("memory-safe") {
+                    ppm := shr(0xe8, calldataload(data.offset))
+                    if gt(and(0x3fffff, ppm), _basis) {
+                        mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                        mstore(0x20, 0x11) // arithmetic overflow
+                        revert(0x1c, 0x24)
+                    }
 
-                data.offset := add(0x02, data.offset)
-                data.length := sub(data.length, 0x02)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                    data.offset := add(0x03, data.offset)
+                    data.length := sub(data.length, 0x03)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
             }
-
             data = Decoder.updateState(state, notes, data);
 
-            if (bps & 0xc000 == 0) {
+            if (ppm & 0xc00000 == 0) {
                 data = _setSwapParams(swapParams, state, data);
                 unchecked {
-                    swapParams.amountGiven = (state.sell().amount() * bps).unsafeDiv(BASIS);
+                    swapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(Constants.BASIS);
                 }
                 data = _decodeUserdataAndSwap(swapParams, state, data);
             } else {
                 Decoder.overflowCheck(data);
 
-                if (bps & 0x4000 == 0) {
+                if (ppm & 0x400000 == 0) {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.WRAP;
                     wrapParams.wrappedToken = IERC4626(address(state.buy().token()));
                 } else {
                     wrapParams.direction = IBalancerV3Vault.WrappingDirection.UNWRAP;
                     wrapParams.wrappedToken = IERC4626(address(state.sell().token()));
                 }
-                bps &= 0x3fff;
+                ppm &= 0x3fffff;
                 unchecked {
-                    wrapParams.amountGiven = (state.sell().amount() * bps).unsafeDiv(BASIS);
+                    wrapParams.amountGiven = (state.sell().amount() * ppm).unsafeDiv(Constants.BASIS);
                 }
 
                 _erc4626WrapUnwrap(wrapParams, state);

@@ -61,6 +61,15 @@ abstract contract SettlerBasePairTest is BasePairTest {
         vm.chainId(forkChainId);
     }
 
+    function uniswapV3Path() internal virtual returns (bytes memory) {
+        return new bytes(0);
+    }
+
+    function uniswapV3PathVIP() internal returns (bytes memory) {
+        bytes memory path = uniswapV3Path();
+        return path.length == 0 ? path : path.sliceDestructive(0x14, path.length);
+    }
+
     bytes32 internal constant CONSIDERATION_TYPEHASH =
         keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
     bytes32 internal constant RFQ_PERMIT2_WITNESS_TYPEHASH = keccak256(
