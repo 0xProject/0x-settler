@@ -195,24 +195,26 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
-    function test_bounds_targetsOffsetNotCanonical_reverts() public {
+    function test_bounds_targetsOffsetIgnored() public {
         bytes memory action = _malformedAction(1);
-        // Move the targets tail one word past its canonical 0x80 offset.
+        // The ignored targets offset word makes this execute like the canonical encoding.
         assembly ("memory-safe") {
             mstore(add(action, 0x64), 0xa0)
         }
 
-        _runMalformed(action);
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 1, "candidate ran as canonical");
     }
 
-    function test_bounds_candidatesOffsetNotCanonical_reverts() public {
+    function test_bounds_candidatesOffsetIgnored() public {
         bytes memory action = _malformedAction(1);
-        // Move the candidates tail one word past `0xa0 + 0x20 * n`.
+        // The ignored candidates offset word makes this execute like the canonical encoding.
         assembly ("memory-safe") {
             mstore(add(action, 0x84), add(0x20, mload(add(action, 0x84))))
         }
 
-        _runMalformed(action);
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 1, "candidate ran as canonical");
     }
 
     function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
@@ -324,10 +326,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
-    function testFuzz_bounds_canonicalEncodingAcceptedAndOffsetPerturbationRejected(
-        uint8 candidateCount,
-        uint128 offsetDelta
-    ) public {
+    function testFuzz_bounds_candidatesOffsetWordPerturbationIgnored(uint8 candidateCount, uint128 offsetDelta) public {
         uint256 n = bound(candidateCount, 1, 8);
         uint256 delta = bound(offsetDelta, 1, type(uint128).max);
         bytes[][] memory candidates = new bytes[][](n);
@@ -341,7 +340,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assembly ("memory-safe") {
             mstore(add(action, 0x84), add(delta, mload(add(action, 0x84))))
         }
-        _runMalformed(action);
+        _runAction(action, 0);
     }
 
     function test_ladder_fourCandidates_commitsFourth() public {

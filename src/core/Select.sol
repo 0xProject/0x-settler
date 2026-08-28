@@ -37,6 +37,9 @@ abstract contract Select is SettlerSwapAbstract {
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
         }
+        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of assets held by Settler.
+        // This is outside SELECT's threat model; final slippage still enforces the taker's minimum.
+        // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         uint256 balBefore = token.fastBalanceOf(address(this));
         _runActions(actions);
         uint256 score = token.fastBalanceOf(address(this)) - balBefore;
@@ -57,10 +60,9 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 candsData;
         uint256 dataEnd;
         uint256 n;
-        // Require the canonical encoding of the SELECT head and candidate-frame table:
-        // `[0x00 gasCap][0x20 token][0x40 targets=0x80][0x60 candidates=0xa0+0x20*n]`, then
-        // `[0x80 n][0xa0 targets][candidates length/table/frames]`. The fixed offsets keep the
-        // head and tables contiguous. A zero or dirty `token` reverts.
+        // Ignore the dynamic offset words and decode the fixed packed layout:
+        // `[0x00 gasCap][0x20 token][0x40, 0x60 ignored][0x80 n][0xa0 targets]`
+        // `[candidates length/table/frames]`. A zero or dirty `token` reverts.
         assembly ("memory-safe") {
             let dataStart := data.offset
             dataEnd := add(dataStart, data.length)
@@ -73,8 +75,6 @@ abstract contract Select is SettlerSwapAbstract {
             let candidatesOffset := add(0xa0, tableSize)
             let base := add(candidatesOffset, dataStart)
             candsData := add(0x20, base)
-            err := or(xor(0x80, calldataload(add(0x40, dataStart))), err)
-            err := or(xor(calldataload(add(0x60, dataStart)), candidatesOffset), err)
             err := or(or(iszero(n), lt(shr(0x05, data.length), n)), err)
             err := or(xor(calldataload(base), n), err)
             err := or(gt(add(tableSize, candsData), dataEnd), err)
