@@ -25,7 +25,8 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))) {
+            .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -41,8 +42,10 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
 
             if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
                 sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector))
+            } else if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector)) {
                 sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
+                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             }
         } else {
             return false;
@@ -51,12 +54,7 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, RobinHoodMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

@@ -10,6 +10,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, CompactTake} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
@@ -168,12 +169,6 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
     using NotesLib for NotesLib.Note[];
     using UnsafeEkuboCore for IEkuboCore;
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     //// How to generate `fills` for Ekubo
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the
@@ -191,10 +186,10 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
     //// Settler's representation. The conversion is performed by Settler before making calls to Ekubo
     ////
     //// Now that you have a list of fills, encode each fill as follows.
-    //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
-    //// running balance at the moment that the fill is settled. If the uppermost bit of `bps` is
+    //// First encode the `ppm` for the fill as 3 bytes. Remember that this `ppm` is relative to the
+    //// running balance at the moment that the fill is settled. If the uppermost bit of `ppm` is
     //// set, then the swap is treated as a swap through an extension that requires forwarding. Only
-    //// the lower 15 bits of `bps` are used for the amount calculation.
+    //// the lower 23 bits of `ppm` are used for the amount calculation.
     //// Second, encode the price caps sqrtRatio as 12 bytes.
     //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
@@ -214,7 +209,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
     function sellToEkuboV3(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -225,7 +220,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             uint32(IEkuboCore.lock.selector),
             recipient,
             sellToken,
-            bps,
+            ppm,
             feeOnTransfer,
             hashMul,
             hashMod,
@@ -296,7 +291,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         bool isForwarded,
         bytes calldata sig
     ) private returns (uint256 payment) {
-        if (sellToken == ETH_ADDRESS) {
+        if (address(sellToken) == Constants.ETH_ADDRESS) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -316,11 +311,11 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
     }
 
     // the mandatory fields are
-    // 2 - sell bps
+    // 3 - sell ppm
     // 12 - sqrtRatio
     // 1 - pool key tokens case
     // 32 - config (20 extension, 8 fee, 4 tickSpacing)
-    uint256 private constant _HOP_DATA_LENGTH = 47;
+    uint256 private constant _HOP_DATA_LENGTH = 48;
 
     function locked_6416899205(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -362,16 +357,16 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         PoolKey memory poolKey;
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint256 bps;
+            uint256 ppm;
             SqrtRatio sqrtRatio;
             assembly ("memory-safe") {
-                bps := shr(0xf0, calldataload(data.offset))
-                data.offset := add(0x02, data.offset)
+                ppm := shr(0xe8, calldataload(data.offset))
+                data.offset := add(0x03, data.offset)
 
                 sqrtRatio := shr(0xa0, calldataload(data.offset))
                 data.offset := add(0x0c, data.offset)
 
-                data.length := sub(data.length, 0x0e)
+                data.length := sub(data.length, 0x0f)
                 // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
 
@@ -380,7 +375,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             // given that deltas are `int128`. If it overflows an `int128`, `unsafeSwap` will throw.
             int256 amountSpecified;
             unchecked {
-                amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));
+                amountSpecified = int256((state.sell().amount() * (ppm & 0x7fffff)).unsafeDiv(Constants.BASIS));
             }
 
             bool isToken1; // opposite of regular zeroForOne
@@ -424,7 +419,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             {
                 int256 delta0;
                 int256 delta1;
-                if (bps & 0x8000 == 0) {
+                if (ppm & 0x800000 == 0) {
                     (delta0, delta1) = IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
                 } else {
                     (delta0, delta1) =

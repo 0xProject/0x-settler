@@ -128,9 +128,7 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_deployer.sh
 
-declare signer
-IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
-declare -r signer
+. "$project_root"/sh/common_submitter.sh
 
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
@@ -161,31 +159,20 @@ else
 fi
 declare -r deployment_safe_address
 
+declare use_sts_transactions=No
+if sts_safe_transactions_enabled ; then
+    use_sts_transactions=Yes
+    declare executable_transactions
+    executable_transactions="$(load_executable_sts_safe_transactions)"
+    declare -r executable_transactions
+else
+    declare -i default_auth_deadline
+    default_auth_deadline="$(utc_month_start_after 12)"
+    declare -r -i default_auth_deadline
+fi
+declare -r use_sts_transactions
+declare -r safe_signature_executor="$multicall_address"
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
-
-function _compat_date {
-    declare -r datestring="$1"
-    shift
-
-    declare -r datefmt="$1"
-    shift
-
-    if date -d '1 second' &>/dev/null ; then
-        date -u -d "${datestring:8:4}-${datestring:0:2}-${datestring:2:2}T${datestring:4:2}:${datestring:6:2}:00-00:00" "$datefmt"
-    else
-        date -u -j "$datestring" "$datefmt"
-    fi
-}
-
-declare auth_deadline_datestring
-# one year from the start of this month
-# MMDDhhmmCCYY
-auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
-declare -r auth_deadline_datestring
-declare -i auth_deadline
-# convert to UNIX timestamp
-auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
-declare -r -i auth_deadline
 
 declare multisend_data=''
 declare -i tokenid
@@ -195,8 +182,34 @@ for tokenid in "${feature[@]}" ; do
     declare -a exec_args
     declare exec_call
 
-    renew_authority_calldata="$(cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" $auth_deadline)"
-    packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
+    if [[ $use_sts_transactions = Yes ]] ; then
+        declare selected_transaction
+        selected_transaction="$(
+            select_sts_safe_transaction \
+                "$executable_transactions" "$(cast sig "$authorize_sig")"
+        )"
+        declare selected_deadline
+        selected_deadline="$(
+            extract_authorize_deadline \
+                "$(jq -Mr .data <<<"$selected_transaction")" \
+                "$tokenid" "$deployment_safe_address"
+        )"
+        renew_authority_calldata="$(
+            cast calldata "$authorize_sig" \
+                $tokenid "$deployment_safe_address" "$selected_deadline"
+        )"
+        validate_sts_safe_transaction \
+            "$selected_transaction" "$authorize_sig" 0 "$renew_authority_calldata"
+        packed_signatures="$(pack_sts_transaction_signatures "$selected_transaction")"
+        unset -v selected_deadline
+        unset -v selected_transaction
+    else
+        renew_authority_calldata="$(
+            cast calldata "$authorize_sig" \
+                $tokenid "$deployment_safe_address" $default_auth_deadline
+        )"
+        packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
+    fi
     exec_args=(
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         "$(target 0)" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"

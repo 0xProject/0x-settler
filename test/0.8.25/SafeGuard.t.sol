@@ -50,6 +50,8 @@ interface ISafe {
 
     function isOwner(address) external view returns (bool);
 
+    function getThreshold() external view returns (uint256);
+
     function enableModule(address) external;
 
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
@@ -101,6 +103,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     event ResignTxHash(bytes32 indexed txHash);
     event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
     event Unlocked();
+    event Uninstalled();
 
     error PermissionDenied();
     error NoDelegateCall();
@@ -115,6 +118,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error UnexpectedUpgrade(address newSingleton);
     error Reentrancy();
     error ModuleInstalled(address module);
+    error GuardCheckNotEnforced(uint256 callIndex, address target, bytes data);
     error NotEnoughOwners(uint256 ownerCount);
     error ThresholdTooLow(uint256 threshold);
     error NotUnanimous(bytes32 txHash);
@@ -156,6 +160,10 @@ interface IMulticall {
     function multiSend(bytes memory transactions) external payable;
 }
 
+interface ISafeMigration {
+    function migrateL2WithFallbackHandler() external;
+}
+
 contract MigrationDummy {
     address private singleton;
 
@@ -179,7 +187,7 @@ contract TestSafeGuard is Test {
     function setUp() public {
         ISafeSetup _safe = ISafeSetup(address(safe));
 
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 23183520);
+        vm.createSelectFork("mainnet", 23183520);
         vm.label(address(this), "FoundryTest");
 
         string memory mnemonic = "test test test test test test test test test test test junk";
@@ -1066,5 +1074,302 @@ contract TestSafeGuard is Test {
         );
 
         testHappyPath();
+    }
+}
+
+contract TestSafeGuardOperations is Test {
+    using ItoA for uint256;
+
+    address internal constant _FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    ISafe internal constant _SAFE = ISafe(0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51);
+    address internal constant _SAFE_MIGRATION = 0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6;
+    address internal constant _ONE_POINT_FOUR_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
+    IMulticall internal constant _MULTICALL = IMulticall(0x9641d764fc13c8B624c04430C7356C1C7C8102e2);
+    uint24 internal constant _TIMELOCK_DELAY = uint24(5 days);
+    bytes32 internal constant _DOMAIN_SEPARATOR_TYPEHASH =
+        keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
+    bytes32 internal constant _SAFE_TX_TYPEHASH = keccak256(
+        "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+    );
+
+    IZeroExSettlerDeployerSafeGuard internal _guard;
+    Vm.Wallet[] internal _owners;
+    uint256 internal _pokeCounter;
+
+    struct SafeTx {
+        address to;
+        uint256 value;
+        bytes data;
+        Operation operation;
+        uint256 safeTxGas;
+        uint256 baseGas;
+        uint256 gasPrice;
+        address gasToken;
+        address payable refundReceiver;
+        uint256 nonce;
+    }
+
+    function setUp() public {
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 23183520);
+
+        ISafeSetup safeSetup = ISafeSetup(address(_SAFE));
+        address[] memory oldOwners = safeSetup.getOwners();
+        string memory mnemonic = "test test test test test test test test test test test junk";
+        for (uint256 i; i < 5; i++) {
+            _owners.push(vm.createWallet(vm.deriveKey(mnemonic, uint32(i)), string.concat("Owner #", i.itoa())));
+        }
+
+        vm.startPrank(address(_SAFE));
+        for (uint256 i; i < _owners.length; i++) {
+            safeSetup.addOwnerWithThreshold(_owners[i].addr, 3);
+        }
+        for (uint256 i; i < oldOwners.length; i++) {
+            safeSetup.removeOwner(_owners[0].addr, oldOwners[i], 3);
+        }
+        vm.stopPrank();
+
+        Vm.Wallet memory temporaryOwner;
+        for (uint256 i = 1; i < _owners.length; i++) {
+            for (uint256 j = i; j > 0; j--) {
+                if (_owners[j - 1].addr > _owners[j].addr) {
+                    temporaryOwner = _owners[j - 1];
+                    _owners[j - 1] = _owners[j];
+                    _owners[j] = temporaryOwner;
+                }
+            }
+        }
+
+        assertEq(safeSetup.getOwners().length, 5);
+        assertEq(_SAFE.getThreshold(), 3);
+
+        vm.store(address(_SAFE), keccak256("guard_manager.guard.address"), bytes32(0));
+        _migrateSafe();
+        assertEq(_SAFE.masterCopy(), _ONE_POINT_FOUR_SINGLETON);
+
+        bytes memory creationCode = bytes.concat(
+            vm.getCode("SafeGuard.sol:ZeroExSettlerDeployerSafeGuardOnePointFourPointOne"), abi.encode(address(_SAFE))
+        );
+        _guard = IZeroExSettlerDeployerSafeGuard(
+            AddressDerivation.deriveDeterministicContract(_FACTORY, bytes32(0), keccak256(creationCode))
+        );
+        (bool success, bytes memory returndata) = _FACTORY.call(bytes.concat(bytes32(0), creationCode));
+        assertTrue(success);
+        assertEq(address(uint160(bytes20(returndata))), address(_guard));
+
+        vm.prank(address(_SAFE));
+        safeSetup.setGuard(address(_guard));
+        vm.prank(address(_SAFE));
+        _guard.setDelay(_TIMELOCK_DELAY);
+
+        assertEq(_guard.safe(), address(_SAFE));
+        assertEq(_guard.delay(), _TIMELOCK_DELAY);
+        assertEq(
+            abi.decode(_SAFE.getStorageAt(uint256(keccak256("guard_manager.guard.address")), 1), (address)),
+            address(_guard)
+        );
+    }
+
+    function poke() external returns (uint256) {
+        require(msg.sender == address(_SAFE));
+        return ++_pokeCounter;
+    }
+
+    function _migrateSafe() internal {
+        SafeTx memory safeTx = SafeTx({
+            to: _SAFE_MIGRATION,
+            value: 0,
+            data: abi.encodeCall(ISafeMigration.migrateL2WithFallbackHandler, ()),
+            operation: Operation.DelegateCall,
+            safeTxGas: 0,
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0)),
+            nonce: _SAFE.nonce()
+        });
+        _execute(safeTx, _sign(_safeTxHash(safeTx)));
+    }
+
+    function _pokeTx() internal view returns (SafeTx memory) {
+        return SafeTx({
+            to: address(this),
+            value: 0,
+            data: abi.encodeCall(this.poke, ()),
+            operation: Operation.Call,
+            safeTxGas: 0,
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0)),
+            nonce: _SAFE.nonce()
+        });
+    }
+
+    function _safeTxHash(SafeTx memory safeTx) internal view returns (bytes32) {
+        return keccak256(
+            bytes.concat(
+                hex"1901",
+                keccak256(abi.encode(_DOMAIN_SEPARATOR_TYPEHASH, block.chainid, _SAFE)),
+                keccak256(
+                    abi.encode(
+                        _SAFE_TX_TYPEHASH,
+                        safeTx.to,
+                        safeTx.value,
+                        keccak256(safeTx.data),
+                        safeTx.operation,
+                        safeTx.safeTxGas,
+                        safeTx.baseGas,
+                        safeTx.gasPrice,
+                        safeTx.gasToken,
+                        safeTx.refundReceiver,
+                        safeTx.nonce
+                    )
+                )
+            )
+        );
+    }
+
+    function _sign(bytes32 txHash) internal returns (bytes memory signatures) {
+        for (uint256 i; i < 3; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(_owners[i], txHash);
+            signatures = abi.encodePacked(signatures, r, s, v);
+        }
+    }
+
+    function _enqueue(SafeTx memory safeTx, bytes memory signatures) internal {
+        _guard.enqueue(
+            safeTx.to,
+            safeTx.value,
+            safeTx.data,
+            safeTx.operation,
+            safeTx.safeTxGas,
+            safeTx.baseGas,
+            safeTx.gasPrice,
+            safeTx.gasToken,
+            safeTx.refundReceiver,
+            safeTx.nonce,
+            signatures
+        );
+    }
+
+    function _execute(SafeTx memory safeTx, bytes memory signatures) internal returns (bool) {
+        return _SAFE.execTransaction(
+            safeTx.to,
+            safeTx.value,
+            safeTx.data,
+            safeTx.operation,
+            safeTx.safeTxGas,
+            safeTx.baseGas,
+            safeTx.gasPrice,
+            safeTx.gasToken,
+            safeTx.refundReceiver,
+            signatures
+        );
+    }
+
+    function _subcall(address target, bytes memory data) internal pure returns (bytes memory) {
+        return abi.encodePacked(uint8(Operation.Call), target, uint256(0), data.length, data);
+    }
+
+    function test_Timelock_EnqueueStrictDelayExecute_Succeeds() external {
+        SafeTx memory safeTx = _pokeTx();
+        bytes32 txHash = _safeTxHash(safeTx);
+        bytes memory signatures = _sign(txHash);
+        uint256 timelockEnd = block.timestamp + _guard.delay();
+
+        vm.expectEmit(true, true, true, true, address(_guard));
+        emit IZeroExSettlerDeployerSafeGuard.SafeTransactionEnqueued(
+            txHash,
+            timelockEnd,
+            safeTx.to,
+            safeTx.value,
+            safeTx.data,
+            safeTx.operation,
+            safeTx.safeTxGas,
+            safeTx.baseGas,
+            safeTx.gasPrice,
+            safeTx.gasToken,
+            safeTx.refundReceiver,
+            safeTx.nonce,
+            signatures
+        );
+        _enqueue(safeTx, signatures);
+
+        vm.warp(timelockEnd);
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TimelockNotElapsed.selector, txHash, timelockEnd)
+        );
+        _execute(safeTx, signatures);
+
+        vm.warp(timelockEnd + 1);
+        vm.expectEmit(true, true, true, true, address(_SAFE));
+        emit ISafeOnePointFour.ExecutionSuccess(txHash, 0);
+        assertTrue(_execute(safeTx, signatures));
+        assertEq(_pokeCounter, 1);
+    }
+
+    function test_Timelock_NeverEnqueued_RevertsNotQueued() external {
+        SafeTx memory safeTx = _pokeTx();
+        bytes32 txHash = _safeTxHash(safeTx);
+
+        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NotQueued.selector, txHash));
+        _execute(safeTx, _sign(txHash));
+    }
+
+    function test_Multisend_MissingInterleavedCheck_RevertsGuardCheckNotEnforced() external {
+        bytes memory pokeData = abi.encodeCall(this.poke, ());
+        bytes memory calls = bytes.concat(_subcall(address(this), pokeData), _subcall(address(this), pokeData));
+        SafeTx memory safeTx = SafeTx({
+            to: address(_MULTICALL),
+            value: 0,
+            data: abi.encodeCall(_MULTICALL.multiSend, (calls)),
+            operation: Operation.DelegateCall,
+            safeTxGas: 0,
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0)),
+            nonce: _SAFE.nonce()
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IZeroExSettlerDeployerSafeGuard.GuardCheckNotEnforced.selector, uint256(1), address(this), pokeData
+            )
+        );
+        _enqueue(safeTx, _sign(_safeTxHash(safeTx)));
+    }
+
+    function test_Abandon_QueuedGuardRemoval_Succeeds() external {
+        SafeTx memory safeTx = SafeTx({
+            to: address(_SAFE),
+            value: 0,
+            data: abi.encodeCall(ISafeSetup.setGuard, (address(0))),
+            operation: Operation.Call,
+            safeTxGas: 0,
+            baseGas: 0,
+            gasPrice: 0,
+            gasToken: address(0),
+            refundReceiver: payable(address(0)),
+            nonce: _SAFE.nonce()
+        });
+        bytes32 txHash = _safeTxHash(safeTx);
+        bytes memory signatures = _sign(txHash);
+        uint256 timelockEnd = block.timestamp + _guard.delay();
+        _enqueue(safeTx, signatures);
+
+        vm.warp(timelockEnd + 1);
+        vm.expectEmit(true, true, true, true, address(_SAFE));
+        emit ISafeOnePointFour.ExecutionSuccess(txHash, 0);
+        vm.expectEmit(true, true, true, true, address(_guard));
+        emit IZeroExSettlerDeployerSafeGuard.Uninstalled();
+        assertTrue(_execute(safeTx, signatures));
+        assertEq(
+            abi.decode(_SAFE.getStorageAt(uint256(keccak256("guard_manager.guard.address")), 1), (address)), address(0)
+        );
+
+        SafeTx memory nextSafeTx = _pokeTx();
+        vm.expectRevert(IZeroExSettlerDeployerSafeGuard.GuardNotInstalled.selector);
+        _enqueue(nextSafeTx, _sign(_safeTxHash(nextSafeTx)));
     }
 }

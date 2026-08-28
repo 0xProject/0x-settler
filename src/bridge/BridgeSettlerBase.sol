@@ -16,6 +16,7 @@ import {Relay} from "../core/Relay.sol";
 import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
 import {CCIP} from "../core/CCIP.sol";
 import {Underpayment} from "../core/SettlerErrors.sol";
+import "../core/Constants.sol" as Constants;
 
 import {SettlerBridgeAbstract} from "../SettlerAbstract.sol";
 
@@ -61,7 +62,7 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 abi.decode(data, (address, uint256, address, bytes));
             // Swaps are going to be directed to Settler, so `settler` must be an active settler
             _requireValidSettler(settler);
-            if (token == address(ETH_ADDRESS)) {
+            if (token == address(Constants.ETH_ADDRESS)) {
                 // Native token swap
                 // Settler address was validated to be a correct settler, so we pass the
                 // arbitrary data as we know it is not a restricted target.
@@ -80,10 +81,10 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 ALLOWANCE_HOLDER.exec(settler, token, amount, payable(settler), settlerData);
             }
         } else if (action == uint32(IBridgeSettlerActions.BASIC.selector)) {
-            (address bridgeToken, uint256 bps, address pool, uint256 offset, bytes memory bridgeData) =
+            (address bridgeToken, uint256 ppm, address pool, uint256 offset, bytes memory bridgeData) =
                 abi.decode(data, (address, uint256, address, uint256, bytes));
 
-            basicSellToPool(IERC20(bridgeToken), bps, pool, offset, bridgeData);
+            basicSellToPool(IERC20(bridgeToken), ppm, pool, offset, bridgeData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY.selector)) {
             (address token, address to, bytes32 requestId) = abi.decode(data, (address, address, bytes32));
             bridgeERC20ToRelay(IERC20(token), to, requestId);

@@ -121,9 +121,9 @@ cd "$project_root"
 
 . "$project_root"/sh/common.sh
 
-echo 'Duncan wrote this for his own use' >&2
-echo 'If you are not Duncan, you are going to have a bad time' >&2
-echo 'If you are not using a frame wallet, doubly so' >&2
+die 'Duncan wrote this for his own use' \
+    'If you are not Duncan, you are going to have a bad time' \
+    'If you are not using a frame wallet, doubly so'
 
 declare safe_address
 safe_address="$(get_config governance.upgradeSafe)"
@@ -131,12 +131,9 @@ declare -r safe_address
 
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_deployer.sh
-
-if [[ $safe_url != 'NOT SUPPORTED' ]] ; then
-    echo 'Just use the safe dApp' >&2
-    echo 'Why are you running this script?' >&2
-    exit 1
-fi
+. "$project_root"/sh/common_submitter.sh
+. "$project_root"/sh/common_wallet_type.sh
+. "$project_root"/sh/common_gas.sh
 
 declare new_implementation
 new_implementation="$1"
@@ -151,5 +148,21 @@ declare packed_signatures
 packed_signatures="$(retrieve_signatures deployer_upgrade "$upgrade_calldata")"
 declare -r packed_signatures
 
-cast send --rpc-url 'http://127.0.0.1:1248' --chain $chainid --confirmations 10 --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$safe_address" \
-     "$execTransaction_sig" "$deployer_address" 0 "$upgrade_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+declare -r -a args=(
+    "$safe_address" "$execTransaction_sig"
+    # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+    "$deployer_address" 0 "$upgrade_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+)
+
+declare -i gas_estimate
+gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" "${args[@]}")"
+declare -r -i gas_estimate
+declare -i gas_limit
+gas_limit="$(apply_gas_multiplier $gas_estimate)"
+declare -r -i gas_limit
+
+if [[ $wallet_type = 'frame' ]] ; then
+    cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
+else
+    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
+fi

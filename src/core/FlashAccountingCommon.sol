@@ -8,6 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import "./Constants.sol" as Constants;
 
 import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
@@ -51,7 +52,6 @@ type NotePtr is uint256;
 /// signature `TokenHashCollision(address,address)`.
 library NotesLib {
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
-    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// This is the maximum number of tokens that may be involved in an action. Increasing or
     /// decreasing this value requires no other changes elsewhere in this file.
@@ -96,8 +96,9 @@ library NotesLib {
     }
 
     function tokenIsEth(NotePtr note) internal pure returns (bool r) {
+        address ethAddress = Constants.ETH_ADDRESS;
         assembly ("memory-safe") {
-            r := eq(ETH_ADDRESS, mload(add(0x20, note)))
+            r := eq(ethAddress, mload(add(0x20, note)))
         }
     }
 
@@ -147,7 +148,7 @@ library NotesLib {
     //// 363}. `hashMul` can then be selected randomly or via some other optimized method.
     ////
     //// Note that in spite of the fact that some AMMs represent Ether (or the native asset of the
-    //// chain) as `address(0)`, we represent Ether as `SettlerAbstract.ETH_ADDRESS` (the address of
+    //// chain) as `address(0)`, we represent Ether as `Constants.ETH_ADDRESS` (the address of
     //// all `e`s) for homogeneity with other parts of the codebase, and because the decision to
     //// represent Ether as `address(0)` was stupid in the first place. `address(0)` represents the
     //// absence of a thing, not a special case of the thing. It creates confusion with
@@ -372,13 +373,11 @@ using StateLib for State global;
 library Encoder {
     using FastLogic for bool;
 
-    uint256 internal constant BASIS = 10_000;
-
     function encode(
         uint256 unlockSelector,
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -387,16 +386,16 @@ library Encoder {
     ) internal view returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
-        if ((bps > BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
+        if ((ppm > Constants.BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
             data := mload(0x40)
 
             let pathLen := mload(fills)
-            mcopy(add(0xd3, data), add(0x20, fills), pathLen)
+            mcopy(add(0xd4, data), add(0x20, fills), pathLen)
 
-            mstore(add(0xb3, data), bps)
+            mstore(add(0xb4, data), ppm)
             mstore(add(0xb1, data), sellToken)
             mstore(add(0x9d, data), address()) // payer
             // feeOnTransfer (1 byte)
@@ -405,13 +404,13 @@ library Encoder {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x6f, pathLen))
+            mstore(add(0x44, data), add(0x70, pathLen))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0xb3, pathLen))
+            mstore(data, add(0xb4, pathLen))
             mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
 
-            mstore(0x40, add(data, add(0xd3, pathLen)))
+            mstore(0x40, add(data, add(0xd4, pathLen)))
         }
     }
 
@@ -480,8 +479,6 @@ library Decoder {
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
-
-    uint256 internal constant BASIS = 10_000;
 
     /// Update `state` for the next fill packed in `data`. This also may allocate/append `Note`s
     /// into `notes`. Returns the suffix of the bytes that are not consumed in the decoding
@@ -565,7 +562,7 @@ library Decoder {
     /// Decode an ABI-ish encoded `bytes` from `data`. It is "-ish" in the sense that the encoding
     /// of the length doesn't take up an entire word. The length is encoded as only 3 bytes (2^24
     /// bytes of calldata consumes ~67M gas, much more than the block limit). The payload is also
-    /// unpadded. The next fill's `bps` is encoded immediately after the `hookData` payload.
+    /// unpadded. The next fill's `ppm` is encoded immediately after the `hookData` payload.
     function decodeBytes(bytes calldata data) internal pure returns (bytes calldata retData, bytes calldata hookData) {
         assembly ("memory-safe") {
             hookData.length := shr(0xe8, calldataload(data.offset))
@@ -653,38 +650,42 @@ library Decoder {
         if (state.globalSell().tokenIsEth()) {
             assert(payer == address(this));
 
-            uint16 bps;
+            uint256 ppm;
             assembly ("memory-safe") {
                 // `data` hasn't been advanced from decoding `sellToken` above. so we have to
-                // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
+                // advance it by 20 bytes to decode `ppm` then advance by 3 bytes
 
-                bps := shr(0x50, calldataload(data.offset))
+                data.offset := add(0x14, data.offset)
+                ppm := shr(0xe8, calldataload(data.offset))
 
-                data.offset := add(0x16, data.offset)
-                data.length := sub(data.length, 0x16)
+                data.offset := add(0x3, data.offset)
+                data.length := sub(data.length, 0x17)
                 // We check for array out-of-bounds below
             }
 
             unchecked {
-                state.globalSell().setAmount((address(this).balance * bps).unsafeDiv(BASIS));
+                state.globalSell().setAmount((address(this).balance * ppm).unsafeDiv(Constants.BASIS));
             }
         } else {
             if (payer == address(this)) {
-                uint16 bps;
+                uint256 ppm;
                 assembly ("memory-safe") {
                     // `data` hasn't been advanced from decoding `sellToken` above. so we have to
-                    // implicitly advance it by 20 bytes to decode `bps` then advance by 22 bytes
+                    // advance it by 20 bytes to decode `ppm` then advance by 3 bytes
 
-                    bps := shr(0x50, calldataload(data.offset))
+                    data.offset := add(0x14, data.offset)
+                    ppm := shr(0xe8, calldataload(data.offset))
 
-                    data.offset := add(0x16, data.offset)
-                    data.length := sub(data.length, 0x16)
+                    data.offset := add(0x3, data.offset)
+                    data.length := sub(data.length, 0x17)
                     // We check for array out-of-bounds below
                 }
 
                 unchecked {
                     NotePtr globalSell = state.globalSell();
-                    globalSell.setAmount((globalSell.token().fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS));
+                    globalSell.setAmount(
+                        (globalSell.token().fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS)
+                    );
                 }
             } else {
                 assert(payer == address(0));
