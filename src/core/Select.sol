@@ -108,7 +108,7 @@ abstract contract Select is SettlerSwapAbstract {
                 let start := add(calldataload(add(shl(0x05, i), candsData)), candsData)
                 let next := dataEnd
                 let remaining := sub(n, i)
-                let later := gt(remaining, 0x01)
+                let later := lt(0x01, remaining)
                 isLast := iszero(later)
                 if later {
                     next := add(calldataload(add(shl(0x05, add(0x01, i)), candsData)), candsData)
