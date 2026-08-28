@@ -197,24 +197,24 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     function test_bounds_targetsOffsetIgnored() public {
         bytes memory action = _malformedAction(1);
-        // The ignored targets offset word makes this execute like the canonical encoding.
+        // Perturbing the ignored targets offset leaves execution unchanged.
         assembly ("memory-safe") {
             mstore(add(action, 0x64), 0xa0)
         }
 
         _runAction(action, 0);
-        assertEq(p0.callCount(), 1, "candidate ran as canonical");
+        assertEq(p0.callCount(), 1, "candidate still ran");
     }
 
     function test_bounds_candidatesOffsetIgnored() public {
         bytes memory action = _malformedAction(1);
-        // The ignored candidates offset word makes this execute like the canonical encoding.
+        // Perturbing the ignored candidates offset leaves execution unchanged.
         assembly ("memory-safe") {
             mstore(add(action, 0x84), add(0x20, mload(add(action, 0x84))))
         }
 
         _runAction(action, 0);
-        assertEq(p0.callCount(), 1, "candidate ran as canonical");
+        assertEq(p0.callCount(), 1, "candidate still ran");
     }
 
     function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
