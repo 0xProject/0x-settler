@@ -76,7 +76,8 @@ abstract contract Select is SettlerSwapAbstract {
             let base := add(candidatesOffset, dataStart)
             candsData := add(0x20, base)
             err := or(or(iszero(n), lt(shr(0x05, data.length), n)), err)
-            // Each candidate must pair with exactly one target. Policy rather than ABI validation.
+            // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI
+            // but meaningless here.
             err := or(xor(calldataload(base), n), err)
             err := or(gt(add(tableSize, candsData), dataEnd), err)
 
