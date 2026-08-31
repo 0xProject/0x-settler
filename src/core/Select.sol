@@ -69,14 +69,14 @@ abstract contract Select is SettlerSwapAbstract {
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
-            let err := or(lt(calldatasize(), dataEnd), lt(dataEnd, dataStart))
-            err := or(lt(data.length, 0x80), err)
+            let err := lt(dataEnd, dataStart)
+            err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
 
             let targetsOffset := calldataload(add(0x40, dataStart))
-            err := or(gt(targetsOffset, sub(data.length, 0x20)), err)
+            err := or(gt(targetsOffset, sub(data.length, 0x20)), err) // can't be `gt(add(0x20, targetsOffset), data.length)` due to risk of overflow
             let targetsBase := add(targetsOffset, dataStart)
             n := calldataload(targetsBase)
             targetsData := add(0x20, targetsBase)
@@ -168,7 +168,7 @@ abstract contract Select is SettlerSwapAbstract {
             bool tooShort;
             // A length that wrapped in `decodeCall`'s selector slice has upper bits set.
             assembly ("memory-safe") {
-                tooShort := shr(0xe0, data.length)
+                tooShort := shr(0xc0, data.length)
                 data.length := mul(data.length, iszero(tooShort))
             }
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.
