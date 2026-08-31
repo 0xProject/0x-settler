@@ -60,9 +60,8 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 candsData;
         uint256 dataEnd;
         uint256 n;
-        // Decode the fixed packed layout without reading the two dynamic offset words:
-        // `[0x00 gasCap][0x20 token][0x40, 0x60 ignored][0x80 n][0xa0 targets]`
-        // `[candidates length/table/frames]`. A zero or dirty `token` reverts.
+        // Follow the two top-level offsets, then frame `candidates` positionally. A zero or dirty
+        // `token` reverts.
         assembly ("memory-safe") {
             let dataStart := data.offset
             dataEnd := add(dataStart, data.length)
@@ -70,16 +69,24 @@ abstract contract Select is SettlerSwapAbstract {
             gasCap := calldataload(dataStart)
             token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
-            n := calldataload(add(0x80, dataStart))
+            let targetsOffset := calldataload(add(0x40, dataStart))
+            let candidatesOffset := calldataload(add(0x60, dataStart))
+            let targetsBase := add(targetsOffset, dataStart)
+            let candidatesBase := add(candidatesOffset, dataStart)
+            n := calldataload(targetsBase)
             let tableSize := shl(0x05, n)
-            let candidatesOffset := add(0xa0, tableSize)
-            let base := add(candidatesOffset, dataStart)
-            candsData := add(0x20, base)
+            targetsData := add(0x20, targetsBase)
+            candsData := add(0x20, candidatesBase)
             err := or(or(iszero(n), lt(shr(0x05, data.length), n)), err)
             // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI
             // but meaningless here.
-            err := or(xor(calldataload(base), n), err)
-            err := or(gt(add(tableSize, candsData), dataEnd), err)
+            err := or(xor(calldataload(candidatesBase), n), err)
+            let targetsEnd := add(add(0x20, targetsOffset), tableSize)
+            let candidatesEnd := add(add(0x20, candidatesOffset), tableSize)
+            err := or(or(lt(targetsEnd, targetsOffset), gt(targetsEnd, data.length)), err)
+            err := or(or(lt(candidatesEnd, candidatesOffset), gt(candidatesEnd, data.length)), err)
+            // Zero a garbage `n` so it cannot loop below before the revert.
+            n := mul(n, iszero(err))
 
             // Each frame runs from its start to the next start, the last to the end of `data`.
             // Starts must not decrease, and the last must stay inside `data`.
@@ -91,8 +98,6 @@ abstract contract Select is SettlerSwapAbstract {
             }
             err := or(gt(previous, sub(dataEnd, candsData)), err)
             if err { revert(0x00, 0x00) }
-
-            targetsData := add(0xa0, dataStart)
         }
 
         for (uint256 i; i < n; i = i.unsafeInc()) {

@@ -196,26 +196,54 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(p0.callCount(), 0, "empty-decoded candidate committed");
     }
 
-    function test_bounds_targetsOffsetIgnored() public {
+    function test_bounds_targetsOffsetFollowed() public {
         bytes memory action = _malformedAction(1);
-        // Perturbing the ignored targets offset leaves execution unchanged.
+        // Point `targets` at the candidates array. Its first offset becomes a nonzero target.
         assembly ("memory-safe") {
-            mstore(add(action, 0x64), 0xa0)
+            mstore(add(action, 0x64), mload(add(action, 0x84)))
         }
 
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 0));
         _runAction(action, 0);
-        assertEq(p0.callCount(), 1, "candidate still ran");
+        assertEq(p0.callCount(), 0, "failed candidate rolled back");
     }
 
-    function test_bounds_candidatesOffsetIgnored() public {
+    function test_bounds_candidatesOffsetFollowed() public {
         bytes memory action = _malformedAction(1);
-        // Perturbing the ignored candidates offset leaves execution unchanged.
+        // Point `candidates` at the targets array. Its zero target becomes an empty candidate.
         assembly ("memory-safe") {
-            mstore(add(action, 0x84), add(0x20, mload(add(action, 0x84))))
+            mstore(add(action, 0x84), mload(add(action, 0x64)))
         }
 
         _runAction(action, 0);
-        assertEq(p0.callCount(), 1, "candidate still ran");
+        assertEq(p0.callCount(), 0, "empty candidate committed");
+    }
+
+    function test_bounds_swappedTails_decodes() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory candidatesTail = abi.encode(candidates);
+        // Strip the outer offset word, leaving the bare length/table/frames tail.
+        assembly ("memory-safe") {
+            let len := mload(candidatesTail)
+            candidatesTail := add(0x20, candidatesTail)
+            mstore(candidatesTail, sub(len, 0x20))
+        }
+
+        // A valid encoding with the candidates tail placed before the targets tail.
+        bytes memory action = abi.encodePacked(
+            ISettlerActions.SELECT.selector,
+            TEST_GAS_CAP,
+            uint256(uint160(address(buy))),
+            0x80 + candidatesTail.length,
+            uint256(0x80),
+            candidatesTail,
+            uint256(1),
+            uint256(0)
+        );
+
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 1, "swapped tails did not decode");
     }
 
     function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
@@ -328,21 +356,15 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         _runMalformed(action);
     }
 
-    function testFuzz_bounds_candidatesOffsetWordPerturbationIgnored(uint8 candidateCount, uint128 offsetDelta) public {
-        uint256 n = bound(candidateCount, 1, 8);
-        uint256 delta = bound(offsetDelta, 1, type(uint128).max);
-        bytes[][] memory candidates = new bytes[][](n);
-        for (uint256 i; i < n; ++i) {
-            candidates[i] = new bytes[](0);
-        }
-
-        _run(address(buy), new uint256[](n), candidates, 0);
-
-        bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](n), candidates);
+    function testFuzz_bounds_dynamicOffsetPastData_reverts(uint256 offset, bool candidates) public {
+        bytes memory action = _malformedAction(1);
+        vm.assume(offset > action.length);
         assembly ("memory-safe") {
-            mstore(add(action, 0x84), add(delta, mload(add(action, 0x84))))
+            let offsetWord := add(action, 0x64)
+            if candidates { offsetWord := add(0x20, offsetWord) }
+            mstore(offsetWord, offset)
         }
-        _runAction(action, 0);
+        _runMalformed(action);
     }
 
     function test_ladder_fourCandidates_commitsFourth() public {
