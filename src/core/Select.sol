@@ -15,30 +15,32 @@ abstract contract Select is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // bytes4(keccak256("executeSelected(bytes[],address,uint256)"))
+    // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
-    // Adding one failing empty candidate measured 8,426 gas (solc 0.8.34 via-IR, 2026-08-26).
-    // 0x10000 leaves 57,110 gas for input-dependent copy cost and is rechecked per capped trial.
-    uint256 private constant _SELECT_OVERHEAD_GAS = 0x10000;
+    // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31).  The
+    // shared buffer makes per-trial overhead input-independent; 0x2000 is more than double the
+    // measurement and is rechecked per capped trial.
+    uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
-        // Read the trusted callback body without writing memory:
-        // `[0x00 actions=0x60][0x20 token][0x40 minOut][0x60 actions length][0x80 offsets/frames]`.
-        // `select` built this payload with the fixed `0x60` head and a verified-clean `token`,
-        // and copied only this candidate's frame. Reads past the end of the trial calldata
-        // return zero. A failing action reverts only this trial.
+        // Read the internally constructed callback head without writing memory:
+        //     [0x00 actions offset][0x20 token][0x40 minOut][actions length][offsets/actions]
+        // `select` built the head and copied the complete candidate region once. Reads past the end
+        // of the trial calldata return zero. A failing action reverts only this trial.
         assembly ("memory-safe") {
-            actions.length := calldataload(add(0x60, data.offset))
-            actions.offset := add(0x80, data.offset)
+            actions.offset := add(data.offset, calldataload(data.offset))
+            actions.length := calldataload(actions.offset)
+            actions.offset := add(0x20, actions.offset)
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
         }
-        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of assets held by Settler.
-        // This is outside SELECT's threat model. Final slippage still enforces the taker's minimum.
+        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
+        // assets held by Settler.  This is outside SELECT's threat model. Final slippage still
+        // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         uint256 balBefore = token.fastBalanceOf(address(this));
         _runActions(actions);
@@ -58,75 +60,62 @@ abstract contract Select is SettlerSwapAbstract {
         address token;
         uint256 targetsData;
         uint256 candsData;
-        uint256 dataEnd;
+        uint256 candsLength;
         uint256 n;
-        // Follow the two top-level offsets, then frame `candidates` positionally. A zero or dirty
-        // `token` reverts.
+        bytes memory callData;
+        // Follow and bound both top-level array offsets. The candidate region is copied once after
+        // the private callback head, preserving every valid relative candidate offset.  A zero or
+        // dirty `token` reverts.
         assembly ("memory-safe") {
             let dataStart := data.offset
-            dataEnd := add(dataStart, data.length)
-            let err := or(lt(calldatasize(), dataEnd), lt(dataEnd, dataStart))
+            let dataEnd := add(dataStart, data.length)
+            let err := lt(dataEnd, dataStart)
+            err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
-            let targetsOffset := calldataload(add(0x40, dataStart))
-            let candidatesOffset := calldataload(add(0x60, dataStart))
-            let targetsBase := add(targetsOffset, dataStart)
-            let candidatesBase := add(candidatesOffset, dataStart)
-            n := calldataload(targetsBase)
-            let tableSize := shl(0x05, n)
-            targetsData := add(0x20, targetsBase)
-            candsData := add(0x20, candidatesBase)
-            err := or(or(iszero(n), lt(shr(0x05, data.length), n)), err)
-            // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI
-            // but meaningless here.
-            err := or(xor(calldataload(candidatesBase), n), err)
-            let targetsEnd := add(add(0x20, targetsOffset), tableSize)
-            let candidatesEnd := add(add(0x20, candidatesOffset), tableSize)
-            err := or(or(lt(targetsEnd, targetsOffset), gt(targetsEnd, data.length)), err)
-            err := or(or(lt(candidatesEnd, candidatesOffset), gt(candidatesEnd, data.length)), err)
-            // Zero a garbage `n` so it cannot loop below before the revert.
-            n := mul(n, iszero(err))
 
-            // Each frame runs from its start to the next start, the last to the end of `data`.
-            // Starts must not decrease, and the last must stay inside `data`.
-            let previous := calldataload(candsData)
-            for { let i := 0x01 } lt(i, n) { i := add(0x01, i) } {
-                let offset := calldataload(add(shl(0x05, i), candsData))
-                err := or(lt(offset, previous), err)
-                previous := offset
-            }
-            err := or(gt(previous, sub(dataEnd, candsData)), err)
+            let targetsOffset := calldataload(add(0x40, dataStart))
+            err := or(gt(targetsOffset, sub(data.length, 0x20)), err) // can't be `gt(add(0x20, targetsOffset), data.length)` due to risk of overflow
+            let targetsBase := add(targetsOffset, dataStart)
+            n := calldataload(targetsBase)
+            targetsData := add(0x20, targetsBase)
+            err := or(or(iszero(n), gt(n, shr(0x05, sub(dataEnd, targetsData)))), err)
+
+            let candidatesOffset := calldataload(add(0x60, dataStart))
+            err := or(gt(candidatesOffset, sub(data.length, 0x20)), err)
+            let candidatesBase := add(candidatesOffset, dataStart)
+            candsData := add(0x20, candidatesBase)
+            // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI but
+            // meaningless here.
+            err := or(xor(calldataload(candidatesBase), n), err)
+            err := or(gt(n, shr(0x05, sub(dataEnd, candsData))), err)
             if err { revert(0x00, 0x00) }
+
+            candsLength := sub(dataEnd, candsData)
+            callData := mload(0x40)
+            let dst := add(0x84, callData)
+            calldatacopy(dst, candsData, candsLength)
+            mstore(add(0x44, callData), token)
+            mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
+            mstore(callData, add(0x64, candsLength))
+            mstore(0x40, add(dst, candsLength))
         }
 
         for (uint256 i; i < n; i = i.unsafeInc()) {
-            bytes memory callData;
             uint256 gasLimit;
             bool isLast;
-            // Allocate one callback buffer per trial. Memory layout:
-            // `[0x00 len=0x64+frame][0x20 selector][0x24 actions=0x60][0x44 token]`
-            // `[0x64 target][0x84 frame]`. Writing the length last overwrites the selector
-            // word's 28-byte zero prefix, avoiding a selector `PUSH32`.
+            // Select one candidate in the shared callback buffer by changing only its dynamic
+            // offset and target. The token, selector, length, and copied region remain unchanged.
             assembly ("memory-safe") {
-                let start := add(calldataload(add(shl(0x05, i), candsData)), candsData)
-                let next := dataEnd
+                let offset := calldataload(add(shl(0x05, i), candsData))
+                if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
+                mstore(add(0x24, callData), add(0x60, offset))
+                mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
+
                 let remaining := sub(n, i)
                 let later := lt(0x01, remaining)
                 isLast := iszero(later)
-                if later {
-                    next := add(calldataload(add(shl(0x05, add(0x01, i)), candsData)), candsData)
-                }
-                let len := sub(next, start)
-                callData := mload(0x40)
-                let dst := add(0x84, callData)
-                calldatacopy(dst, start, len)
-                mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
-                mstore(add(0x44, callData), token)
-                mstore(add(0x24, callData), 0x60)
-                mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
-                mstore(callData, add(0x64, len))
-                mstore(0x40, add(dst, len))
 
                 gasLimit := gas()
                 if later {
@@ -136,12 +125,12 @@ abstract contract Select is SettlerSwapAbstract {
                     // exactly `C`. Capped trials need no retention term because `remaining >= 2`
                     // makes 63/64 of `gasLimit` exceed `gasCap`. The check re-runs before every
                     // capped trial and reverts if the reserve no longer fits. The division in the
-                    // first test cannot overflow and passing it bounds `totalCap` by `gasLimit`,
-                    // so the `mul` cannot overflow either.
+                    // first test cannot overflow and passing it bounds `totalCap` by `gasLimit`, so
+                    // the `mul` cannot overflow either.
                     let totalCap := mul(gasCap, remaining)
                     if or(
                         or(iszero(gasCap), gt(gasCap, div(gasLimit, remaining))),
-                        lt(gasLimit, add(add(totalCap, div(gasCap, 0x3f)), _SELECT_OVERHEAD_GAS))
+                        gt(add(_SELECT_OVERHEAD_GAS, add(totalCap, div(gasCap, 0x3f))), gasLimit)
                     ) {
                         revert(0x00, 0x00)
                     }
@@ -154,8 +143,9 @@ abstract contract Select is SettlerSwapAbstract {
                 break;
             }
             if (isLast) {
-                // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it unchanged.
-                // The temporary free-memory buffer cannot cross back into Solidity because this path reverts.
+                // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it
+                // unchanged.  The temporary free-memory buffer cannot cross back into Solidity
+                // because this path reverts.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
@@ -178,7 +168,7 @@ abstract contract Select is SettlerSwapAbstract {
             bool tooShort;
             // A length that wrapped in `decodeCall`'s selector slice has upper bits set.
             assembly ("memory-safe") {
-                tooShort := shr(0xe0, data.length)
+                tooShort := shr(0xc0, data.length)
                 data.length := mul(data.length, iszero(tooShort))
             }
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.

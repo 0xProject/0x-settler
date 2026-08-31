@@ -138,14 +138,6 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         return abi.encodeCall(ISettlerActions.SELECT, (gasCap, token, targets, candidates));
     }
 
-    function _malformedAction(uint256 candidatesLength) internal view returns (bytes memory action) {
-        bytes[][] memory candidates = new bytes[][](candidatesLength);
-        for (uint256 i; i < candidatesLength; ++i) {
-            candidates[i] = _candidate(address(p0));
-        }
-        action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](candidatesLength), candidates);
-    }
-
     function _runAction(bytes memory action, uint256 minOut) internal {
         _runAction(action, minOut, type(uint256).max);
     }
@@ -159,212 +151,6 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
             ActionDataBuilder.build(action),
             bytes32(0)
         );
-    }
-
-    function _runMalformed(bytes memory action) internal {
-        vm.expectRevert();
-        _runAction(action, 0);
-    }
-
-    function test_bounds_dirtyTokenUpperBits_reverts() public {
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _candidate(address(p0));
-        bytes memory action = _selectAction(0, address(buy), new uint256[](1), candidates);
-        // Dirty the most significant byte of the 160-bit `token` word (selector, gasCap, token).
-        action[0x24] = 0x01;
-        _runMalformed(action);
-        assertEq(p0.callCount(), 0, "no trial ran on a dirty token");
-    }
-
-    function test_bounds_zeroToken_reverts() public {
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _candidate(address(p0));
-        _runMalformed(_selectAction(0, address(0), new uint256[](1), candidates));
-        assertEq(p0.callCount(), 0, "no trial ran on a zero token");
-    }
-
-    function test_bounds_candidateOffsetIntoTable_decodesAsEmpty() public {
-        bytes memory action = _malformedAction(1);
-        // Point candidate 0 at its own offset-table entry. Valid overlap: the frame re-reads the
-        // table bytes, decodes as zero actions, and commits against the zero target.
-        assembly ("memory-safe") {
-            let candidatesOffset := mload(add(action, 0x84))
-            mstore(add(add(action, 0x44), candidatesOffset), 0x00)
-        }
-
-        _runAction(action, 0);
-        assertEq(p0.callCount(), 0, "empty-decoded candidate committed");
-    }
-
-    function test_bounds_targetsOffsetFollowed() public {
-        bytes memory action = _malformedAction(1);
-        // Point `targets` at the candidates array. Its first offset becomes a nonzero target.
-        assembly ("memory-safe") {
-            mstore(add(action, 0x64), mload(add(action, 0x84)))
-        }
-
-        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 0));
-        _runAction(action, 0);
-        assertEq(p0.callCount(), 0, "failed candidate rolled back");
-    }
-
-    function test_bounds_candidatesOffsetFollowed() public {
-        bytes memory action = _malformedAction(1);
-        // Point `candidates` at the targets array. Its zero target becomes an empty candidate.
-        assembly ("memory-safe") {
-            mstore(add(action, 0x84), mload(add(action, 0x64)))
-        }
-
-        _runAction(action, 0);
-        assertEq(p0.callCount(), 0, "empty candidate committed");
-    }
-
-    function test_bounds_swappedTails_decodes() public {
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _candidate(address(p0));
-        bytes memory candidatesTail = abi.encode(candidates);
-        // Strip the outer offset word, leaving the bare length/table/frames tail.
-        assembly ("memory-safe") {
-            let len := mload(candidatesTail)
-            candidatesTail := add(0x20, candidatesTail)
-            mstore(candidatesTail, sub(len, 0x20))
-        }
-
-        // A valid encoding with the candidates tail placed before the targets tail.
-        bytes memory action = abi.encodePacked(
-            ISettlerActions.SELECT.selector,
-            TEST_GAS_CAP,
-            uint256(uint160(address(buy))),
-            0x80 + candidatesTail.length,
-            uint256(0x80),
-            candidatesTail,
-            uint256(1),
-            uint256(0)
-        );
-
-        _runAction(action, 0);
-        assertEq(p0.callCount(), 1, "swapped tails did not decode");
-    }
-
-    function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
-        bytes memory action = _malformedAction(1);
-        // Move candidate 0 one word before the candidates offset table.
-        // Equivalent Solidity: `action.candidates[0].offset = -32`.
-        assembly ("memory-safe") {
-            let candidatesOffset := mload(add(action, 0x84))
-            mstore(add(add(action, 0x44), candidatesOffset), not(0x1f))
-        }
-
-        _runMalformed(action);
-    }
-
-    function test_bounds_candidateOffsetPastDataEnd_reverts() public {
-        bytes memory action = _malformedAction(1);
-        // Point candidate 0 one word past the signed SELECT action.
-        // Equivalent Solidity: `action.candidates[0].start = action.end + 32`.
-        assembly ("memory-safe") {
-            let candidatesOffset := mload(add(action, 0x84))
-            let candidatesData := add(add(action, 0x44), candidatesOffset)
-            let actionEnd := add(add(action, 0x20), mload(action))
-            mstore(candidatesData, add(sub(actionEnd, candidatesData), 0x20))
-        }
-
-        _runMalformed(action);
-    }
-
-    function test_bounds_decreasingCandidateOffsets_reverts() public {
-        bytes memory action = _malformedAction(2);
-        // Reverse the two candidate-frame starts.
-        // Equivalent Solidity: `(offset[0], offset[1]) = (offset[1], offset[0])`.
-        assembly ("memory-safe") {
-            let candidatesOffset := mload(add(action, 0x84))
-            let candidatesData := add(add(action, 0x44), candidatesOffset)
-            let first := mload(candidatesData)
-            let second := mload(add(candidatesData, 0x20))
-            mstore(candidatesData, second)
-            mstore(add(candidatesData, 0x20), first)
-        }
-
-        _runMalformed(action);
-    }
-
-    function test_bounds_equalCandidateOffsets_firstFrameEmpty() public {
-        bytes memory action = _malformedAction(2);
-        // Both candidates share a frame start, so candidate 0's frame is zero-length. It
-        // decodes as no actions and commits against the zero target.
-        assembly ("memory-safe") {
-            let candidatesOffset := mload(add(action, 0x84))
-            let candidatesData := add(add(action, 0x44), candidatesOffset)
-            mstore(add(candidatesData, 0x20), mload(candidatesData))
-        }
-
-        _runAction(action, 0);
-        assertEq(p0.callCount(), 0, "zero-length first candidate committed");
-    }
-
-    function test_bounds_candidateFrameOverlapsTargets_reverts() public {
-        bytes memory action = _malformedAction(1);
-        // Point candidate 0 at the targets data word.
-        // Equivalent Solidity: `candidateStart = targetsData`.
-        assembly ("memory-safe") {
-            let targetsOffset := mload(add(action, 0x64))
-            let candidatesOffset := mload(add(action, 0x84))
-            let targetsData := add(add(action, 0x44), targetsOffset)
-            let candidatesData := add(add(action, 0x44), candidatesOffset)
-            mstore(candidatesData, sub(targetsData, candidatesData))
-        }
-
-        _runMalformed(action);
-    }
-
-    function test_trailingBytes_joinLastFrame_trialStillRuns() public {
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = _candidate(address(p0));
-        // Trailing bytes become part of the last frame slice; the decoder ignores them and the
-        // trial still runs to its measured Shortfall.
-        bytes memory action = bytes.concat(
-            _selectAction(TEST_GAS_CAP, address(buy), _unreachableTargets(1), candidates), abi.encode(bytes32(0))
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 0));
-        _runAction(action, 0);
-    }
-
-    function test_bounds_zeroCandidates_reverts() public {
-        _runMalformed(_malformedAction(0));
-    }
-
-    function test_bounds_candidateCountMismatch_reverts() public {
-        bytes memory action = _malformedAction(1);
-        assembly ("memory-safe") {
-            let dataStart := add(action, 0x24)
-            let base := add(dataStart, mload(add(action, 0x84)))
-            mstore(base, 0x02)
-        }
-
-        _runMalformed(action);
-    }
-
-    function test_bounds_oversizedCandidateCountWrappedOffsets_reverts() public {
-        bytes memory action = _malformedAction(1);
-        // For n = 2^256 - 1, `0xa0 + 0x20 * n` wraps to 0x80.
-        assembly ("memory-safe") {
-            mstore(add(action, 0x84), 0x80)
-            mstore(add(action, 0xa4), not(0x00))
-        }
-
-        _runMalformed(action);
-    }
-
-    function testFuzz_bounds_dynamicOffsetPastData_reverts(uint256 offset, bool candidates) public {
-        bytes memory action = _malformedAction(1);
-        vm.assume(offset > action.length);
-        assembly ("memory-safe") {
-            let offsetWord := add(action, 0x64)
-            if candidates { offsetWord := add(0x20, offsetWord) }
-            mstore(offsetWord, offset)
-        }
-        _runMalformed(action);
     }
 
     function test_ladder_fourCandidates_commitsFourth() public {
@@ -383,24 +169,6 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
         assertEq(buy.balanceOf(recipient), 7 ether);
         assertEq(p2.callCount(), 1, "only the committed fourth call persists");
-    }
-
-    function test_bounds_gapBeforeFirstCandidate_framesStillExecute() public {
-        bytes memory action = _malformedAction(1);
-        bytes memory gapped = new bytes(action.length + 0x20);
-        // Splice a zero word between the offset table and the frame and point candidate 0 past
-        // it. Valid gap: the frame bytes are untouched, so the candidate executes unchanged.
-        assembly ("memory-safe") {
-            let candidatesOffset := mload(add(action, 0x84))
-            let table0 := add(add(action, 0x44), candidatesOffset)
-            let frame := add(0x20, table0)
-            let prefix := sub(frame, add(action, 0x20))
-            mcopy(add(gapped, 0x20), add(action, 0x20), prefix)
-            mcopy(add(add(gapped, 0x40), prefix), frame, sub(mload(action), prefix))
-            mstore(add(add(gapped, 0x44), candidatesOffset), 0x40)
-        }
-        _runAction(gapped, 0);
-        assertEq(p0.callCount(), 1, "gapped frame executed unchanged");
     }
 
     function test_fallback_primaryRevert_commitsAlternate() public {
@@ -679,9 +447,8 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
     }
 
     function test_safety_basicSelfCallOldSelector_withoutArmedCallback_isInert() public {
-        bytes memory action = abi.encodeCall(
-            ISettlerActions.BASIC, (address(0), 0, address(settler), 0, _unarmedCallbackCall())
-        );
+        bytes memory action =
+            abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, address(settler), 0, _unarmedCallbackCall()));
 
         vm.recordLogs();
         vm.expectRevert();
@@ -692,6 +459,288 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 }
 
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
+
+/// @dev Separate contract: SelectUnitTest sits at the unit-profile deploy-gas ceiling.
+contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
+    BaseSettler internal settler;
+    MockERC20 internal buy;
+    Pool internal p0;
+    Pool internal p1;
+    address internal recipient = makeAddr("recipient");
+    address internal taker = makeAddr("taker");
+
+    /// @dev A multi-candidate SELECT requires a nonzero cap so no trial can starve the fallback.
+    uint256 internal constant TEST_GAS_CAP = 400_000;
+
+    function setUp() public {
+        deployPermit2();
+        settler = new BaseSettler(bytes20(0));
+        buy = new MockERC20("Buy", "BUY", 18);
+        p0 = new Pool(IERC20(address(buy)));
+        p1 = new Pool(IERC20(address(buy)));
+        buy.mint(address(p0), 1_000 ether);
+        buy.mint(address(p1), 1_000 ether);
+    }
+
+    function _candidate(address p) internal pure returns (bytes[] memory c) {
+        c = new bytes[](1);
+        c[0] = abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, p, 0, abi.encodeCall(Pool.swap, ())));
+    }
+
+    function _unreachableTargets(uint256 n) internal pure returns (uint256[] memory targets) {
+        targets = new uint256[](n);
+        for (uint256 i; i < n; i++) {
+            targets[i] = type(uint256).max;
+        }
+    }
+
+    function _candidatePair(bytes[] memory first, bytes[] memory second)
+        internal
+        pure
+        returns (bytes[][] memory candidates)
+    {
+        candidates = new bytes[][](2);
+        candidates[0] = first;
+        candidates[1] = second;
+    }
+
+    function _selectAction(uint256 gasCap, address token, uint256[] memory targets, bytes[][] memory candidates)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodeCall(ISettlerActions.SELECT, (gasCap, token, targets, candidates));
+    }
+
+    function _malformedAction(uint256 candidatesLength) internal view returns (bytes memory action) {
+        bytes[][] memory candidates = new bytes[][](candidatesLength);
+        for (uint256 i; i < candidatesLength; ++i) {
+            candidates[i] = _candidate(address(p0));
+        }
+        action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](candidatesLength), candidates);
+    }
+
+    function _runAction(bytes memory action, uint256 minOut) internal {
+        vm.prank(taker, taker);
+        settler.execute(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: minOut
+            }),
+            ActionDataBuilder.build(action),
+            bytes32(0)
+        );
+    }
+
+    function _runMalformed(bytes memory action) internal {
+        vm.expectRevert();
+        _runAction(action, 0);
+    }
+
+    function test_bounds_dirtyTokenUpperBits_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory action = _selectAction(0, address(buy), new uint256[](1), candidates);
+        // Dirty the most significant byte of the 160-bit `token` word (selector, gasCap, token).
+        action[0x24] = 0x01;
+        _runMalformed(action);
+        assertEq(p0.callCount(), 0, "no trial ran on a dirty token");
+    }
+
+    function test_bounds_zeroToken_reverts() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        _runMalformed(_selectAction(0, address(0), new uint256[](1), candidates));
+        assertEq(p0.callCount(), 0, "no trial ran on a zero token");
+    }
+
+    function test_bounds_candidateOffsetIntoTable_decodesAsEmpty() public {
+        bytes memory action = _malformedAction(1);
+        // Point candidate 0 at its own offset-table entry. Valid aliasing: the zero offset word
+        // doubles as the candidate's length, so it decodes as no actions and commits against the
+        // zero target.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            mstore(add(add(action, 0x44), candidatesOffset), 0x00)
+        }
+
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 0, "empty-decoded candidate committed");
+    }
+
+    function test_bounds_unalignedGapBeforeDynamicTails_decodes() public {
+        bytes memory action = _malformedAction(1);
+        bytes memory gapped = new bytes(action.length + 0x01);
+        // Solidity's ABI decoder follows unaligned offsets and permits a gap before the tails.
+        assembly ("memory-safe") {
+            let source := add(0x20, action)
+            let destination := add(0x20, gapped)
+            let headLength := 0x84
+            mcopy(destination, source, headLength)
+            mcopy(add(0x01, add(headLength, destination)), add(headLength, source), sub(mload(action), headLength))
+            mstore(add(0x64, gapped), add(0x01, mload(add(0x64, action))))
+            mstore(add(0x84, gapped), add(0x01, mload(add(0x84, action))))
+        }
+
+        _runAction(gapped, 0);
+        assertEq(p0.callCount(), 1, "candidate after unaligned gap ran");
+    }
+
+    function test_bounds_aliasedDynamicTails_decode() public {
+        // The word at 0x80 is both array lengths. The zero word at 0xa0 is
+        // `targets[0]`, the candidate offset, and the empty candidate length.
+        bytes memory action = abi.encodePacked(
+            ISettlerActions.SELECT.selector,
+            TEST_GAS_CAP,
+            uint256(uint160(address(buy))),
+            uint256(0x80),
+            uint256(0x80),
+            uint256(0x01),
+            uint256(0x00)
+        );
+
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 0, "aliased empty candidate committed");
+    }
+
+    function test_bounds_candidateOffsetBeforeCandidatesData_reverts() public {
+        bytes memory action = _malformedAction(1);
+        // Move candidate 0 one word before the candidates offset table.
+        // Equivalent Solidity: `action.candidates[0].offset = -32`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            mstore(add(add(action, 0x44), candidatesOffset), not(0x1f))
+        }
+
+        _runMalformed(action);
+    }
+
+    function test_bounds_candidateOffsetPastDataEnd_reverts() public {
+        bytes memory action = _malformedAction(1);
+        // Point candidate 0 one word past the signed SELECT action.
+        // Equivalent Solidity: `action.candidates[0].start = action.end + 32`.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let candidatesData := add(add(action, 0x44), candidatesOffset)
+            let actionEnd := add(add(action, 0x20), mload(action))
+            mstore(candidatesData, add(sub(actionEnd, candidatesData), 0x20))
+        }
+
+        _runMalformed(action);
+    }
+
+    function test_bounds_decreasingCandidateOffsets_followPointersAfterMiss() public {
+        bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
+        uint256[] memory targets = new uint256[](2);
+        targets[0] = 1;
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), targets, candidates);
+        // Logical candidate 0 points to the physically later candidate. It misses before
+        // logical candidate 1 points backward and commits.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(0x84, action))
+            let candidatesData := add(candidatesOffset, add(0x44, action))
+            let first := mload(candidatesData)
+            let second := mload(add(0x20, candidatesData))
+            mstore(candidatesData, second)
+            mstore(add(0x20, candidatesData), first)
+        }
+
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 1, "lower physical candidate committed after miss");
+        assertEq(p1.callCount(), 0, "missed candidate state reverted");
+    }
+
+    function test_bounds_equalCandidateOffsets_aliasCandidate() public {
+        bytes memory action = _malformedAction(2);
+        // Both logical candidates refer to the same encoded value.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(0x84, action))
+            let candidatesData := add(candidatesOffset, add(0x44, action))
+            mstore(add(0x20, candidatesData), mload(candidatesData))
+        }
+
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 1, "aliased first candidate ran");
+    }
+
+    function test_bounds_candidateOffsetWrapsBeforeBase_reverts() public {
+        bytes memory action = _malformedAction(1);
+        // Point candidate 0 at the targets data word.
+        // Equivalent Solidity: `candidateStart = targetsData`.
+        assembly ("memory-safe") {
+            let targetsOffset := mload(add(action, 0x64))
+            let candidatesOffset := mload(add(action, 0x84))
+            let targetsData := add(add(action, 0x44), targetsOffset)
+            let candidatesData := add(add(action, 0x44), candidatesOffset)
+            mstore(candidatesData, sub(targetsData, candidatesData))
+        }
+
+        _runMalformed(action);
+    }
+
+    function test_trailingBytes_doNotChangeCandidate_trialStillRuns() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        // Unreferenced trailing bytes do not change the decoded value.
+        bytes memory action = bytes.concat(
+            _selectAction(TEST_GAS_CAP, address(buy), _unreachableTargets(1), candidates), abi.encode(bytes32(0))
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(Shortfall.selector, 0));
+        _runAction(action, 0);
+    }
+
+    function test_bounds_zeroCandidates_reverts() public {
+        _runMalformed(_malformedAction(0));
+    }
+
+    function test_bounds_candidateCountMismatch_reverts() public {
+        bytes memory action = _malformedAction(1);
+        assembly ("memory-safe") {
+            let dataStart := add(action, 0x24)
+            let base := add(dataStart, mload(add(action, 0x84)))
+            mstore(base, 0x02)
+        }
+
+        _runMalformed(action);
+    }
+
+    function test_bounds_aliasedDynamicTails_oversizedLengthReverts() public {
+        bytes memory action = _malformedAction(1);
+        // Alias both tails and make their shared length too large for the remaining data.
+        assembly ("memory-safe") {
+            mstore(add(action, 0x84), 0x80)
+            mstore(add(action, 0xa4), not(0x00))
+        }
+
+        _runMalformed(action);
+    }
+
+    function test_bounds_outOfBoundsDynamicOffset_revertsBeforeTrial() public {
+        bytes memory action = _malformedAction(1);
+        assembly ("memory-safe") {
+            mstore(add(0x64, action), not(0x00))
+        }
+        _runMalformed(action);
+        assertEq(p0.callCount(), 0, "invalid dynamic offset ran no trial");
+    }
+
+    function test_bounds_gapBeforeFirstCandidate_executes() public {
+        bytes memory action = _malformedAction(1);
+        bytes memory gapped = new bytes(action.length + 0x01);
+        // Splice one zero byte between the offset table and the candidate and update its offset.
+        assembly ("memory-safe") {
+            let candidatesOffset := mload(add(action, 0x84))
+            let table0 := add(add(action, 0x44), candidatesOffset)
+            let candidate := add(0x20, table0)
+            let prefix := sub(candidate, add(action, 0x20))
+            mcopy(add(gapped, 0x20), add(action, 0x20), prefix)
+            mcopy(add(add(gapped, 0x21), prefix), candidate, sub(mload(action), prefix))
+            mstore(add(add(gapped, 0x44), candidatesOffset), 0x21)
+        }
+        _runAction(gapped, 0);
+        assertEq(p0.callCount(), 1, "gapped candidate executed unchanged");
+    }
+}
 
 /// @dev Separate contract: SelectUnitTest sits at the unit-profile deploy-gas ceiling.
 contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
@@ -710,7 +759,7 @@ contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
         p0.set(7 ether, false);
     }
 
-    /// @dev One candidate, one authored action, with the frame's inner action offset overwritten.
+    /// @dev One candidate, one authored action, with its inner action offset overwritten.
     function _perturbedAction(uint256 offset) internal view returns (bytes memory action) {
         bytes[][] memory candidates = new bytes[][](1);
         candidates[0] = new bytes[](1);
@@ -719,8 +768,8 @@ contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
         action = abi.encodeCall(ISettlerActions.SELECT, (400_000, address(buy), new uint256[](1), candidates));
         assembly ("memory-safe") {
             let candidatesOffset := mload(add(action, 0x84))
-            let frame := add(add(action, 0x64), candidatesOffset)
-            mstore(add(0x20, frame), offset)
+            let candidate := add(add(action, 0x64), candidatesOffset)
+            mstore(add(0x20, candidate), offset)
         }
     }
 
@@ -735,17 +784,14 @@ contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
         );
     }
 
-    /// @dev The frame copy is the isolation boundary: the self-call's calldata ends at the frame
-    ///      end, so an inner action offset pointing past it reads zeros and fails the decoder.
-    function test_innerOffsetPastFrame_revertsActionInvalid() public {
+    /// @dev The callback contains no bytes after the signed SELECT action data.
+    function test_innerOffsetPastActionData_revertsActionInvalid() public {
         vm.expectPartialRevert(ActionInvalid.selector);
         _execute(_perturbedAction(0x2000));
     }
 
-    /// @dev Any perturbation of the inner action offset either decodes the authored candidate or
-    ///      reverts the trial whole. Forward reads cannot pass the trial-calldata boundary; negative
-    ///      offsets alias only the caller-derived callback head.
-    function testFuzz_innerOffsetPerturbation_containedToTrial(uint256 offset) public {
+    /// @dev Any successful perturbation produces the authored payout; every failure leaves no residue.
+    function testFuzz_innerOffsetPerturbation_staysInsideAction(uint256 offset) public {
         bytes memory action = _perturbedAction(offset);
         vm.prank(taker, taker);
         try settler.execute(
