@@ -240,8 +240,8 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
     ///      left uncopied so a failed call cannot charge the caller for large revert data. The
     ///      trust requirements on `target` above apply here too.
     function _setOperatorAndTryCall(
-        address target,
         uint256 gasLimit,
+        address target,
         bytes memory data,
         uint32 selector,
         function(bytes calldata) internal returns (bytes memory) callback

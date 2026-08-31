@@ -138,7 +138,7 @@ abstract contract Select is SettlerSwapAbstract {
                 }
             }
 
-            if (_setOperatorAndTryCall(address(this), gasLimit, callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
+            if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
             {
                 break;
             }
