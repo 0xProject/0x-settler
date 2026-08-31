@@ -15,31 +15,32 @@ abstract contract Select is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
 
-    // bytes4(keccak256("executeSelected(bytes[],address,uint256)"))
+    // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
-    // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31).
-    // The shared buffer makes per-trial overhead input-independent; 0x2000 is more than double
-    // the measurement and is rechecked per capped trial.
-    uint256 private constant _SELECT_OVERHEAD_GAS = 0x2000;
+    // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31).  The
+    // shared buffer makes per-trial overhead input-independent; 0x2000 is more than double the
+    // measurement and is rechecked per capped trial.
+    uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
         // Read the internally constructed callback head without writing memory:
-        // `[0x00 actions offset][0x20 token][0x40 minOut][actions length][offsets/actions]`.
-        // `select` built the head and copied the complete candidate region once. Reads past the
-        // end of the trial calldata return zero. A failing action reverts only this trial.
+        //     [0x00 actions offset][0x20 token][0x40 minOut][actions length][offsets/actions]
+        // `select` built the head and copied the complete candidate region once. Reads past the end
+        // of the trial calldata return zero. A failing action reverts only this trial.
         assembly ("memory-safe") {
-            let actionsHead := add(data.offset, calldataload(data.offset))
-            actions.length := calldataload(actionsHead)
-            actions.offset := add(0x20, actionsHead)
+            actions.offset := add(data.offset, calldataload(data.offset))
+            actions.length := calldataload(actions.offset)
+            actions.offset := add(0x20, actions.offset)
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
         }
-        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of assets held by Settler.
-        // This is outside SELECT's threat model. Final slippage still enforces the taker's minimum.
+        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
+        // assets held by Settler.  This is outside SELECT's threat model. Final slippage still
+        // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         uint256 balBefore = token.fastBalanceOf(address(this));
         _runActions(actions);
@@ -62,9 +63,9 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 candsLength;
         uint256 n;
         bytes memory callData;
-        // Follow and bound both top-level array offsets. The candidate region is copied once
-        // after the private callback head, preserving every valid relative candidate offset.
-        // A zero or dirty `token` reverts.
+        // Follow and bound both top-level array offsets. The candidate region is copied once after
+        // the private callback head, preserving every valid relative candidate offset.  A zero or
+        // dirty `token` reverts.
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
@@ -85,8 +86,8 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(gt(candidatesOffset, sub(data.length, 0x20)), err)
             let candidatesBase := add(candidatesOffset, dataStart)
             candsData := add(0x20, candidatesBase)
-            // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI
-            // but meaningless here.
+            // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI but
+            // meaningless here.
             err := or(xor(calldataload(candidatesBase), n), err)
             err := or(gt(n, shr(0x05, sub(dataEnd, candsData))), err)
             if err { revert(0x00, 0x00) }
@@ -124,12 +125,12 @@ abstract contract Select is SettlerSwapAbstract {
                     // exactly `C`. Capped trials need no retention term because `remaining >= 2`
                     // makes 63/64 of `gasLimit` exceed `gasCap`. The check re-runs before every
                     // capped trial and reverts if the reserve no longer fits. The division in the
-                    // first test cannot overflow and passing it bounds `totalCap` by `gasLimit`,
-                    // so the `mul` cannot overflow either.
+                    // first test cannot overflow and passing it bounds `totalCap` by `gasLimit`, so
+                    // the `mul` cannot overflow either.
                     let totalCap := mul(gasCap, remaining)
                     if or(
                         or(iszero(gasCap), gt(gasCap, div(gasLimit, remaining))),
-                        lt(gasLimit, add(add(totalCap, div(gasCap, 0x3f)), _SELECT_OVERHEAD_GAS))
+                        gt(add(_SELECT_OVERHEAD_GAS, add(totalCap, div(gasCap, 0x3f))), gasLimit)
                     ) {
                         revert(0x00, 0x00)
                     }
@@ -142,8 +143,9 @@ abstract contract Select is SettlerSwapAbstract {
                 break;
             }
             if (isLast) {
-                // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it unchanged.
-                // The temporary free-memory buffer cannot cross back into Solidity because this path reverts.
+                // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it
+                // unchanged.  The temporary free-memory buffer cannot cross back into Solidity
+                // because this path reverts.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
