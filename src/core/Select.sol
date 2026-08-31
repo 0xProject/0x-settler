@@ -69,7 +69,7 @@ abstract contract Select is SettlerSwapAbstract {
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
-            let err := lt(dataEnd, dataStart)
+            let err := or(lt(calldatasize(), dataEnd), lt(dataEnd, dataStart))
             err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             token := calldataload(add(0x20, dataStart))
