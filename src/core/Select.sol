@@ -21,7 +21,7 @@ abstract contract Select is SettlerSwapAbstract {
     // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31).  The
     // shared buffer makes per-trial overhead input-independent; 0x2000 is more than double the
     // measurement and is rechecked per capped trial.
-    uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
+    uint256 private constant _SELECT_OVERHEAD_GAS = 0x2000;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
         bytes[] calldata actions;
