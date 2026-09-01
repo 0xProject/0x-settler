@@ -134,8 +134,8 @@ contract MakerPSMDummy is MakerPSM {
     }
 
     function _setOperatorAndTryCall(
-        address,
         uint256,
+        address,
         bytes memory,
         uint32,
         function(bytes calldata) internal returns (bytes memory)
