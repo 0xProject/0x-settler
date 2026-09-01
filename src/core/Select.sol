@@ -124,7 +124,7 @@ abstract contract Select is SettlerSwapAbstract {
                 // `gasCap` after `_SELECT_OVERHEAD_GAS` of overhead between this measurement and
                 // the `CALL`: `C + floor(C/63)` forwards exactly `C`.
                 gasStarved := gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit)
-                if iszero(isLast) { gasLimit := gasCap }
+                gasLimit := xor(gasCap, mul(xor(gasCap, gasLimit), isLast))
             }
 
             if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
