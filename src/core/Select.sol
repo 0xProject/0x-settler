@@ -149,7 +149,7 @@ abstract contract Select is SettlerSwapAbstract {
         }
     }
 
-    function _runActions(bytes[] calldata actions) internal {
+    function _runActions(bytes[] calldata actions) private {
         // A nested `CHECK_SLIPPAGE` no-ops against this zeroed struct in taker-submitted Settler.
         // The other flavors do not dispatch it, so there it reverts only its own trial.
         AllowedSlippage memory noSlippage;
