@@ -18,8 +18,8 @@ abstract contract Select is SettlerSwapAbstract {
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
-    // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31).  The
-    // shared buffer makes per-trial overhead input-independent; 0x2000 is more than double the
+    // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31). The
+    // shared buffer makes per-trial overhead input-independent; 8192 is more than double the
     // measurement and is rechecked per capped trial.
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
@@ -39,7 +39,7 @@ abstract contract Select is SettlerSwapAbstract {
             minOut := calldataload(add(0x40, data.offset))
         }
         // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
-        // assets held by Settler.  This is outside SELECT's threat model. Final slippage still
+        // assets held by Settler. This is outside SELECT's threat model. Final slippage still
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         uint256 balBefore = token.fastBalanceOf(address(this));
@@ -64,8 +64,7 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 n;
         bytes memory callData;
         // Follow and bound both top-level array offsets. The candidate region is copied once after
-        // the private callback head, preserving every valid relative candidate offset.  A zero or
-        // dirty `token` reverts.
+        // the private callback head, preserving every valid relative candidate offset.
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
