@@ -740,6 +740,72 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         _runAction(gapped, 0);
         assertEq(p0.callCount(), 1, "gapped candidate executed unchanged");
     }
+
+    function test_bounds_declaredLengthPastCalldata_reverts() public {
+        // The SELECT action declares one word more than the physical calldata carries. The
+        // missing word would zero-pad as targets[0], the candidate offset, and the candidate
+        // length, committing an empty candidate. The calldatasize bound rejects it.
+        bytes memory action = abi.encodePacked(
+            ISettlerActions.SELECT.selector,
+            uint256(0), // gasCap
+            uint256(uint160(address(buy))), // token
+            uint256(0x80), // targetsOffset
+            uint256(0x80), // candidatesOffset, aliased
+            uint256(0x01), // shared length
+            uint256(0x00) // targets[0] / candidate offset / candidate length
+        );
+        bytes memory cd = abi.encodeCall(
+            settler.execute,
+            (
+                ISettlerBase.AllowedSlippage({
+                    recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
+                }),
+                ActionDataBuilder.build(action),
+                bytes32(0)
+            )
+        );
+        // The untruncated call commits the empty candidate and succeeds.
+        vm.prank(taker, taker);
+        (bool full,) = address(settler).call(cd);
+        assertTrue(full, "untruncated control committed");
+
+        // Drop the final word so the declared action data runs past calldatasize.
+        bytes memory truncated = new bytes(cd.length - 0x20);
+        for (uint256 i; i < truncated.length; ++i) {
+            truncated[i] = cd[i];
+        }
+
+        vm.prank(taker, taker);
+        (bool ok,) = address(settler).call(truncated);
+        assertFalse(ok, "action data past calldatasize must revert");
+    }
+
+    function test_bounds_swappedTails_decodes() public {
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = _candidate(address(p0));
+        bytes memory candidatesTail = abi.encode(candidates);
+        // Strip the outer offset word, leaving the bare length/table/candidate tail.
+        assembly ("memory-safe") {
+            let len := mload(candidatesTail)
+            candidatesTail := add(0x20, candidatesTail)
+            mstore(candidatesTail, sub(len, 0x20))
+        }
+
+        // A valid encoding with the candidates tail placed before the targets tail.
+        bytes memory action = abi.encodePacked(
+            ISettlerActions.SELECT.selector,
+            TEST_GAS_CAP,
+            uint256(uint160(address(buy))),
+            0x80 + candidatesTail.length, // targetsOffset, after the candidates tail
+            uint256(0x80), // candidatesOffset
+            candidatesTail,
+            uint256(1), // targets length
+            uint256(0) // targets[0]
+        );
+
+        _runAction(action, 0);
+        assertEq(p0.callCount(), 1, "swapped tails did not decode");
+    }
 }
 
 /// @dev Separate contract: SelectUnitTest sits at the unit-profile deploy-gas ceiling.

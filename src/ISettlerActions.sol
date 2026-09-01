@@ -230,7 +230,7 @@ interface ISettlerActions {
     ///      Candidates must not contain `CHECK_SLIPPAGE`. `targets` are the per-candidate minima
     ///      and the outer check enforces final slippage after commit.
     ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
-    ///      Put a nested `SELECT` in the final candidate unless its full reserve fits the enclosing trial.
+    ///      A nested `SELECT` belongs in the final candidate unless its full reserve fits the enclosing trial's cap.
     // Pre-req: Funded
     // Each candidate is decoded independently from its ABI offset. Candidate offsets may alias
     // or appear in any order. `targets[i]` pairs with `candidates[i]`.
