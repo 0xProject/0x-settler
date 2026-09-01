@@ -62,7 +62,6 @@ abstract contract Select is SettlerSwapAbstract {
 
     function select(bytes calldata data) internal {
         uint256 gasCap;
-        address token;
         uint256 targetsData;
         uint256 candsData;
         uint256 candsLength;
@@ -77,7 +76,7 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             err := or(or(shr(0x40, gasCap), iszero(gasCap)), err)
-            token := calldataload(add(0x20, dataStart))
+            let token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
 
             let targetsOffset := calldataload(add(0x40, dataStart))
@@ -115,10 +114,8 @@ abstract contract Select is SettlerSwapAbstract {
             beforeGasThreshold = _SELECT_OVERHEAD_GAS + gasCap + gasCap / 63;
         }
 
-        bool isLast;
-        for (uint256 i; !isLast;) {
-            uint256 gasLimit;
-            uint256 beforeGas;
+        uint256 i;
+        while (true) {
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target. The token, selector, length, and copied region remain unchanged.
             assembly ("memory-safe") {
@@ -128,10 +125,12 @@ abstract contract Select is SettlerSwapAbstract {
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
             }
 
-            i = i.unsafeInc();
-            isLast = i == n;
-            beforeGas = gasleft();
-            gasLimit = isLast.ternary(beforeGas, gasCap);
+            unchecked {
+                i++;
+            }
+            bool isLast = i == n;
+            uint256 beforeGas = gasleft();
+            uint256 gasLimit = isLast.ternary(beforeGas, gasCap);
 
             if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
             {
