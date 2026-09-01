@@ -411,7 +411,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
 
         vm.expectRevert();
-        _runAction(_selectAction(1, address(buy), new uint256[](2), candidates), 0, 1_000_000);
+        _runAction(_selectAction(0, address(buy), new uint256[](2), candidates), 0, 1_000_000);
 
         assertEq(p0.callCount(), 0, "first candidate not attempted without a cap");
     }
