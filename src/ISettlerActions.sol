@@ -224,16 +224,16 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Tries funded candidates in order and commits the first to meet its target. A score
-    ///      is the increase in Settler-held `token`. A zero target commits any non-reverting
-    ///      candidate. Native output only scores if wrapped within the candidate.
-    ///      Candidates must not contain `CHECK_SLIPPAGE`. `targets` are the per-candidate minima
-    ///      and the outer check enforces final slippage after commit.
-    ///      Multiple candidates need a nonzero trial gas limit. The final candidate is uncapped.
-    ///      A nested `SELECT` belongs in the final candidate unless its full reserve fits the enclosing trial's cap.
+    /// @dev Tries funded action sequences (`candidates`) in order, and commits the first to meet
+    ///      its score `target`. A score is the increase in the `token` balance held by Settler. A
+    ///      zero `target` commits any non-reverting candidate.  Native asset output only scores if
+    ///      wrapped to wrapped-native in the candidate actions.  Candidates must not contain
+    ///      `CHECK_SLIPPAGE`. `targets` are the per-candidate minimum outputs that terminate the
+    ///      trials (commit).  Multiple candidates need a nonzero `trialGasLimit`. The final
+    ///      candidate's action sequence gas consumption is uncapped.  A nested `SELECT` belongs in
+    ///      the final candidate unless its full gas reserve fits the enclosing cap. `targets[i]`
+    ///      pairs with `candidates[i]`.
     // Pre-req: Funded
-    // Each candidate is decoded independently from its ABI offset. Candidate offsets may alias
-    // or appear in any order. `targets[i]` pairs with `candidates[i]`.
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
 
