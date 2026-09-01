@@ -229,10 +229,17 @@ interface ISettlerActions {
     ///      zero `target` commits any non-reverting candidate.  Native asset output only scores if
     ///      wrapped to wrapped-native in the candidate actions.  Candidates must not contain
     ///      `CHECK_SLIPPAGE`. `targets` are the per-candidate minimum outputs that terminate the
-    ///      trials (commit).  Multiple candidates need a nonzero `trialGasLimit`. The final
-    ///      candidate's action sequence gas consumption is uncapped.  A nested `SELECT` belongs in
-    ///      the final candidate unless its full gas reserve fits the enclosing cap. `targets[i]`
-    ///      pairs with `candidates[i]`.
+    ///      trials (commit).  `targets[i]` pairs with `candidates[i]`. `trialGasLimit` must be
+    ///      nonzero and below 2**64.  Each non-final trial requests exactly `trialGasLimit` gas;
+    ///      the final candidate's action sequence gas consumption is uncapped.  A trial that
+    ///      succeeds commits even if EIP-150 reduced the gas it received. A failed trial is
+    ///      skipped only when it provably received its whole `trialGasLimit`; any other failure
+    ///      consumes all remaining gas so that the gas supplied to the transaction cannot steer
+    ///      the selection. A `trialGasLimit` too large to fund within the block gas limit
+    ///      therefore turns every trial failure into a total gas burn with no observable revert
+    ///      reason.  A nested `SELECT` belongs in the final candidate unless its `trialGasLimit`,
+    ///      plus the sixty-fourths EIP-150 retains, fits within the enclosing cap; an inner
+    ///      all-gas burn consumes the enclosing trial's whole allotment.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;

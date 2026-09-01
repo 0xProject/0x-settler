@@ -18,9 +18,13 @@ abstract contract Select is SettlerSwapAbstract {
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
 
-    // Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR, 2026-08-31). The
-    // shared buffer makes per-trial overhead input-independent; 8192 is more than double the
-    // measurement and is rechecked per capped trial.
+    // An overestimate of the gas consumed between reading `gas()` and the trial `CALL`, including
+    // the call's own access cost. This bound is the soundness condition for skipping a failed
+    // trial: an underestimate could classify a starved trial as fully funded and skip it. An
+    // overestimate only classifies borderline fully funded trials as possibly starved, consuming
+    // all gas on their failure. Adding one failing empty candidate measured 3,603 gas (solc 0.8.34
+    // via-IR, 2026-08-31), bounding this plumbing from far above; 8192 is more than double that
+    // bound.
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
@@ -104,6 +108,7 @@ abstract contract Select is SettlerSwapAbstract {
 
         for (uint256 i; i < n; i = i.unsafeInc()) {
             uint256 gasLimit;
+            bool fullyFunded;
             bool isLast;
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target. The token, selector, length, and copied region remain unchanged.
@@ -113,29 +118,31 @@ abstract contract Select is SettlerSwapAbstract {
                 mstore(add(0x24, callData), add(0x60, offset))
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
 
-                let remaining := sub(n, i)
-                let later := lt(0x01, remaining)
-                isLast := iszero(later)
+                isLast := eq(add(0x01, i), n)
 
                 gasLimit := gas()
-                if later {
-                    // Reserve every remaining trial's cap plus `_SELECT_OVERHEAD_GAS` of loop
-                    // overhead before capping this trial. The `gasCap/63` term covers EIP-150's
-                    // retained sixty-fourth on the final uncapped call: `C + floor(C/63)` forwards
-                    // exactly `C`. Capped trials need no retention term because `remaining >= 2`
-                    // makes 63/64 of `gasLimit` exceed `gasCap`. The check re-runs before every
-                    // capped trial and reverts if the reserve no longer fits.
-                    let totalCap := mul(gasCap, remaining)
-                    if gt(add(_SELECT_OVERHEAD_GAS, add(totalCap, div(gasCap, 0x3f))), gasLimit) {
-                        revert(0x00, 0x00)
-                    }
-                    gasLimit := gasCap
-                }
+                // The trial is fully funded when EIP-150's clamp still forwards the whole
+                // `gasCap` after `_SELECT_OVERHEAD_GAS` of overhead between this measurement and
+                // the `CALL`: `C + floor(C/63)` forwards exactly `C`. Funding is measured before
+                // the call; afterwards, a fully funded trial that consumed its gas is
+                // indistinguishable from a starved one. A trial may run without full funding and
+                // its success is accepted; only its failure is then ambiguous.
+                fullyFunded := iszero(gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit))
+                if iszero(isLast) { gasLimit := gasCap }
             }
 
             if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
             {
                 break;
+            }
+            if (!fullyFunded) {
+                // The failed trial may have received less than `gasCap`. Skipping it would let the
+                // caller's choice of gas select the route; bubbling would report a failure the
+                // candidate did not earn. Consuming all remaining gas makes this outcome
+                // distinguishable from any deliberate revert.
+                assembly ("memory-safe") {
+                    invalid()
+                }
             }
             if (isLast) {
                 // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it.
