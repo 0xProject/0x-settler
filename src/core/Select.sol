@@ -7,12 +7,14 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 import {revertActionInvalid} from "./SettlerErrors.sol";
 
 /// @notice Ordered candidate-route selection by revertable self-calls.
 abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
+    using FastLogic for bool;
     using CalldataDecoder for bytes[];
 
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
@@ -20,11 +22,8 @@ abstract contract Select is SettlerSwapAbstract {
 
     // An overestimate of the gas consumed between reading `gas()` and the trial `CALL`, including
     // the call's own access cost. This bound is the soundness condition for skipping a failed
-    // trial: an underestimate could classify a starved trial as fully funded and skip it. An
-    // overestimate only classifies borderline fully funded trials as possibly starved, consuming
-    // all gas on their failure. Adding one failing empty candidate measured 3,603 gas (solc 0.8.34
-    // via-IR, 2026-08-31), bounding this plumbing from far above; 8192 is more than double that
-    // bound.
+    // trial. Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR,
+    // 2026-08-31), bounding this plumbing from far above; 8192 is more than double that bound.
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory) {
@@ -108,7 +107,7 @@ abstract contract Select is SettlerSwapAbstract {
 
         for (uint256 i; i < n; i = i.unsafeInc()) {
             uint256 gasLimit;
-            bool fullyFunded;
+            bool gasStarved;
             bool isLast;
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target. The token, selector, length, and copied region remain unchanged.
@@ -123,11 +122,8 @@ abstract contract Select is SettlerSwapAbstract {
                 gasLimit := gas()
                 // The trial is fully funded when EIP-150's clamp still forwards the whole
                 // `gasCap` after `_SELECT_OVERHEAD_GAS` of overhead between this measurement and
-                // the `CALL`: `C + floor(C/63)` forwards exactly `C`. Funding is measured before
-                // the call; afterwards, a fully funded trial that consumed its gas is
-                // indistinguishable from a starved one. A trial may run without full funding and
-                // its success is accepted; only its failure is then ambiguous.
-                fullyFunded := iszero(gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit))
+                // the `CALL`: `C + floor(C/63)` forwards exactly `C`.
+                gasStarved := gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit)
                 if iszero(isLast) { gasLimit := gasCap }
             }
 
@@ -135,16 +131,7 @@ abstract contract Select is SettlerSwapAbstract {
             {
                 break;
             }
-            if (!fullyFunded) {
-                // The failed trial may have received less than `gasCap`. Skipping it would let the
-                // caller's choice of gas select the route; bubbling would report a failure the
-                // candidate did not earn. Consuming all remaining gas makes this outcome
-                // distinguishable from any deliberate revert.
-                assembly ("memory-safe") {
-                    invalid()
-                }
-            }
-            if (isLast) {
+            if (gasStarved.or(isLast)) {
                 // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
