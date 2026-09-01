@@ -86,7 +86,7 @@ contract SelectBase is SettlerBasePairTest {
         assertGt(toToken().balanceOf(RECIPIENT) - beforeBalance, 1, "first candidate paid recipient");
     }
 
-    function testAllReservationsMiss_reverts() public {
+    function testAllTargetsMiss_reverts() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
         uint256[] memory targets = new uint256[](2);
         targets[0] = type(uint256).max;
