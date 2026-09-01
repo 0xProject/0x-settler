@@ -34,7 +34,7 @@ contract MainnetSelectDispatchTest is Test {
 
         actions = new bytes[](1);
         actions[0] =
-            abi.encodeCall(ISettlerActions.SELECT, (0, 0xdAC17F958D2ee523a2206206994597C13D831ec7, targets, candidates));
+            abi.encodeCall(ISettlerActions.SELECT, (1, 0xdAC17F958D2ee523a2206206994597C13D831ec7, targets, candidates));
     }
 
     function _execute(bytes[] memory actions) private {

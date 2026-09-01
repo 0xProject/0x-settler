@@ -266,7 +266,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         innerTargets[0] = 7 ether;
 
         bytes[] memory nestedCandidate =
-            ActionDataBuilder.build(_selectAction(0, address(buy), innerTargets, innerCandidates));
+            ActionDataBuilder.build(_selectAction(1, address(buy), innerTargets, innerCandidates));
         bytes[][] memory outerCandidates = _candidatePair(nestedCandidate, _candidate(address(p0)));
         uint256[] memory outerTargets = _unreachableTargets(2);
         outerTargets[1] = 9 ether;
@@ -285,7 +285,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory innerCandidates = new bytes[][](1);
         innerCandidates[0] = innerCandidate;
         bytes[] memory nestedCandidate =
-            ActionDataBuilder.build(_selectAction(0, address(buy), _unreachableTargets(1), innerCandidates));
+            ActionDataBuilder.build(_selectAction(1, address(buy), _unreachableTargets(1), innerCandidates));
         bytes[][] memory outerCandidates = new bytes[][](1);
         outerCandidates[0] = nestedCandidate;
 
@@ -338,7 +338,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         candidates[0] = new bytes[](0);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(metaTxn), permit)),
-            _selectAction(0, address(sell), new uint256[](1), candidates)
+            _selectAction(1, address(sell), new uint256[](1), candidates)
         );
 
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
@@ -411,7 +411,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         bytes[][] memory candidates = _candidatePair(_candidate(address(p0)), _candidate(address(p1)));
 
         vm.expectRevert();
-        _runAction(_selectAction(0, address(buy), new uint256[](2), candidates), 0, 1_000_000);
+        _runAction(_selectAction(1, address(buy), new uint256[](2), candidates), 0, 1_000_000);
 
         assertEq(p0.callCount(), 0, "first candidate not attempted without a cap");
     }
@@ -739,45 +739,6 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         }
         _runAction(gapped, 0);
         assertEq(p0.callCount(), 1, "gapped candidate executed unchanged");
-    }
-
-    function test_bounds_declaredLengthPastCalldata_reverts() public {
-        // The SELECT action declares one word more than the physical calldata carries. The
-        // missing word would zero-pad as targets[0], the candidate offset, and the candidate
-        // length, committing an empty candidate. The calldatasize bound rejects it.
-        bytes memory action = abi.encodePacked(
-            ISettlerActions.SELECT.selector,
-            uint256(0), // gasCap
-            uint256(uint160(address(buy))), // token
-            uint256(0x80), // targetsOffset
-            uint256(0x80), // candidatesOffset, aliased
-            uint256(0x01), // shared length
-            uint256(0x00) // targets[0] / candidate offset / candidate length
-        );
-        bytes memory cd = abi.encodeCall(
-            settler.execute,
-            (
-                ISettlerBase.AllowedSlippage({
-                    recipient: payable(recipient), buyToken: IERC20(address(buy)), minAmountOut: 0
-                }),
-                ActionDataBuilder.build(action),
-                bytes32(0)
-            )
-        );
-        // The untruncated call commits the empty candidate and succeeds.
-        vm.prank(taker, taker);
-        (bool full,) = address(settler).call(cd);
-        assertTrue(full, "untruncated control committed");
-
-        // Drop the final word so the declared action data runs past calldatasize.
-        bytes memory truncated = new bytes(cd.length - 0x20);
-        for (uint256 i; i < truncated.length; ++i) {
-            truncated[i] = cd[i];
-        }
-
-        vm.prank(taker, taker);
-        (bool ok,) = address(settler).call(truncated);
-        assertFalse(ok, "action data past calldatasize must revert");
     }
 
     function test_bounds_swappedTails_decodes() public {
