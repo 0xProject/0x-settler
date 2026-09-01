@@ -72,6 +72,7 @@ abstract contract Select is SettlerSwapAbstract {
             let err := lt(dataEnd, dataStart)
             err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
+            err := or(or(shr(0x40, gasCap), iszero(gasCap)), err)
             token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
 
@@ -124,14 +125,9 @@ abstract contract Select is SettlerSwapAbstract {
                     // retained sixty-fourth on the final uncapped call: `C + floor(C/63)` forwards
                     // exactly `C`. Capped trials need no retention term because `remaining >= 2`
                     // makes 63/64 of `gasLimit` exceed `gasCap`. The check re-runs before every
-                    // capped trial and reverts if the reserve no longer fits. The division in the
-                    // first test cannot overflow and passing it bounds `totalCap` by `gasLimit`, so
-                    // the `mul` cannot overflow either.
+                    // capped trial and reverts if the reserve no longer fits.
                     let totalCap := mul(gasCap, remaining)
-                    if or(
-                        or(iszero(gasCap), gt(gasCap, div(gasLimit, remaining))),
-                        gt(add(_SELECT_OVERHEAD_GAS, add(totalCap, div(gasCap, 0x3f))), gasLimit)
-                    ) {
+                    if gt(add(_SELECT_OVERHEAD_GAS, add(totalCap, div(gasCap, 0x3f))), gasLimit) {
                         revert(0x00, 0x00)
                     }
                     gasLimit := gasCap
@@ -168,7 +164,7 @@ abstract contract Select is SettlerSwapAbstract {
             bool tooShort;
             // A length that wrapped in `decodeCall`'s selector slice has upper bits set.
             assembly ("memory-safe") {
-                tooShort := shr(0xc0, data.length)
+                tooShort := shr(0x40, data.length)
                 data.length := mul(data.length, iszero(tooShort))
             }
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.
