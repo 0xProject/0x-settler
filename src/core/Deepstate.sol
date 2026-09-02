@@ -2,118 +2,118 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Ternary} from "../utils/Ternary.sol";
+import {tmp} from "../utils/512Math.sol";
+import "./Constants.sol" as Constants;
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {IDeepstateV1} from "../interfaces/IDeepstateV1.sol";
-import {tmp} from "../utils/512Math.sol";
-import {FastLogic} from "../utils/FastLogic.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {revertInvalidDeepstateRoute, revertNonStandardDeepstateToken} from "./SettlerErrors.sol";
-import "./Constants.sol" as Constants;
+
+interface IDeepstateV1 {
+    /// @param token0 Lower address of the pair. Native ETH is `address(0)`. Asks sell it; bids buy it.
+    /// @param token1 Higher address of the pair. Bids pay it; asks receive it.
+    /// @param epoch Book epoch. The book id is `keccak256(token0, token1, epoch)`.
+    /// @param order `int32 tick << 224 | uint160 token0Quantity << 64`. The low 64 bits must be clear.
+    /// @param noRest Discard unmatched quantity instead of resting it as maker liquidity.
+    /// @param fillOrKill Revert unless the entire quantity matches.
+    struct FillParams {
+        address token0;
+        address token1;
+        uint256 epoch;
+        bytes32 order;
+        bool isBid;
+        bool noRest;
+        bool fillOrKill;
+    }
+
+    function fill(FillParams calldata params) external payable returns (bytes32 restingOrder);
+}
 
 IDeepstateV1 constant ROBINHOOD_DEEPSTATE = IDeepstateV1(0x6cf19308C22FC82ea620Fa0B3E94948d20f27B96);
 
+library FastDeepstate {
+    /// Unmatched quantity is never rested. A resting order would be owned by this contract, which has no
+    /// way to cancel it, so the collateral would be lost.
+    function fastFill(
+        IDeepstateV1 deepstate,
+        uint256 value,
+        address token0,
+        address token1,
+        uint256 epoch,
+        int32 tick,
+        uint256 quantity,
+        bool isBid
+    ) internal {
+        // Manually ABI-encode the call to avoid allocating and copying a `FillParams` struct. Equivalent to:
+        //     deepstate.fill{value: value}(
+        //         IDeepstateV1.FillParams(token0, token1, epoch, bytes32(uint256(uint32(tick)) << 224 | quantity << 64), isBid, true, false)
+        //     );
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x5d6222ab) // selector for `fill((address,address,uint256,bytes32,bool,bool,bool))`
+            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token0))
+            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token1))
+            mstore(add(0x60, ptr), epoch)
+            mstore(add(0x80, ptr), or(shl(0xe0, tick), shl(0x40, quantity)))
+            mstore(add(0xa0, ptr), lt(0x00, isBid))
+            mstore(add(0xc0, ptr), 0x01) // noRest
+            mstore(add(0xe0, ptr), 0x00) // fillOrKill
+
+            if iszero(call(gas(), deepstate, value, add(0x1c, ptr), 0xe4, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
+    }
+}
+
 abstract contract Deepstate is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using SafeTransferLib for address payable;
-    using FastLogic for bool;
     using UnsafeMath for uint256;
+    using Ternary for bool;
+    using FastDeepstate for IDeepstateV1;
 
     constructor() {
         assert(address(ROBINHOOD_DEEPSTATE).code.length > 0 || block.chainid == 31337);
     }
 
-    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
-        return (target == address(ROBINHOOD_DEEPSTATE)).or(super._isRestrictedTarget(target));
-    }
-
-    /// @dev Executes a direct self-funded route against the canonical Robinhood Chain deployment.
-    /// Unmatched selected input is returned to `recipient`; unselected input remains available to later actions.
+    /// Deepstate pays the caller directly, so the proceeds land in this contract for later actions to
+    /// forward. Any quantity the book cannot match stays here as `sellToken` for the same reason.
     function sellToDeepstate(
-        address payable recipient,
         IERC20 sellToken,
-        IERC20 buyToken,
         uint256 ppm,
-        IDeepstateV1.FillParams[] memory fills
+        IERC20 buyToken,
+        uint256 epoch,
+        int32 tick,
+        uint256 inversePriceX128
     ) internal {
-        address engineSellToken = _deepstateAsset(sellToken);
-        address engineBuyToken = _deepstateAsset(buyToken);
-        if (fills.length == 0 || engineSellToken == engineBuyToken) revertInvalidDeepstateRoute();
-
-        for (uint256 i; i < fills.length;) {
-            IDeepstateV1.FillParams memory fill = fills[i];
-            address inputAsset = fill.isBid ? fill.token1 : fill.token0;
-            address outputAsset = fill.isBid ? fill.token0 : fill.token1;
-            if (fill.token0 >= fill.token1 || inputAsset != engineSellToken || outputAsset != engineBuyToken) {
-                revertInvalidDeepstateRoute();
-            }
-            fills[i].noRest = true;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        uint256 balanceBefore = _balanceOf(sellToken, address(this));
-        uint256 maxSellAmount = tmp().omul(balanceBefore, ppm).unsafeDiv(Constants.BASIS);
-        uint256 consumed;
-        if (address(sellToken) == Constants.ETH_ADDRESS) {
-            unchecked {
-                // `ppm > BASIS` is caller-supplied GIGO, consistent with other self-funded actions.
-                ROBINHOOD_DEEPSTATE.fillRoute{value: maxSellAmount}(fills);
-                uint256 balanceAfter = address(this).balance;
-                if (balanceAfter > balanceBefore) revertNonStandardDeepstateToken(sellToken);
-                consumed = balanceBefore - balanceAfter;
-            }
-        } else {
-            uint256 engineBalanceBefore = sellToken.fastBalanceOf(address(ROBINHOOD_DEEPSTATE));
-
-            sellToken.safeApprove(address(ROBINHOOD_DEEPSTATE), 0);
-            sellToken.safeApprove(address(ROBINHOOD_DEEPSTATE), maxSellAmount);
-            ROBINHOOD_DEEPSTATE.fillRoute(fills);
-            sellToken.safeApprove(address(ROBINHOOD_DEEPSTATE), 0);
-
-            uint256 balanceAfter = sellToken.fastBalanceOf(address(this));
-            uint256 engineBalanceAfter = sellToken.fastBalanceOf(address(ROBINHOOD_DEEPSTATE));
-            if (balanceAfter > balanceBefore || engineBalanceAfter < engineBalanceBefore) {
-                revertNonStandardDeepstateToken(sellToken);
-            }
-            unchecked {
-                consumed = balanceBefore - balanceAfter;
-            }
-            if (engineBalanceAfter - engineBalanceBefore != consumed) revertNonStandardDeepstateToken(sellToken);
-        }
-
-        if (consumed > maxSellAmount) revertNonStandardDeepstateToken(sellToken);
-        uint256 refund;
+        bool sendNative = address(sellToken) == Constants.ETH_ADDRESS;
+        uint256 sellAmount;
         unchecked {
-            refund = maxSellAmount - consumed;
-        }
-        if (refund != 0 && recipient != address(this)) {
-            if (address(sellToken) == Constants.ETH_ADDRESS) {
-                recipient.safeTransferETH(refund);
+            if (sendNative) {
+                sellAmount = (address(this).balance * ppm).unsafeDiv(Constants.BASIS);
             } else {
-                uint256 recipientBalanceBefore = sellToken.fastBalanceOf(recipient);
-                sellToken.safeTransfer(recipient, refund);
-                uint256 recipientBalanceAfter = sellToken.fastBalanceOf(recipient);
-                if (
-                    recipientBalanceAfter < recipientBalanceBefore
-                        || recipientBalanceAfter - recipientBalanceBefore != refund
-                ) {
-                    revertNonStandardDeepstateToken(sellToken);
-                }
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
+                sellToken.safeApproveIfBelow(address(ROBINHOOD_DEEPSTATE), sellAmount);
             }
         }
-    }
 
-    function _deepstateAsset(IERC20 token) private pure returns (address asset) {
-        asset = address(token);
-        if (asset == Constants.ETH_ADDRESS) return address(0);
-        if (asset == address(0)) revertInvalidDeepstateRoute();
-    }
+        // Deepstate designates native ETH as `address(0)`, so it always sorts as `token0`.
+        address sellAsset = sendNative.ternary(address(0), address(sellToken));
+        address buyAsset = (address(buyToken) == Constants.ETH_ADDRESS).ternary(address(0), address(buyToken));
+        bool isBid = sellAsset > buyAsset;
+        (address token0, address token1) = isBid.maybeSwap(sellAsset, buyAsset);
 
-    function _balanceOf(IERC20 token, address account) private view returns (uint256) {
-        return address(token) == Constants.ETH_ADDRESS ? account.balance : token.fastBalanceOf(account);
+        // Orders are sized in `token0`. A bid spends `token1`, so the sell amount is converted through the
+        // caller's price. Rounding down keeps the engine's debit within the sell amount; the engine's own
+        // per-order rounding is absorbed by the caller's choice of `tick`.
+        uint256 quantity = sellAmount;
+        if (isBid) {
+            (uint256 hi, uint256 lo) = tmp().omul(sellAmount, inversePriceX128).into();
+            quantity = (hi << 128) | (lo >> 128);
+        }
+
+        ROBINHOOD_DEEPSTATE.fastFill(sendNative.orZero(sellAmount), token0, token1, epoch, tick, quantity, isBid);
     }
 }

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {IDeepstateV1} from "./interfaces/IDeepstateV1.sol";
 
 interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
@@ -224,11 +223,22 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Executes a self-funded route against the canonical Robinhood Chain Deepstate engine.
-    /// Every leg must directly exchange `sellToken` for the transaction's declared buy token and is forced to no-rest.
-    /// @param sellToken Token whose current Settler balance funds the route. Use the Settler ETH sentinel for native.
-    /// @param ppm Proportion of the current `sellToken` balance made available to the engine.
-    function DEEPSTATE(address sellToken, uint256 ppm, IDeepstateV1.FillParams[] calldata fills) external;
+    /// @dev Fills one Deepstate book with the current `sellToken` balance. `token0` is the lower of the two
+    /// token addresses with native ETH as `address(0)`; selling `token0` is an ask and selling `token1` is a
+    /// bid. Unmatched quantity is discarded rather than rested, leaving it as `sellToken` for later actions.
+    /// @param epoch Book epoch to match against. The book must already be initialized.
+    /// @param tick Signed logarithmic limit price of `token1` per `token0`, `2 ** (96 * tick / 2**31)`.
+    /// @param inversePriceX128 Q128 quantity of `token0` bought per unit of `token1` sold. Sizes a bid; ignored for an ask.
+    // Pre-req: Funded
+    // Post-req: Payout
+    function DEEPSTATE(
+        address sellToken,
+        uint256 ppm,
+        address buyToken,
+        uint256 epoch,
+        int32 tick,
+        uint256 inversePriceX128
+    ) external;
 
     function EKUBO(
         address recipient,

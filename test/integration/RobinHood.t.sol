@@ -8,9 +8,8 @@ import {ERC20} from "@solmate/tokens/ERC20.sol";
 
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RobinHoodSettler} from "src/chains/RobinHood/TakerSubmitted.sol";
-import {ROBINHOOD_DEEPSTATE} from "src/core/Deepstate.sol";
+import {IDeepstateV1, ROBINHOOD_DEEPSTATE} from "src/core/Deepstate.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
-import {IDeepstateV1} from "src/interfaces/IDeepstateV1.sol";
 
 import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {BasePairTest} from "./BasePairTest.t.sol";
@@ -71,7 +70,6 @@ contract RobinHoodWETHNVDATest is BebopPairTest, OrvexCLTest {
 }
 
 interface IDeepstateV1Fork is IDeepstateV1 {
-    function fill(FillParams calldata params) external payable returns (bytes32 restingOrder);
     function feeConfig() external view returns (address recipient, uint16 bps);
     function roots(address token0, address token1, uint256 epoch)
         external
@@ -131,11 +129,9 @@ contract DeepstateRobinHoodTest is Test, GasSnapshot {
         token0.mint(address(settler), TAKER_QUANTITY);
 
         uint256 expectedOut = MAKER_QUANTITY - MAKER_QUANTITY * protocolFeeBps / 10_000;
-        IDeepstateV1.FillParams[] memory fills = new IDeepstateV1.FillParams[](1);
-        fills[0] = _fill(TAKER_QUANTITY, false, false);
 
         bytes[] memory actions = new bytes[](1);
-        actions[0] = abi.encodeCall(ISettlerActions.DEEPSTATE, (address(token0), BASIS, fills));
+        actions[0] = abi.encodeCall(ISettlerActions.DEEPSTATE, (address(token0), BASIS, address(token1), 0, 0, 0));
         snapStart("settler_deepstate_robinhood");
         settler.execute(
             ISettlerBase.AllowedSlippage({
@@ -146,12 +142,11 @@ contract DeepstateRobinHoodTest is Test, GasSnapshot {
         );
         snapEnd();
 
-        assertEq(token0.balanceOf(receiver), TAKER_QUANTITY - MAKER_QUANTITY, "unmatched input refund");
         assertEq(token1.balanceOf(receiver), expectedOut, "receiver output");
         assertEq(token0.balanceOf(address(DEEPSTATE)), MAKER_QUANTITY, "engine input settlement");
-        assertEq(token0.balanceOf(address(settler)), 0, "settler input residue");
+        assertEq(token0.balanceOf(address(settler)), TAKER_QUANTITY - MAKER_QUANTITY, "unmatched input remainder");
         assertEq(token1.balanceOf(address(settler)), 0, "settler output residue");
-        assertEq(token0.allowance(address(settler), address(DEEPSTATE)), 0, "temporary allowance");
+        assertEq(token0.allowance(address(settler), address(DEEPSTATE)), type(uint256).max, "standing allowance");
 
         (bytes32 askRoot, bytes32 bidRoot) = DEEPSTATE.roots(address(token0), address(token1), 0);
         assertEq(askRoot, bytes32(0), "unmatched ask rested");

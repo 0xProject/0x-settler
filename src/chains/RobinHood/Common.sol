@@ -13,7 +13,6 @@ import {Bebop} from "../../core/Bebop.sol";
 import {Deepstate} from "../../core/Deepstate.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {IDeepstateV1} from "../../interfaces/IDeepstateV1.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
 
@@ -108,10 +107,10 @@ abstract contract RobinHoodMixin is
 
             sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.DEEPSTATE.selector)) {
-            (IERC20 sellToken, uint256 ppm, IDeepstateV1.FillParams[] memory fills) =
-                abi.decode(data, (IERC20, uint256, IDeepstateV1.FillParams[]));
+            (IERC20 sellToken, uint256 ppm, IERC20 buyToken, uint256 epoch, int32 tick, uint256 inversePriceX128) =
+                abi.decode(data, (IERC20, uint256, IERC20, uint256, int32, uint256));
 
-            sellToDeepstate(slippage.recipient, sellToken, slippage.buyToken, ppm, fills);
+            sellToDeepstate(sellToken, ppm, buyToken, epoch, tick, inversePriceX128);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -208,7 +207,7 @@ abstract contract RobinHoodMixin is
         internal
         view
         virtual
-        override(Bebop, Deepstate, Permit2PaymentAbstract)
+        override(Bebop, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
