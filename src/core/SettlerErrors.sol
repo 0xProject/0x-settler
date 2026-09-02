@@ -19,7 +19,7 @@ function revertConfusedDeputy() pure {
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
 
-/// @notice Thrown when a Deepstate route is empty, unsorted, or does not match the declared swap assets.
+/// @notice Thrown when the Deepstate swap assets are invalid.
 error InvalidDeepstateRoute();
 
 function revertInvalidDeepstateRoute() pure {

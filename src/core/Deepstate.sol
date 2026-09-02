@@ -7,6 +7,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {IDeepstateV1} from "../interfaces/IDeepstateV1.sol";
 import {tmp} from "../utils/512Math.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertInvalidDeepstateRoute, revertNonStandardDeepstateToken} from "./SettlerErrors.sol";
@@ -14,11 +15,46 @@ import "./Constants.sol" as Constants;
 
 IDeepstateV1 constant ROBINHOOD_DEEPSTATE = IDeepstateV1(0x6cf19308C22FC82ea620Fa0B3E94948d20f27B96);
 
+library FastDeepstate {
+    function fastFill(
+        IDeepstateV1 deepstate,
+        uint256 value,
+        address token0,
+        address token1,
+        uint256 epoch,
+        int32 tick,
+        uint160 quantity,
+        bool isBid
+    ) internal {
+        // Manual encoding avoids allocating and copying a struct. Equivalent Solidity:
+        // deepstate.fill{value: value}(IDeepstateV1.FillParams({token0: token0, token1: token1, epoch: epoch,
+        //     order: bytes32((uint256(uint32(tick)) << 224) | (uint256(quantity) << 64)),
+        //     isBid: isBid, noRest: true, fillOrKill: false}));
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x5d6222ab) // selector for `fill((address,address,uint256,bytes32,bool,bool,bool))`
+            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token0))
+            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token1))
+            mstore(add(0x60, ptr), epoch)
+            mstore(add(0x80, ptr), or(shl(0xe0, tick), shl(0x40, quantity)))
+            mstore(add(0xa0, ptr), lt(0x00, isBid))
+            mstore(add(0xc0, ptr), 0x01) // noRest
+            mstore(add(0xe0, ptr), 0x00) // fillOrKill
+
+            if iszero(call(gas(), deepstate, value, add(0x1c, ptr), 0xe4, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+        }
+    }
+}
+
 abstract contract Deepstate is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using SafeTransferLib for address payable;
     using FastLogic for bool;
+    using Ternary for bool;
     using UnsafeMath for uint256;
+    using FastDeepstate for IDeepstateV1;
 
     constructor() {
         assert(address(ROBINHOOD_DEEPSTATE).code.length > 0 || block.chainid == 31337);
@@ -28,50 +64,35 @@ abstract contract Deepstate is SettlerSwapAbstract {
         return (target == address(ROBINHOOD_DEEPSTATE)).or(super._isRestrictedTarget(target));
     }
 
-    /// @dev Executes a direct self-funded route against the canonical Robinhood Chain deployment.
-    /// Unmatched selected input is returned to `recipient`; unselected input remains available to later actions.
     function sellToDeepstate(
-        address payable recipient,
         IERC20 sellToken,
-        IERC20 buyToken,
         uint256 ppm,
-        IDeepstateV1.FillParams[] memory fills
+        IERC20 buyToken,
+        uint256 epoch,
+        int32 tick,
+        uint256 inversePriceX128
     ) internal {
-        address engineSellToken = _deepstateAsset(sellToken);
-        address engineBuyToken = _deepstateAsset(buyToken);
-        if (fills.length == 0 || engineSellToken == engineBuyToken) revertInvalidDeepstateRoute();
+        address sellAsset = _deepstateAsset(sellToken);
+        address buyAsset = _deepstateAsset(buyToken);
+        if (sellAsset == buyAsset) revertInvalidDeepstateRoute();
 
-        for (uint256 i; i < fills.length;) {
-            IDeepstateV1.FillParams memory fill = fills[i];
-            address inputAsset = fill.isBid ? fill.token1 : fill.token0;
-            address outputAsset = fill.isBid ? fill.token0 : fill.token1;
-            if (fill.token0 >= fill.token1 || inputAsset != engineSellToken || outputAsset != engineBuyToken) {
-                revertInvalidDeepstateRoute();
-            }
-            fills[i].noRest = true;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        uint256 balanceBefore = _balanceOf(sellToken, address(this));
+        bool sendNative = address(sellToken) == Constants.ETH_ADDRESS;
+        uint256 balanceBefore = sendNative ? address(this).balance : sellToken.fastBalanceOf(address(this));
         uint256 maxSellAmount = tmp().omul(balanceBefore, ppm).unsafeDiv(Constants.BASIS);
-        uint256 consumed;
-        if (address(sellToken) == Constants.ETH_ADDRESS) {
-            unchecked {
-                // `ppm > BASIS` is caller-supplied GIGO, consistent with other self-funded actions.
-                ROBINHOOD_DEEPSTATE.fillRoute{value: maxSellAmount}(fills);
-                uint256 balanceAfter = address(this).balance;
-                if (balanceAfter > balanceBefore) revertNonStandardDeepstateToken(sellToken);
-                consumed = balanceBefore - balanceAfter;
-            }
+
+        bool isBid = sellAsset > buyAsset;
+        (address token0, address token1) = isBid.maybeSwap(sellAsset, buyAsset);
+        uint160 quantity = _deepstateQuantity(maxSellAmount, inversePriceX128, isBid);
+
+        if (sendNative) {
+            ROBINHOOD_DEEPSTATE.fastFill(maxSellAmount, token0, token1, epoch, tick, quantity, isBid);
+            if (address(this).balance > balanceBefore) revertNonStandardDeepstateToken(sellToken);
         } else {
             uint256 engineBalanceBefore = sellToken.fastBalanceOf(address(ROBINHOOD_DEEPSTATE));
 
             sellToken.safeApprove(address(ROBINHOOD_DEEPSTATE), 0);
             sellToken.safeApprove(address(ROBINHOOD_DEEPSTATE), maxSellAmount);
-            ROBINHOOD_DEEPSTATE.fillRoute(fills);
+            ROBINHOOD_DEEPSTATE.fastFill(0, token0, token1, epoch, tick, quantity, isBid);
             sellToken.safeApprove(address(ROBINHOOD_DEEPSTATE), 0);
 
             uint256 balanceAfter = sellToken.fastBalanceOf(address(this));
@@ -80,40 +101,36 @@ abstract contract Deepstate is SettlerSwapAbstract {
                 revertNonStandardDeepstateToken(sellToken);
             }
             unchecked {
-                consumed = balanceBefore - balanceAfter;
-            }
-            if (engineBalanceAfter - engineBalanceBefore != consumed) revertNonStandardDeepstateToken(sellToken);
-        }
-
-        if (consumed > maxSellAmount) revertNonStandardDeepstateToken(sellToken);
-        uint256 refund;
-        unchecked {
-            refund = maxSellAmount - consumed;
-        }
-        if (refund != 0 && recipient != address(this)) {
-            if (address(sellToken) == Constants.ETH_ADDRESS) {
-                recipient.safeTransferETH(refund);
-            } else {
-                uint256 recipientBalanceBefore = sellToken.fastBalanceOf(recipient);
-                sellToken.safeTransfer(recipient, refund);
-                uint256 recipientBalanceAfter = sellToken.fastBalanceOf(recipient);
-                if (
-                    recipientBalanceAfter < recipientBalanceBefore
-                        || recipientBalanceAfter - recipientBalanceBefore != refund
-                ) {
+                if (balanceBefore - balanceAfter > maxSellAmount) revertNonStandardDeepstateToken(sellToken);
+                if (engineBalanceAfter - engineBalanceBefore != balanceBefore - balanceAfter) {
                     revertNonStandardDeepstateToken(sellToken);
                 }
             }
         }
     }
 
+    function _deepstateQuantity(uint256 sellAmount, uint256 inversePriceX128, bool isBid)
+        private
+        pure
+        returns (uint160 quantity)
+    {
+        uint256 amount = sellAmount;
+        if (isBid) {
+            // Deepstate order quantities are token0-denominated. Rounding the tick's Q128 reciprocal down
+            // keeps a bid within its token1 budget; the exact temporary allowance is an independent hard cap.
+            (uint256 hi, uint256 lo) = tmp().omul(sellAmount, inversePriceX128).into();
+            if (hi > type(uint32).max) return type(uint160).max;
+            amount = (hi << 128) | (lo >> 128);
+        }
+        if (amount > type(uint160).max) return type(uint160).max;
+        // `amount` is now bounded to the full `uint160` range.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        quantity = uint160(amount);
+    }
+
     function _deepstateAsset(IERC20 token) private pure returns (address asset) {
         asset = address(token);
         if (asset == Constants.ETH_ADDRESS) return address(0);
         if (asset == address(0)) revertInvalidDeepstateRoute();
-    }
-
-    function _balanceOf(IERC20 token, address account) private view returns (uint256) {
-        return address(token) == Constants.ETH_ADDRESS ? account.balance : token.fastBalanceOf(account);
     }
 }
