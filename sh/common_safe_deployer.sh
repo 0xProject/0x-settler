@@ -99,7 +99,7 @@ function _load_sts_safe_transaction {
         and (.refundReceiver | address)
         and (.nonce | uint)
         and (.confirmations | type == "array")
-        '
+        ' \
         <<<"$_load_sts_safe_transaction_json" >/dev/null \
     || {
         die 'STS returned a malformed or null Safe transaction field'

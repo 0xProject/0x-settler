@@ -2,6 +2,16 @@
 
 ### Breaking changes
 
+### Non-breaking changes
+
+* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
+  (contract is not deployed; no funds at risk) after a report in
+  Immunefi bug 78645
+
+## 2026-09-03
+
+### Breaking changes
+
 * Update `RENEGADE` signature: replace `target` and `baseForQuote` with
   `recipient`, `buyToken`, `maxSellAmount`, `refundNativeEth`, and
   `maxRefundAmount`
@@ -41,14 +51,11 @@
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
   * Fix slippage checking for EkuboV2
-* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
-  (contract is not deployed; no funds at risk) after a report in
-  Immunefi bug 78645
 * Add Orvex CL PancakeInfinity fork to RobinHood chain
   * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
     `METATXN_PANCAKE_INFINITY_VIP`
 * Add Alandale (Algebra-like) UniV3 fork to RobinHood with fork ID 46
-* Fix a bug in the BalancerV3 actions that allowed `bps > 10000` (now `ppm >
+* Fix a bug in the BalancerV3 actions that allowed `bps > 10_000` (now `ppm >
   1_000_000`). Immunefi bug 89191
 * Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to Monad
 * Add `BEBOP` action on RobinHood chain
