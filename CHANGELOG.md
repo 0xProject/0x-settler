@@ -59,6 +59,7 @@
   1_000_000`). Immunefi bug 89191
 * Add `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` to Monad
 * Add `BEBOP` action on RobinHood chain
+* Add `FLUXPOOL` action on Bnb
 
 ## 2026-07-27
 
