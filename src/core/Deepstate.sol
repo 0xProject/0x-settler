@@ -6,7 +6,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {tmp} from "../utils/512Math.sol";
-import "./Constants.sol" as Constants;
+import {ETH_ADDRESS, BASIS} from "./Constants.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -38,27 +38,28 @@ library FastDeepstate {
     function fastFill(
         IDeepstateV1 deepstate,
         uint256 value,
-        address token0,
-        address token1,
+        IERC20 token0,
+        IERC20 token1,
         uint256 epoch,
         int32 tick,
         uint256 quantity,
         bool isBid
     ) internal {
-        // Manually ABI-encode the call to avoid allocating and copying a `FillParams` struct. Equivalent to:
-        //     deepstate.fill{value: value}(
-        //         IDeepstateV1.FillParams(token0, token1, epoch, bytes32(uint256(uint32(tick)) << 224 | quantity << 64), isBid, true, false)
-        //     );
+        // deepstate.fill{value: value}(
+        //     IDeepstateV1.FillParams(
+        //         token0, token1, epoch, bytes32(uint256(uint32(tick)) << 224 | quantity << 64), isBid, true, false
+        //     )
+        // );
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0x5d6222ab) // selector for `fill((address,address,uint256,bytes32,bool,bool,bool))`
-            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token0))
-            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token1))
-            mstore(add(0x60, ptr), epoch)
-            mstore(add(0x80, ptr), or(shl(0xe0, tick), shl(0x40, quantity)))
-            mstore(add(0xa0, ptr), lt(0x00, isBid))
-            mstore(add(0xc0, ptr), 0x01) // noRest
             mstore(add(0xe0, ptr), 0x00) // fillOrKill
+            mstore(add(0xc0, ptr), 0x01) // noRest
+            mstore(add(0xa0, ptr), lt(0x00, isBid))
+            mstore(add(0x80, ptr), or(shl(0xe0, tick), shl(0x40, quantity)))
+            mstore(add(0x60, ptr), epoch)
+            mstore(add(0x40, ptr), token1)
+            mstore(add(0x2c, ptr), shl(0x60, token0)) // Clears `token1`'s padding.
+            mstore(add(0x0c, ptr), 0x5d6222ab000000000000000000000000) // Selector for `fill((address,address,uint256,bytes32,bool,bool,bool))`, with `token0`'s padding.
 
             if iszero(call(gas(), deepstate, value, add(0x1c, ptr), 0xe4, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -88,32 +89,35 @@ abstract contract Deepstate is SettlerSwapAbstract {
         int32 tick,
         uint256 inversePriceX128
     ) internal {
-        bool sendNative = address(sellToken) == Constants.ETH_ADDRESS;
+        bool sendNative;
+        assembly ("memory-safe") {
+            // DeepState uses address(0) for native token
+            sellToken := mul(sellToken, lt(0x00, shl(0x60, xor(sellToken, ETH_ADDRESS))))
+            buyToken := mul(buyToken, lt(0x00, shl(0x60, xor(buyToken, ETH_ADDRESS))))
+
+            sendNative := iszero(sellToken)
+        }
+
         uint256 sellAmount;
         unchecked {
             if (sendNative) {
-                sellAmount = (address(this).balance * ppm).unsafeDiv(Constants.BASIS);
+                sellAmount = (address(this).balance * ppm).unsafeDiv(BASIS);
             } else {
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS);
                 sellToken.safeApproveIfBelow(address(ROBINHOOD_DEEPSTATE), sellAmount);
             }
         }
 
-        // Deepstate designates native ETH as `address(0)`, so it always sorts as `token0`.
-        address sellAsset = sendNative.ternary(address(0), address(sellToken));
-        address buyAsset = (address(buyToken) == Constants.ETH_ADDRESS).ternary(address(0), address(buyToken));
-        bool isBid = sellAsset > buyAsset;
-        (address token0, address token1) = isBid.maybeSwap(sellAsset, buyAsset);
+        bool isBid = sellToken > buyToken;
+        (IERC20 token0, IERC20 token1) = isBid.maybeSwap(sellToken, buyToken);
 
         // Orders are sized in `token0`. A bid spends `token1`, so the sell amount is converted through the
         // caller's price. Rounding down keeps the engine's debit within the sell amount; the engine's own
         // per-order rounding is absorbed by the caller's choice of `tick`.
-        uint256 quantity = sellAmount;
         if (isBid) {
-            (uint256 hi, uint256 lo) = tmp().omul(sellAmount, inversePriceX128).into();
-            quantity = (hi << 128) | (lo >> 128);
+            (, sellAmount) = tmp().omul(sellAmount, inversePriceX128).ishr(128).into();
         }
 
-        ROBINHOOD_DEEPSTATE.fastFill(sendNative.orZero(sellAmount), token0, token1, epoch, tick, quantity, isBid);
+        ROBINHOOD_DEEPSTATE.fastFill(sendNative.orZero(sellAmount), token0, token1, epoch, tick, sellAmount, isBid);
     }
 }
