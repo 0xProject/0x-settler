@@ -112,8 +112,9 @@ abstract contract Deepstate is SettlerSwapAbstract {
         (IERC20 token0, IERC20 token1) = isBid.maybeSwap(sellToken, buyToken);
 
         // Orders are sized in `token0`. A bid spends `token1`, so the sell amount is converted through the
-        // caller's price. Rounding down keeps the engine's debit within the sell amount; the engine's own
-        // per-order rounding is absorbed by the caller's choice of `tick`.
+        // reciprocal of the limit price, which bounds the engine's debit by the sell amount. The one wei the
+        // engine can add when it partially consumes an ask is absorbed by the caller taking `inversePriceX128`
+        // one tick past the limit.
         if (isBid) {
             (, sellAmount) = tmp().omul(sellAmount, inversePriceX128).ishr(128).into();
         }
