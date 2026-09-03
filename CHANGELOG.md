@@ -2,6 +2,8 @@
 
 ### Breaking changes
 
+* `POSITIVE_SLIPPAGE` accepts a `surplusPpm` argument that controls the proportion
+  of surplus transferred
 * Update `RENEGADE` signature: replace `target` and `baseForQuote` with
   `recipient`, `buyToken`, `maxSellAmount`, `refundNativeEth`, and
   `maxRefundAmount`
