@@ -10,19 +10,19 @@ library FastLogic {
 
     function and(bool a, bool b) internal pure returns (bool r) {
         assembly ("memory-safe") {
-            r := and(a, b)
+            r := mul(a, lt(0x00, b))
         }
     }
 
     function andNot(bool a, bool b) internal pure returns (bool r) {
         assembly ("memory-safe") {
-            r := gt(a, b)
+            r := mul(a, iszero(b))
         }
     }
 
     function toUint(bool b) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := b
+            r := lt(0x00, b)
         }
     }
 }

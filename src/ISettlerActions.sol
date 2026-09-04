@@ -54,7 +54,7 @@ interface ISettlerActions {
     function UNISWAPV4(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -84,7 +84,7 @@ interface ISettlerActions {
     function BALANCERV3(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -114,7 +114,7 @@ interface ISettlerActions {
     function PANCAKE_INFINITY(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -144,7 +144,7 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using the contracts balance for funding
     // Pre-req: Funded
     // Post-req: Payout
-    function UNISWAPV3(address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) external;
+    function UNISWAPV3(address recipient, uint256 ppm, bytes memory path, uint256 amountOutMin) external;
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_VIP(
         address recipient,
@@ -161,7 +161,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function MAKERPSM(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, address psm, address dai)
+    function MAKERPSM(address recipient, uint256 ppm, bool buyGem, uint256 amountOutMin, address psm, address dai)
         external;
 
     function CURVE_TRICRYPTO_VIP(
@@ -178,17 +178,17 @@ interface ISettlerActions {
         uint256 minBuyAmount
     ) external;
 
-    function DODOV1(address sellToken, uint256 bps, address pool, bool quoteForBase, uint256 minBuyAmount) external;
+    function DODOV1(address sellToken, uint256 ppm, address pool, bool quoteForBase, uint256 minBuyAmount) external;
     function DODOV2(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         bool quoteForBase,
         uint256 minBuyAmount
     ) external;
 
-    function VELODROME(address recipient, uint256 bps, address pool, uint24 swapInfo, uint256 minBuyAmount) external;
+    function VELODROME(address recipient, uint256 ppm, address pool, uint24 swapInfo, uint256 minBuyAmount) external;
 
     /// @dev Trades against MaverickV2 using the contracts balance for funding
     /// This action does not use the MaverickV2 callback, so it takes an arbitrary pool address to make calls against.
@@ -196,7 +196,7 @@ interface ISettlerActions {
     function MAVERICKV2(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         bool tokenAIn,
         int32 tickLimit,
@@ -210,24 +210,24 @@ interface ISettlerActions {
     function UNISWAPV2(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint24 swapInfo,
         uint256 amountOutMin
     ) external;
 
-    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount, uint256 maxBps)
+    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount, uint256 maxPpm)
         external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
-    function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
+    function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
     function EKUBO(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -238,7 +238,7 @@ interface ISettlerActions {
     function EKUBOV3(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -270,14 +270,22 @@ interface ISettlerActions {
     function EULERSWAP(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         bool zeroForOne,
         uint256 amountOutMin
     ) external;
 
-    function RENEGADE(address target, address sellToken, bool baseForQuote, bytes memory data, uint256 minBuyAmount)
-        external;
+    function RENEGADE(
+        address recipient,
+        address sellToken,
+        address buyToken,
+        uint256 maxSellAmount,
+        bool refundNativeEth,
+        uint256 maxRefundAmount,
+        bytes memory data,
+        uint256 minBuyAmount
+    ) external;
 
     struct BebopMakerSignature {
         bytes signatureBytes;
@@ -311,7 +319,7 @@ interface ISettlerActions {
 
     function HANJI(
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,

@@ -147,28 +147,8 @@ declare -r deployment_safe_address
 
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
-function _compat_date {
-    declare -r datestring="$1"
-    shift
-
-    declare -r datefmt="$1"
-    shift
-
-    if date -d '1 second' &>/dev/null ; then
-        date -u -d "${datestring:8:4}-${datestring:0:2}-${datestring:2:2}T${datestring:4:2}:${datestring:6:2}:00-00:00" "$datefmt"
-    else
-        date -u -j "$datestring" "$datefmt"
-    fi
-}
-
-declare auth_deadline_datestring
-# one year from the start of this month
-# MMDDhhmmCCYY
-auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
-declare -r auth_deadline_datestring
 declare -i auth_deadline
-# convert to UNIX timestamp
-auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
+auth_deadline="$(utc_month_start_after 12)"
 declare -r -i auth_deadline
 
 declare renew_authority_calldata

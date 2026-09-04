@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import "./Constants.sol" as Constants;
 import {FastLogic} from "../utils/FastLogic.sol";
 import {tmp} from "../utils/512Math.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -225,7 +226,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
         }
     }
 
-    function sellToVelodrome(address recipient, uint256 bps, IVelodromePair pair, uint24 swapInfo, uint256 minAmountOut)
+    function sellToVelodrome(address recipient, uint256 ppm, IVelodromePair pair, uint24 swapInfo, uint256 minAmountOut)
         internal
     {
         // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
@@ -255,12 +256,12 @@ abstract contract Velodrome is SettlerSwapAbstract {
         unchecked {
             // Compute sell amount in native units
             uint256 sellAmount;
-            if (bps != 0) {
+            if (ppm != 0) {
                 // It must be possible to square the sell token balance of the pool, otherwise it
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
-                // a "reasonable" `bps` value could overflow. We don't care to protect against
-                // unreasonable `bps` values because that just means the taker is griefing themself.
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                // a "reasonable" `ppm` value could overflow. We don't care to protect against
+                // unreasonable `ppm` values because that just means the taker is griefing themself.
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
             }
             if (sellAmount != 0) {
                 sellToken.safeTransfer(address(pair), sellAmount);

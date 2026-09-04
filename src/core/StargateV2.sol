@@ -4,7 +4,8 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {IOFT, ETH} from "src/core/LayerZeroOFT.sol";
+import {IOFT} from "src/core/LayerZeroOFT.sol";
+import {ETH_ADDRESS} from "./Constants.sol";
 
 interface IStargateV2 is IOFT {
     function sendToken(SendParam memory SendParam, MessagingFee memory messagingFee, address refundAddress) external;
@@ -31,7 +32,7 @@ contract StargateV2 {
             nativeFee := mload(add(0x40, sendData))
         }
 
-        if (token == ETH) {
+        if (address(token) == ETH_ADDRESS) {
             // Any excess on top of fee + amount is returned to
             // the refund address specified in `sendData`
             uint256 value = address(this).balance;

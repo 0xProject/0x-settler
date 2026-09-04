@@ -78,7 +78,7 @@ contract DodoV2PairTest is BasePairTest {
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.DODOV2, (FROM, address(fromToken()), 10_000, dodoV2Pool(), true, 0))
+            abi.encodeCall(ISettlerActions.DODOV2, (FROM, address(fromToken()), 1_000_000, dodoV2Pool(), true, 0))
         );
 
         Settler _settler = settler;

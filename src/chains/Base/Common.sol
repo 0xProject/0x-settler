@@ -11,7 +11,12 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
-import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
+import {
+    pancakeInfinityVault,
+    pancakeInfinityClManager,
+    pancakeInfinityBinManager
+} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
+import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
 
@@ -78,6 +83,10 @@ abstract contract BaseMixin is
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
 
+    function _renegadeGasSponsorV2() internal pure override returns (address) {
+        return 0xD9E0507D706408D0f14E22e50880189Fd915be80;
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
@@ -93,7 +102,7 @@ abstract contract BaseMixin is
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -102,31 +111,31 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
-                sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+                sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         /*
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+            (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
-            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+            sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
         */
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
                 int32 tickLimit,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, ppm, pool, tokenAIn, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -140,19 +149,36 @@ abstract contract BaseMixin is
 
             sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
-            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV2(recipient, sellToken, ppm, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (address target, IERC20 sellToken, bool baseForQuote, bytes memory renegadeData, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, bool, bytes, uint256));
+            (
+                address recipient,
+                IERC20 sellToken,
+                IERC20 buyToken,
+                uint256 maxSellAmount,
+                bool refundNativeEth,
+                uint256 maxRefundAmount,
+                bytes memory renegadeData,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, IERC20, uint256, bool, uint256, bytes, uint256));
 
-            sellToRenegade(target, sellToken, baseForQuote, renegadeData, minBuyAmount);
+            sellToRenegade(
+                recipient,
+                sellToken,
+                buyToken,
+                maxSellAmount,
+                refundNativeEth,
+                maxRefundAmount,
+                renegadeData,
+                minBuyAmount
+            );
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 address pool,
                 uint256 sellScalingFactor,
                 uint256 buyScalingFactor,
@@ -161,7 +187,7 @@ abstract contract BaseMixin is
                 uint256 minBuyAmount
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
-            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+            sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else {
             return false;
         }
@@ -227,6 +253,18 @@ abstract contract BaseMixin is
         return BASE_POOL_MANAGER;
     }
 
+    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
+        return pancakeInfinityVault;
+    }
+
+    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
+        return pancakeInfinityClManager;
+    }
+
+    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
+        return pancakeInfinityBinManager;
+    }
+
     /*
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989);
@@ -255,10 +293,6 @@ abstract contract BaseMixin is
             mstore(returndata, 0x20)
             mstore(add(0x20, returndata), shr(0x60, msgSenderShifted))
         }
-    }
-
-    function _renegadeSelector() internal pure override returns (uint32) {
-        return BASE_SELECTOR;
     }
 
     // I hate Solidity inheritance

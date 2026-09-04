@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -18,7 +19,7 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
-library fastUniswapV2Pool {
+library FastUniswapV2Pool {
     using Ternary for bool;
 
     function fastGetReserves(address pool, bool zeroForOne)
@@ -34,9 +35,9 @@ library fastUniswapV2Pool {
                 revert(ptr, returndatasize())
             }
             if lt(returndatasize(), 0x40) { revert(0x00, 0x00) }
-            let r := shl(0x05, zeroForOne)
-            buyReserve := mload(r)
-            sellReserve := mload(xor(0x20, r))
+            let r := shl(0x05, iszero(zeroForOne))
+            sellReserve := mload(r)
+            buyReserve := mload(xor(0x20, r))
         }
     }
 
@@ -63,9 +64,9 @@ library fastUniswapV2Pool {
             // set amount0Out and amount1Out
             let buyAmountBaseOffset := add(0x20, ptr)
             // If `zeroForOne`, buyAmount offset is 0x40, else 0x20
-            let directionOffset := shl(0x05, zeroForOne)
-            mstore(add(buyAmountBaseOffset, directionOffset), buyAmount)
-            mstore(add(buyAmountBaseOffset, xor(0x20, directionOffset)), 0x00)
+            let directionOffset := shl(0x05, iszero(zeroForOne))
+            mstore(add(buyAmountBaseOffset, directionOffset), 0x00)
+            mstore(add(buyAmountBaseOffset, xor(0x20, directionOffset)), buyAmount)
 
             mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
             mstore(add(0x80, ptr), 0x80) // offset to length of data
@@ -83,13 +84,13 @@ library fastUniswapV2Pool {
 
 abstract contract UniswapV2 is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using fastUniswapV2Pool for address;
+    using FastUniswapV2Pool for address;
 
     /// @dev Sell a token for another token using UniswapV2.
     function sellToUniswapV2(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint24 swapInfo,
         uint256 minBuyAmount
@@ -104,29 +105,29 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
 
         uint256 sellAmount;
         uint256 buyAmount;
-        // If bps is zero we assume there are no funds within this contract, skip the updating sellAmount.
+        // If ppm is zero we assume there are no funds within this contract, skip the updating sellAmount.
         // This case occurs if the pool is being chained, in which the funds have been sent directly to the pool
-        if (bps != 0) {
+        if (ppm != 0) {
             // We don't care about phantom overflow here because reserves are
             // limited to 112 bits. Any token balance that would overflow here would
             // also break UniV2.
-            // It is *possible* to set `bps` above the basis and therefore
-            // cause an overflow on this multiplication. However, `bps` is
+            // It is *possible* to set `ppm` above the basis and therefore
+            // cause an overflow on this multiplication. However, `ppm` is
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * bps / BASIS;
+                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * ppm / Constants.BASIS;
             }
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);
         }
-        (uint256 sellReserve, uint256 buyReserve) = fastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
+        (uint256 sellReserve, uint256 buyReserve) = FastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
         if (sellAmount == 0 || sellTokenHasFee) {
             uint256 bal = IERC20(sellToken).fastBalanceOf(pool);
             sellAmount = bal - sellReserve;
         }
         unchecked {
-            uint256 sellAmountWithFee = sellAmount * (10000 - feeBps);
-            buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * 10000);
+            uint256 sellAmountWithFee = sellAmount * (10_000 - feeBps);
+            buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * 10_000);
         }
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);

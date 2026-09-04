@@ -98,7 +98,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                 ISettlerActions.BASIC,
                 (
                     address(token),
-                    10_000,
+                    1_000_000,
                     address(token),
                     0x24,
                     abi.encodeCall(IERC20.transfer, (address(bridgeSettler), 0))
@@ -133,7 +133,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                 IBridgeSettlerActions.BASIC,
                 (
                     address(token),
-                    10_000,
+                    1_000_000,
                     address(bridgeDummy),
                     0x24,
                     abi.encodeCall(BridgeDummy.take, (address(token), 0))
@@ -169,7 +169,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
 
         // 1. Just send Native back to BridgeSettler
         bytes[] memory settlerActions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.BASIC, (ETH_ADDRESS, 10_000, address(bridgeSettler), 0x00, bytes("")))
+            abi.encodeCall(ISettlerActions.BASIC, (ETH_ADDRESS, 1_000_000, address(bridgeSettler), 0x00, bytes("")))
         );
 
         // 1. Do a swap (that just takes and returns the assets)
@@ -193,7 +193,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                     )
                 )
             ),
-            abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 10_000, address(bridgeDummy), 0, bytes("")))
+            abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 1_000_000, address(bridgeDummy), 0, bytes("")))
         );
 
         deal(user, amount);

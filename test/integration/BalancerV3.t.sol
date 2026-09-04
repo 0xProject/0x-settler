@@ -116,17 +116,17 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     function fills() internal virtual returns (bytes memory) {
         return bytes.concat(
             // wrap `fromToken()` to `fromTokenWrapped()`
-            bytes2(uint16(2 ** 15 | 10000)),
+            bytes3(uint24(2 ** 23 | 1_000_000)),
             bytes1(uint8(1)),
             bytes20(uint160(address(fromTokenWrapped()))),
             // swap `fromTokenWrapped()` to `toTokenWrapped()`
-            bytes2(uint16(10000)),
+            bytes3(uint24(1_000_000)),
             bytes1(uint8(2)),
             bytes20(uint160(address(toTokenWrapped()))),
             bytes20(uint160(balancerV3Pool())),
             bytes3(uint24(0)),
             // unwrap `toTokenWrapped()` to `toToken()`
-            bytes2(uint16(2 ** 14 | 10000)),
+            bytes3(uint24(2 ** 22 | 1_000_000)),
             bytes1(uint8(2)),
             bytes20(uint160(address(toToken())))
         );
@@ -139,7 +139,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.BALANCERV3, (FROM, address(fromToken()), 10_000, false, hashMul, hashMod, fills(), 0)
+                ISettlerActions.BALANCERV3, (FROM, address(fromToken()), 1_000_000, false, hashMul, hashMod, fills(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -268,11 +268,4 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
     }
-
-    function uniswapV3Path()
-        internal
-        view
-        virtual
-        override(SettlerMetaTxnPairTest, AllowanceHolderPairTest)
-        returns (bytes memory);
 }

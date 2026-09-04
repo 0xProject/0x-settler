@@ -88,10 +88,6 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         return fromToken() == dai();
     }
 
-    function uniswapV3Path() internal override returns (bytes memory) {
-        return new bytes(0);
-    }
-
     uint256 internal _amountOut;
 
     function amountOut() internal view virtual returns (uint256) {
@@ -105,7 +101,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
-                (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
+                (FROM, 1_000_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -139,7 +135,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
             abi.encodeCall(ISettlerActions.METATXN_TRANSFER_FROM, (address(settlerMetaTxn), permit)),
             abi.encodeCall(
                 ISettlerActions.MAKERPSM,
-                (FROM, 10_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
+                (FROM, 1_000_000, makerPsmBuyGem(), amountOut(), address(makerPsm()), address(dai()))
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({

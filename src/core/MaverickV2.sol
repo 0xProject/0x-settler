@@ -12,6 +12,7 @@ import {Revert} from "../utils/Revert.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 // Maverick AMM V2 is not open-source. The source code was disclosed to the
 // developers of 0x Settler confidentially and recompiled privately. The
@@ -150,7 +151,7 @@ library FastMaverickV2Pool {
             mstore(add(0xc4, data), 0xc0)
             mstore(add(0xa4, data), signextend(0x03, tickLimit))
             mstore(add(0x84, data), 0x00) // exactOutput is false
-            mstore(add(0x64, data), tokenAIn)
+            mstore(add(0x64, data), lt(0x00, tokenAIn))
             mstore(add(0x44, data), amount)
             mstore(add(0x24, data), recipient)
             mstore(add(0x10, data), 0x3eece7db000000000000000000000000) // selector for `swap(address,(uint256,bool,bool,int32),bytes)` with `recipient`'s padding
@@ -214,26 +215,26 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         }
 
         if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(pool.fastTokenAOrB(tokenAIn), minBuyAmount, buyAmount);
+            revertTooMuchSlippage(pool.fastTokenAOrB(!tokenAIn), minBuyAmount, buyAmount);
         }
     }
 
     function sellToMaverickV2(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         IMaverickV2Pool pool,
         bool tokenAIn,
         int32 tickLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         uint256 sellAmount;
-        if (bps != 0) {
+        if (ppm != 0) {
             unchecked {
                 // We don't care about phantom overflow here because reserves
                 // are limited to 128 bits. Any token balance that would
                 // overflow here would also break MaverickV2.
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
             }
             sellToken.safeTransfer(address(pool), sellAmount);
         } else {

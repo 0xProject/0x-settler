@@ -15,7 +15,6 @@ function contains {
             return 0
         fi
     done
-
     return 1
 }
 
@@ -24,8 +23,7 @@ if ! contains "${signer-unset}" "${owners_array[@]}" ; then
     select signer in "${owners_array[@]}" ; do break ; done
 
     if [[ ${signer:-unset} = 'unset' ]] ; then
-        echo 'I do not know who that is' >&2
-        exit 1
+        die 'I do not know who that is'
     fi
 
     echo "$signer" >"$saved_safe_owner"
@@ -59,12 +57,16 @@ function sign_call {
         declare -r typedDataRPC
         _sign_call_result="$(curl --fail -s -X POST --url 'http://127.0.0.1:1248' --data '@-' <<<"$typedDataRPC")"
         if [[ $_sign_call_result = *error* ]] ; then
-            echo "$_sign_call_result" >&2
-            return 1
+            die "$_sign_call_result"
         fi
         _sign_call_result="$(jq -Mr .result <<<"$_sign_call_result")"
     else
         _sign_call_result="$(cast wallet sign "${wallet_args[@]}" --from "$signer" --data "$_sign_call_struct_json")"
+        if [[ $wallet_type = 'browser' ]] ; then
+            # `cast wallet sign --browser` (foundry v1.5.1) prints connection
+            # status lines to stdout before the signature; keep only the last line
+            _sign_call_result="${_sign_call_result##*$'\n'}"
+        fi
     fi
     declare -r _sign_call_result
 

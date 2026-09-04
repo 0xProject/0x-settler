@@ -136,9 +136,7 @@ else
 fi
 declare -r deployment_safe_address
 
-declare signer
-IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
-declare -r signer
+. "$project_root"/sh/common_submitter.sh
 
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
@@ -157,68 +155,67 @@ declare -r description
 declare -r setDescription_sig='setDescription(uint128,string)(string)'
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
-function _compat_date {
-    declare -r datestring="$1"
-    shift
-
-    declare -r datefmt="$1"
-    shift
-
-    if date -d '1 second' &>/dev/null ; then
-        date -u -d "${datestring:8:4}-${datestring:0:2}-${datestring:2:2}T${datestring:4:2}:${datestring:6:2}:00-00:00" "$datefmt"
-    else
-        date -u -j "$datestring" "$datefmt"
-    fi
-}
-
-declare auth_deadline_datestring
-# one year from the start of this month
-# MMDDhhmmCCYY
-auth_deadline_datestring="$(date -u '+%m')010000$(($(date -u '+%Y') + 1))"
-declare -r auth_deadline_datestring
-declare -i auth_deadline
-# convert to UNIX timestamp
-auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
-declare -r -i auth_deadline
-
-declare -a calls=()
-
 declare setDescription_call
 setDescription_call="$(cast calldata "$setDescription_sig" $feature "$description")"
 declare -r setDescription_call
 
-calls+=(
-    "$(
-        cast concat-hex                                                  \
-        0x00                                                             \
-        "$deployer_address"                                              \
-        "$(cast to-uint256 0)"                                           \
-        "$(cast to-uint256 $(( (${#setDescription_call} - 2) / 2 )) )"   \
-        "$setDescription_call"
-    )"
-)
-
-declare authorize_call
-authorize_call="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" "$auth_deadline")"
-declare -r authorize_call
-
-calls+=(
-    "$(
-        cast concat-hex                                             \
-        0x00                                                        \
-        "$deployer_address"                                         \
-        "$(cast to-uint256 0)"                                      \
-        "$(cast to-uint256 $(( (${#authorize_call} - 2) / 2 )) )"   \
-        "$authorize_call"
-    )"
-)
-
 declare new_feature_calldata
-new_feature_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
-declare -r new_feature_calldata
-
 declare packed_signatures
-packed_signatures="$(retrieve_signatures new_feature "$new_feature_calldata" 1)"
+if sts_safe_transactions_enabled ; then
+    declare executable_transactions
+    executable_transactions="$(load_executable_sts_safe_transactions)"
+    declare -r executable_transactions
+
+    declare selected_transaction
+    selected_transaction="$(
+        select_sts_safe_transaction "$executable_transactions" "$multisend_selector"
+    )"
+    declare -r selected_transaction
+
+    declare selected_authorize_call
+    selected_authorize_call="$(
+        extract_last_multisend_call_data "$(jq -Mr .data <<<"$selected_transaction")"
+    )"
+    declare -r selected_authorize_call
+    declare -i auth_deadline
+    auth_deadline="$(
+        extract_authorize_deadline \
+            "$selected_authorize_call" "$feature" "$deployment_safe_address"
+    )"
+    declare -r -i auth_deadline
+    declare authorize_call
+    authorize_call="$(
+        cast calldata "$authorize_sig" \
+            $feature "$deployment_safe_address" "$auth_deadline"
+    )"
+    declare -r authorize_call
+    new_feature_calldata="$(
+        build_multisend_calldata \
+            "$deployer_address" "$setDescription_call" \
+            "$deployer_address" "$authorize_call"
+    )"
+    validate_sts_safe_transaction \
+        "$selected_transaction" "$multisend_sig" 1 "$new_feature_calldata"
+    packed_signatures="$(pack_sts_transaction_signatures "$selected_transaction")"
+else
+    declare -i auth_deadline
+    auth_deadline="$(utc_month_start_after 12)"
+    declare -r -i auth_deadline
+
+    declare authorize_call
+    authorize_call="$(
+        cast calldata "$authorize_sig" \
+            $feature "$deployment_safe_address" "$auth_deadline"
+    )"
+    declare -r authorize_call
+    new_feature_calldata="$(
+        build_multisend_calldata \
+            "$deployer_address" "$setDescription_call" \
+            "$deployer_address" "$authorize_call"
+    )"
+    packed_signatures="$(retrieve_signatures new_feature "$new_feature_calldata" 1)"
+fi
+declare -r new_feature_calldata
 declare -r packed_signatures
 
 declare -r -a args=(

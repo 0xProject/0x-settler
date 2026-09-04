@@ -47,7 +47,7 @@ contract WethWrapTest is BasePairTest {
     function testWethDeposit() public {
         vm.deal(address(_settler), amount());
         bytes[] memory actions =
-            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC, (_eth, 10_000, address(_weth), 0, "")));
+            ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC, (_eth, 1_000_000, address(_weth), 0, "")));
 
         uint256 balanceBefore = balanceOf(toToken(), address(this));
         Settler settler = _settler;
@@ -68,7 +68,8 @@ contract WethWrapTest is BasePairTest {
         deal(address(_weth), address(_settler), amount());
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.BASIC, (address(_weth), 10_000, address(_weth), 4, abi.encodeCall(_weth.withdraw, (0)))
+                ISettlerActions.BASIC,
+                (address(_weth), 1_000_000, address(_weth), 4, abi.encodeCall(_weth.withdraw, (0)))
             )
         );
 

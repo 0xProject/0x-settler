@@ -102,16 +102,20 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         vm.stopPrank();
     }
 
-    function testSettler_uniswapV3VIP_toNative() public skipIf(uniswapV3Path().length == 0) skipIf(toToken() != WETH) {
+    function testSettler_uniswapV3VIP_toNative()
+        public
+        skipIf(uniswapV3PathVIP().length == 0)
+        skipIf(toToken() != WETH)
+    {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         Settler _settler = settler;
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3Path(), sig, 0 wei)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3PathVIP(), sig, 0 wei)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(WETH), 10_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
+                (address(WETH), 1_000_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
             )
         );
         ISettlerBase.AllowedSlippage memory slippage =
@@ -132,9 +136,9 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(ETH), 10_000, address(WETH), 4, abi.encodeWithSignature("deposit()", 0 wei))
+                (address(ETH), 1_000_000, address(WETH), 4, abi.encodeWithSignature("deposit()", 0 wei))
             ),
-            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), slippageLimit()))
+            abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), slippageLimit()))
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether

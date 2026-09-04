@@ -92,7 +92,7 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
             ),
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(WETH), 10_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
+                (address(WETH), 1_000_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))
             )
         );
         ISettlerBase.AllowedSlippage memory slippage =
@@ -116,14 +116,20 @@ abstract contract UniswapV2PairTest is SettlerPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,
-                (address(ETH), 10_000, address(WETH), 4, bytes.concat(abi.encodeWithSignature("deposit()"), bytes32(0)))
+                (
+                    address(ETH),
+                    1_000_000,
+                    address(WETH),
+                    4,
+                    bytes.concat(abi.encodeWithSignature("deposit()"), bytes32(0))
+                )
             ),
             abi.encodeCall(
                 ISettlerActions.UNISWAPV2,
                 (
                     FROM,
                     address(fromToken()),
-                    10_000,
+                    1_000_000,
                     uniswapV2Pool(),
                     uint24((30 << 8) | (zeroForOne ? 1 : 0)),
                     slippageLimit()

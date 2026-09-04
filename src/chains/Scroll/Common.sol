@@ -46,24 +46,24 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, Do
             (
                 address recipient,
                 IERC20 sellToken,
-                uint256 bps,
+                uint256 ppm,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
                 int32 tickLimit,
                 uint256 minBuyAmount
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, ppm, pool, tokenAIn, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
-            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV2(recipient, sellToken, ppm, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
-            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (IERC20 sellToken, uint256 ppm, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV1(sellToken, ppm, dodo, quoteForBase, minBuyAmount);
         } else {
             return false;
         }

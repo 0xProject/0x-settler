@@ -53,7 +53,7 @@ contract RebateClaimerUnitTest is Test {
             ISettlerActions.BASIC,
             (
                 address(0),              // sellToken (no transfer needed)
-                0,                       // bps
+                0,                       // ppm
                 address(callbackHelper), // pool
                 0,                       // offset
                 abi.encodeCall(RebateClaimerCallbackHelper.checkRebateClaimer, (address(settler)))

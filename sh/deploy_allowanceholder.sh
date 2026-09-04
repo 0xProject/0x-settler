@@ -138,9 +138,8 @@ allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/
 declare -r allowanceholder_initcode
 
 if [[ $(cast keccak "$allowanceholder_initcode") != '0x7510de5fbf18124b7fab39b9a5a30164534a44b1ef51b34bb91636e51c74089f' ]] ; then
-    echo 'Unexpected AllowanceHolder inithash '"$(cast keccak "$allowanceholder_initcode")" >&2
-    echo '                           expected 0x7510de5fbf18124b7fab39b9a5a30164534a44b1ef51b34bb91636e51c74089f' >&2
-    exit 1
+    die 'Unexpected AllowanceHolder inithash '"$(cast keccak "$allowanceholder_initcode")" \
+        '                           expected 0x7510de5fbf18124b7fab39b9a5a30164534a44b1ef51b34bb91636e51c74089f'
 fi
 
 declare -i gas_limit

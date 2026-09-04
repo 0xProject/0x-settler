@@ -17,12 +17,12 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
     function sell(
         address recipient,
         address sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint24 swapInfo,
         uint256 minBuyAmount
     ) public {
-        super.sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, minBuyAmount);
+        super.sellToUniswapV2(recipient, sellToken, ppm, pool, swapInfo, minBuyAmount);
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {
@@ -65,7 +65,7 @@ contract UniswapV2UnitTest is Utils, Test {
     }
 
     function testUniswapV2Sell() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 9087;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
@@ -80,11 +80,11 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, ppm, POOL, swapInfo, minBuyAmount);
     }
 
     function testUniswapV2SellSlippageCheck() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 1e18;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
@@ -102,11 +102,11 @@ contract UniswapV2UnitTest is Utils, Test {
         // );
 
         vm.expectRevert();
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, ppm, POOL, swapInfo, minBuyAmount);
     }
 
     function testUniswapV2LowerAmount() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 1;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
@@ -121,11 +121,11 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(8328), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, ppm, POOL, swapInfo, minBuyAmount);
     }
 
     function testUniswapV2GreaterAmount() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 9521;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
@@ -140,11 +140,11 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9521), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, ppm, POOL, swapInfo, minBuyAmount);
     }
 
     function testUniswapV2SellTokenFee() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 1;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 3 : 2) | (30 << 8);
@@ -163,11 +163,11 @@ contract UniswapV2UnitTest is Utils, Test {
         );
         // the pool is responsible for transferring to receipient, since the pool is a dummy, this transfer is not mocked
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, ppm, POOL, swapInfo, minBuyAmount);
     }
 
     function testUniswapV2Multihop() public {
-        uint256 bps = 10_000;
+        uint256 ppm = 1_000_000;
         uint256 amount = 99999;
         uint256 minBuyAmount = 9521;
         uint24 swapInfo0 = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
@@ -189,7 +189,7 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL2, abi.encodeCall(IUniV2Pair.swap, (uint256(0), uint256(9521), RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(POOL2, TOKEN0, bps, POOL, swapInfo0, 0);
+        uni.sell(POOL2, TOKEN0, ppm, POOL, swapInfo0, 0);
         uni.sell(RECIPIENT, TOKEN1, 0, POOL2, swapInfo1, minBuyAmount);
     }
 }

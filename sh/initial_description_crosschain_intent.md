@@ -45,7 +45,7 @@ This provides enhanced security at the cost of some gas and inconvenience.
 encoded in calldata. Actions are ABIEncoded with a selector. See
 `ICrossChainIntentSettlerActions` for the available options. Typically, actions
 are parametrized by the `recipient` where tokens are sent after the trade and
-the `bps` specifying a proportion of the `Settler` contract's token balance to
+the `ppm` specifying a proportion of the `Settler` contract's token balance to
 be liquidated in the action.
 
 ## Action encoding

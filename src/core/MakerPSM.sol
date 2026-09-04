@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import "./Constants.sol" as Constants;
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -136,7 +137,7 @@ abstract contract MakerPSM is SettlerSwapAbstract {
         USDT.safeApprove(UsddGemJoin, type(uint256).max);
     }
 
-    function sellToMakerPsm(address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai)
+    function sellToMakerPsm(address recipient, uint256 ppm, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai)
         internal
         returns (uint256 buyAmount)
     {
@@ -148,7 +149,7 @@ abstract contract MakerPSM is SettlerSwapAbstract {
             // phantom overflow can't happen here because:
             // 1. sellToken has decimals = 18 (sellToken is DAI, USDS, or USDD)
             // 2. PSM prohibits gemToken with decimals > 18 (sellToken is USDC or USDT)
-            sellAmount = (sellToken.fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS);
+            sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
         }
         if (buyGem) {
             unchecked {

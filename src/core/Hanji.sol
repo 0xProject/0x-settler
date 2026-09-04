@@ -7,6 +7,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -64,6 +65,7 @@ library FastHanjiPool {
     ) internal returns (uint256 executed) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            isAsk := lt(0x00, isAsk)
             mstore(ptr, xor(0xad73d32e, mul(0x58603c62, isAsk)))       // selector
             mstore(add(0x20, ptr), isAsk)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffff, quantity))
@@ -90,6 +92,7 @@ library FastHanjiPool {
     function getToken(IHanjiPool pool, bool tokenY) internal view returns (IERC20 result) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            tokenY := lt(0x00, tokenY)
 
             mstore(0x00, 0xc3f909d4) // IHanjiPool.getConfig.selector
             if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x80)) {
@@ -114,7 +117,7 @@ abstract contract Hanji is SettlerSwapAbstract {
 
     function sellToHanji(
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         address pool,
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,
@@ -122,13 +125,13 @@ abstract contract Hanji is SettlerSwapAbstract {
         uint256 priceLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bool sendNative = sellToken == ETH_ADDRESS;
+        bool sendNative = address(sellToken) == Constants.ETH_ADDRESS;
         uint256 sellAmount;
         unchecked {
             if (sendNative) {
-                sellAmount = address(this).balance * bps / BASIS;
+                sellAmount = address(this).balance * ppm / Constants.BASIS;
             } else {
-                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+                sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
                 sellToken.safeApproveIfBelow(pool, sellAmount);
             }
         }

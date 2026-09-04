@@ -139,18 +139,26 @@ shift
 old_owner="$(cast to-checksum "$old_owner")"
 declare -r old_owner
 
-declare -r getThreshold_sig='getThreshold()(uint256)'
-declare -i threshold
-threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" "$getThreshold_sig")"
-declare -r -i threshold
-
 declare prev_owner_addr
 prev_owner_addr="$(prev_owner "$old_owner")"
 declare -r prev_owner_addr
 
+declare -i new_threshold
+if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
+    if (( ${#owners_array[@]} <= 4 )) ; then
+        die 'The Guard requires at least 4 owners; removing one of '"${#owners_array[@]}"' would revert'
+    fi
+    new_threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getThreshold()(uint256)')"
+    # The Guard requires ownerCount - threshold >= 2 after execution; lower the
+    # threshold when removing an owner would otherwise violate that
+    if (( ${#owners_array[@]} - new_threshold == 2 )) ; then
+        new_threshold=$((new_threshold - 1))
+    fi
+fi
+declare -r -i new_threshold
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare removeOwner_call
-removeOwner_call="$(cast calldata "$removeOwner_sig" "$prev_owner_addr" "$old_owner" "$threshold")"
+removeOwner_call="$(cast calldata "$removeOwner_sig" "$prev_owner_addr" "$old_owner" $new_threshold)"
 declare -r removeOwner_call
 
 declare struct_json

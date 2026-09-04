@@ -2,9 +2,21 @@ declare safe_url
 safe_url="$(get_config safe.apiUrl)"
 declare -r safe_url
 
+declare safe_version
+safe_version="$(cast call --rpc-url "$rpc_url" "$safe_address" 'VERSION()(string)')"
+if [[ $safe_version =~ ^\"([0-9]+\.[0-9]+\.[0-9]+)\"$ ]] ; then
+    safe_version="${BASH_REMATCH[1]}"
+else
+    die 'Safe '"$safe_address"' returned an unrecognized `VERSION()`: '"$safe_version"
+fi
+declare -r safe_version
+
 declare multicall_address
-multicall_address="$(get_config safe.multiCall)"
+multicall_address="$(jq -Mr --arg chain "$chain_name" --arg version "v$safe_version" 'getpath([$chain, "safe", $version, "multiCall"])' < "$project_root"/chain_config.json)"
 declare -r multicall_address
+if [[ ${multicall_address:-null} = [nN][uU][lL][lL] ]] ; then
+    die 'Config key safe["v'"$safe_version"'"].multiCall is missing for chain '"$chain_name"
+fi
 
 declare deployer_address
 deployer_address="$(get_config deployment.deployer)"
@@ -28,6 +40,44 @@ declare -a owners_array
 IFS=';' read -r -a owners_array <<<"$owners"
 declare -r -a owners_array
 
+declare upgrade_safe_address
+upgrade_safe_address="$(get_config governance.upgradeSafe)"
+if [[ ${upgrade_safe_address:-null} != [nN][uU][lL][lL] ]] ; then
+    upgrade_safe_address="$(cast to-checksum "$upgrade_safe_address")"
+fi
+declare -r upgrade_safe_address
+
+declare installed_safe_guard
+installed_safe_guard="$(cast call --rpc-url "$rpc_url" "$safe_address" 'getStorageAt(uint256,uint256)(bytes)' "$(cast keccak 'guard_manager.guard.address')" 1)"
+installed_safe_guard="$(cast parse-bytes32-address "$installed_safe_guard")"
+declare -r installed_safe_guard
+
+if [[ $(cast to-checksum "$safe_address") = "${upgrade_safe_address:-null}" ]] ; then
+    declare configured_safe_guard
+    configured_safe_guard="$(get_config governance.timelock)"
+    if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        configured_safe_guard="$(cast to-checksum "$configured_safe_guard")"
+    fi
+    declare -r configured_safe_guard
+
+    declare safe_guard
+    if [[ $installed_safe_guard = "$(cast address-zero)" ]] ; then
+        if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+            die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
+        fi
+    elif [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+        die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
+    elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
+        die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \
+            'Expected governance.timelock '"$configured_safe_guard"
+    else
+        safe_guard="$configured_safe_guard"
+    fi
+    declare -r safe_guard
+elif [[ $installed_safe_guard != "$(cast address-zero)" ]] ; then
+    die 'Safe '"$safe_address"' is not the upgrade Safe, but has an installed Guard '"$installed_safe_guard"
+fi
+
 function prev_owner {
     declare _prev_owner_inp="$1"
     shift
@@ -46,8 +96,7 @@ function prev_owner {
     declare -r result
 
     if [[ $result = "$(cast to-checksum "${owners_array[$((${#owners_array[@]} - 1))]}")" ]] ; then
-        echo 'Previous owner for "'"$_prev_owner_inp"'" not found' >&2
-        return 1
+        die 'Previous owner for "'"$_prev_owner_inp"'" not found'
     fi
 
     echo "$result"
@@ -77,6 +126,59 @@ function target {
 #                  data                    variable
 declare -r multisend_sig='multiSend(bytes)'
 declare -r multisend_selector="$(cast sig "$multisend_sig")"
+
+function _encode_multisend_call {
+    declare -r _encode_multisend_call_target="$1"
+    shift
+
+    declare -r _encode_multisend_call_data="$1"
+    shift
+
+    cast concat-hex                                                           \
+        0x00                                                                  \
+        "$_encode_multisend_call_target"                                      \
+        "$(cast to-uint256 0)"                                                \
+        "$(cast to-uint256 $(( (${#_encode_multisend_call_data} - 2) / 2 )))" \
+        "$_encode_multisend_call_data"
+}
+
+function build_multisend_calldata {
+    if (( $# == 0 || $# % 2 != 0 )) ; then
+        die 'build_multisend_calldata expects one or more target/calldata pairs'
+    fi
+
+    declare _build_multisend_calldata_guard
+    if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
+        _build_multisend_calldata_guard="$(cast to-checksum "${SAFE_GUARD_OVERRIDE:-$safe_guard}")"
+    fi
+    declare -r _build_multisend_calldata_guard
+
+    declare _build_multisend_calldata_data=0x
+    declare _build_multisend_calldata_target
+    declare _build_multisend_calldata_call
+    while (( $# > 0 )) ; do
+        _build_multisend_calldata_target="$1"
+        shift
+        _build_multisend_calldata_call="$1"
+        shift
+
+        _build_multisend_calldata_data="$(
+            cast concat-hex \
+                "$_build_multisend_calldata_data" \
+                "$(_encode_multisend_call "$_build_multisend_calldata_target" "$_build_multisend_calldata_call")"
+        )"
+
+        if (( $# > 0 )) && [[ ${_build_multisend_calldata_guard:-null} != [nN][uU][lL][lL] ]] ; then
+            _build_multisend_calldata_data="$(
+                cast concat-hex \
+                    "$_build_multisend_calldata_data" \
+                    "$(_encode_multisend_call "$_build_multisend_calldata_guard" "$(cast calldata 'check()')")"
+            )"
+        fi
+    done
+
+    cast calldata "$multisend_sig" "$_build_multisend_calldata_data"
+}
 
 declare -r execTransaction_sig='execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)'
 declare -r execTransaction_selector="$(cast sig "$execTransaction_sig")"

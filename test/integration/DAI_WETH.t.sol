@@ -71,12 +71,7 @@ contract DAIWETHTest is
         return super._testBlockNumber();
     }
 
-    function uniswapV3Path()
-        internal
-        view
-        override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
-        returns (bytes memory)
-    {
+    function uniswapV3Path() internal view override returns (bytes memory) {
         return abi.encodePacked(fromToken(), uint8(0), uint24(3000), sqrtPriceLimitX96FromTo(), toToken());
     }
 

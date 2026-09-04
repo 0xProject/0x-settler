@@ -8,6 +8,10 @@ struct SafeBytecodes {
     bytes singletonCode;
     bytes fallbackCode;
     bytes multicallCode;
+    bytes singletonV141Code;
+    bytes fallbackV141Code;
+    bytes multicallV141Code;
+    bytes migrationCode;
     bytes proxyCode;
     bytes proxyCodeEraVm;
 }
@@ -21,6 +25,14 @@ function load(SafeBytecodes memory self, VmSafe vm) view {
     assert(keccak256(self.fallbackCode) == 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf);
     self.multicallCode = vm.readFileBinary("script/multicall.bin");
     assert(keccak256(self.multicallCode) == 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad);
+    self.singletonV141Code = vm.readFileBinary("script/singleton_v141.bin");
+    assert(keccak256(self.singletonV141Code) == 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff);
+    self.fallbackV141Code = vm.readFileBinary("script/fallback_v141.bin");
+    assert(keccak256(self.fallbackV141Code) == 0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9);
+    self.multicallV141Code = vm.readFileBinary("script/multicall_v141.bin");
+    assert(keccak256(self.multicallV141Code) == 0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939);
+    self.migrationCode = vm.readFileBinary("script/migration.bin");
+    assert(keccak256(self.migrationCode) == 0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99);
     self.proxyCode = vm.readFileBinary("script/proxy.bin");
     assert(keccak256(self.proxyCode) == 0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000);
     self.proxyCodeEraVm = vm.readFileBinary("script/proxy_eravm.bin");

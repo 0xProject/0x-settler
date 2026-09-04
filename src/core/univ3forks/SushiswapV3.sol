@@ -8,5 +8,6 @@ address constant sushiswapV3ArbitrumFactory = 0x1af415a1EbA07a4986a52B6f2e7dE700
 //address constant sushiswapV3BnbFactory = 0x126555dd55a39328F69400d6aE4F782Bd4C34ABb;
 address constant sushiswapV3OptimismFactory = 0x9c6522117e2ed1fE5bdb72bb0eD5E3f2bdE7DBe0;
 address constant sushiswapV3PolygonFactory = 0x917933899c6a5F8E37F31E19f92CdBFF7e8FF0e2;
+address constant sushiswapV3RobinhoodFactory = 0xE51960f1B45f1C9FB6D166E6a884F866fC70433B;
 address constant sushiswapV3ScrollFactory = 0x46B3fDF7b5CDe91Ac049936bF0bDb12c5d22202e;
 uint8 constant sushiswapV3ForkId = 2;

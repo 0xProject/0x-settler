@@ -10,6 +10,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
@@ -79,7 +80,7 @@ library UnsafeEkuboCore {
             mcopy(poolKeyPtr, poolKey, 0x60)
             // ABI decoding in Ekubo will check if amount fits in int128
             mstore(add(0x80, ptr), amount)
-            mstore(add(0xa0, ptr), isToken1)
+            mstore(add(0xa0, ptr), lt(0x00, isToken1))
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xe0, ptr), 0x00)
 
@@ -110,7 +111,7 @@ library UnsafeEkuboCore {
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
             mstore(add(0x94, ptr), amount)
-            mstore(add(0xb4, ptr), isToken1)
+            mstore(add(0xb4, ptr), lt(0x00, isToken1))
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xf4, ptr), 0x00)
 
@@ -139,12 +140,6 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     using NotesLib for NotesLib.Note[];
     using UnsafeEkuboCore for IEkuboCore;
 
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
-
     //// How to generate `fills` for Ekubo
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the
@@ -162,10 +157,10 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     //// Settler's representation. The conversion is performed by Settler before making calls to Ekubo
     ////
     //// Now that you have a list of fills, encode each fill as follows.
-    //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
-    //// running balance at the moment that the fill is settled. If the uppermost bit of `bps` is
+    //// First encode the `ppm` for the fill as 3 bytes. Remember that this `ppm` is relative to the
+    //// running balance at the moment that the fill is settled. If the uppermost bit of `ppm` is
     //// set, then the swap is treated as a swap through an extension that requires forwarding. Only
-    //// the lower 15 bits of `bps` are used for the amount calculation.
+    //// the lower 23 bits of `ppm` are used for the amount calculation.
     //// Second, encode the price caps sqrtRatio as 12 bytes.
     //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
@@ -185,7 +180,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     function sellToEkuboV2(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -196,44 +191,11 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             uint32(IEkuboCore.lock.selector),
             recipient,
             sellToken,
-            bps,
+            ppm,
             feeOnTransfer,
             hashMul,
             hashMod,
             fills,
-            amountOutMin
-        );
-        bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallbackV2);
-        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
-        assembly ("memory-safe") {
-            // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked` and that `locked` encoded the buy amount
-            // correctly.
-            buyAmount := mload(add(0x60, encodedBuyAmount))
-        }
-    }
-
-    function sellToEkuboV2VIP(
-        address recipient,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 amountOutMin
-    ) internal returns (uint256 buyAmount) {
-        bytes memory data = Encoder.encodeVIP(
-            uint32(IEkuboCore.lock.selector),
-            recipient,
-            feeOnTransfer,
-            hashMul,
-            hashMod,
-            fills,
-            permit,
-            sig,
-            _isForwarded(),
             amountOutMin
         );
         bytes memory encodedBuyAmount =
@@ -257,15 +219,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         return locked(data);
     }
 
-    function _ekuboPayV2(
-        IERC20 sellToken,
-        address payer,
-        uint256 sellAmount,
-        ISignatureTransfer.PermitTransferFrom calldata permit,
-        bool isForwarded,
-        bytes calldata sig
-    ) private returns (uint256 payment) {
-        if (sellToken == ETH_ADDRESS) {
+    function _ekuboPayV2(IERC20 sellToken, uint256 sellAmount) private returns (uint256 payment) {
+        if (address(sellToken) == Constants.ETH_ADDRESS) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -274,45 +229,32 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             assembly ("memory-safe") {
                 data := mload(0x40)
 
+                mstore(add(0x44, data), sellAmount)
                 mstore(add(0x24, data), sellToken)
                 mstore(add(0x10, data), 0x0c11dedd000000000000000000000000) // selector for pay(address) with padding for token
 
-                mstore(add(0x44, data), sellAmount)
-                let size := 0x44
-
-                // if permit is needed add it to data
-                if iszero(eq(payer, address())) {
-                    // let's skip token and sell amount and reuse the values already in data
-                    calldatacopy(add(0x64, data), add(0x40, permit), 0x40)
-                    mstore(add(0xa4, data), isForwarded)
-                    mstore(add(0xc4, data), sig.length)
-                    calldatacopy(add(0xe4, data), sig.offset, sig.length)
-                    size := add(size, add(0x80, sig.length))
-                }
-
                 // update data length
-                mstore(data, size)
+                mstore(data, 0x44)
 
                 // update free memory pointer
-                mstore(0x40, add(data, add(0x20, size)))
+                mstore(0x40, add(0x64, data))
             }
             bytes memory encodedPayedAmount =
                 _setOperatorAndCall(msg.sender, data, uint32(IEkuboCallbacks.payCallback.selector), payCallback);
             assembly ("memory-safe") {
-                // We can skip all the checks performed by `abi.decode` because we know that this is the
-                // verbatim result from `payCallback` and that `payCallback` encoded the payment
-                // correctly.
-                payment := mload(add(0x60, encodedPayedAmount))
+                // We can skip all the checks performed by `abi.decode` because we know that `CORE`
+                // is well-behaved and that `CORE`'s `pay` encoded the payment correctly.
+                payment := mload(add(0x20, encodedPayedAmount))
             }
         }
     }
 
     // the mandatory fields are
-    // 2 - sell bps
+    // 3 - sell ppm
     // 12 - sqrtRatio
     // 1 - pool key tokens case
     // 32 - config (20 extension, 8 fee, 4 tickSpacing)
-    uint256 private constant _HOP_DATA_LENGTH = 47;
+    uint256 private constant _HOP_DATA_LENGTH = 48;
 
     function locked(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -322,26 +264,16 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         bool feeOnTransfer;
         address payer;
         (data, recipient, minBuyAmount, hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
+        require(payer == address(this)); // there is no VIP action
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
-        (
-            bytes calldata newData,
-            State state,
-            NotesLib.Note[] memory notes,
-            ISignatureTransfer.PermitTransferFrom calldata permit,
-            bool isForwarded,
-            bytes calldata sig
-        ) = Decoder.initialize(data, hashMul, hashMod, payer);
+        (bytes calldata newData, State state, NotesLib.Note[] memory notes,,,) =
+            Decoder.initialize(data, hashMul, hashMod, address(this));
         {
             NotePtr globalSell = state.globalSell();
-            if (payer != address(this)) {
-                globalSell.setAmount(_permitToSellAmountCalldata(permit));
-            }
             if (feeOnTransfer) {
-                globalSell.setAmount(
-                    _ekuboPayV2(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
-                );
+                globalSell.setAmount(_ekuboPayV2(globalSell.token(), globalSell.amount()));
             }
             if (globalSell.amount() >> 127 != 0) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -354,16 +286,16 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         PoolKey memory poolKey;
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint256 bps;
+            uint256 ppm;
             SqrtRatio sqrtRatio;
             assembly ("memory-safe") {
-                bps := shr(0xf0, calldataload(data.offset))
-                data.offset := add(0x02, data.offset)
+                ppm := shr(0xe8, calldataload(data.offset))
+                data.offset := add(0x03, data.offset)
 
                 sqrtRatio := shr(0xa0, calldataload(data.offset))
                 data.offset := add(0x0c, data.offset)
 
-                data.length := sub(data.length, 0x0e)
+                data.length := sub(data.length, 0x0f)
                 // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
 
@@ -373,7 +305,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             // `CORE` will throw.
             int256 amountSpecified;
             unchecked {
-                amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));
+                amountSpecified = int256((state.sell().amount() * (ppm & 0x7fffff)).unsafeDiv(Constants.BASIS));
             }
 
             bool isToken1; // opposite of regular zeroForOne
@@ -417,7 +349,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             {
                 int256 delta0;
                 int256 delta1;
-                if (bps & 0x8000 == 0) {
+                if (ppm & 0x800000 == 0) {
                     (delta0, delta1) = IEkuboCore(msg.sender).unsafeSwap(poolKey, amountSpecified, isToken1, sqrtRatio);
                 } else {
                     (delta0, delta1) =
@@ -467,7 +399,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                     Take._callSelector(
                         uint32(IEkuboCore.withdraw.selector),
                         globalSellToken,
-                        (payer == address(this)) ? address(this) : _msgSender(),
+                        address(this), // there is no VIP action
                         globalSellAmount
                     );
                 }
@@ -487,7 +419,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                _ekuboPayV2(globalSellToken, payer, debt, permit, isForwarded, sig);
+                _ekuboPayV2(globalSellToken, debt);
             }
 
             // return abi.encode(globalBuyAmount);
@@ -504,50 +436,17 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         }
     }
 
-    function payCallback(bytes calldata data) private returns (bytes memory returndata) {
+    function payCallback(bytes calldata data) private returns (bytes memory) {
         IERC20 sellToken;
         uint256 sellAmount;
 
-        ISignatureTransfer.PermitTransferFrom calldata permit;
-        bool isForwarded;
-        bytes calldata sig;
-
         assembly ("memory-safe") {
-            // Initialize permit and sig to appease the compiler
-            permit := calldatasize()
-            sig.offset := calldatasize()
-            sig.length := 0x00
-
             // first 2 slots in calldata are id and token
             // id is not being used so can be skipped
             sellToken := calldataload(add(0x20, data.offset))
             // then extra data added in _ekuboPayV2
             sellAmount := calldataload(add(0x40, data.offset))
         }
-        if (0x60 < data.length) {
-            assembly ("memory-safe") {
-                // starts at the beginning of sellToken
-                permit := add(0x20, data.offset)
-                isForwarded := calldataload(add(0xa0, data.offset))
-
-                sig.offset := add(0xc0, data.offset)
-                sig.length := calldataload(sig.offset)
-                sig.offset := add(0x20, sig.offset)
-            }
-            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
-            _transferFrom(permit, transferDetails, sig, isForwarded);
-        } else {
-            sellToken.safeTransfer(msg.sender, sellAmount);
-        }
-        // return abi.encode(sellAmount);
-        assembly ("memory-safe") {
-            returndata := mload(0x40)
-            mstore(returndata, 0x60)
-            mstore(add(0x20, returndata), 0x20)
-            mstore(add(0x40, returndata), 0x20)
-            mstore(add(0x60, returndata), sellAmount)
-            mstore(0x40, add(0x80, returndata))
-        }
+        sellToken.safeTransfer(msg.sender, sellAmount);
     }
 }

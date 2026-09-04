@@ -11,6 +11,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -28,12 +29,6 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note[];
-
-    constructor() {
-        assert(BASIS == Encoder.BASIS);
-        assert(BASIS == Decoder.BASIS);
-        assert(address(ETH_ADDRESS) == NotesLib.ETH_ADDRESS);
-    }
 
     function _POOL_MANAGER() internal view virtual returns (IPoolManager);
 
@@ -58,7 +53,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     //// that at least one of the global buy token's fills is positioned appropriately.
     ////
     //// Now that you have a list of fills, encode each fill as follows.
-    //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
+    //// First encode the `ppm` for the fill as 3 bytes. Remember that this `ppm` is relative to the
     //// running balance at the moment that the fill is settled.
     //// Second, encode the price caps sqrtPriceLimitX96 as 20 bytes.
     //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
@@ -81,7 +76,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     function sellToUniswapV4(
         address recipient,
         IERC20 sellToken,
-        uint256 bps,
+        uint256 ppm,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -92,7 +87,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             uint32(IPoolManager.unlock.selector),
             recipient,
             sellToken,
-            bps,
+            ppm,
             feeOnTransfer,
             hashMul,
             hashMod,
@@ -177,14 +172,14 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     //// multiple times in the calldata.
 
     // the mandatory fields are
-    // 2 - sell bps
+    // 3 - sell ppm
     // 20 - sqrtPriceLimitX96
     // 1 - pool key tokens case
     // 3 - pool fee
     // 3 - pool tick spacing
     // 20 - pool hooks
     // 3 - hook data length
-    uint256 private constant _HOP_DATA_LENGTH = 52;
+    uint256 private constant _HOP_DATA_LENGTH = 53;
 
     /// Decode a `PoolKey` from its packed representation in `bytes` and the token information in
     /// `state`. Returns the `zeroForOne` flag and the suffix of the bytes that are not consumed in
@@ -282,17 +277,17 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         IPoolManager.PoolKey memory key;
         IPoolManager.SwapParams memory params;
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint256 bps;
+            uint256 ppm;
             {
                 uint160 sqrtPriceLimitX96;
                 assembly ("memory-safe") {
-                    bps := shr(0xf0, calldataload(data.offset))
-                    data.offset := add(0x02, data.offset)
+                    ppm := shr(0xe8, calldataload(data.offset))
+                    data.offset := add(0x03, data.offset)
 
                     sqrtPriceLimitX96 := shr(0x60, calldataload(data.offset))
                     data.offset := add(0x14, data.offset)
 
-                    data.length := sub(data.length, 0x16)
+                    data.length := sub(data.length, 0x17)
                     // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
                 }
                 params.sqrtPriceLimitX96 = sqrtPriceLimitX96;
@@ -307,7 +302,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
 
             params.zeroForOne = zeroForOne;
             unchecked {
-                params.amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
+                params.amountSpecified = int256((state.sell().amount() * ppm).unsafeDiv(Constants.BASIS)).unsafeNeg();
             }
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
@@ -366,7 +361,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                if (globalSellToken == ETH_ADDRESS) {
+                if (address(globalSellToken) == Constants.ETH_ADDRESS) {
                     IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
                     IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {

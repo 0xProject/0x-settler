@@ -46,7 +46,7 @@ allowance target, `AllowanceHolder` is provided (see above).
 0x Settler settles swaps by performing a sequence of actions encoded in
 calldata. Actions are ABIEncoded with a selector. See `ISettlerActions` for the
 available options. Typically, actions are parametrized by the `recipient` where
-tokens are sent after the trade and the `bps` specifying a proportion of the
+tokens are sent after the trade and the `ppm` specifying a proportion of the
 `Settler` contract's token balance to be liquidated in the action.
 
 ## Action encoding

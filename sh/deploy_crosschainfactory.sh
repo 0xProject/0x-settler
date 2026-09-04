@@ -125,8 +125,7 @@ declare -r toehold=0x4e59b44847b379578588920cA78FbF26c0B4956C
 declare -r toehold_codehash=0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989
 
 if [[ "$(cast keccak "$(cast code --rpc-url "$rpc_url" "$toehold")")" != $toehold_codehash ]] ; then
-    echo 'The Arachnid deterministic deployment proxy does not exist or is corrupt' >&2
-    exit 1
+    die 'The Arachnid deterministic deployment proxy does not exist or is corrupt'
 fi
 
 . "$project_root"/sh/common_secrets.sh
@@ -173,7 +172,7 @@ wnative_storage="$(cast to-check-sum-address "$wnative_storage")"
 declare -r wnative_storage
 
 declare non_forwarding_multicall
-non_forwarding_multicall="$(get_config safe.multiCall)"
+non_forwarding_multicall="$(get_config_strict 'safe["v1.3.0"].multiCall')"
 declare -r non_forwarding_multicall
 
 declare deploy_shim_calldata
