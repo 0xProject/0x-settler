@@ -7,7 +7,7 @@ interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
     /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
-
+    
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -223,6 +223,28 @@ interface ISettlerActions {
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
+
+    /// @dev Fills one Deepstate book with the current `sellToken` balance. Native ETH is the ERC-7528 address in
+    /// both `sellToken` and `buyToken`. Unmatched quantity is discarded rather than rested, so it stays in the
+    /// Settler as `sellToken` for later actions.
+    /// @param epoch Book epoch to match against. The book must already be initialized.
+    /// @param tick Limit price enforced by the engine: `2 ** (96 * tick / 2**31)` units of the higher-addressed
+    /// token per unit of the lower-addressed token.
+    /// @param inversePriceX128 `floor(2**128 / price(tick + 1))`, the Q128 reciprocal of the limit price one tick
+    /// past `tick`. Only used when selling the higher-addressed token (a bid): Deepstate sizes bids in the
+    /// lower-addressed token, so the sell amount is converted through this value. Sizing at the limit price means
+    /// the engine can never take more than the sell amount; if the book is better than the limit, the difference
+    /// stays unspent. Ignored for an ask.
+    // Pre-req: Funded
+    // Post-req: Payout
+    function DEEPSTATE(
+        address sellToken,
+        uint256 ppm,
+        address buyToken,
+        uint256 epoch,
+        int32 tick,
+        uint256 inversePriceX128
+    ) external;
 
     function EKUBO(
         address recipient,
