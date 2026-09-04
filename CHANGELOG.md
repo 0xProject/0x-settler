@@ -18,6 +18,9 @@
   `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
   through Nucleus Teller
 * Deploy Settler to RobinHood chain
+* Deploy Settler to Arc chain
+  * Add UniswapV3 UniV3 fork on Arc chain
+  * Add UniswapV4 support on Arc chain
 
 ## 2026-04-10
 
