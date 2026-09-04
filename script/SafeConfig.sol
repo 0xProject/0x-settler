@@ -126,12 +126,13 @@ library SafeConfig {
 
     // forgefmt: disable-next-line
     function getDeploymentSafeSigners() internal view returns (address[] memory) { // this is non-pure (view) on purpose
-        address[] memory result = new address[](5);
+        address[] memory result = new address[](6);
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
         result[1] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
         result[2] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
         result[3] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
         result[4] = 0xeFA8f8b23dad0741203340041BF41b20F97fEed2; // Lazaro
+        result[5] = 0x07DEE4CfA991D7a815CE878767FF1405406aF765; // Joshua
         return result;
     }
 
