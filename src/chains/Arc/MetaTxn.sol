@@ -27,7 +27,8 @@ contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+        } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
+            .or(action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -40,7 +41,11 @@ contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))
+                sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            }
         } else {
             return false;
         }
