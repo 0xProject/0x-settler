@@ -92,10 +92,11 @@ abstract contract Deepstate is SettlerSwapAbstract {
         bool sendNative;
         assembly ("memory-safe") {
             // DeepState uses address(0) for native token
-            sellToken := mul(sellToken, lt(0x00, shl(0x60, xor(sellToken, ETH_ADDRESS))))
+            let shiftedXor := shl(0x60, xor(sellToken, ETH_ADDRESS))
+            sellToken := mul(sellToken, lt(0x00, shiftedXor))
             buyToken := mul(buyToken, lt(0x00, shl(0x60, xor(buyToken, ETH_ADDRESS))))
 
-            sendNative := iszero(sellToken)
+            sendNative := iszero(shiftedXor)
         }
 
         uint256 sellAmount;
