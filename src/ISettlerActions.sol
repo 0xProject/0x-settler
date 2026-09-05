@@ -224,6 +224,18 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
+    /// @dev Tries funded action sequences (`candidates`) in order, and commits the first to meet
+    ///      its score `target`. A score is the increase in the `token` balance held by Settler. A
+    ///      zero `target` commits any non-reverting candidate. Native asset output only scores if
+    ///      wrapped to wrapped-native in the candidate actions. Candidates must not contain
+    ///      `CHECK_SLIPPAGE`. `targets` are the per-candidate minimum outputs that terminate the
+    ///      trials (commit). `targets[i]` pairs with `candidates[i]`. `trialGasLimit` must be
+    ///      nonzero and below 2**64. Each non-final trial requests exactly `trialGasLimit` gas;
+    ///      the final candidate's action sequence gas consumption is uncapped.
+    // Pre-req: Funded
+    function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
+        external;
+
     function EKUBO(
         address recipient,
         address sellToken,

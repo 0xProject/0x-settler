@@ -195,6 +195,8 @@ abstract contract MainnetMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, ppm, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
+            select(data);
         } else {
             return false;
         }

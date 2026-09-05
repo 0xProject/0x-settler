@@ -47,6 +47,7 @@
 
 ### Non-breaking changes
 
+* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
