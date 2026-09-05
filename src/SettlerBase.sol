@@ -157,8 +157,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
             sellToVelodrome(recipient, ppm, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxPpm) =
-                abi.decode(data, (address, IERC20, uint256, uint256));
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
+                abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
@@ -166,6 +166,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                 unchecked {
                     cap = balance * maxPpm / Constants.BASIS;
                     balance -= expectedAmount;
+                    balance = balance * surplusPpm / Constants.BASIS;
                 }
                 balance = (balance > cap).ternary(cap, balance);
                 if (isETH) {
