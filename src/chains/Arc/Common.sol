@@ -8,12 +8,10 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
-import {EkuboV3} from "../../core/EkuboV3.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
-import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {
     uniswapV3ArcFactory,
@@ -27,7 +25,7 @@ import {ARC_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 {
+abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4 {
     constructor() {
         assert(block.chainid == 5042 || block.chainid == 31337);
     }
@@ -41,8 +39,7 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 {
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -54,11 +51,7 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 {
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
-                sellToEkuboV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            }
+            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
