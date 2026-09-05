@@ -10,6 +10,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
 import {Hanji} from "../../core/Hanji.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {Deepstate} from "../../core/Deepstate.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -46,7 +47,16 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, PancakeInfinity, Bebop {
+abstract contract RobinHoodMixin is
+    FreeMemory,
+    SettlerBase,
+    UniswapV4,
+    EkuboV3,
+    Hanji,
+    PancakeInfinity,
+    Bebop,
+    Deepstate
+{
     using FastLogic for bool;
 
     constructor() {
@@ -96,6 +106,11 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.DEEPSTATE.selector)) {
+            (IERC20 sellToken, uint256 ppm, IERC20 buyToken, uint256 epoch, int32 tick, uint256 inversePriceX128) =
+                abi.decode(data, (IERC20, uint256, IERC20, uint256, int32, uint256));
+
+            sellToDeepstate(sellToken, ppm, buyToken, epoch, tick, inversePriceX128);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -192,7 +207,7 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         internal
         view
         virtual
-        override(Bebop, Permit2PaymentAbstract)
+        override(Bebop, Deepstate, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

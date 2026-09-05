@@ -7,7 +7,6 @@ interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
     /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
-
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -223,6 +222,25 @@ interface ISettlerActions {
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
+
+    /// @dev Fills one Deepstate book with a proportion of the current `sellToken` balance. Unmatched quantity
+    /// is discarded rather than rested, leaving the corresponding input in Settler for later actions.
+    /// @param sellToken Token whose current Settler balance funds the fill. Use the Settler ETH sentinel for native.
+    /// @param ppm Proportion of the current `sellToken` balance made available to the fill.
+    /// @param buyToken Token received by the Settler. Use the Settler ETH sentinel for native.
+    /// @param epoch Initialized book epoch to match against.
+    /// @param tick Signed logarithmic limit price of `token1` per `token0`, `2 ** (96 * tick / 2**31)`.
+    /// @param inversePriceX128 Q128 reciprocal of the limit price, rounded down; sizes bids and is ignored for asks.
+    // Pre-req: Funded
+    // Post-req: Payout
+    function DEEPSTATE(
+        address sellToken,
+        uint256 ppm,
+        address buyToken,
+        uint256 epoch,
+        int32 tick,
+        uint256 inversePriceX128
+    ) external;
 
     function EKUBO(
         address recipient,
