@@ -11,7 +11,7 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {BaseSettlerMetaTxn} from "src/chains/Base/MetaTxn.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
-import {Shortfall} from "src/core/SettlerErrors.sol";
+import {MsgValueMismatch, Shortfall} from "src/core/SettlerErrors.sol";
 import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
 import {Permit2Signature} from "test/utils/Permit2Signature.sol";
 
@@ -524,10 +524,86 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         _runAction(action, 0);
     }
 
+    function _tryExecute(bytes memory action, uint256 txGas, uint256 value)
+        internal
+        returns (bool ok, bytes memory result)
+    {
+        vm.prank(taker, taker);
+        return address(settler).call{gas: txGas, value: value}(
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage(payable(recipient), IERC20(address(buy)), 0),
+                    ActionDataBuilder.build(action),
+                    bytes32(0)
+                )
+            )
+        );
+    }
+
+    function testFuzz_gasLimit_cannotSkipSuccessfulCandidate(uint256 txGas) public {
+        txGas = bound(txGas, 25_000, 650_000);
+        p0.set(9 ether, false);
+        p1.set(7 ether, false);
+        bytes memory action = _selectAction(
+            TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
+        );
+        (bool ok,) = _tryExecute(action, txGas, 0);
+        if (ok) {
+            assertEq(buy.balanceOf(recipient), 9 ether);
+            assertEq(p0.callCount(), 1);
+        } else {
+            assertEq(buy.balanceOf(recipient), 0);
+            assertEq(p0.callCount(), 0);
+        }
+        assertEq(p1.callCount(), 0);
+    }
+
+    function test_gasLimit_starvedFailureBubbles() public {
+        p0.set(9 ether, false);
+        p1.set(7 ether, false);
+        uint256[] memory targets = new uint256[](2);
+        targets[0] = 10 ether;
+        bytes memory action = _selectAction(
+            TEST_GAS_CAP, address(buy), targets, _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
+        );
+        (bool ok, bytes memory result) = _tryExecute(action, 180_000, 0);
+        assertFalse(ok);
+        assertEq(result, abi.encodeWithSelector(Shortfall.selector, 9 ether));
+        assertEq(p1.callCount(), 0);
+        assertEq(buy.balanceOf(recipient), 0);
+    }
+
+    function test_gasLimit_starvedSuccessCommits() public {
+        p0.set(9 ether, false);
+        p1.set(7 ether, false);
+        bytes memory action = _selectAction(
+            TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
+        );
+        (bool ok,) = _tryExecute(action, 180_000, 0);
+        assertTrue(ok);
+        assertEq(buy.balanceOf(recipient), 9 ether);
+        assertEq(p1.callCount(), 0);
+    }
+
+    function test_nativeCheck_nestedValueCheckSeesZero() public {
+        vm.deal(taker, 1 ether);
+        bytes memory nativeCheck = abi.encodeCall(ISettlerActions.NATIVE_CHECK, (type(uint256).max, 0));
+        (bool topOk, bytes memory topResult) = _tryExecute(nativeCheck, 500_000, 1 ether);
+        assertFalse(topOk);
+        assertEq(topResult, abi.encodeWithSelector(MsgValueMismatch.selector, 0, 1 ether));
+        bytes[][] memory candidates = new bytes[][](1);
+        candidates[0] = ActionDataBuilder.build(nativeCheck);
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](1), candidates);
+        (bool nestedOk,) = _tryExecute(action, 500_000, 1 ether);
+        assertTrue(nestedOk);
+        assertEq(address(settler).balance, 1 ether);
+    }
+
     function test_bounds_dirtyTokenUpperBits_reverts() public {
         bytes[][] memory candidates = new bytes[][](1);
         candidates[0] = _candidate(address(p0));
-        bytes memory action = _selectAction(0, address(buy), new uint256[](1), candidates);
+        bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](1), candidates);
         // Dirty the most significant byte of the 160-bit `token` word (selector, gasCap, token).
         action[0x24] = 0x01;
         _runMalformed(action);
@@ -537,7 +613,7 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
     function test_bounds_zeroToken_reverts() public {
         bytes[][] memory candidates = new bytes[][](1);
         candidates[0] = _candidate(address(p0));
-        _runMalformed(_selectAction(0, address(0), new uint256[](1), candidates));
+        _runMalformed(_selectAction(TEST_GAS_CAP, address(0), new uint256[](1), candidates));
         assertEq(p0.callCount(), 0, "no trial ran on a zero token");
     }
 

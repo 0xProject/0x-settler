@@ -29,7 +29,7 @@ abstract contract Select is SettlerSwapAbstract {
     // 2026-08-31), bounding this plumbing from far above; 8192 is more than double that bound.
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
-    function _executeSelected(bytes calldata data) private returns (bytes memory) {
+    function _executeSelected(bytes calldata data) private returns (bytes memory empty) {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
@@ -58,7 +58,7 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x1c, 0x24)
             }
         }
-        return new bytes(0);
+        return empty;
     }
 
     function select(bytes calldata data) internal {
@@ -107,7 +107,7 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(0x40, add(dst, candsLength))
         }
 
-        // The trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
+        // A trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
         // `_SELECT_OVERHEAD_GAS` of overhead between the gas measurement and the `CALL`: `C +
         // floor(C/63)` forwards exactly `C`.
         uint256 beforeGasThreshold;
@@ -131,6 +131,7 @@ abstract contract Select is SettlerSwapAbstract {
             }
             bool isLast = i == n;
             uint256 beforeGas = gasleft();
+            bool bubbleFailure = isLast.or(beforeGas < beforeGasThreshold);
             uint256 gasLimit = isLast.ternary(beforeGas, gasCap);
 
             if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
@@ -138,15 +139,13 @@ abstract contract Select is SettlerSwapAbstract {
                 break;
             }
 
-            unchecked {
-                if ((beforeGas < beforeGasThreshold).or(isLast)) {
-                    // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and
-                    // bubble it.
-                    assembly ("memory-safe") {
-                        let ptr := mload(0x40)
-                        returndatacopy(ptr, 0x00, returndatasize())
-                        revert(ptr, returndatasize())
-                    }
+            if (bubbleFailure) {
+                // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and
+                // bubble it.
+                assembly ("memory-safe") {
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0x00, returndatasize())
+                    revert(ptr, returndatasize())
                 }
             }
         }

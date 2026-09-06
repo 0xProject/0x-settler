@@ -226,7 +226,7 @@ interface ISettlerActions {
 
     /// @dev Tries funded action sequences (`candidates`) in order, and commits the first to meet
     ///      its score `target`. A score is the increase in the `token` balance held by Settler. A
-    ///      zero `target` commits any non-reverting candidate. fCandidates must not contain
+    ///      zero `target` commits any non-reverting candidate. Candidates must not contain
     ///      `CHECK_SLIPPAGE` or `NATIVE_CHECK` actions. `targets` are the per-candidate minimum
     ///      outputs that terminate the trials (commit). `targets[i]` pairs with
     ///      `candidates[i]`. `trialGasLimit` must be nonzero and below 2**64. Each non-final trial
