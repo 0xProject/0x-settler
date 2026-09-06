@@ -7,14 +7,12 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {FastLogic} from "../utils/FastLogic.sol";
 import {revertActionInvalid} from "./SettlerErrors.sol";
 
 /// @notice Ordered candidate-route selection by revertable self-calls.
 abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
-    using FastLogic for bool;
     using CalldataDecoder for bytes[];
 
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
@@ -26,7 +24,7 @@ abstract contract Select is SettlerSwapAbstract {
     // 2026-08-31), bounding this plumbing from far above; 8192 is more than double that bound.
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
-    function _executeSelected(bytes calldata data) private returns (bytes memory) {
+    function _executeSelected(bytes calldata data) private returns (bytes memory empty) {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
@@ -55,7 +53,7 @@ abstract contract Select is SettlerSwapAbstract {
                 revert(0x1c, 0x24)
             }
         }
-        return new bytes(0);
+        return empty;
     }
 
     function select(bytes calldata data) internal {
@@ -64,7 +62,7 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 targetsData;
         uint256 candsData;
         uint256 candsLength;
-        uint256 n;
+        uint256 remaining;
         bytes memory callData;
         // Follow and bound both top-level array offsets. The candidate region is copied once after
         // the private callback head, preserving every valid relative candidate offset.
@@ -81,9 +79,9 @@ abstract contract Select is SettlerSwapAbstract {
             let targetsOffset := calldataload(add(0x40, dataStart))
             err := or(gt(targetsOffset, sub(data.length, 0x20)), err) // can't be `gt(add(0x20, targetsOffset), data.length)` due to risk of overflow
             let targetsBase := add(targetsOffset, dataStart)
-            n := calldataload(targetsBase)
+            remaining := calldataload(targetsBase)
             targetsData := add(0x20, targetsBase)
-            err := or(or(iszero(n), gt(n, shr(0x05, sub(dataEnd, targetsData)))), err)
+            err := or(or(iszero(remaining), gt(remaining, shr(0x05, sub(dataEnd, targetsData)))), err)
 
             let candidatesOffset := calldataload(add(0x60, dataStart))
             err := or(gt(candidatesOffset, sub(data.length, 0x20)), err)
@@ -91,8 +89,8 @@ abstract contract Select is SettlerSwapAbstract {
             candsData := add(0x20, candidatesBase)
             // `targets` and `candidates` must be the same length. Unequal lengths are valid ABI but
             // meaningless here.
-            err := or(xor(calldataload(candidatesBase), n), err)
-            err := or(gt(n, shr(0x05, sub(dataEnd, candsData))), err)
+            err := or(xor(calldataload(candidatesBase), remaining), err)
+            err := or(gt(remaining, shr(0x05, sub(dataEnd, candsData))), err)
             if err { revert(0x00, 0x00) }
 
             candsLength := sub(dataEnd, candsData)
@@ -105,10 +103,9 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(0x40, add(dst, candsLength))
         }
 
-        for (uint256 i; i < n; i = i.unsafeInc()) {
+        for (uint256 i;; i = i.unsafeInc()) {
             uint256 gasLimit;
-            bool gasStarved;
-            bool isLast;
+            bool bubbleFailure;
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target. The token, selector, length, and copied region remain unchanged.
             assembly ("memory-safe") {
@@ -117,13 +114,14 @@ abstract contract Select is SettlerSwapAbstract {
                 mstore(add(0x24, callData), add(0x60, offset))
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
 
-                isLast := eq(add(0x01, i), n)
+                remaining := sub(remaining, 0x01)
+                let isLast := iszero(remaining)
 
                 gasLimit := gas()
                 // The trial is fully funded when EIP-150's clamp still forwards the whole
                 // `gasCap` after `_SELECT_OVERHEAD_GAS` of overhead between this measurement and
                 // the `CALL`: `C + floor(C/63)` forwards exactly `C`.
-                gasStarved := gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit)
+                bubbleFailure := or(isLast, gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit))
                 gasLimit := xor(gasCap, mul(xor(gasCap, gasLimit), isLast))
             }
 
@@ -131,7 +129,7 @@ abstract contract Select is SettlerSwapAbstract {
             {
                 break;
             }
-            if (gasStarved.or(isLast)) {
+            if (bubbleFailure) {
                 // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
