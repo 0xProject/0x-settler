@@ -365,8 +365,8 @@ export DEPLOYER_PROXY_DEPLOYER_KEY
 forge script                                             \
     --slow                                               \
     --no-storage-caching                                 \
-    --gas-limit 100000000                                \
-    "${maybe_tx_gas_limit[@]}"                           \
+    --gas-limit 1000000000                               \
+    --disable-code-size-limit                            \
     --skip 'Flat.sol'                                    \
     --skip 'src/deployer/SafeGuard.sol'                  \
     --skip 'CrossChainReceiverFactory.sol'               \
