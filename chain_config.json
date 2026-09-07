@@ -1104,8 +1104,8 @@
     },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
-    "gasMultiplierPercent": 200,
-    "minGasPriceGwei": 25,
+    "gasMultiplierPercent": 500,
+    "minGasPriceGwei": 40,
     "wnative": null,
     "safe": {
       "v1.3.0": {
@@ -1137,9 +1137,9 @@
     "deployment": {
       "deployer": null,
       "allowanceHolder": null,
-      "forwardingMultiCall": null,
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": null
     },
-    "blockscoutApi": null
+    "blockscoutApi": "https://explorer.arc.io/api"
   }
 }
