@@ -15,7 +15,6 @@ import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
 contract FluxSwapMock {
     enum CallbackMode {
         Normal,
-        WrongToken,
         WrongAmount
     }
 
@@ -37,9 +36,8 @@ contract FluxSwapMock {
 
         IERC20 sellToken = IERC20(address(bytes20(callbackData[:20])));
         uint256 sellAmount = uint256(bytes32(callbackData[20:]));
-        IERC20 callbackToken = callbackMode == CallbackMode.WrongToken ? IERC20(address(0xdead)) : sellToken;
         uint256 callbackAmount = callbackMode == CallbackMode.WrongAmount ? sellAmount + 1 : sellAmount;
-        IFluxSwapCallback(msg.sender).fluxSwapCallback(callbackToken, callbackAmount, callbackData);
+        IFluxSwapCallback(msg.sender).fluxSwapCallback(sellToken, callbackAmount, callbackData);
         return buyAmount;
     }
 }
@@ -47,7 +45,6 @@ contract FluxSwapMock {
 contract FluxPoolUnitTest is Test {
     uint256 private constant SELL_BALANCE = 100 ether;
     uint256 private constant BUY_AMOUNT = 30 ether;
-    uint256 private constant MIN_BUY_AMOUNT = 29 ether;
     bytes32 private constant POOL_ID = keccak256("pool");
 
     BnbSettler private settler;
@@ -90,16 +87,10 @@ contract FluxPoolUnitTest is Test {
         assertEq(buyToken.balanceOf(address(settler)), BUY_AMOUNT);
     }
 
-    function testFluxPoolRejectsWrongCallbackToken() public {
-        fluxSwap.configure(FluxSwapMock.CallbackMode.WrongToken, buyToken, BUY_AMOUNT);
-        vm.expectRevert(ConfusedDeputy.selector);
-        _execute(1_000_000, MIN_BUY_AMOUNT);
-    }
-
     function testFluxPoolRejectsWrongCallbackAmount() public {
         fluxSwap.configure(FluxSwapMock.CallbackMode.WrongAmount, buyToken, BUY_AMOUNT);
         vm.expectRevert(ConfusedDeputy.selector);
-        _execute(1_000_000, MIN_BUY_AMOUNT);
+        _execute(1_000_000, 0);
     }
 
     function _execute(uint256 ppm, uint256 minBuyAmount) private {

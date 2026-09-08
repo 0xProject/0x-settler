@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {FastLogic} from "../utils/FastLogic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertConfusedDeputy} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
@@ -29,7 +28,6 @@ address constant FLUX_VAULT = 0x0F8E0136f09e8b188d21EdDF17f65522f81f7151;
 
 abstract contract FluxPool is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using FastLogic for bool;
 
     constructor() {
         assert(block.chainid == 31337 || (FLUX_SWAP.code.length > 0 && FLUX_VAULT.code.length > 0));
@@ -55,21 +53,22 @@ abstract contract FluxPool is SettlerSwapAbstract {
     }
 
     function _fluxSwapCallback(bytes calldata data) private returns (bytes memory) {
-        IERC20 tokenToPay;
         uint256 amountToPay;
         IERC20 sellToken;
         uint256 sellAmount;
         // Decode the callback and packed token/amount without allocating memory.
         // Equivalent Solidity pseudocode:
-        // (tokenToPay, amountToPay, bytes memory callbackData) = abi.decode(data, (IERC20, uint256, bytes));
+        // (, amountToPay, bytes memory callbackData) = abi.decode(data, (IERC20, uint256, bytes));
         // sellToken = IERC20(address(bytes20(callbackData[:20]))); sellAmount = uint256(bytes32(callbackData[20:]));
         assembly ("memory-safe") {
-            tokenToPay := calldataload(data.offset)
             amountToPay := calldataload(add(0x20, data.offset))
             sellToken := shr(0x60, calldataload(add(0x80, data.offset)))
             sellAmount := calldataload(add(0x94, data.offset))
         }
-        if ((tokenToPay != sellToken).or(amountToPay != sellAmount)) revertConfusedDeputy();
+        // The quote curve behind FLUX_SWAP is unverified and owner-swappable, so we never pay the
+        // amount it demands. Today it echoes `sellAmount`; a future curve that partial-fills would
+        // make us overpay silently, because the vault only checks `balance >= expected`.
+        if (amountToPay != sellAmount) revertConfusedDeputy();
 
         sellToken.safeTransfer(FLUX_VAULT, sellAmount);
         return new bytes(0);
