@@ -7,6 +7,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertConfusedDeputy} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 interface IFluxSwap {
     function swapWithCallback(
@@ -39,7 +40,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
     {
         uint256 sellAmount;
         unchecked {
-            sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / BASIS;
+            sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
         }
 
         _setOperatorAndCall(

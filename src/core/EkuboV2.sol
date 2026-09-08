@@ -10,6 +10,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
@@ -219,7 +220,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     }
 
     function _ekuboPayV2(IERC20 sellToken, uint256 sellAmount) private returns (uint256 payment) {
-        if (sellToken == ETH_ADDRESS) {
+        if (address(sellToken) == Constants.ETH_ADDRESS) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -267,14 +268,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
-        (
-            bytes calldata newData,
-            State state,
-            NotesLib.Note[] memory notes,
-            ISignatureTransfer.PermitTransferFrom calldata permit,
-            bool isForwarded,
-            bytes calldata sig
-        ) = Decoder.initialize(data, hashMul, hashMod, address(this));
+        (bytes calldata newData, State state, NotesLib.Note[] memory notes,,,) =
+            Decoder.initialize(data, hashMul, hashMod, address(this));
         {
             NotePtr globalSell = state.globalSell();
             if (feeOnTransfer) {
@@ -310,7 +305,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             // `CORE` will throw.
             int256 amountSpecified;
             unchecked {
-                amountSpecified = int256((state.sell().amount() * (ppm & 0x7fffff)).unsafeDiv(BASIS));
+                amountSpecified = int256((state.sell().amount() * (ppm & 0x7fffff)).unsafeDiv(Constants.BASIS));
             }
 
             bool isToken1; // opposite of regular zeroForOne
@@ -319,16 +314,15 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 assembly ("memory-safe") {
                     let sellTokenShifted := shl(0x60, sellToken)
                     let buyTokenShifted := shl(0x60, buyToken)
-                    isToken1 :=
-                        or(
-                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
-                            and(
-                                iszero(
-                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
-                                ),
-                                lt(buyTokenShifted, sellTokenShifted)
-                            )
+                    isToken1 := or(
+                        eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
+                        and(
+                            iszero(
+                                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
+                            ),
+                            lt(buyTokenShifted, sellTokenShifted)
                         )
+                    )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
                 assembly ("memory-safe") {

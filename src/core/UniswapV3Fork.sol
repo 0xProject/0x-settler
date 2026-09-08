@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Ternary} from "../utils/Ternary.sol";
+import "./Constants.sol" as Constants;
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -124,7 +125,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             encodedPath,
             // We don't care about phantom overflow here because reserves are limited to 128
             // bits. Any token balance that would overflow here would also break UniV3.
-            (inputToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS),
+            (inputToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS),
             minBuyAmount,
             swapCallbackData
         );
@@ -347,8 +348,8 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             data.length := sub(data.length, 0x14)
             data.offset := add(0x14, data.offset)
             // We don't check for underflow/array-out-of-bounds here because the trusted inithash
-            // ensures that `data` was passed unmodified from `_updateSwapCallbackData`. Therefore,
-            // it is at least 40 bytes long.
+            // ensures that `data` was passed through unmodified from `sellToUniswapV3` or
+            // `sellToUniswapV3VIP`. Therefore, it is at least 40 bytes long.
         }
         uint256 sellAmount = (amount0Delta > 0).ternary(uint256(amount0Delta), uint256(amount1Delta));
         _pay(payer, sellAmount, data);

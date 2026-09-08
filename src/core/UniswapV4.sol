@@ -11,6 +11,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -301,7 +302,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
 
             params.zeroForOne = zeroForOne;
             unchecked {
-                params.amountSpecified = int256((state.sell().amount() * ppm).unsafeDiv(BASIS)).unsafeNeg();
+                params.amountSpecified = int256((state.sell().amount() * ppm).unsafeDiv(Constants.BASIS)).unsafeNeg();
             }
 
             BalanceDelta delta = IPoolManager(msg.sender).unsafeSwap(key, params, hookData);
@@ -360,7 +361,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                if (globalSellToken == ETH_ADDRESS) {
+                if (address(globalSellToken) == Constants.ETH_ADDRESS) {
                     IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
                     IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {

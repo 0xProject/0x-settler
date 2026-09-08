@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -115,7 +116,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * ppm / BASIS;
+                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * ppm / Constants.BASIS;
             }
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);
         }

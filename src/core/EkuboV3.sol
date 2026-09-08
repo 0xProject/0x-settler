@@ -10,6 +10,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, CompactTake} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
@@ -290,7 +291,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         bool isForwarded,
         bytes calldata sig
     ) private returns (uint256 payment) {
-        if (sellToken == ETH_ADDRESS) {
+        if (address(sellToken) == Constants.ETH_ADDRESS) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -374,7 +375,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             // given that deltas are `int128`. If it overflows an `int128`, `unsafeSwap` will throw.
             int256 amountSpecified;
             unchecked {
-                amountSpecified = int256((state.sell().amount() * (ppm & 0x7fffff)).unsafeDiv(BASIS));
+                amountSpecified = int256((state.sell().amount() * (ppm & 0x7fffff)).unsafeDiv(Constants.BASIS));
             }
 
             bool isToken1; // opposite of regular zeroForOne

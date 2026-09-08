@@ -6,6 +6,7 @@ import {InvalidOffset, revertConfusedDeputy, InvalidTarget} from "./SettlerError
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -26,9 +27,9 @@ abstract contract Basic is SettlerAbstract {
         bool success;
         bytes memory returnData;
         uint256 value;
-        if (sellToken == ETH_ADDRESS) {
+        if (address(sellToken) == Constants.ETH_ADDRESS) {
             unchecked {
-                value = (address(this).balance * ppm).unsafeDiv(BASIS);
+                value = (address(this).balance * ppm).unsafeDiv(Constants.BASIS);
             }
             if (data.length == 0) {
                 if (offset != 0) revert InvalidOffset();
@@ -47,8 +48,8 @@ abstract contract Basic is SettlerAbstract {
             // TODO: check for zero `ppm`
             if (offset != 0) revert InvalidOffset();
         } else {
-            // We treat `ppm > BASIS` as a GIGO error
-            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), ppm).unsafeDiv(BASIS);
+            // We treat `ppm > Constants.BASIS` as a GIGO error
+            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), ppm).unsafeDiv(Constants.BASIS);
 
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
