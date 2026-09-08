@@ -2,6 +2,9 @@
 
 ### Breaking changes
 
+* Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
+  proportion of surplus transferred
+
 ### Non-breaking changes
 
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
