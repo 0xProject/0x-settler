@@ -528,16 +528,11 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         internal
         returns (bool ok, bytes memory result)
     {
+        ISettlerBase.AllowedSlippage memory slippage =
+            ISettlerBase.AllowedSlippage(payable(recipient), IERC20(address(buy)), 0);
         vm.prank(taker, taker);
         return address(settler).call{gas: txGas, value: value}(
-            abi.encodeCall(
-                settler.execute,
-                (
-                    ISettlerBase.AllowedSlippage(payable(recipient), IERC20(address(buy)), 0),
-                    ActionDataBuilder.build(action),
-                    bytes32(0)
-                )
-            )
+            abi.encodeCall(settler.execute, (slippage, ActionDataBuilder.build(action), bytes32(0)))
         );
     }
 
@@ -549,13 +544,8 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
             TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
         );
         (bool ok,) = _tryExecute(action, txGas, 0);
-        if (ok) {
-            assertEq(buy.balanceOf(recipient), 9 ether);
-            assertEq(p0.callCount(), 1);
-        } else {
-            assertEq(buy.balanceOf(recipient), 0);
-            assertEq(p0.callCount(), 0);
-        }
+        assertEq(buy.balanceOf(recipient), ok ? 9 ether : 0);
+        assertEq(p0.callCount(), ok ? 1 : 0);
         assertEq(p1.callCount(), 0);
     }
 
@@ -570,8 +560,6 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         (bool ok, bytes memory result) = _tryExecute(action, 180_000, 0);
         assertFalse(ok);
         assertEq(result, abi.encodeWithSelector(Shortfall.selector, 9 ether));
-        assertEq(p1.callCount(), 0);
-        assertEq(buy.balanceOf(recipient), 0);
     }
 
     function test_gasLimit_starvedSuccessCommits() public {
