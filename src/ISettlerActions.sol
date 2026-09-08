@@ -228,9 +228,7 @@ interface ISettlerActions {
     ///      its score `target`. A score is the increase in the `token` balance held by Settler. A
     ///      zero `target` commits any non-reverting candidate. Native asset output only scores if
     ///      wrapped to wrapped-native in the candidate actions. Candidates must not contain
-    ///      `CHECK_SLIPPAGE` or `NATIVE_CHECK`. Put transaction-level checks outside SELECT: a
-    ///      trial sees zero `msg.value`, and a failed check reverts only that trial.
-    ///      `targets` are the per-candidate minimum outputs that terminate the
+    ///      `CHECK_SLIPPAGE` or `NATIVE_CHECK`. `targets` are the per-candidate minimum outputs that terminate the
     ///      trials (commit). `targets[i]` pairs with `candidates[i]`. `trialGasLimit` must be
     ///      nonzero and below 2**64. Each non-final trial requests exactly `trialGasLimit` gas;
     ///      the final candidate's action sequence gas consumption is uncapped.
