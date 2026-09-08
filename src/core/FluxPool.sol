@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {revertConfusedDeputy} from "./SettlerErrors.sol";
+import {revertExcessiveSellAmount} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 
 interface IFluxSwap {
@@ -56,8 +56,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
         uint256 amountToPay;
         IERC20 sellToken;
         uint256 sellAmount;
-        // Decode the callback and packed token/amount without allocating memory.
-        // Equivalent Solidity pseudocode:
+        // Read the callback amount and our packed token/amount without allocating memory.
         // (, amountToPay, bytes memory callbackData) = abi.decode(data, (IERC20, uint256, bytes));
         // sellToken = IERC20(address(bytes20(callbackData[:20]))); sellAmount = uint256(bytes32(callbackData[20:]));
         assembly ("memory-safe") {
@@ -65,12 +64,10 @@ abstract contract FluxPool is SettlerSwapAbstract {
             sellToken := shr(0x60, calldataload(add(0x80, data.offset)))
             sellAmount := calldataload(add(0x94, data.offset))
         }
-        // The quote curve behind FLUX_SWAP is unverified and owner-swappable, so we never pay the
-        // amount it demands. Today it echoes `sellAmount`; a future curve that partial-fills would
-        // make us overpay silently, because the vault only checks `balance >= expected`.
-        if (amountToPay != sellAmount) revertConfusedDeputy();
+        // The curve is unverified and swappable by the owner, so never pay more than we offered.
+        if (amountToPay > sellAmount) revertExcessiveSellAmount(sellToken, sellAmount, amountToPay);
 
-        sellToken.safeTransfer(FLUX_VAULT, sellAmount);
+        sellToken.safeTransfer(FLUX_VAULT, amountToPay);
         return new bytes(0);
     }
 }

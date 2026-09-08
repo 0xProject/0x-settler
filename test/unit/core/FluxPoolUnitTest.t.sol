@@ -7,23 +7,18 @@ import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 import {BnbSettler} from "src/chains/Bnb/TakerSubmitted.sol";
 import {FLUX_SWAP, FLUX_VAULT, IFluxSwap, IFluxSwapCallback} from "src/core/FluxPool.sol";
-import {ConfusedDeputy} from "src/core/SettlerErrors.sol";
+import {ExcessiveSellAmount} from "src/core/SettlerErrors.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
 
 contract FluxSwapMock {
-    enum CallbackMode {
-        Normal,
-        WrongAmount
-    }
-
-    CallbackMode internal callbackMode;
+    int256 internal callbackDelta;
     IERC20 internal buyToken;
     uint256 internal buyAmount;
 
-    function configure(CallbackMode callbackMode_, IERC20 buyToken_, uint256 buyAmount_) external {
-        callbackMode = callbackMode_;
+    function configure(int256 callbackDelta_, IERC20 buyToken_, uint256 buyAmount_) external {
+        callbackDelta = callbackDelta_;
         buyToken = buyToken_;
         buyAmount = buyAmount_;
     }
@@ -36,8 +31,8 @@ contract FluxSwapMock {
 
         IERC20 sellToken = IERC20(address(bytes20(callbackData[:20])));
         uint256 sellAmount = uint256(bytes32(callbackData[20:]));
-        uint256 callbackAmount = callbackMode == CallbackMode.WrongAmount ? sellAmount + 1 : sellAmount;
-        IFluxSwapCallback(msg.sender).fluxSwapCallback(sellToken, callbackAmount, callbackData);
+        uint256 amountToPay = uint256(int256(sellAmount) + callbackDelta);
+        IFluxSwapCallback(msg.sender).fluxSwapCallback(sellToken, amountToPay, callbackData);
         return buyAmount;
     }
 }
@@ -64,7 +59,7 @@ contract FluxPoolUnitTest is Test {
         buyToken_.mint(FLUX_SWAP, BUY_AMOUNT);
         sellToken = IERC20(address(sellToken_));
         buyToken = IERC20(address(buyToken_));
-        fluxSwap.configure(FluxSwapMock.CallbackMode.Normal, buyToken, BUY_AMOUNT);
+        fluxSwap.configure(0, buyToken, BUY_AMOUNT);
     }
 
     function testFuzzFluxPoolPaysComputedAmount(uint96 sellBalance, uint24 ppm_) public {
@@ -87,10 +82,17 @@ contract FluxPoolUnitTest is Test {
         assertEq(buyToken.balanceOf(address(settler)), BUY_AMOUNT);
     }
 
-    function testFluxPoolRejectsWrongCallbackAmount() public {
-        fluxSwap.configure(FluxSwapMock.CallbackMode.WrongAmount, buyToken, BUY_AMOUNT);
-        vm.expectRevert(ConfusedDeputy.selector);
+    function testFluxPoolRejectsOverpayment() public {
+        fluxSwap.configure(1, buyToken, BUY_AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(ExcessiveSellAmount.selector, sellToken, SELL_BALANCE, SELL_BALANCE + 1));
         _execute(1_000_000, 0);
+    }
+
+    function testFluxPoolPaysPartialFill() public {
+        fluxSwap.configure(-1, buyToken, BUY_AMOUNT);
+        _execute(1_000_000, 0);
+        assertEq(sellToken.balanceOf(FLUX_VAULT), SELL_BALANCE - 1);
+        assertEq(sellToken.balanceOf(address(settler)), 1);
     }
 
     function _execute(uint256 ppm, uint256 minBuyAmount) private {
