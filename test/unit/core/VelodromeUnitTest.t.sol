@@ -42,7 +42,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata)
         internal
         pure
         override
@@ -51,7 +51,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory)
         internal
         pure
         override
@@ -60,7 +60,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory, address)
+    function _permitToTransferDetails(address, ISignatureTransfer.PermitTransferFrom memory, address)
         internal
         pure
         override

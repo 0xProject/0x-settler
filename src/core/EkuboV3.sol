@@ -341,7 +341,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             if (payer != address(this)) {
                 globalSell.setAmount(
                     _permitToSellAmountCalldata(
-                        address(0) /* sentinel for `_msgSender()` */
+                        address(0) /* sentinel for `_msgSender()` */,
                         permit
                     )
                 );
