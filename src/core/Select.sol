@@ -9,6 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {revertActionInvalid} from "./SettlerErrors.sol";
+import "./Constants.sol" as Constants;
 
 /// @notice Ordered candidate-route selection by revertable self-calls.
 abstract contract Select is SettlerSwapAbstract {
@@ -45,9 +46,12 @@ abstract contract Select is SettlerSwapAbstract {
         // assets held by Settler. This is outside SELECT's threat model. Final slippage still
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
-        uint256 balBefore = token.fastBalanceOf(address(this));
+        uint256 balBefore =
+            address(token) == Constants.ETH_ADDRESS ? address(this).balance : token.fastBalanceOf(address(this));
         _runActions(actions);
-        uint256 score = token.fastBalanceOf(address(this)) - balBefore;
+        uint256 score =
+            (address(token) == Constants.ETH_ADDRESS ? address(this).balance : token.fastBalanceOf(address(this)))
+                - balBefore;
         if (score < minOut) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`
