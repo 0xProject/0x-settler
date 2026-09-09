@@ -43,7 +43,7 @@ abstract contract Select is SettlerSwapAbstract {
             minOut := calldataload(add(0x40, data.offset))
         }
         // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
-        // assets held by Settler. This is outside SELECT's threat model. Final slippage still
+        // assets held by Settler. This is outside `SELECT`'s threat model. Final slippage still
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         uint256 balBefore = Constants.compatBalance(token, address(this));
