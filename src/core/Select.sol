@@ -140,7 +140,8 @@ abstract contract Select is SettlerSwapAbstract {
 
             unchecked {
                 if ((beforeGas < beforeGasThreshold).or(isLast)) {
-                    // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it.
+                    // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and
+                    // bubble it.
                     assembly ("memory-safe") {
                         let ptr := mload(0x40)
                         returndatacopy(ptr, 0x00, returndatasize())
