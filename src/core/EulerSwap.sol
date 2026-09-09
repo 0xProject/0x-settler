@@ -659,9 +659,13 @@ library EulerSwapLib {
             }
         }
 
+        // The pool deposits the fee too, so the headroom caps the gross input.
         unchecked {
-            inLimit = (inLimitFromOutLimit < inLimit).ternary(inLimitFromOutLimit, inLimit);
-            inLimit = (inLimit * 1e18).unsafeDiv(1e18 - p.fee());
+            uint256 netHeadroom = (inLimit * (1e18 - p.fee())).unsafeDiv(1e18);
+            // Comparing net amounts keeps a saturated curve bound out of the multiplication.
+            if (inLimitFromOutLimit < netHeadroom) {
+                inLimit = (inLimitFromOutLimit * 1e18).unsafeDiv(1e18 - p.fee());
+            }
         }
     }
 
@@ -907,7 +911,7 @@ abstract contract EulerSwap is SettlerSwapAbstract {
         // EulerSwap.
         ParamsLib.Params p = pool.fastGetParams();
         (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
-        (uint256 inLimit,) = EulerSwapLib.calcLimits(_EVC(), pool, zeroForOne, p, reserve0, reserve1);
+        (uint256 inLimit, uint256 outLimit) = EulerSwapLib.calcLimits(_EVC(), pool, zeroForOne, p, reserve0, reserve1);
 
         uint256 sellAmount;
         if (ppm != 0) {
@@ -929,6 +933,8 @@ abstract contract EulerSwap is SettlerSwapAbstract {
 
         // solve the constant function
         uint256 amountOut = EulerSwapLib.findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
+        // Curve rounding can quote more than the output limit, so cap the quote.
+        amountOut = (amountOut > outLimit).ternary(outLimit, amountOut);
 
         // check slippage before swapping to save some sad-path gas
         if (amountOut < amountOutMin) {
