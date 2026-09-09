@@ -62,7 +62,7 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 abi.decode(data, (address, uint256, address, bytes));
             // Swaps are going to be directed to Settler, so `settler` must be an active settler
             _requireValidSettler(settler);
-            if (token == address(Constants.ETH_ADDRESS)) {
+            if (Constants.isNative(token)) {
                 // Native token swap
                 // Settler address was validated to be a correct settler, so we pass the
                 // arbitrary data as we know it is not a restricted target.

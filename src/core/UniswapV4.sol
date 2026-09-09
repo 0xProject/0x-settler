@@ -361,7 +361,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                if (address(globalSellToken) == Constants.ETH_ADDRESS) {
+                if (Constants.isNative(globalSellToken)) {
                     IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
                     IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {

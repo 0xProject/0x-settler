@@ -84,7 +84,7 @@ abstract contract Renegade is SettlerSwapAbstract {
             buyAmt := mload(0x00)
         }
 
-        if (!refundNativeEth || address(buyToken) == Constants.ETH_ADDRESS) {
+        if (!refundNativeEth || Constants.isNative(buyToken)) {
             buyAmt = buyAmt.saturatingSub(maxRefundAmount);
         }
         if (buyAmt < minBuyAmount) revertTooMuchSlippage(buyToken, minBuyAmount, buyAmt);

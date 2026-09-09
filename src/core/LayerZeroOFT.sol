@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {ETH_ADDRESS} from "./Constants.sol";
+import "./Constants.sol" as Constants;
 
 interface IOFT {
     event OFTSent(
@@ -87,7 +87,7 @@ contract LayerZeroOFT {
             nativeFee := mload(add(0x40, sendData))
         }
 
-        if (address(token) == ETH_ADDRESS) {
+        if (Constants.isNative(token)) {
             uint256 value = address(this).balance;
             updatedInputAmount = value - nativeFee;
 

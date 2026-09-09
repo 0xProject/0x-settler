@@ -569,7 +569,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                if (address(globalSellToken) == Constants.ETH_ADDRESS) {
+                if (Constants.isNative(globalSellToken)) {
                     IPancakeInfinityVault(msg.sender).unsafeSync(IERC20(address(0)));
                     IPancakeInfinityVault(msg.sender).unsafeSettle(debt);
                 } else {

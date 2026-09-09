@@ -98,13 +98,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        bool isETH = (address(buyToken) == Constants.ETH_ADDRESS);
-        uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
+        uint256 amountOut = Constants.compatBalance(buyToken, address(this));
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
         amountOut = transferExactLimit.ternary(minAmountOut, amountOut);
-        if (isETH) {
+        if (Constants.isNative(buyToken)) {
             recipient.safeTransferETH(amountOut);
         } else {
             buyToken.safeTransfer(recipient, amountOut);
@@ -160,8 +159,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256));
-            bool isETH = (address(token) == Constants.ETH_ADDRESS);
-            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            uint256 balance = Constants.compatBalance(token, address(this));
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
@@ -169,7 +167,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                     balance -= expectedAmount;
                 }
                 balance = (balance > cap).ternary(cap, balance);
-                if (isETH) {
+                if (Constants.isNative(token)) {
                     recipient.safeTransferETH(balance);
                 } else {
                     token.safeTransfer(recipient, balance);
