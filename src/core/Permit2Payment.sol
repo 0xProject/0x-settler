@@ -249,14 +249,18 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         }
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+    function _permitToTransferDetails(
+        address owner,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address recipient
+    )
         internal
         view
         override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
     {
         transferDetails.to = recipient;
-        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(permit);
+        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(owner, permit);
     }
 
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use
@@ -364,32 +368,36 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         assert(!_hasMetaTxn());
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         override
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        unchecked {
-            if (~sellAmount < Constants.BASIS) {
-                sellAmount = Constants.BASIS - ~sellAmount;
+        if (~sellAmount < Constants.BASIS) {
+            if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
+                unchecked {
+                    sellAmount = Constants.BASIS - ~sellAmount;
+                }
                 sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
                     .unsafeDiv(Constants.BASIS);
             }
         }
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         override
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        unchecked {
-            if (~sellAmount < Constants.BASIS) {
-                sellAmount = Constants.BASIS - ~sellAmount;
+        if (~sellAmount < Constants.BASIS) {
+            if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
+                unchecked {
+                    sellAmount = Constants.BASIS - ~sellAmount;
+                }
                 sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
                     .unsafeDiv(Constants.BASIS);
             }
@@ -558,7 +566,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         );
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         virtual
@@ -568,7 +576,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         return permit.permitted.amount;
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
@@ -648,35 +656,38 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =
         0xe98f46388916ca2f096ea767dc04dddb45d2ca2c2f44e7bcc529d6aded9c11f0;
 
-    function _toCanonicalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
+    function _toCanonicalSellAmount(address owner, IERC20 token, uint256 sellAmount) private view returns (uint256) {
         unchecked {
             if (~sellAmount < Constants.BASIS) {
-                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                    sellAmount = Constants.BASIS - ~sellAmount;
-                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(Constants.BASIS);
+                if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
+                    owner = _msgSender();
+                    if (owner.codehash == _BRIDGE_WALLET_CODEHASH) {
+                        sellAmount = Constants.BASIS - ~sellAmount;
+                        sellAmount = tmp().omul(token.fastBalanceOf(owner), sellAmount).unsafeDiv(Constants.BASIS);
+                    }
                 }
             }
         }
         return sellAmount;
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         virtual
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
+        sellAmount = _toCanonicalSellAmount(owner, IERC20(permit.permitted.token), permit.permitted.amount);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
+        sellAmount = _toCanonicalSellAmount(owner, IERC20(permit.permitted.token), permit.permitted.amount);
     }
 }

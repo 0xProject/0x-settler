@@ -480,7 +480,12 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         {
             NotePtr globalSell = state.globalSell();
             if (payer != address(this)) {
-                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+                globalSell.setAmount(
+                    _permitToSellAmountCalldata(
+                        address(0) /* sentinel for `_msgSender()` */,
+                        permit
+                    )
+                );
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(
