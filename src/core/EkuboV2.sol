@@ -448,5 +448,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             sellAmount := calldataload(add(0x40, data.offset))
         }
         sellToken.safeTransfer(msg.sender, sellAmount);
+
+        return new bytes(0);
     }
 }
