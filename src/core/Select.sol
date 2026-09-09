@@ -8,6 +8,7 @@ import {CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import {Ternary} from "../utils/Ternary.sol";
 import {revertActionInvalid} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 
@@ -16,6 +17,7 @@ abstract contract Select is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using FastLogic for bool;
+    using Ternary for bool;
     using CalldataDecoder for bytes[];
 
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
@@ -61,7 +63,6 @@ abstract contract Select is SettlerSwapAbstract {
 
     function select(bytes calldata data) internal {
         uint256 gasCap;
-        address token;
         uint256 targetsData;
         uint256 candsData;
         uint256 candsLength;
@@ -76,7 +77,7 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             err := or(or(shr(0x40, gasCap), iszero(gasCap)), err)
-            token := calldataload(add(0x20, dataStart))
+            let token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
 
             let targetsOffset := calldataload(add(0x40, dataStart))
@@ -106,10 +107,16 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(0x40, add(dst, candsLength))
         }
 
-        for (uint256 i; i < n; i = i.unsafeInc()) {
-            uint256 gasLimit;
-            bool gasStarved;
-            bool isLast;
+        // The trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
+        // `_SELECT_OVERHEAD_GAS` of overhead between the gas measurement and the `CALL`: `C +
+        // floor(C/63)` forwards exactly `C`.
+        uint256 beforeGasThreshold;
+        unchecked {
+            beforeGasThreshold = _SELECT_OVERHEAD_GAS + gasCap + gasCap / 63;
+        }
+
+        uint256 i;
+        while (true) {
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target. The token, selector, length, and copied region remain unchanged.
             assembly ("memory-safe") {
@@ -117,27 +124,28 @@ abstract contract Select is SettlerSwapAbstract {
                 if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
                 mstore(add(0x24, callData), add(0x60, offset))
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
-
-                isLast := eq(add(0x01, i), n)
-
-                gasLimit := gas()
-                // The trial is fully funded when EIP-150's clamp still forwards the whole
-                // `gasCap` after `_SELECT_OVERHEAD_GAS` of overhead between this measurement and
-                // the `CALL`: `C + floor(C/63)` forwards exactly `C`.
-                gasStarved := gt(add(_SELECT_OVERHEAD_GAS, add(gasCap, div(gasCap, 0x3f))), gasLimit)
-                gasLimit := xor(gasCap, mul(xor(gasCap, gasLimit), isLast))
             }
+
+            unchecked {
+                i++;
+            }
+            bool isLast = i == n;
+            uint256 beforeGas = gasleft();
+            uint256 gasLimit = isLast.ternary(beforeGas, gasCap);
 
             if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
             {
                 break;
             }
-            if (gasStarved.or(isLast)) {
-                // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it.
-                assembly ("memory-safe") {
-                    let ptr := mload(0x40)
-                    returndatacopy(ptr, 0x00, returndatasize())
-                    revert(ptr, returndatasize())
+
+            unchecked {
+                if ((beforeGas < beforeGasThreshold).or(isLast)) {
+                    // Copy final-trial returndata to `[ptr, ptr + returndatasize())` and bubble it.
+                    assembly ("memory-safe") {
+                        let ptr := mload(0x40)
+                        returndatacopy(ptr, 0x00, returndatasize())
+                        revert(ptr, returndatasize())
+                    }
                 }
             }
         }
