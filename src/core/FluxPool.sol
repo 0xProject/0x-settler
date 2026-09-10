@@ -41,15 +41,25 @@ abstract contract FluxPool is SettlerSwapAbstract {
             sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
         }
 
-        _setOperatorAndCall(
-            FLUX_SWAP,
-            abi.encodeCall(
-                IFluxSwap.swapWithCallback,
-                (poolId, zeroForOne, sellAmount, minBuyAmount, address(this), abi.encodePacked(sellToken, sellAmount))
-            ),
-            uint32(IFluxSwapCallback.fluxSwapCallback.selector),
-            _fluxSwapCallback
-        );
+        // Equivalent to `abi.encodeCall(IFluxSwap.swapWithCallback, (poolId, zeroForOne, sellAmount, minBuyAmount,
+        // address(this), abi.encodePacked(sellToken, sellAmount)))`, but tightly packed and canonicalizing `zeroForOne`.
+        bytes memory data;
+        assembly ("memory-safe") {
+            data := mload(0x40)
+            mstore(add(0x104, data), shl(0x60, sellToken))
+            mstore(add(0x118, data), sellAmount)
+            mstore(add(0xe4, data), 0x34)
+            mstore(add(0xc4, data), 0xc0)
+            mstore(add(0xa4, data), address())
+            mstore(add(0x84, data), minBuyAmount)
+            mstore(add(0x64, data), sellAmount)
+            mstore(add(0x44, data), lt(0x00, zeroForOne))
+            mstore(add(0x24, data), poolId)
+            mstore(add(0x04, data), 0x3dd88329) // selector for `swapWithCallback(bytes32,bool,uint256,uint256,address,bytes)`
+            mstore(data, 0x118)
+            mstore(0x40, add(0x138, data))
+        }
+        _setOperatorAndCall(FLUX_SWAP, data, uint32(IFluxSwapCallback.fluxSwapCallback.selector), _fluxSwapCallback);
     }
 
     function _fluxSwapCallback(bytes calldata data) private returns (bytes memory) {

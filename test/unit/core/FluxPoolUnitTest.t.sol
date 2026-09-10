@@ -68,11 +68,12 @@ contract FluxPoolUnitTest is Test {
         deal(address(sellToken), address(settler), sellBalance);
 
         uint256 sellAmount = uint256(sellBalance) * ppm / 1_000_000;
+        // Tightly packed: no ABI padding after the 52-byte callback data.
         vm.expectCall(
             FLUX_SWAP,
-            abi.encodeCall(
-                IFluxSwap.swapWithCallback,
-                (POOL_ID, true, sellAmount, 0, address(settler), abi.encodePacked(sellToken, sellAmount))
+            abi.encodePacked(
+                IFluxSwap.swapWithCallback.selector, POOL_ID, uint256(1), sellAmount, uint256(0),
+                uint256(uint160(address(settler))), uint256(0xc0), uint256(0x34), sellToken, sellAmount
             )
         );
         _execute(ppm, 0);
