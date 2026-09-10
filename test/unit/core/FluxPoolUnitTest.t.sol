@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+import {Test} from "@forge-std/Test.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
+
+import {BnbSettler} from "src/chains/Bnb/TakerSubmitted.sol";
+import {FLUX_SWAP, FLUX_VAULT, IFluxSwap, IFluxSwapCallback} from "src/core/FluxPool.sol";
+import {ExcessiveSellAmount} from "src/core/SettlerErrors.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {ActionDataBuilder} from "test/utils/ActionDataBuilder.sol";
+
+contract FluxSwapMock {
+    int256 internal callbackDelta;
+    IERC20 internal buyToken;
+    uint256 internal buyAmount;
+
+    function configure(int256 callbackDelta_, IERC20 buyToken_, uint256 buyAmount_) external {
+        callbackDelta = callbackDelta_;
+        buyToken = buyToken_;
+        buyAmount = buyAmount_;
+    }
+
+    function swapWithCallback(bytes32, bool, uint256, uint256, address swapReceiver, bytes calldata callbackData)
+        external
+        returns (uint256 amountOut)
+    {
+        if (buyAmount != 0) buyToken.transfer(swapReceiver, buyAmount);
+
+        IERC20 sellToken = IERC20(address(bytes20(callbackData[:20])));
+        uint256 sellAmount = uint256(bytes32(callbackData[20:]));
+        uint256 amountToPay = uint256(int256(sellAmount) + callbackDelta);
+        IFluxSwapCallback(msg.sender).fluxSwapCallback(sellToken, amountToPay, callbackData);
+        return buyAmount;
+    }
+}
+
+contract FluxPoolUnitTest is Test {
+    uint256 private constant SELL_BALANCE = 100 ether;
+    uint256 private constant BUY_AMOUNT = 30 ether;
+    bytes32 private constant POOL_ID = keccak256("pool");
+
+    BnbSettler private settler;
+    FluxSwapMock private fluxSwap;
+    IERC20 private sellToken;
+    IERC20 private buyToken;
+
+    function setUp() public {
+        settler = new BnbSettler(bytes20(0));
+        FluxSwapMock implementation = new FluxSwapMock();
+        vm.etch(FLUX_SWAP, address(implementation).code);
+        fluxSwap = FluxSwapMock(FLUX_SWAP);
+
+        MockERC20 sellToken_ = new MockERC20("Sell", "SELL", 18);
+        MockERC20 buyToken_ = new MockERC20("Buy", "BUY", 18);
+        sellToken_.mint(address(settler), SELL_BALANCE);
+        buyToken_.mint(FLUX_SWAP, BUY_AMOUNT);
+        sellToken = IERC20(address(sellToken_));
+        buyToken = IERC20(address(buyToken_));
+        fluxSwap.configure(0, buyToken, BUY_AMOUNT);
+    }
+
+    function testFuzzFluxPoolPaysComputedAmount(uint96 sellBalance, uint24 ppm_) public {
+        sellBalance = uint96(bound(sellBalance, 1_000_000, type(uint96).max));
+        uint256 ppm = bound(ppm_, 1, 1_000_000);
+        deal(address(sellToken), address(settler), sellBalance);
+
+        uint256 sellAmount = uint256(sellBalance) * ppm / 1_000_000;
+        // Tightly packed: no ABI padding after the 52-byte callback data.
+        vm.expectCall(
+            FLUX_SWAP,
+            abi.encodePacked(
+                IFluxSwap.swapWithCallback.selector, POOL_ID, uint256(1), sellAmount, uint256(0),
+                uint256(uint160(address(settler))), uint256(0xc0), uint256(0x34), sellToken, sellAmount
+            )
+        );
+        _execute(ppm, 0);
+
+        assertEq(sellToken.balanceOf(FLUX_VAULT), sellAmount);
+        assertEq(sellToken.balanceOf(address(settler)), sellBalance - sellAmount);
+        assertEq(buyToken.balanceOf(address(settler)), BUY_AMOUNT);
+    }
+
+    function testFluxPoolRejectsOverpayment() public {
+        fluxSwap.configure(1, buyToken, BUY_AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(ExcessiveSellAmount.selector, sellToken, SELL_BALANCE, SELL_BALANCE + 1));
+        _execute(1_000_000, 0);
+    }
+
+    function testFluxPoolPaysPartialFill() public {
+        fluxSwap.configure(-1, buyToken, BUY_AMOUNT);
+        _execute(1_000_000, 0);
+        assertEq(sellToken.balanceOf(FLUX_VAULT), SELL_BALANCE - 1);
+        assertEq(sellToken.balanceOf(address(settler)), 1);
+    }
+
+    function _execute(uint256 ppm, uint256 minBuyAmount) private {
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.FLUXPOOL, (address(sellToken), ppm, POOL_ID, true, minBuyAmount))
+        );
+        ISettlerBase.AllowedSlippage memory slippage;
+        settler.execute(slippage, actions, bytes32(0));
+    }
+}
