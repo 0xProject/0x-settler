@@ -46,9 +46,9 @@ abstract contract FluxPool is SettlerSwapAbstract {
         bytes memory data;
         assembly ("memory-safe") {
             data := mload(0x40)
-            mstore(add(0x104, data), shl(0x60, sellToken))
             mstore(add(0x118, data), sellAmount)
-            mstore(add(0xe4, data), 0x34)
+            mstore(add(0xf8, data), sellToken)
+            mstore(add(0xe4, data), 0x34) // callbackData length, with `sellToken`'s padding
             mstore(add(0xc4, data), 0xc0)
             mstore(add(0xa4, data), address())
             mstore(add(0x84, data), minBuyAmount)
@@ -66,7 +66,8 @@ abstract contract FluxPool is SettlerSwapAbstract {
         uint256 amountToPay;
         IERC20 sellToken;
         uint256 sellAmount;
-        // Read the callback amount and our packed token/amount without allocating memory.
+        // Read the callback amount and our packed token/amount without allocating memory. `tokenToPay`
+        // comes from the curve, which the owner can swap, so we pay our own `sellToken`.
         // (, amountToPay, bytes memory callbackData) = abi.decode(data, (IERC20, uint256, bytes));
         // sellToken = IERC20(address(bytes20(callbackData[:20]))); sellAmount = uint256(bytes32(callbackData[20:]));
         assembly ("memory-safe") {
