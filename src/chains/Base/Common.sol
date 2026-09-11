@@ -253,7 +253,7 @@ abstract contract BaseMixin is
         return BASE_POOL_MANAGER;
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
+    function _PANCAKE_INFINITY_VAULT(uint256) internal pure override returns (address) {
         return pancakeInfinityVault;
     }
 
