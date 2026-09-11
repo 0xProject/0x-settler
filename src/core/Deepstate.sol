@@ -5,8 +5,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
-import {tmp} from "../utils/512Math.sol";
+import {tmp, uint512} from "../utils/512Math.sol";
 import {ETH_ADDRESS, BASIS} from "./Constants.sol";
+import {Panic} from "../utils/Panic.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -113,11 +114,13 @@ abstract contract Deepstate is SettlerSwapAbstract {
         (IERC20 token0, IERC20 token1) = isBid.maybeSwap(sellToken, buyToken);
 
         // Orders are sized in `token0`. A bid spends `token1`, so the sell amount is converted through the
-        // reciprocal of the limit price, which bounds the engine's debit by the sell amount. The one wei the
-        // engine can add when it partially consumes an ask is absorbed by the caller taking `inversePriceX128`
-        // one tick past the limit.
+        // reciprocal of the limit price, which bounds the engine's debit by the sell amount.
         if (isBid) {
-            (, sellAmount) = tmp().omul(sellAmount, inversePriceX128).ishr(128).into();
+            uint512 quantity = tmp().omul(sellAmount, inversePriceX128).ishr(128);
+            (, sellAmount) = quantity.into();
+            if (quantity.ishr(160).gt(0)) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
         }
 
         ROBINHOOD_DEEPSTATE.fastFill(sendNative.orZero(sellAmount), token0, token1, epoch, tick, sellAmount, isBid);

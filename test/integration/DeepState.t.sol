@@ -29,16 +29,14 @@ contract DeepstateTest is SettlerBasePairTest {
 
     int32 private constant BEST_BID_TICK = 716_188_984;
     int32 private constant BEST_ASK_TICK = 716_289_359;
-    // `floor(2**128 / price(BEST_ASK_TICK + 1))`: one tick past the limit so the engine's per-order round-up
-    // cannot push the debit above the sell amount.
-    uint256 private constant BEST_ASK_INVERSE_PRICE_X128 = 78_103_310_434_117_611_415_401_968_284;
+    // `floor(2**(128 + shift) / factor)` for `(factor, shift) = TickMath32.getPriceFactorAtTick(BEST_ASK_TICK)`.
+    uint256 private constant BEST_ASK_INVERSE_PRICE_X128 = 78_103_312_854_234_136_941_236_347_671;
 
-    // The engine's quote for 1,000 USDG at the best bid before the fee, one wei above the ideal
-    // `1e9 * price(BEST_BID_TICK)` because of its Q128 price factor rounding.
+    // 1,000 USDG sold at the best bid pays the bid's notional rounded up, `ceil(1e9 * factor / 2**shift)`, before the fee.
     uint256 private constant ASK_GROSS_OUT = 4_343_294_062_042_169_240;
     // 1 NVDA buys `1e18 * BEST_ASK_INVERSE_PRICE_X128 >> 128` USDG from the best ask.
     uint256 private constant BID_SELL_AMOUNT = 1 ether;
-    uint256 private constant BID_GROSS_OUT = 229_525_000;
+    uint256 private constant BID_GROSS_OUT = 229_525_007;
 
     function _testName() internal pure override returns (string memory) {
         return "USDG-NVDA";
@@ -106,9 +104,10 @@ contract DeepstateTest is SettlerBasePairTest {
         assertEq(toToken().balanceOf(address(settler)), 0, "settler output residue");
     }
 
-    /// @dev The engine sizes bids in USDG, so the NVDA sell amount is converted through the inverse of the limit
-    /// price. Everything matches at the best ask, which is one tick under the sizing price, so a sliver of NVDA
-    /// is left unspent in the Settler.
+    /// @dev The engine sizes bids in USDG, so the NVDA sell amount is converted through the reciprocal of the limit
+    /// price. The whole quantity matches part of the best ask, and the engine bills the difference between the
+    /// ask's notional before and after the fill, each rounded down. Here that carries one wei above the exact
+    /// quote, still within the sell amount; the remainder is left in the Settler.
     function testDeepstate_bid() public {
         uint256 expectedOut = _netOfFee(BID_GROSS_OUT);
         uint256 engineBalanceBefore = toToken().balanceOf(address(DEEPSTATE));
@@ -135,7 +134,7 @@ contract DeepstateTest is SettlerBasePairTest {
         uint256 spent = toToken().balanceOf(address(DEEPSTATE)) - engineBalanceBefore;
         assertEq(fromToken().balanceOf(FROM) - amount(), expectedOut, "taker output");
         assertEq(spent + toToken().balanceOf(address(settler)), BID_SELL_AMOUNT, "sell amount accounted for");
-        assertLe(BID_SELL_AMOUNT - spent, BID_SELL_AMOUNT / 1e6, "unspent sliver above one tick of price");
+        assertLe(spent, BID_SELL_AMOUNT, "debit bounded by sell amount");
         assertEq(fromToken().balanceOf(address(settler)), 0, "settler output residue");
     }
 
