@@ -25,8 +25,14 @@ import {
 } from "src/core/EulerSwap.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {IEulerSwapFactory} from "@eulerswap/interfaces/IEulerSwapFactory.sol";
+import {IEulerSwap as IEulerSwapV1} from "@eulerswap/interfaces/IEulerSwap.sol";
 
 IEVC constant EVC = IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
+
+interface IEVCOperator {
+    function setAccountOperator(address account, address operator, bool authorized) external payable;
+}
 
 abstract contract EulerSwapTest is AllowanceHolderPairTest {
     using SafeTransferLib for IERC20;
@@ -171,6 +177,62 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
         assertEq(afterBalanceFrom + eulerSwapAmount(), beforeBalanceFrom);
+    }
+
+    function _limits(IEulerSwap pool) private view returns (uint256 inLimit, uint256 outLimit) {
+        (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
+        return EulerSwapLib.calcLimits(EVC, pool, true, pool.fastGetParams(), reserve0, reserve1);
+    }
+
+    function _deposit(IEVault vault, address receiver, uint256 amount) private {
+        deal(address(vault.fastAsset()), address(this), amount);
+        vault.fastAsset().safeApprove(address(vault), amount);
+        vault.deposit(amount, receiver);
+    }
+
+    function _sellAtInputLimit(IEulerSwap pool) private returns (uint256 received) {
+        (uint256 inLimit,) = _limits(pool);
+        deal(address(fromToken()), FROM, inLimit + 1);
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2(inLimit + 1);
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
+            abi.encodeCall(ISettlerActions.EULERSWAP, (FROM, address(fromToken()), 1_000_000, address(pool), true, 0))
+        );
+        uint256 before = toToken().balanceOf(FROM);
+        vm.prank(FROM, FROM);
+        settler.execute(ISettlerBase.AllowedSlippage(payable(address(0)), IERC20(address(0)), 0), actions, bytes32(0));
+        return toToken().balanceOf(FROM) - before;
+    }
+
+    // Leave headroom for the net input, but not its fee.
+    function testEulerSwapAtSupplyCap() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwap pool = IEulerSwap(eulerSwapPool());
+        ParamsLib.Params params = pool.fastGetParams();
+        (uint256 grossBound,) = _limits(pool);
+        uint256 headroom = params.vault0().fastMaxDeposit(params.eulerAccount());
+        _deposit(params.vault0(), address(this), headroom - grossBound * (1e18 - params.fee()) / 1e18);
+        assertGt(_sellAtInputLimit(pool), 0);
+    }
+
+    // At 1000:1, curve rounding quotes more than the output vault's cash.
+    function testEulerSwapAtOutputCash() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
+        IEulerSwapV1.Params memory params = IEulerSwapV1(eulerSwapPool()).getParams();
+        // Enough collateral for the account to borrow the whole output cash at the skewed price.
+        _deposit(IEVault(params.vault0), params.eulerAccount, 40_000_000e6);
+        (params.priceX, params.priceY) = (1000e18, 1e18);
+        IEulerSwap pool = IEulerSwap(0xf462e46E0AF6cD3E5dD6231F5F8Fba562940A8a8);
+        vm.startPrank(params.eulerAccount);
+        IEVCOperator(address(EVC)).setAccountOperator(params.eulerAccount, eulerSwapPool(), false);
+        IEVCOperator(address(EVC)).setAccountOperator(params.eulerAccount, address(pool), true);
+        IEulerSwapFactory(0xb013be1D0D380C13B58e889f412895970A2Cf228)
+            .deployPool(
+                params,
+                IEulerSwapV1.InitialState(params.equilibriumReserve0, params.equilibriumReserve1),
+                bytes32(uint256(734)) // gives the address the hook flag bits (0x28a8) the factory requires
+            );
+        vm.stopPrank();
+        (, uint256 outLimit) = _limits(pool);
+        assertEq(_sellAtInputLimit(pool), outLimit);
     }
 
     function testSolvencyCheck() public skipIf(eulerSwapPool() == address(0)) setEulerSwapBlock {
