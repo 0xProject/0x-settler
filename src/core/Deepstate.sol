@@ -63,8 +63,9 @@ library FastDeepstate {
             mstore(add(0x0c, ptr), 0x5d6222ab000000000000000000000000) // Selector for `fill((address,address,uint256,bytes32,bool,bool,bool))`, with `token0`'s padding.
 
             if iszero(call(gas(), deepstate, value, add(0x1c, ptr), 0xe4, 0x00, 0x00)) {
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
             }
         }
     }
@@ -93,9 +94,9 @@ abstract contract Deepstate is SettlerSwapAbstract {
         bool sendNative;
         assembly ("memory-safe") {
             // DeepState uses address(0) for native token
-            let shiftedXor := shl(0x60, xor(sellToken, ETH_ADDRESS))
-            sellToken := mul(sellToken, lt(0x00, shiftedXor))
-            buyToken := mul(buyToken, lt(0x00, shl(0x60, xor(buyToken, ETH_ADDRESS))))
+            let shiftedXor := shl(0x60, xor(ETH_ADDRESS, sellToken))
+            sellToken := mul(lt(0x00, shiftedXor), sellToken)
+            buyToken := mul(lt(0x00, shl(0x60, xor(ETH_ADDRESS, buyToken))), buyToken)
 
             sendNative := iszero(shiftedXor)
         }
