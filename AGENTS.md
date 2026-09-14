@@ -150,8 +150,9 @@ Chain-specific functionality is composed via mixins. When adding a new DEX:
 - Use `DANGEROUS_freeMemory` modifier sparingly (see `FreeMemory.sol`)
 
 ```bash
-npm run snapshot:main   # captures gas baseline from main
-npm run diff:main       # compares your branch vs. main
+# Regenerate snapshots (needs the *_RPC_URL variables), then compare against master
+FOUNDRY_PROFILE=integration forge test
+COMPARE_GIT_SHA=$(git merge-base HEAD master) npm run compare_gas
 ```
 
 ### Stack Too Deep Solutions
@@ -377,11 +378,8 @@ forge test
 # Check formatting
 forge fmt --check
 
-# Gas comparison (requires npm install)
-npm run compare_gas
-
-# Gas diff vs main
-npm run diff:main
+# Gas comparison vs master (requires npm install; snapshots come from the integration profile)
+COMPARE_GIT_SHA=$(git merge-base HEAD master) npm run compare_gas
 ```
 
 ### CI Workflow
@@ -455,7 +453,7 @@ non-idiomatic structure in order to achieve its goal.
 
 - Read relevant existing code before making changes
 - Write comments as current-state documentation only
-- Check gas impact with `npm run diff:main`
+- Check gas impact with `COMPARE_GIT_SHA=$(git merge-base HEAD master) npm run compare_gas`
 - Follow existing patterns in chain-specific code
 - Mark assembly blocks `memory-safe` when appropriate
 - Update both `_dispatch()` and `_dispatchVIP()` when adding VIP actions
