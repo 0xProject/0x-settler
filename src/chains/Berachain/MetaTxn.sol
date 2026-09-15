@@ -4,15 +4,9 @@ pragma solidity =0.8.34;
 import {BerachainMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {ISettlerActions} from "../../ISettlerActions.sol";
-
-// Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract BerachainSettlerMetaTxn is SettlerMetaTxn, BerachainMixin {
@@ -25,22 +19,7 @@ contract BerachainSettlerMetaTxn is SettlerMetaTxn, BerachainMixin {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatchVIP(action, data, sig)) {
-            return true;
-        } else {
-            return false;
-        }
-        return true;
-    }
-
-    // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
-        internal
-        virtual
-        override(SettlerBase, BerachainMixin)
-        returns (bool)
-    {
-        return super._dispatch(i, action, data, slippage);
+        return super._dispatchVIP(action, data, sig);
     }
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {

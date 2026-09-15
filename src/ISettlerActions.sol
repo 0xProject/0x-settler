@@ -303,15 +303,6 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function EULERSWAP(
-        address recipient,
-        address sellToken,
-        uint256 ppm,
-        address pool,
-        bool zeroForOne,
-        uint256 amountOutMin
-    ) external;
-
     function RENEGADE(
         address recipient,
         address sellToken,

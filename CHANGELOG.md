@@ -2,6 +2,7 @@
 
 ### Breaking changes
 
+* Remove the `EULERSWAP` action
 * Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
   proportion of surplus transferred
 
