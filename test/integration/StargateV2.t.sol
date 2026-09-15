@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
-import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
+import {AbstractBridgeSettler} from "src/chains/Abstract/BridgeSettler.sol";
 import {IStargateV2, IOFT} from "src/core/StargateV2.sol";
 import {ETH_ADDRESS} from "src/core/Constants.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -20,7 +20,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
     receive() external payable {}
 
     function _testBridgeSettler() internal override {
-        bridgeSettler = new ArbitrumBridgeSettler(bytes20(0));
+        bridgeSettler = new AbstractBridgeSettler(bytes20(0));
     }
 
     function _prepareSendToken(uint256 amount)
