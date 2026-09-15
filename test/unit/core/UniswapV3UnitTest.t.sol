@@ -202,6 +202,16 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return returndata;
     }
 
+    function _setOperatorAndTryCall(
+        uint256,
+        address,
+        bytes memory,
+        uint32,
+        function(bytes calldata) internal returns (bytes memory)
+    ) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
     modifier metaTx(address, bytes32) override {
         revert("unimplemented");
         _;
