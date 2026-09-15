@@ -39,6 +39,11 @@ import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {orvexVault, orvexClManager} from "../../core/pancakeInfinityForks/OrvexCL.sol";
+import {
+    pancakeInfinityRobinHoodVault,
+    pancakeInfinityRobinHoodClManager,
+    pancakeInfinityRobinHoodClManagerId
+} from "../../core/pancakeInfinityForks/PancakeInfinityRobinHood.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
 
@@ -165,8 +170,8 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         return ROBINHOOD_POOL_MANAGER;
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
-        return orvexVault;
+    function _PANCAKE_INFINITY_VAULT(uint256 poolManagerId) internal pure override returns (address) {
+        return poolManagerId == pancakeInfinityRobinHoodClManagerId ? pancakeInfinityRobinHoodVault : orvexVault;
     }
 
     function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
@@ -176,6 +181,11 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
     // Orvex does not have a Bin pool manager
     function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
         revertUnknownPoolManagerId(1);
+    }
+
+    function _PANCAKE_INFINITY_CL_FORK_MANAGER(uint256 poolManagerId) internal pure override returns (address) {
+        if (poolManagerId != pancakeInfinityRobinHoodClManagerId) revertUnknownPoolManagerId(poolManagerId);
+        return pancakeInfinityRobinHoodClManager;
     }
 
     // I hate Solidity inheritance

@@ -116,7 +116,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken) internal view virtual override returns (uint160) {
-        if (poolManagerId() != 0 || poolId() == bytes32(0)) {
+        if (poolManagerId() == 1 || poolId() == bytes32(0)) {
             return super.sqrtPriceLimitX96(sellToken, buyToken);
         }
 
@@ -141,7 +141,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     function pancakeInfinityFills(IERC20 fromToken, IERC20 toToken) internal view virtual returns (bytes memory) {
         bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
-        PoolKey memory poolKey = IPancakeInfinityPoolManager(managerId == 0 ? clPoolManager() : binPoolManager())
+        PoolKey memory poolKey = IPancakeInfinityPoolManager(managerId == 1 ? binPoolManager() : clPoolManager())
             .poolIdToPoolKey(PoolId.wrap(poolId_));
 
         return abi.encodePacked(
