@@ -7,6 +7,7 @@
 
 ### Non-breaking changes
 
+* Add `BRIDGE_TO_STARGATE_V2` to Abstract
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
