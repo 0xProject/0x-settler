@@ -36,8 +36,12 @@ contract RobinHoodWETHNVDATest is BebopPairTest, OrvexCLTest {
         return super.sqrtPriceLimitX96(sellToken, buyToken);
     }
 
+    function pancakeInfinityForkName() internal pure override returns (string memory) {
+        return "orvex";
+    }
+
     function _testName() internal pure override returns (string memory) {
-        return "RobinHood-WETH-NVDA";
+        return "WETH-NVDA";
     }
 
     function fromToken() internal pure override returns (IERC20) {

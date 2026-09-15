@@ -6,6 +6,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertInvalidRenegadeData, revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Math} from "../utils/UnsafeMath.sol";
+import "./Constants.sol" as Constants;
 
 abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
@@ -83,7 +84,7 @@ abstract contract Renegade is SettlerSwapAbstract {
             buyAmt := mload(0x00)
         }
 
-        if (!refundNativeEth || buyToken == ETH_ADDRESS) {
+        if (!refundNativeEth || address(buyToken) == Constants.ETH_ADDRESS) {
             buyAmt = buyAmt.saturatingSub(maxRefundAmount);
         }
         if (buyAmt < minBuyAmount) revertTooMuchSlippage(buyToken, minBuyAmount, buyAmt);

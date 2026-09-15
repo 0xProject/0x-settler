@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
-import {BASIS, ETH_ADDRESS} from "./Constants.sol";
+import "./Constants.sol" as Constants;
 
 import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
@@ -96,8 +96,9 @@ library NotesLib {
     }
 
     function tokenIsEth(NotePtr note) internal pure returns (bool r) {
+        address ethAddress = Constants.ETH_ADDRESS;
         assembly ("memory-safe") {
-            r := eq(ETH_ADDRESS, mload(add(0x20, note)))
+            r := eq(ethAddress, mload(add(0x20, note)))
         }
     }
 
@@ -147,7 +148,7 @@ library NotesLib {
     //// 363}. `hashMul` can then be selected randomly or via some other optimized method.
     ////
     //// Note that in spite of the fact that some AMMs represent Ether (or the native asset of the
-    //// chain) as `address(0)`, we represent Ether as `SettlerAbstract.ETH_ADDRESS` (the address of
+    //// chain) as `address(0)`, we represent Ether as `Constants.ETH_ADDRESS` (the address of
     //// all `e`s) for homogeneity with other parts of the codebase, and because the decision to
     //// represent Ether as `address(0)` was stupid in the first place. `address(0)` represents the
     //// absence of a thing, not a special case of the thing. It creates confusion with
@@ -385,7 +386,7 @@ library Encoder {
     ) internal view returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
-        if ((ppm > BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
+        if ((ppm > Constants.BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -663,7 +664,7 @@ library Decoder {
             }
 
             unchecked {
-                state.globalSell().setAmount((address(this).balance * ppm).unsafeDiv(BASIS));
+                state.globalSell().setAmount((address(this).balance * ppm).unsafeDiv(Constants.BASIS));
             }
         } else {
             if (payer == address(this)) {
@@ -682,7 +683,9 @@ library Decoder {
 
                 unchecked {
                     NotePtr globalSell = state.globalSell();
-                    globalSell.setAmount((globalSell.token().fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS));
+                    globalSell.setAmount(
+                        (globalSell.token().fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS)
+                    );
                 }
             } else {
                 assert(payer == address(0));

@@ -111,6 +111,10 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         }
     }
 
+    function pancakeInfinityForkName() internal pure virtual returns (string memory) {
+        return "pancakeInfinity";
+    }
+
     function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken) internal view virtual override returns (uint160) {
         if (poolManagerId() != 0 || poolId() == bytes32(0)) {
             return super.sqrtPriceLimitX96(sellToken, buyToken);
@@ -208,7 +212,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("settler_pancakeInfinity");
+        snapStartName(string.concat("settler_", pancakeInfinityForkName()));
         _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
         vm.stopPrank();
@@ -239,7 +243,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("settler_pancakeInfinityVIP");
+        snapStartName(string.concat("settler_", pancakeInfinityForkName(), "VIP"));
         _settler.execute(allowedSlippage, actions, bytes32(0));
         snapEnd();
         vm.stopPrank();
@@ -282,7 +286,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_pancakeInfinityVIP");
+        snapStartName(string.concat("allowanceHolder_", pancakeInfinityForkName(), "VIP"));
         _allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         snapEnd();
         vm.stopPrank();
@@ -335,7 +339,8 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
 
         vm.startPrank(address(this), address(this));
-        snapStartName("settler_metaTxn_pancakeInfinity");
+        snapStartName(string.concat("settler_metaTxn_", pancakeInfinityForkName(), "VIP"));
+
         _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();

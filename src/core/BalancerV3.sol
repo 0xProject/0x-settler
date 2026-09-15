@@ -400,10 +400,11 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         Decoder.overflowCheck(data);
 
         (uint256 amountIn, uint256 amountOut) = IBalancerV3Vault(msg.sender).unsafeSwap(swapParams);
-        // `amountIn` is always exactly `swapParams.amountGiven`, but `swapParams.amountGiven` can
-        // exceed `sell.amount()` if `ppm` exceeds `BASIS`
-        NotePtr sell = state.sell();
-        sell.setAmount(sell.amount() - amountIn);
+        unchecked {
+            // `amountIn` is always exactly `swapParams.amountGiven`
+            NotePtr sell = state.sell();
+            sell.setAmount(sell.amount() - amountIn);
+        }
 
         // `amountOut` can never get super close to `type(uint256).max` because `VAULT` does its
         // internal calculations in fixnum with a basis of `1 ether`, giving us a headroom of ~60
@@ -522,7 +523,6 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                     // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
                 }
             }
-
             data = Decoder.updateState(state, notes, data);
 
             if (ppm & 0xc00000 == 0) {
