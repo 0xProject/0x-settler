@@ -10,6 +10,7 @@
 * Deploy Settler to Arc chain
   * Add UniswapV3 UniV3 fork on Arc chain
   * Add UniswapV4 support on Arc chain
+  * Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to RobinHood
 
 ## 2026-09-03
 

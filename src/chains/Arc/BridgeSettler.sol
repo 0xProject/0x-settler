@@ -4,7 +4,9 @@ pragma solidity =0.8.34;
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
-contract ArcBridgeSettler is BridgeSettler {
+import {Across} from "../../core/Across.sol";
+
+contract ArcBridgeSettler is BridgeSettler, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 5042 || block.chainid == 31337);
     }
@@ -16,6 +18,12 @@ contract ArcBridgeSettler is BridgeSettler {
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {
+            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
+            bridgeERC20ToAcross(spoke, depositData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS.selector)) {
+            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
+            bridgeNativeToAcross(spoke, depositData);
         } else {
             return false;
         }
