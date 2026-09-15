@@ -11,6 +11,13 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 
+## 2026-09-14
+
+### Non-breaking changes
+	
+* Add `TSUNAMI`, `TSUNAMI_VIP`, and `METATXN_TSUNAMI_VIP` actions to support
+  Tsunami UniswapV4 fork on Ink chain
+
 ## 2026-09-03
 
 ### Breaking changes

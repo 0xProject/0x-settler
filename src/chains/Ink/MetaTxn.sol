@@ -4,6 +4,8 @@ pragma solidity =0.8.34;
 import {InkMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
+import {FastLogic} from "../../utils/FastLogic.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -16,6 +18,8 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
+    using FastLogic for bool;
+
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -27,7 +31,8 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+        } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
+            .or(action == uint32(ISettlerActions.METATXN_TSUNAMI_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -40,7 +45,13 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.METATXN_TSUNAMI_VIP.selector))
+                sellToUniswapV4VIP(
+                    _TSUNAMI_POOL_MANAGER, recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+                );
+            }
         } else {
             return false;
         }

@@ -51,6 +51,37 @@ interface ISettlerActions {
         uint256 maxTakerAmount
     ) external;
 
+    // TODO: remove these actions and generalize the existing `UNISWAPV4` actions
+    function TSUNAMI(
+        address recipient,
+        address sellToken,
+        uint256 ppm,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    function TSUNAMI_VIP(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+    function METATXN_TSUNAMI_VIP(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+
     function UNISWAPV4(
         address recipient,
         address sellToken,
