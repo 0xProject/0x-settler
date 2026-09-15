@@ -6,6 +6,7 @@ import {SettlerIntent} from "../../SettlerIntent.sol";
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+// Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
@@ -17,6 +18,7 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract BerachainSettlerIntent is SettlerIntent, BerachainSettlerMetaTxn {
     constructor(bytes20 gitCommit) BerachainSettlerMetaTxn(gitCommit) {}
 
+    // Solidity inheritance is stupid
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,

@@ -2,7 +2,8 @@
 
 ### Breaking changes
 
-* Remove the `EULERSWAP` action
+* Remove the `EULERSWAP` action from Mainnet, BNB, Avalanche, Berachain,
+  Plasma, Sonic, and Unichain
 * Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
   proportion of surplus transferred
 

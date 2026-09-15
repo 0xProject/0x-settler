@@ -4,6 +4,7 @@ pragma solidity =0.8.34;
 import {BerachainMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
+// Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
@@ -16,6 +17,7 @@ contract BerachainSettler is Settler, BerachainMixin {
         return super._dispatchVIP(action, data);
     }
 
+    // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
         view

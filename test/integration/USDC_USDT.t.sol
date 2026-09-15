@@ -9,6 +9,8 @@ import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboV2Test} from "./EkuboV2.t.sol";
 import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+
+// Solidity inheritance is stupid
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 
 contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test {
