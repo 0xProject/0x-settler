@@ -12,7 +12,6 @@ import {UnsafeMath, Math} from "src/utils/UnsafeMath.sol";
 import {FastPermit, SafePermit} from "src/utils/SafePermit.sol";
 import {IERC20PermitCommon, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 
-import {IEulerSwap, FastEulerSwap} from "src/core/EulerSwap.sol";
 import {IUniV2Pair, FastUniswapV2Pool} from "src/core/UniswapV2.sol";
 import {IUniswapV3Pool, FastUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
 import {IHanjiPool, FastHanjiPool} from "src/core/Hanji.sol";
@@ -70,14 +69,6 @@ contract BoolBoundaryHarness {
             zeroForOne := 0x02
         }
         FastUniswapV2Pool.fastSwap(pool, zeroForOne, buyAmount, recipient);
-    }
-
-    function fastEulerSwap(IEulerSwap pool, uint256 amountOut, address recipient) external {
-        bool zeroForOne;
-        assembly ("memory-safe") {
-            zeroForOne := 0x02
-        }
-        FastEulerSwap.fastSwap(pool, zeroForOne, amountOut, recipient);
     }
 
     function uniswapV3Swap(
@@ -314,12 +305,6 @@ contract BoolBoundaryTest is Utils, Test {
 
         _mockExpectCall(pool, abi.encodeCall(IUniV2Pair.swap, (uint256(0), uint256(7), address(0x44), bytes(""))), "");
         harness.fastUniswapV2Swap(pool, 7, address(0x44));
-    }
-
-    function testEulerSwapBoundaryUsesCanonicalBit() public {
-        address pool = makeAddr("pool");
-        _mockExpectCall(pool, abi.encodeCall(IEulerSwap.swap, (0, 9, address(0x55), bytes(""))), bytes(""));
-        harness.fastEulerSwap(IEulerSwap(pool), 9, address(0x55));
     }
 
     function testUniswapV3SwapCanonicalizesDirtyZeroForOne() public {
