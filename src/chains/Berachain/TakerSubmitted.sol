@@ -4,10 +4,6 @@ pragma solidity =0.8.34;
 import {BerachainMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {ISettlerActions} from "../../ISettlerActions.sol";
-
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -18,12 +14,7 @@ contract BerachainSettler is Settler, BerachainMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data)) {
-            return true;
-        } else {
-            return false;
-        }
-        return true;
+        return super._dispatchVIP(action, data);
     }
 
     // Solidity inheritance is stupid
@@ -38,7 +29,7 @@ contract BerachainSettler is Settler, BerachainMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, BerachainMixin)
+        override(Settler, SettlerBase)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
