@@ -16,6 +16,7 @@ import {
     pancakeInfinityBinManager
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {FluxPool} from "../../core/FluxPool.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -58,7 +59,8 @@ abstract contract BnbMixin is
     DodoV2,
     UniswapV4,
     PancakeInfinity,
-    Bebop
+    Bebop,
+    FluxPool
 {
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
@@ -86,6 +88,11 @@ abstract contract BnbMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
+            (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
+
+            sellToFluxPool(sellToken, ppm, poolId, zeroForOne, minBuyAmount);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,

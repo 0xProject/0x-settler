@@ -51,6 +51,19 @@ function revertTooMuchSlippage(IERC20 buyToken, uint256 expectedBuyAmount, uint2
     }
 }
 
+/// @notice Thrown when a pool demands more of the sell token than the action offered
+error ExcessiveSellAmount(IERC20 sellToken, uint256 maxSellAmount, uint256 sellAmount);
+
+function revertExcessiveSellAmount(IERC20 sellToken, uint256 maxSellAmount, uint256 sellAmount) pure {
+    assembly ("memory-safe") {
+        mstore(0x54, sellAmount)
+        mstore(0x34, maxSellAmount)
+        mstore(0x14, sellToken)
+        mstore(0x00, 0x8b115ca5000000000000000000000000) // selector for `ExcessiveSellAmount(address,uint256,uint256)` with `sellToken`'s padding
+        revert(0x10, 0x64)
+    }
+}
+
 /// @notice Thrown when a byte array that is supposed to encode a function from ISettlerActions is
 ///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
