@@ -1092,5 +1092,54 @@
     },
     "blockscoutApi": "https://robinhoodchain.blockscout.com/api",
     "sourcifyApi": "https://sourcify.dev/server/"
+  },
+  "arc": {
+    "chainId": 5042,
+    "displayName": "Arc",
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
+      "eraVm": false
+    },
+    "extraFlags": "",
+    "extraScriptFlags": "--isolate",
+    "gasMultiplierPercent": 500,
+    "minGasPriceGwei": 40,
+    "wnative": null,
+    "safe": {
+      "v1.3.0": {
+        "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+        "migration": {
+          "v1.4.1": "0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6"
+        }
+      },
+      "v1.4.1": {
+        "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x97A8620F5c88Cb4A1d9C2E18b0d3CA1eEF59d471",
+      "timelock": "0xecFC0A72Ec520fcEdCB1D7e663D0e728D76344F8"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": null
+    },
+    "blockscoutApi": "https://explorer.arc.io/api"
   }
 }
