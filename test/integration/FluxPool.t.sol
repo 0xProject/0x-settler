@@ -15,11 +15,11 @@ error FluxError(uint16 code);
 contract FluxPoolIntegrationTest is SettlerBasePairTest {
     IERC20 private constant USDT = IERC20(0x55d398326f99059fF775485246999027B3197955);
     IERC20 private constant WBNB = IERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
-    address private constant FLUX_QUOTE_CURVE = 0xcDDBC1CfF0B5b5F83ef85cb42FB742Ee8E620Ad0;
+    address private constant FLUX_FEE_MANAGER = 0x25Ba19c2971C901aEd02c184a69a9ec311Ac41f2;
     bytes32 private constant POOL_ID = 0xa3b94efb3bde9749d7e2735e0dd4a4c9a7b502bb3c6c44ae30fd35b2563038ae;
-    uint256 private constant QUOTE_CURVE_ALLOWLIST_SLOT = 6;
+    uint256 private constant FEE_MANAGER_ACCOUNT_SLOT = 2;
     uint256 private constant VAULT_ALLOWLIST_SLOT = 4;
-    uint256 private constant EXPECTED_AMOUNT_OUT = 1643839108295557;
+    uint256 private constant EXPECTED_AMOUNT_OUT = 1403694867934358;
 
     function _testName() internal pure override returns (string memory) {
         return "USDT-WBNB";
@@ -30,7 +30,7 @@ contract FluxPoolIntegrationTest is SettlerBasePairTest {
     }
 
     function _testBlockNumber() internal pure override returns (uint256) {
-        return 115741100;
+        return 122229417;
     }
 
     function fromToken() internal pure override returns (IERC20) {
@@ -55,7 +55,7 @@ contract FluxPoolIntegrationTest is SettlerBasePairTest {
         vm.makePersistent(FROM);
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
 
-        _setAllowed(FLUX_QUOTE_CURVE, QUOTE_CURVE_ALLOWLIST_SLOT, true);
+        _setAllowed(FLUX_FEE_MANAGER, FEE_MANAGER_ACCOUNT_SLOT, true);
         _setAllowed(FLUX_VAULT, VAULT_ALLOWLIST_SLOT, true);
     }
 
@@ -73,8 +73,8 @@ contract FluxPoolIntegrationTest is SettlerBasePairTest {
         assertEq(WBNB.balanceOf(FROM), EXPECTED_AMOUNT_OUT);
     }
 
-    function testFluxPoolRequiresQuoteCurveAllowlist() public {
-        _setAllowed(FLUX_QUOTE_CURVE, QUOTE_CURVE_ALLOWLIST_SLOT, false);
+    function testFluxPoolRequiresFeeManagerAllowlist() public {
+        _setAllowed(FLUX_FEE_MANAGER, FEE_MANAGER_ACCOUNT_SLOT, false);
         vm.expectRevert(abi.encodeWithSelector(FluxError.selector, uint16(2007)));
         _executeFluxPool(1);
     }
