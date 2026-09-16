@@ -2,15 +2,25 @@
 
 ### Breaking changes
 
+* Remove the `EULERSWAP` action from Mainnet, BNB, Avalanche, Berachain,
+  Plasma, Sonic, and Unichain
 * Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
   proportion of surplus transferred
 
 ### Non-breaking changes
 
+* Add `BRIDGE_TO_STARGATE_V2` to Abstract
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb
+
+## 2026-09-14
+
+### Non-breaking changes
+	
+* Add `TSUNAMI`, `TSUNAMI_VIP`, and `METATXN_TSUNAMI_VIP` actions to support
+  Tsunami UniswapV4 fork on Ink chain
 
 ## 2026-09-03
 

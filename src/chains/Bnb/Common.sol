@@ -15,14 +15,12 @@ import {
     pancakeInfinityClManager,
     pancakeInfinityBinManager
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {FluxPool} from "../../core/FluxPool.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
@@ -61,7 +59,6 @@ abstract contract BnbMixin is
     DodoV2,
     UniswapV4,
     PancakeInfinity,
-    EulerSwap,
     Bebop,
     FluxPool
 {
@@ -91,11 +88,6 @@ abstract contract BnbMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
-
-            sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
             (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
@@ -199,10 +191,6 @@ abstract contract BnbMixin is
 
     function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
         return pancakeInfinityBinManager;
-    }
-
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0xb2E5a73CeE08593d1a076a2AE7A6e02925a640ea);
     }
 
     // I hate Solidity inheritance

@@ -15,7 +15,6 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {EkuboV2} from "../../core/EkuboV2.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
@@ -60,7 +59,6 @@ abstract contract MainnetMixin is
     BalancerV3,
     EkuboV2,
     EkuboV3,
-    EulerSwap,
     Bebop
 {
     using SafeTransferLib for IERC20;
@@ -157,11 +155,6 @@ abstract contract MainnetMixin is
                 abi.decode(data, (address, uint256, bool, uint256, IPSM, IERC20));
 
             sellToMakerPsm(recipient, ppm, buyGem, amountOutMin, psm, dai);
-        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
-
-            sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -233,10 +226,6 @@ abstract contract MainnetMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return MAINNET_POOL_MANAGER;
-    }
-
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
     }
 
     // I hate Solidity inheritance

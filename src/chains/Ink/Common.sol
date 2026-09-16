@@ -6,7 +6,9 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
+
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -26,9 +28,13 @@ import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
+    using FastLogic for bool;
+
     constructor() {
         assert(block.chainid == 57073 || block.chainid == 31337);
     }
+
+    IPoolManager internal constant _TSUNAMI_POOL_MANAGER = IPoolManager(0x6E4723A612831AfB9f5B2a5aE22723c37aAB9560);
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
@@ -39,7 +45,8 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+            .or(action == uint32(ISettlerActions.TSUNAMI.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -51,7 +58,21 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.TSUNAMI.selector))
+                sellToUniswapV4(
+                    _TSUNAMI_POOL_MANAGER,
+                    recipient,
+                    sellToken,
+                    ppm,
+                    feeOnTransfer,
+                    hashMul,
+                    hashMod,
+                    fills,
+                    amountOutMin
+                );
+            }
         } else {
             return false;
         }

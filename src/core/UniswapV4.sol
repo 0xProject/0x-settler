@@ -82,6 +82,22 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         uint256 hashMod,
         bytes memory fills,
         uint256 amountOutMin
+    ) internal returns (uint256) {
+        return sellToUniswapV4(
+            _POOL_MANAGER(), recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+        );
+    }
+
+    function sellToUniswapV4(
+        IPoolManager poolManager,
+        address recipient,
+        IERC20 sellToken,
+        uint256 ppm,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
         bytes memory data = Encoder.encode(
             uint32(IPoolManager.unlock.selector),
@@ -95,7 +111,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(poolManager), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -107,6 +123,22 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     }
 
     function sellToUniswapV4VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) internal returns (uint256) {
+        return sellToUniswapV4VIP(
+            _POOL_MANAGER(), recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+        );
+    }
+
+    function sellToUniswapV4VIP(
+        IPoolManager poolManager,
         address recipient,
         bool feeOnTransfer,
         uint256 hashMul,
@@ -129,7 +161,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(poolManager), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
