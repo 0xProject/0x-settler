@@ -8,6 +8,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
+import {FastLogic} from "../../utils/FastLogic.sol";
+
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -15,12 +17,15 @@ import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
 contract ArcSettler is Settler, ArcMixin {
+    using FastLogic for bool;
+
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -34,7 +39,12 @@ contract ArcSettler is Settler, ArcMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else {
+                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
+                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            }
         } else {
             return false;
         }
