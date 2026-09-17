@@ -14,6 +14,10 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb
+* Add SushiSwapV3 UniV3 fork to Arc with fork ID 2
+* Add SushiSwapV4 CL as a PancakeInfinity fork to Arc
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+    `METATXN_PANCAKE_INFINITY_VIP`
 
 ## 2026-09-14
 
