@@ -373,6 +373,8 @@ using StateLib for State global;
 library Encoder {
     using FastLogic for bool;
 
+    /// `extraDataSize` uninitialized bytes are reserved at the end of the payload for the caller
+    /// to fill in.
     function encode(
         uint256 unlockSelector,
         address recipient,
@@ -382,7 +384,8 @@ library Encoder {
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        uint256 amountOutMin
+        uint256 amountOutMin,
+        uint256 extraDataSize
     ) internal view returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
@@ -404,16 +407,34 @@ library Encoder {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x70, pathLen))
+            mstore(add(0x44, data), add(add(0x70, pathLen), extraDataSize))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0xb4, pathLen))
+            mstore(data, add(add(0xb4, pathLen), extraDataSize))
             mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
 
-            mstore(0x40, add(data, add(0xd4, pathLen)))
+            mstore(0x40, add(add(data, add(0xd4, pathLen)), extraDataSize))
         }
     }
 
+    function encode(
+        uint256 unlockSelector,
+        address recipient,
+        IERC20 sellToken,
+        uint256 ppm,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) internal view returns (bytes memory data) {
+        return encode(
+            unlockSelector, recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin, 0
+        );
+    }
+
+    /// `extraDataSize` uninitialized bytes are reserved at the end of the payload, after the
+    /// signature and its length, for the caller to fill in.
     function encodeVIP(
         uint256 unlockSelector,
         address recipient,
@@ -424,7 +445,8 @@ library Encoder {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         bool isForwarded,
-        uint256 amountOutMin
+        uint256 amountOutMin,
+        uint256 extraDataSize
     ) internal pure returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
@@ -451,7 +473,7 @@ library Encoder {
                 mcopy(ptr, add(0x20, sig), sigLen)
                 ptr := add(sigLen, ptr)
 
-                mstore(0x40, add(0x03, ptr))
+                mstore(0x40, add(add(0x03, ptr), extraDataSize))
             }
 
             mstore8(add(0x131, data), lt(0x00, isForwarded))
@@ -464,13 +486,30 @@ library Encoder {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
+            mstore(add(0x44, data), add(add(0xd1, add(pathLen, sigLen)), extraDataSize))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0x115, add(pathLen, sigLen)))
+            mstore(data, add(add(0x115, add(pathLen, sigLen)), extraDataSize))
 
             mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
         }
+    }
+
+    function encodeVIP(
+        uint256 unlockSelector,
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        bool isForwarded,
+        uint256 amountOutMin
+    ) internal pure returns (bytes memory data) {
+        return encodeVIP(
+            unlockSelector, recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, isForwarded, amountOutMin, 0
+        );
     }
 }
 

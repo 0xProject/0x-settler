@@ -146,6 +146,7 @@ interface ISettlerActions {
         address recipient,
         address sellToken,
         uint256 ppm,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -155,6 +156,7 @@ interface ISettlerActions {
     function PANCAKE_INFINITY_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -165,6 +167,7 @@ interface ISettlerActions {
     function METATXN_PANCAKE_INFINITY_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,

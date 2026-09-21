@@ -55,6 +55,7 @@ contract BaseSettler is Settler, BaseMixin {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -62,10 +63,13 @@ contract BaseSettler is Settler, BaseMixin {
                 bytes memory sig,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToPancakeInfinityVIP(
+                recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+            );
         } else {
             return false;
         }

@@ -6,6 +6,10 @@
   Plasma, Sonic, and Unichain
 * Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
   proportion of surplus transferred
+* Add a `forkId` argument to `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+  `METATXN_PANCAKE_INFINITY_VIP` that selects the PancakeSwap Infinity fork
+  (after `ppm` in `PANCAKE_INFINITY`; after `permit` in the VIP variants). See
+  [PANCAKE_INFINITY_FORKS.md](PANCAKE_INFINITY_FORKS.md) for the list of forks.
 
 ### Non-breaking changes
 
