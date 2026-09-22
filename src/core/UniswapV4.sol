@@ -30,7 +30,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note[];
 
-    function _POOL_MANAGER() internal view virtual returns (IPoolManager);
+    function _uniV4ForkInfo(uint8 forkId) internal view virtual returns (IPoolManager poolManager);
 
     //// These two functions are the entrypoints to this set of actions. Because UniV4 has a
     //// mandatory callback, and the vast majority of the business logic has to be executed inside
@@ -40,6 +40,9 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     //// `POOL_MANAGER.unlock(...)`. Pay special attention to the `payer` field, which is what
     //// signals to the callback whether we should be spending a coupon.
 
+    //// `forkId` selects the pool manager of a UniswapV4 deployment. The master list of fork IDs
+    //// is `UNISWAPV4_FORKS.md` at the repository root.
+    ////
     //// How to generate `fills` for UniV4:
     ////
     //// Linearize your DAG of fills by doing a topological sort on the tokens involved. In the
@@ -77,22 +80,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         address recipient,
         IERC20 sellToken,
         uint256 ppm,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) internal returns (uint256) {
-        return sellToUniswapV4(
-            _POOL_MANAGER(), recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
-        );
-    }
-
-    function sellToUniswapV4(
-        IPoolManager poolManager,
-        address recipient,
-        IERC20 sellToken,
-        uint256 ppm,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -111,7 +99,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(poolManager), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(_uniV4ForkInfo(forkId)), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -124,22 +112,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
 
     function sellToUniswapV4VIP(
         address recipient,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 amountOutMin
-    ) internal returns (uint256) {
-        return sellToUniswapV4VIP(
-            _POOL_MANAGER(), recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
-        );
-    }
-
-    function sellToUniswapV4VIP(
-        IPoolManager poolManager,
-        address recipient,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -161,7 +134,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(poolManager), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(_uniV4ForkInfo(forkId)), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {

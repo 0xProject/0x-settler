@@ -20,7 +20,7 @@ import {
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
 
-import {SEPOLIA_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4SepoliaPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -45,14 +45,15 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -86,8 +87,12 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return SEPOLIA_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4SepoliaPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

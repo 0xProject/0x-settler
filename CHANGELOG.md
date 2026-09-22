@@ -10,6 +10,12 @@
   `METATXN_PANCAKE_INFINITY_VIP` that selects the PancakeSwap Infinity fork
   (after `ppm` in `PANCAKE_INFINITY`; after `permit` in the VIP variants). See
   [PANCAKE_INFINITY_FORKS.md](PANCAKE_INFINITY_FORKS.md) for the list of forks.
+* Add a `forkId` argument to `UNISWAPV4`, `UNISWAPV4_VIP`, and
+  `METATXN_UNISWAPV4_VIP` that selects the UniswapV4 fork (after `ppm` in
+  `UNISWAPV4`; after `permit` in the VIP variants). See
+  [UNISWAPV4_FORKS.md](UNISWAPV4_FORKS.md) for the list of forks.
+* Remove `TSUNAMI`, `TSUNAMI_VIP`, and `METATXN_TSUNAMI_VIP` from Ink; Tsunami
+  is UniswapV4 fork `1` on Ink
 
 ### Non-breaking changes
 

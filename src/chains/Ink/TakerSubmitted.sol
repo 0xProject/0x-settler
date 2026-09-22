@@ -4,8 +4,6 @@ pragma solidity =0.8.34;
 import {InkMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
-import {FastLogic} from "../../utils/FastLogic.sol";
-
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -17,18 +15,16 @@ import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
 contract InkSettler is Settler, InkMixin {
-    using FastLogic for bool;
-
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.TSUNAMI_VIP.selector))) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -36,16 +32,11 @@ contract InkSettler is Settler, InkMixin {
                 bytes memory sig,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettleActions.TSUNAMI_VIP.selector)) {
-                sellToUniswapV4VIP(
-                    _TSUNAMI_POOL_MANAGER, recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
-                );
-            }
+            sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
