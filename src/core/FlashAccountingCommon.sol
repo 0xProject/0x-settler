@@ -370,11 +370,16 @@ library StateLib {
 
 using StateLib for State global;
 
+// Offsets, from an encoded `bytes memory` payload pointer, of the bytes that `Encoder` reserves
+// between the header and the fills.
+uint256 constant ENCODER_EXTRA_DATA_OFFSET = 0xd4;
+uint256 constant ENCODER_EXTRA_DATA_OFFSET_VIP = 0x132;
+
 library Encoder {
     using FastLogic for bool;
 
-    /// `extraDataSize` uninitialized bytes are reserved at the end of the payload for the caller
-    /// to fill in.
+    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills, at
+    /// `ENCODER_EXTRA_DATA_OFFSET` from `data`, for the caller to fill in.
     function encode(
         uint256 unlockSelector,
         address recipient,
@@ -396,7 +401,7 @@ library Encoder {
             data := mload(0x40)
 
             let pathLen := mload(fills)
-            mcopy(add(0xd4, data), add(0x20, fills), pathLen)
+            mcopy(add(add(ENCODER_EXTRA_DATA_OFFSET, extraDataSize), data), add(0x20, fills), pathLen)
 
             mstore(add(0xb4, data), ppm)
             mstore(add(0xb1, data), sellToken)
@@ -433,8 +438,8 @@ library Encoder {
         );
     }
 
-    /// `extraDataSize` uninitialized bytes are reserved at the end of the payload, after the
-    /// signature and its length, for the caller to fill in.
+    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills, at
+    /// `ENCODER_EXTRA_DATA_OFFSET_VIP` from `data`, for the caller to fill in.
     function encodeVIP(
         uint256 unlockSelector,
         address recipient,
@@ -460,7 +465,7 @@ library Encoder {
             let sigLen := mload(sig)
 
             {
-                let ptr := add(0x132, data)
+                let ptr := add(add(ENCODER_EXTRA_DATA_OFFSET_VIP, extraDataSize), data)
 
                 // sig length as 3 bytes goes at the end of the callback
                 mstore(sub(add(sigLen, add(pathLen, ptr)), 0x1d), sigLen)
@@ -473,7 +478,7 @@ library Encoder {
                 mcopy(ptr, add(0x20, sig), sigLen)
                 ptr := add(sigLen, ptr)
 
-                mstore(0x40, add(add(0x03, ptr), extraDataSize))
+                mstore(0x40, add(0x03, ptr))
             }
 
             mstore8(add(0x131, data), lt(0x00, isForwarded))
