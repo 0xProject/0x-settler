@@ -14,6 +14,7 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb
+* Add Rubicon CLMM UniV3 fork to Mainnet with fork ID 47
 
 ## 2026-09-14
 
