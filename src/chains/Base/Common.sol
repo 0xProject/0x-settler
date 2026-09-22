@@ -13,7 +13,8 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {
     pancakeInfinityVault,
     pancakeInfinityClManager,
-    pancakeInfinityBinManager
+    pancakeInfinityBinManager,
+    pancakeInfinityForkId
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
@@ -56,7 +57,7 @@ import {
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/AlienBaseV3.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
 
-import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4BasePoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -93,9 +94,21 @@ abstract contract BaseMixin is
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.BALANCERV3.selector))
-            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 ppm,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -107,13 +120,23 @@ abstract contract BaseMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
-                sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            }
+            sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 ppm,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
+
+            sellToPancakeInfinity(
+                recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+            );
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -239,20 +262,27 @@ abstract contract BaseMixin is
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return BASE_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4BasePoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
-        return pancakeInfinityVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityClManager;
-    }
-
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityBinManager;
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId == pancakeInfinityForkId) {
+            vault = pancakeInfinityVault;
+            clManager = pancakeInfinityClManager;
+            binManager = pancakeInfinityBinManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     function _fallback(bytes calldata data)

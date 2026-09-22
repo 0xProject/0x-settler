@@ -392,7 +392,7 @@ See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for the
 2. Create `Common.sol` with chain-specific mixin
 3. Create flavor files: `TakerSubmitted.sol`, `MetaTxn.sol`, `Intent.sol`, `BridgeSettler.sol`
 4. Configure UniV3 forks in `_uniV3ForkInfo()`
-5. Set `_POOL_MANAGER()` if UniswapV4 is available
+5. Configure UniV4 forks in `_uniV4ForkInfo()` if UniswapV4 is available
 6. Add to `chain_config.json`
 
 ### Adding a New DEX Integration
