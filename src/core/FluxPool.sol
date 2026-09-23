@@ -23,15 +23,16 @@ interface IFluxSwapCallback {
     function fluxSwapCallback(IERC20 tokenToPay, uint256 amountToPay, bytes calldata data) external;
 }
 
-address constant FLUX_SWAP = 0xff7fe6b6951Afd81Bc5eF9d205c28e5117012FD8;
 address constant FLUX_VAULT = 0x0F8E0136f09e8b188d21EdDF17f65522f81f7151;
 
 abstract contract FluxPool is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
 
     constructor() {
-        assert(block.chainid == 31337 || (FLUX_SWAP.code.length > 0 && FLUX_VAULT.code.length > 0));
+        assert(block.chainid == 31337 || (_fluxSwap().code.length > 0 && FLUX_VAULT.code.length > 0));
     }
+
+    function _fluxSwap() internal pure virtual returns (address);
 
     function sellToFluxPool(IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount)
         internal
@@ -59,7 +60,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
             mstore(data, 0x118)
             mstore(0x40, add(0x138, data))
         }
-        _setOperatorAndCall(FLUX_SWAP, data, uint32(IFluxSwapCallback.fluxSwapCallback.selector), _fluxSwapCallback);
+        _setOperatorAndCall(_fluxSwap(), data, uint32(IFluxSwapCallback.fluxSwapCallback.selector), _fluxSwapCallback);
     }
 
     function _fluxSwapCallback(bytes calldata data) private returns (bytes memory) {

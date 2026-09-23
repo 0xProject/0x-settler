@@ -6,7 +6,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 import {BnbSettler} from "src/chains/Bnb/TakerSubmitted.sol";
-import {FLUX_SWAP, FLUX_VAULT, IFluxSwap, IFluxSwapCallback} from "src/core/FluxPool.sol";
+import {FLUX_VAULT, IFluxSwap, IFluxSwapCallback} from "src/core/FluxPool.sol";
 import {ExcessiveSellAmount} from "src/core/SettlerErrors.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
@@ -41,6 +41,7 @@ contract FluxPoolUnitTest is Test {
     uint256 private constant SELL_BALANCE = 100 ether;
     uint256 private constant BUY_AMOUNT = 30 ether;
     bytes32 private constant POOL_ID = keccak256("pool");
+    address private constant FLUX_SWAP = 0xff7fe6b6951Afd81Bc5eF9d205c28e5117012FD8;
 
     BnbSettler private settler;
     FluxSwapMock private fluxSwap;
