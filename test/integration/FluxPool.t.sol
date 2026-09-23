@@ -98,11 +98,11 @@ contract BnbFluxPoolTest is FluxPoolTest {
     }
 
     function fromToken() internal pure override returns (IERC20) {
-        return IERC20(0x55d398326f99059fF775485246999027B3197955);
+        return IERC20(0x55d398326f99059fF775485246999027B3197955); // USDT
     }
 
     function toToken() internal pure override returns (IERC20) {
-        return IERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+        return IERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c); // WBNB
     }
 
     function amount() internal pure override returns (uint256) {
@@ -140,11 +140,11 @@ contract BaseFluxPoolTest is FluxPoolTest {
     }
 
     function fromToken() internal pure override returns (IERC20) {
-        return IERC20(0x4200000000000000000000000000000000000006);
+        return IERC20(0x4200000000000000000000000000000000000006); // WETH
     }
 
     function toToken() internal pure override returns (IERC20) {
-        return IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+        return IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913); // USDC
     }
 
     function amount() internal pure override returns (uint256) {

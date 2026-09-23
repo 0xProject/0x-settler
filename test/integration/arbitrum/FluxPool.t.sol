@@ -20,11 +20,11 @@ contract RobinHoodFluxPoolTest is FluxPoolTest {
     }
 
     function fromToken() internal pure override returns (IERC20) {
-        return IERC20(0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73);
+        return IERC20(0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73); // WETH
     }
 
     function toToken() internal pure override returns (IERC20) {
-        return IERC20(0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168);
+        return IERC20(0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168); // USDG
     }
 
     function amount() internal pure override returns (uint256) {
