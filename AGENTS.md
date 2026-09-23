@@ -40,16 +40,16 @@ Settler executes token swaps for the 0x API. Deployed contracts are immutable, h
 - Define every custom error in `SettlerErrors.sol`.
 - Accept any valid ABI encoding, including non-strict ones. `CalldataDecoder` skips bounds checks on purpose.
 - Reject invalid input where it enters rather than silently cleaning it or falling back to a default. Assembly that needs clean bits cleans the narrow values it takes from the stack.
-- Reject a successful call to an address with no code, or one that returns too little data, unless the target's verified code makes that impossible.
+- Treat a call to an address with no code, or a call that returns too little data, as a failure unless the target's verified code rules it out.
 - Name units (shares or assets, wei or tokens) and state the rounding direction in fixed-point math.
 - Do not add `external` functions without a strong reason; each adds attack surface. `msg.sender == address(this)` does not protect one, because `BASIC` can make Settler call itself.
-- Tell the data team before adding or changing an event; they consume them.
+- Tell the data team before you add or change an event.
 - Before any arbitrary call, check `_isRestrictedTarget`, or state in a comment why no restricted selector can be reached.
 - Update every copy of code duplicated for gas, such as the `_dispatchVIP` copies in every chain's flavor files, and say in each copy that it is duplicated.
 
 ## Callbacks
 
-- Route every venue callback through `_setOperatorAndCall` (`src/core/Permit2Payment.sol`). It records the expected caller, selector and handler, clears them before the handler runs, and reverts if the callback never comes. Keep the payer and witness checks.
+- Route every venue callback through `_setOperatorAndCall` (`src/core/Permit2Payment.sol`). It records the expected caller, selector and handler, clears them before the handler runs, and reverts if the callback never comes.
 - The expected caller must be an address an attacker cannot control: a pool derived from its deployer and init hash, or a fixed contract such as a vault or `PoolManager`.
 - UniswapV3 callback decoding skips bounds checks because the pool must return Settler's callback data unchanged, including its length. That data selects the payment mode and token, and may carry the taker's permit and signature. A pool that alters it can make Settler pay the wrong token or amount, or spend the wrong Permit2 permit.
 - Allow partial fills: the amount a callback asks for is the fill amount. Find out who controls the token, amount and destination in the callback. Where the venue does not enforce the action's limits, Settler must (for example, never pay more than the sell amount).
@@ -72,7 +72,7 @@ Before adding a DEX or UniswapV3 fork, identify which contracts and returned val
 4. the venue passes callback data (the `data` argument of `swap` for UniswapV3 forks) to the callback unchanged;
 5. the callback's selector, arguments and amount signs match what Settler handles. A fork that renames its callback has a different selector.
 
-Report how you checked each point. If any point fails or cannot be checked, stop and report it. A venue without source that recompiles to its deployed bytecode gets no VIP action. A new action needs a fork test against live contracts. A new UniswapV3 fork needs one when its address derivation, callback or swap behavior differs from existing forks.
+Report how you checked each point. If any point fails or cannot be checked, stop and report it. A new action needs a fork test against live contracts. A new UniswapV3 fork needs one when its address derivation, callback or swap behavior differs from existing forks.
 
 ## Tests
 
@@ -102,7 +102,7 @@ forge fmt <files you changed>                       # never format the whole tre
 - Comments describe current behavior. Put change history in commit messages.
 - Keep correct comments; fix ones your change makes wrong, including names they mention.
 - In comments, commits, PRs and replies, use plain words and active voice. Define the terms and assumptions a reader without your conversation needs. Do not invent jargon.
-- Never mention Slack, chats, private links, task IDs, plan labels or TODOs in code, commits or PRs.
+- Leave no TODOs. Never mention Slack, chats, private links, task IDs or plan labels in code, commits or PRs.
 
 ## Git and pull requests
 
