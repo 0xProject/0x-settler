@@ -9,8 +9,6 @@
 
 Deployed contracts are immutable, hold user funds during a transaction, and sit near the 24 KB size limit. Reviewers expect the smallest diff that does the job.
 
-`README.md` covers the product. `CONTRIBUTING.md` covers what a PR must justify.
-
 ## Map
 
 - `src/Settler.sol`, `SettlerMetaTxn.sol`, `SettlerIntent.sol`, `src/bridge/BridgeSettler.sol`: one flavor per mode above. The first three share `SettlerBase.sol`.
