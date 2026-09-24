@@ -9,7 +9,7 @@
 
 Deployed contracts are immutable, hold user funds during a transaction, and sit near the 24 KB size limit. Reviewers expect the smallest diff that does the job.
 
-`README.md` covers the product; `CONTRIBUTING.md` covers what a PR must justify.
+`README.md` covers the product. `CONTRIBUTING.md` covers what a PR must justify.
 
 ## Map
 
@@ -56,7 +56,7 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 - **Invalid input.** Reject it where it enters rather than silently cleaning it or falling back to a default. Assembly that needs clean bits cleans the narrow values it takes from the stack.
 - **Empty calls.** Treat a call to an address with no code, or a call that returns too little data, as a failure unless the target's verified code rules it out.
 - **Units.** Name them (shares or assets, wei or tokens) and state the rounding direction in fixed-point math.
-- **External functions.** Do not add one without a strong reason; each adds attack surface. `msg.sender == address(this)` does not protect one, because `BASIC` can make Settler call itself.
+- **External functions.** Do not add one without a strong reason. Each one adds attack surface. `msg.sender == address(this)` does not protect one, because `BASIC` can make Settler call itself.
 - **Events.** Tell the data team before you add or change one.
 - **Arbitrary calls.** Check `_isRestrictedTarget` first, or state in a comment why no restricted selector can be reached.
 
@@ -70,10 +70,10 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 ## Actions
 
 - **Prefer `BASIC`** when the solver only needs to insert an amount into calldata. Add a new action only when Settler must pay in a callback, compute a value at runtime, or enforce something the venue cannot.
-- **Match siblings.** `recipient` first; VIP actions take `recipient` then `permit`; `minBuyAmount` last. Reuse sibling names such as `zeroForOne`, and use the ERC-7528 address for native tokens.
+- **Match siblings.** Put `recipient` first and `minBuyAmount` last. VIP actions take `recipient` then `permit`. Reuse sibling names such as `zeroForOne`, and use the ERC-7528 address for native tokens.
 - **Explicit fields.** If Settler reads a field, make it an action argument, not an offset into opaque `bytes`.
 - **Direct output.** Add a `recipient` so output can go straight to the taker when the venue allows it.
-- **Slippage.** Check a per-leg `minBuyAmount` against the amount the venue returns or transfers. Never prove a leg's output from the recipient's balance change around an external call; another transfer in the same transaction can inflate it. If the venue reports no output amount, drop the per-leg minimum and rely on the final slippage check. The final check measures only what Settler holds, so output that relies on it must pass through Settler.
+- **Slippage.** Check a per-leg `minBuyAmount` against the amount the venue returns or transfers. Never prove a leg's output from the recipient's balance change around an external call, because another transfer in the same transaction can inflate it. If the venue reports no output amount, drop the per-leg minimum and rely on the final slippage check. The final check measures only what Settler holds, so output that relies on it must pass through Settler.
 
 ## Integrating a venue
 
@@ -105,7 +105,7 @@ Use the compiler, EVM and optimizer settings in CI (`.github/workflows/test.yml`
 forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'src/chains/*' --skip 'test/*' --skip 'script/*'
 forge build --sizes -- src/chains/<Chain>          # per-chain size check
 forge test                                          # unit tests
-FOUNDRY_PROFILE=integration forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'   # fork tests; writes gas snapshots; Arbitrum runs separately via ./arbos-forge
+FOUNDRY_PROFILE=integration forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'   # fork tests, writes gas snapshots (Arbitrum runs separately via ./arbos-forge)
 COMPARE_GIT_SHA=$(git merge-base HEAD master) npm run compare_gas                            # gas vs master
 npm run check_vips                                  # VIP signatures vs ISettlerActions.sol
 forge fmt <files you changed>                       # never format the whole tree
@@ -115,7 +115,7 @@ forge fmt <files you changed>                       # never format the whole tre
 
 - **What to comment.** Only what a reader cannot get from the code: derivations, odd encodings, external facts (with a link), policy choices, invariants, and duplicated code that must change together.
 - **Current behavior only.** Comments describe what the code does now. Put change history in commit messages.
-- **Existing comments.** Keep correct ones; fix ones your change makes wrong, including names they mention.
+- **Existing comments.** Keep correct ones. Fix ones your change makes wrong, including names they mention.
 - **Plain words.** In comments, commits, PRs and replies, use plain words and active voice. Define the terms and assumptions a reader without your conversation needs. Do not invent jargon.
 - **Nothing private.** Leave no TODOs. Never mention Slack, chats, private links, task IDs or plan labels in code, commits or PRs.
 
@@ -134,7 +134,7 @@ forge fmt <files you changed>                       # never format the whole tre
 
 Flag a PR that breaks a rule above. Also check that:
 
-- a human has reviewed any AI-written change (`CONTRIBUTING.md`);
-- CI passes, including the size check;
-- affected gas snapshots are regenerated and committed;
-- the description matches the code.
+- A human has reviewed any AI-written change (`CONTRIBUTING.md`).
+- CI passes, including the size check.
+- Affected gas snapshots are regenerated and committed.
+- The description matches the code.
