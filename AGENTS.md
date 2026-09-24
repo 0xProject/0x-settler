@@ -1,12 +1,19 @@
 # 0x Settler
 
-Settler executes token swaps for the 0x API. Deployed contracts are immutable, hold user funds during a transaction, and sit near the 24 KB size limit. Reviewers expect the smallest diff that does the job.
+0x Settler is a gas-optimized DEX aggregator settlement system that executes token swaps without holding passive allowances. It leverages [Permit2](https://github.com/Uniswap/permit2) for secure, one-time token transfers and supports multiple execution modes:
+
+- **Taker-Submitted (tokenId=2)**: Direct user transactions
+- **MetaTxn (tokenId=3)**: Gasless/relayed transactions where users sign over actions
+- **Intent (tokenId=4)**: Solver-authorized execution with user-signed slippage constraints
+- **Bridge Settler (tokenId=5)**: Cross-chain swap execution
+
+Deployed contracts are immutable, hold user funds during a transaction, and sit near the 24 KB size limit. Reviewers expect the smallest diff that does the job.
 
 `README.md` covers the product; `CONTRIBUTING.md` covers what a PR must justify.
 
 ## Map
 
-- `src/Settler.sol`, `SettlerMetaTxn.sol`, `SettlerIntent.sol`: the taker-submitted, metatransaction and intent flavors. They share `SettlerBase.sol`. `src/bridge/BridgeSettler.sol` is the fourth flavor.
+- `src/Settler.sol`, `SettlerMetaTxn.sol`, `SettlerIntent.sol`, `src/bridge/BridgeSettler.sol`: one flavor per mode above. The first three share `SettlerBase.sol`.
 - `src/core/`: actions, venue integrations and payment code shared by the flavors.
 - `src/chains/<Chain>/Common.sol`: which actions each chain supports. Each chain also has one file per flavor.
 - `src/ISettlerActions.sol`: action signatures and the argument-order rules in its header.
