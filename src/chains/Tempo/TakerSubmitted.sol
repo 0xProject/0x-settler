@@ -3,6 +3,7 @@ pragma solidity =0.8.34;
 
 import {TempoMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
+import {BlockTip403Registry} from "./BlockTip403Registry.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -42,12 +43,7 @@ contract TempoSettler is Settler, TempoMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, TempoMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

@@ -15,6 +15,13 @@
   Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb
 
+## 2026-09-25
+
+### Non-breaking changes
+
+* Add the TIP403 registry `0x403c000000000000000000000000000000000000`
+  on Tempo to the list of restricted addresses; Immunefi bug #94068
+
 ## 2026-09-14
 
 ### Non-breaking changes
