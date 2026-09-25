@@ -1027,7 +1027,7 @@
         "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
         "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
       },
-      "apiUrl": "https://api.safe.global/tx-service/tempo/api"
+      "apiUrl": "NOT SUPPORTED"
     },
     "deployment": {
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
