@@ -13,7 +13,7 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
-* Add `FLUXPOOL` action on Bnb
+* Add `FLUXPOOL` action on Bnb, Base, and RobinHood
 
 ## 2026-09-25
 

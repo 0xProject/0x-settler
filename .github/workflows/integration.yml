@@ -64,6 +64,7 @@ jobs:
         env:
           FOUNDRY_PROFILE: integration
           ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
+          ROBINHOOD_MAINNET_RPC_URL: ${{ secrets.ROBINHOOD_MAINNET_RPC_URL }}
 
       - name: Gas comparison
         run: npm run compare_gas
