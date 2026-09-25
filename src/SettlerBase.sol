@@ -106,13 +106,17 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
-            buyToken.safeTransfer(recipient, amountOut);
+            _transferBuyToken(buyToken, recipient, amountOut);
         }
 
         // zeroize `slippage`
         assembly ("memory-safe") {
             codecopy(slippage, codesize(), 0x60)
         }
+    }
+
+    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut) internal virtual override {
+        buyToken.safeTransfer(recipient, amountOut);
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory)
