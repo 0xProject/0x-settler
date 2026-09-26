@@ -3,7 +3,7 @@ pragma solidity =0.8.34;
 
 import {TempoSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
-import {BlockTip403Registry} from "./BlockTip403Registry.sol";
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -99,6 +99,13 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+
+    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut)
+        internal
+        override(SettlerBase, TempoSettlerMetaTxn)
+    {
+        super._transferBuyToken(buyToken, recipient, amountOut);
     }
 
     function _fallback(bytes calldata data)

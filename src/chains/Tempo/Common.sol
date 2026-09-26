@@ -2,7 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
-import {BlockTip403Registry} from "./BlockTip403Registry.sol";
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -12,7 +12,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId, ReceivePolicyBlocked} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3TempoFactory,
@@ -24,10 +24,24 @@ import {
 import {TEMPO_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
+import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTip403Registry, UniswapV4 {
+interface ITempoAddressRegistry {
+    function resolveRecipient(address to) external view returns (address);
+}
+
+interface ITempoReceivePolicy {
+    function validateReceivePolicy(address token, address sender, address receiver)
+        external
+        view
+        returns (bool authorized, uint8 blockedReason);
+}
+
+abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContracts, UniswapV4 {
+    address internal constant _TEMPO_ADDRESS_REGISTRY = 0xfDC0000000000000000000000000000000000000;
+
     constructor() {
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
@@ -93,9 +107,25 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTip403Registry, Un
         internal
         view
         virtual
-        override(Permit2PaymentAbstract, BlockTip403Registry)
+        override(Permit2PaymentAbstract, BlockTempoSystemContracts)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+
+    // A recipient's TIP-1028 receive policy would send a TIP-20 payout to the ReceivePolicyGuard
+    // rather than the recipient. Revert instead.
+    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut)
+        internal
+        virtual
+        override(SettlerSwapAbstract, SettlerBase)
+    {
+        if (uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000) {
+            address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
+            (bool authorized,) = ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY)
+                .validateReceivePolicy(address(buyToken), address(this), resolved);
+            if (!authorized) revert ReceivePolicyBlocked(recipient);
+        }
+        super._transferBuyToken(buyToken, recipient, amountOut);
     }
 }
