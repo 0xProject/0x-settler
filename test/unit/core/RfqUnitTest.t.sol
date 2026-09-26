@@ -38,6 +38,10 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
         revert("unimplemented");
     }
 
+    function _transferBuyToken(IERC20, address, uint256) internal pure override {
+        revert("unimplemented");
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view

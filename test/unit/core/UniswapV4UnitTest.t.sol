@@ -198,6 +198,10 @@ contract UniswapV4Stub is UniswapV4 {
         revert("unimplemented");
     }
 
+    function _transferBuyToken(IERC20, address, uint256) internal pure override {
+        revert("unimplemented");
+    }
+
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }

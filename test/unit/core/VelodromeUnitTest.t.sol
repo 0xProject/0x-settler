@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 //import {Velodrome} from "src/core/VelodromeAlt.sol";
 import {Velodrome} from "src/core/Velodrome.sol";
@@ -31,6 +32,10 @@ contract VelodromeConvergenceDummy is Velodrome {
     }
 
     function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
+        revert("unimplemented");
+    }
+
+    function _transferBuyToken(IERC20, address, uint256) internal pure override {
         revert("unimplemented");
     }
 
