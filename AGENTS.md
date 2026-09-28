@@ -30,6 +30,7 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 - **Dry-run scripts.** Run deploy and admin scripts on a fork before anyone runs them for real.
 - **State tradeoffs.** Explain the tradeoffs you make. Ask when the choice depends on the user's priorities.
 - **Stop when blocked.** If something cannot be tested or verified, say so and stop the work that depends on it.
+- **Improve this file.** If someone corrects you during the work, or you find you did something wrong, consider suggesting an update to `AGENTS.md`.
 
 ## Solidity
 
@@ -88,12 +89,51 @@ Report how you checked each point. If any point fails or cannot be checked, stop
 ## Tests
 
 - **End to end on a fork.** Integration tests sign and submit through Settler's entry point, trade against the live venue, and assert what the taker receives.
-- **No mocks of what you test.** Never mock the contract under test or infrastructure such as Permit2 or the UniswapV4 `PoolManager`. Unit tests may mock an external venue's return values or hard-to-reach errors.
 - **Extend, don't duplicate.** Add to the existing test contract for the feature or venue rather than writing a parallel one.
 - **Tests must fail when the code is wrong.** Assert amounts, recipients and revert reasons, and test both swap directions. Ask whether the test would still pass with a dead router, the wrong recipient or the wrong token.
 - **Bugs.** First add a test that fails, then fix the bug.
 - **Gas snapshots.** Measure gas only around the action, and use constants or immutables in tests so the numbers stay accurate.
 - **RPC URLs.** Fork tests need variables such as `MAINNET_RPC_URL`. If they are not set, ask the user for them.
+
+### CRITICAL: Test the Real Contract, Not Mocks
+
+**DO NOT write mocks that replicate production logic and then test the mocks.** This anti-pattern has directly caused production bugs in this codebase.
+
+```solidity
+// ❌ WRONG: Testing a mock instead of production code
+contract MockSettler {
+    function execute(...) { /* your guess at how it should work */ }
+}
+function test_execute() {
+    MockSettler mock = new MockSettler();
+    mock.execute(...);
+}
+
+// ✅ CORRECT: Test the actual production contract
+function test_execute() {
+    Settler settler = new Settler(...);  // The REAL contract
+    settler.execute(...);
+}
+```
+
+| Test Type | Mocks Allowed? | What to Test Against |
+|-----------|----------------|---------------------|
+| Unit tests | Sparingly, for external dependencies only | Real contract-under-test; may mock external calls |
+| Integration tests | **NO** | Real contracts on chain forks |
+
+**Integration tests are where most bugs are caught.** They must use real, live contracts via chain fork tests.
+
+**Infrastructure contracts (Permit2, UniswapV4 PoolManager, etc.):**
+- Do NOT mock these, even in unit tests
+- Deploy the real contracts into the test environment
+- These contracts are critical to correctness and must be tested authentically
+
+**When mocks ARE appropriate (unit tests only):**
+- Controlling specific return values from external AMM pools
+- Simulating error conditions that are hard to trigger naturally
+- NEVER for the contract-under-test itself
+- NEVER for infrastructure contracts (Permit2, etc.)
+- NEVER in integration tests
 
 ## Commands
 
@@ -115,12 +155,19 @@ forge fmt <files you changed>                       # never format the whole tre
 - **Current behavior only.** Comments describe what the code does now. Put change history in commit messages.
 - **Existing comments.** Keep correct ones. Fix ones your change makes wrong, including names they mention.
 - **Plain words.** In comments, commits, PRs and replies, use plain words and active voice. Define the terms and assumptions a reader without your conversation needs. Do not invent jargon.
-- **Nothing private.** Leave no TODOs. Never mention Slack, chats, private links, task IDs or plan labels in code, commits or PRs.
+- **Nothing private.** Never mention Slack, chats or private links in code, commits or PRs.
+
+Work product must not reference opaque external planning material. Code,
+comments, docs, commit messages, PR descriptions, and other in-repo literature
+must not include outside task identifiers, plan-document labels, milestone
+names, tracking IDs, TODO placeholders, or similar references unless the
+referenced artifact is committed in this repository and the reference is
+required for current correctness.
 
 ## Git and pull requests
 
 - **Staging.** Stage only the files you meant to change, and read `git diff --staged` before committing.
-- **Authorship.** Commit as the human you work for. End each commit message with a `Co-Authored-By:` line naming you (model or agent, and an email from your maker).
+- **Authorship.** Commit as the human you work for. End each commit message with one `Co-Authored-By:` line for each agent that wrote or reviewed the work, and one for the harness that ran them. Name each by model or product, with an email from its maker, for example `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`, `Co-Authored-By: GPT-6 Astra <noreply@openai.com>` and `Co-Authored-By: Claude Code <noreply@anthropic.com>`.
 - **History.** Never rewrite published history: no force-push, and no deleting and recreating a remote branch. Never pass `-f` or `--force` to override a tool's safety check.
 - **Permission.** Push, open PRs or post comments only when asked. Keep each PR to one concern.
 - **PR descriptions.** Write plain prose: the business case, why current code does not cover it, what changed, alternatives you rejected (`CONTRIBUTING.md` requires these), and the gas and size effect. For a new venue, say how you ran each check. Leave out test counts, lists of commands run, and generic headers.
