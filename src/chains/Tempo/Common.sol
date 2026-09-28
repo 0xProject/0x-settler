@@ -28,17 +28,6 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-interface ITempoAddressRegistry {
-    function resolveRecipient(address to) external view returns (address);
-}
-
-interface ITempoReceivePolicy {
-    function validateReceivePolicy(address token, address sender, address receiver)
-        external
-        view
-        returns (bool authorized, uint8 blockedReason);
-}
-
 abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContracts, UniswapV4 {
     address internal constant _TEMPO_ADDRESS_REGISTRY = 0xfDC0000000000000000000000000000000000000;
 
@@ -111,21 +100,5 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
         returns (bool)
     {
         return super._isRestrictedTarget(target);
-    }
-
-    // A recipient's TIP-1028 receive policy would send a TIP-20 payout to the ReceivePolicyGuard
-    // rather than the recipient. Revert instead.
-    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut)
-        internal
-        virtual
-        override(SettlerSwapAbstract, SettlerBase)
-    {
-        if (uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000) {
-            address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
-            (bool authorized,) = ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY)
-                .validateReceivePolicy(address(buyToken), address(this), resolved);
-            if (!authorized) revert ReceivePolicyBlocked(recipient);
-        }
-        super._transferBuyToken(buyToken, recipient, amountOut);
     }
 }

@@ -47,13 +47,6 @@ contract TempoSettler is Settler, TempoMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut)
-        internal
-        override(SettlerBase, TempoMixin)
-    {
-        super._transferBuyToken(buyToken, recipient, amountOut);
-    }
-
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         override(Settler, TempoMixin)

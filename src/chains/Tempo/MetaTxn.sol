@@ -72,14 +72,6 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut)
-        internal
-        virtual
-        override(SettlerBase, TempoMixin)
-    {
-        super._transferBuyToken(buyToken, recipient, amountOut);
-    }
-
     function _fallback(bytes calldata data)
         internal
         virtual
