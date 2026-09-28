@@ -24,8 +24,10 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 - **Read the history.** Read the code and its history (`git log -p`, `git blame`) before you change something that looks wrong. Much of this codebase is deliberate.
 - **Copy the closest example:** a sibling action, fork entry, test, deploy script or changelog line.
 - **Keep the diff small.** Change only what the task needs. Do not reformat untouched code or remove the blank line after the header comment in `ISettlerActions.sol` (it keeps that comment out of `TRANSFER_FROM`'s natspec).
-- **Justify every check.** Add a check, branch, parameter or helper only when you can name the input that needs it. Remove unused parameters and helpers that only wrap one call.
-- **Working is not the same as correct.** A passing local test says little about code that talks to deployed contracts. Prove behavior on real chain state: fork tests through Settler against live pools, `cast` reads of storage and bytecode, and traces of real transactions. Record the chain and block.
+- **Justify every check.** Decide from the threat model and the failure mode. Add a check when it guards against misbehavior by an untrusted component, or when no other mechanism can ensure the value is sane. Leave it out when it only guards against a mistake the user can avoid, or a condition another part of the system already enforces.
+- **No dead code.** Add a branch, parameter or helper only when a real input needs it. Remove unused parameters and helpers that only wrap one call.
+- **Working is not the same as correct.** Do not stop when the code compiles and the tests pass. Working code can still be unsafe, waste gas or bytecode, or break Solidity best practice and the rules in this file. Before you call a change done, check it against those rules and the threat model, and ask what an attacker could do with it.
+- **Test against real state.** A local test says little about code that talks to deployed contracts. Check behavior on real chain state: fork tests through Settler against live pools, `cast` reads of storage and bytecode, and traces of real transactions. Record the chain and block.
 - **Show your evidence.** For each verification claim, give the commands, inputs and results a reviewer needs to repeat it. Report what you did not verify. Never report a check you did not run.
 - **Dry-run scripts.** Run deploy and admin scripts on a fork before anyone runs them for real.
 - **State tradeoffs.** Explain the tradeoffs you make. Ask when the choice depends on the user's priorities.
@@ -37,7 +39,7 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 ### Gas and size
 
 - **Measure.** Measure gas and deployed bytecode size for any optimization, and record how. When gas is equal, choose the smaller bytecode.
-- **Prefer Solidity.** Use assembly where it measurably saves gas or size, or where Solidity cannot express the operation, and say why in a comment when the reason is not obvious. Mark assembly `memory-safe` when it is.
+- **Prefer Solidity.** Use assembly where it measurably saves gas or size, or where Solidity cannot express the operation, and say why in a comment when the reason is not obvious. Mark assembly `memory-safe` when it meets [Solidity's memory-safety rules](https://docs.soliditylang.org/en/latest/assembly.html#memory-safety).
 - **Duplicated code.** Update every copy of code duplicated for gas, such as the `_dispatchVIP` copies in every chain's flavor files, and say in each copy that it is duplicated.
 
 ### Assembly style
@@ -46,25 +48,25 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 - Put the literal on the left of commutative operations (`add(0x40, ptr)`), and flip comparisons to keep it there (`gt(C, x)` for `x < C`).
 - Build selectors and padded values by shifting rather than masking where you can, and avoid `PUSH32` (see `src/vendor/SafeTransferLib.sol`).
 - Combine revert conditions into one branch with `src/utils/FastLogic.sol`.
-- Treat any nonzero `bool` as true.
+- Treat any nonzero `bool` on the stack as true. Handle values narrower than a word as [Solidity's conventions](https://docs.soliditylang.org/en/latest/assembly.html#values-of-typed-variables) and [cleanup rules](https://docs.soliditylang.org/en/latest/internals/variable_cleanup.html) describe, including when you move them between the stack and memory, storage, calldata or returndata.
 - Revert with a left-padded `uint32` selector: `mstore(0x00, 0x12345678) revert(0x1c, 0x04)`. Define every custom error in `SettlerErrors.sol`.
 
 ### Inputs and calls
 
 - **ABI encoding.** Accept any valid encoding, including non-strict ones. `CalldataDecoder` skips bounds checks on purpose.
-- **Invalid input.** Reject it where it enters rather than silently cleaning it or falling back to a default. Assembly that needs clean bits cleans the narrow values it takes from the stack.
+- **Dirty bits.** Revert on dirty bits in calldata or returndata. Silently clean dirty bits in other values, such as narrow values on the stack.
+- **Invalid input.** Reject it where it enters rather than falling back to a default.
 - **Empty calls.** Treat a call to an address with no code, or a call that returns too little data, as a failure unless the target's verified code rules it out.
 - **Units.** Name them (shares or assets, wei or tokens) and state the rounding direction in fixed-point math.
-- **External functions.** Do not add one without a strong reason. Each one adds attack surface. `msg.sender == address(this)` does not protect one, because `BASIC` can make Settler call itself.
+- **External functions.** Do not add one without a strong reason. Each one adds attack surface. `msg.sender == address(this)` does not protect one, because `BASIC` can make Settler call itself. A venue callback needs no new external function: Settler's fallback handles it through `_setOperatorAndCall` (see Callbacks).
 - **Events.** Tell the data team before you add or change one.
-- **Arbitrary calls.** Check `_isRestrictedTarget` first, or state in a comment why no restricted selector can be reached.
+- **Arbitrary calls.** Check `_isRestrictedTarget` before calling an address the caller chooses. You may skip the check when the call uses a hardcoded selector that no restricted target implements. Say so in a comment, as `src/Settler.sol` does for permit calls.
 
 ## Callbacks
 
 - **One path.** Route every venue callback through `_setOperatorAndCall` (`src/core/Permit2Payment.sol`). It records the expected caller, selector and handler, clears them before the handler runs, and reverts if the callback never comes.
 - **Trusted caller.** The expected caller must be an address an attacker cannot control: a pool derived from its deployer and init hash, or a fixed contract such as a vault or `PoolManager`.
 - **Unchanged data.** UniswapV3 callback decoding skips bounds checks because the pool must return Settler's callback data unchanged, including its length. That data selects the payment mode and token, and may carry the taker's permit and signature. A pool that alters it can make Settler pay the wrong token or amount, or spend the wrong Permit2 permit.
-- **Amounts.** Allow partial fills: the amount a callback asks for is the fill amount. Find out who controls the token, amount and destination in the callback. Where the venue does not enforce the action's limits, Settler must (for example, never pay more than the sell amount).
 
 ## Actions
 
@@ -72,6 +74,7 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 - **Match siblings.** Put `recipient` first and `minBuyAmount` last. VIP actions take `recipient` then `permit`. Reuse sibling names such as `zeroForOne`, and use the ERC-7528 address for native tokens.
 - **Explicit fields.** If Settler reads a field, make it an action argument, not an offset into opaque `bytes`.
 - **Direct output.** Add a `recipient` so output can go straight to the taker when the venue allows it.
+- **Amounts.** Allow partial fills: the amount a venue's callback asks for is the fill amount. Where the venue does not enforce the action's limits, Settler must (for example, never pay more than the sell amount).
 - **Slippage.** Check a per-leg `minBuyAmount` against the amount the venue returns or transfers. Never prove a leg's output from the recipient's balance change around an external call, because another transfer in the same transaction can inflate it. If the venue reports no output amount, drop the per-leg minimum and rely on the final slippage check. The final check measures only what Settler holds, so output that relies on it must pass through Settler.
 
 ## Integrating a venue
@@ -83,6 +86,15 @@ Before adding a DEX or UniswapV3 fork, identify which contracts and returned val
 3. **No admin control:** no admin can change the behavior Settler relies on. No upgradeable pools, replaceable code or repointable addresses. An upgradeable factory with immutable pools is acceptable.
 4. **Callback data:** the venue passes callback data (the `data` argument of `swap` for UniswapV3 forks) to the callback unchanged.
 5. **Callback ABI:** the callback's selector, arguments and amount signs match what Settler handles. A fork that renames its callback has a different selector.
+6. **Callback control:** you know who controls the token, amount and destination the callback passes.
+
+Get verified source from the explorer that has it:
+
+```bash
+cast source --chain <chainId> <address>                                   # Etherscan
+cast source --explorer-api-url https://<blockscout-host>/api <address>    # Blockscout
+curl 'https://sourcify.dev/server/v2/contract/<chainId>/<address>?fields=all'   # Sourcify
+```
 
 Report how you checked each point. If any point fails or cannot be checked, stop and report it. A new action needs a fork test against live contracts. A new UniswapV3 fork needs one when its address derivation, callback or swap behavior differs from existing forks.
 
@@ -151,11 +163,19 @@ forge fmt <files you changed>                       # never format the whole tre
 
 ## Comments and writing
 
-- **What to comment.** Only what a reader cannot get from the code: derivations, odd encodings, external facts (with a link), policy choices, invariants, and duplicated code that must change together.
-- **Current behavior only.** Comments describe what the code does now. Put change history in commit messages.
-- **Existing comments.** Keep correct ones. Fix ones your change makes wrong, including names they mention.
+- **What to comment.** Explain why, never how or what. Clear names should answer what. Comment only what a reader cannot get from the code: derivations, odd encodings, external facts (with a link), policy choices, invariants, and duplicated code that must change together.
+- **Existing comments.** Keep correct ones. Fix ones your change makes wrong.
 - **Plain words.** In comments, commits, PRs and replies, use plain words and active voice. Define the terms and assumptions a reader without your conversation needs. Do not invent jargon.
 - **Nothing private.** Never mention Slack, chats or private links in code, commits or PRs.
+
+Comments must refer to behavior and intent, never to function or variable names.
+A comment must explain _what_ a function does only when, by external constraints
+or the desire to optimize, that function is forced into an obtuse, arcane, or
+non-idiomatic structure in order to achieve its goal.
+
+Comments, notes, commit messages, PR descriptions, and docs must describe only
+the current implementation unless historical context is required for present
+correctness. Archaeology is forbidden.
 
 Work product must not reference opaque external planning material. Code,
 comments, docs, commit messages, PR descriptions, and other in-repo literature
