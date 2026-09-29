@@ -6,6 +6,7 @@ import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
@@ -39,6 +40,8 @@ interface ITempoReceivePolicy {
 }
 
 abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContracts, UniswapV4 {
+    using FastLogic for bool;
+
     address internal constant _TEMPO_ADDRESS_REGISTRY = 0xfDC0000000000000000000000000000000000000;
 
     constructor() {
@@ -52,7 +55,7 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
     // A recipient's TIP-1028 receive policy can send a TIP-20 payout to the ReceivePolicyGuard
     // rather than the recipient. The payout must reach the recipient.
     function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual override {
-        if (uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000) {
+        if ((uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000).andNot(recipient == address(this))) {
             address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
             (bool authorized,) = ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY)
                 .validateReceivePolicy(address(buyToken), address(this), resolved);
