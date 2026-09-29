@@ -1,6 +1,4 @@
-# 0x Settler - Development Guide
-
-## Business Context
+# 0x Settler
 
 0x Settler is a gas-optimized DEX aggregator settlement system that executes token swaps without holding passive allowances. It leverages [Permit2](https://github.com/Uniswap/permit2) for secure, one-time token transfers and supports multiple execution modes:
 
@@ -9,204 +7,105 @@
 - **Intent (tokenId=4)**: Solver-authorized execution with user-signed slippage constraints
 - **Bridge Settler (tokenId=5)**: Cross-chain swap execution
 
-Key addresses:
-- Deployer/Registry: `0x00000000000004533Fe15556B1E086BB1A72cEae`
-- Permit2: `0x000000000022D473030F116dDEE9F6B43aC78BA3`
-- AllowanceHolder (Cancun): `0x0000000000001fF3684f28c67538d4D072C22734`
-- CrossChainReceiverFactory: `0x00000000000000304861c3aDfb80dd5ebeC96325`
+Deployed contracts are immutable, hold user funds during a transaction, and sit near the 24 KB size limit. Reviewers expect the smallest diff that does the job.
 
-## Architecture Overview
+## Map
 
-### Three-Flavor Settlement Pattern
+- `src/Settler.sol`, `SettlerMetaTxn.sol`, `SettlerIntent.sol`, `src/bridge/BridgeSettler.sol`: one flavor per mode above. The first three share `SettlerBase.sol`.
+- `src/core/`: actions, venue integrations and payment code shared by the flavors.
+- `src/chains/<Chain>/Common.sol`: which actions each chain supports. Each chain also has one file per flavor.
+- `src/ISettlerActions.sol`: action signatures and the argument-order rules in its header.
+- `src/core/SettlerErrors.sol`: every custom error.
+- `UNISWAPV3_FORKS.md`: UniswapV3 fork IDs and upgradeability notes.
+- The default branch is `master`.
 
-```
-SettlerSwapAbstract (virtual dispatch interface)
-    |
-    +-- SettlerBase (RFQ + UniV3 + UniV2 + Velodrome + Basic)
-    |       |
-    |       +-- Settler (TakerSubmitted, tokenId=2)
-    |       +-- SettlerMetaTxn (tokenId=3)
-    |               |
-    |               +-- SettlerIntent (tokenId=4)
-    |
-    +-- BridgeSettlerBase (tokenId=5)
-```
+## How to work
 
-Each chain has its own `Common.sol` mixin that inherits from `SettlerBase` and adds chain-specific DEX support (e.g., `MainnetMixin` adds MakerPSM, MaverickV2, DodoV1/V2, UniswapV4, BalancerV3, and Ekubo).
+- **Read the history.** Read the code and its history (`git log -p`, `git blame`) before you change something that looks wrong. Much of this codebase is deliberate.
+- **Copy the closest example:** a sibling action, fork entry, test, deploy script or changelog line.
+- **Keep the diff small.** Change only what the task needs. Do not reformat untouched code or remove the blank line after the header comment in `ISettlerActions.sol` (it keeps that comment out of `TRANSFER_FROM`'s natspec).
+- **Justify every check.** Decide from the threat model and the failure mode. Add a check when it guards against misbehavior by an untrusted component, or when no other mechanism can ensure the value is sane. Leave it out when it only guards against a mistake the user can avoid, or a condition another part of the system already enforces.
+- **No dead code.** Add a branch, parameter or helper only when a real input needs it. Remove unused parameters and helpers that only wrap one call.
+- **Working is not the same as correct.** Do not stop when the code compiles and the tests pass. Working code can still be unsafe, waste gas or bytecode, or break Solidity best practice and the rules in this file. Before you call a change done, check it against those rules and the threat model, and ask what an attacker could do with it.
+- **Test against real state.** A local test says little about code that talks to deployed contracts. Check behavior on real chain state: fork tests through Settler against live pools, `cast` reads of storage and bytecode, and traces of real transactions. Record the chain and block.
+- **Show your evidence.** For each verification claim, give the commands, inputs and results a reviewer needs to repeat it. Report what you did not verify. Never report a check you did not run.
+- **Dry-run scripts.** Run deploy and admin scripts on a fork before anyone runs them for real.
+- **State tradeoffs.** Explain the tradeoffs you make. Ask when the choice depends on the user's priorities.
+- **Stop when blocked.** If something cannot be tested or verified, say so and stop the work that depends on it.
+- **Improve this file.** If someone corrects you during the work, or you find you did something wrong, consider suggesting an update to `AGENTS.md`.
 
-### Directory Structure
+## Solidity
 
-```
-src/
-├── Settler.sol              # TakerSubmitted base
-├── SettlerMetaTxn.sol       # MetaTxn base
-├── SettlerIntent.sol        # Intent base
-├── SettlerBase.sol          # Common settlement logic + CalldataDecoder
-├── SettlerAbstract.sol      # Virtual dispatch interface
-├── ISettlerActions.sol      # Action selector definitions
-│
-├── chains/                  # Chain-specific implementations (~27 chains)
-│   └── <ChainName>/
-│       ├── Common.sol       # Chain mixin (DEX integrations)
-│       ├── TakerSubmitted.sol
-│       ├── MetaTxn.sol
-│       ├── Intent.sol
-│       └── BridgeSettler.sol
-│
-├── core/                    # Action implementations (mixins)
-│   ├── Basic.sol            # Generic pool interactions
-│   ├── RfqOrderSettlement.sol
-│   ├── UniswapV3Fork.sol    # V3 + 30+ forks
-│   ├── UniswapV2.sol
-│   ├── UniswapV4.sol
-│   ├── Velodrome.sol
-│   ├── MakerPSM.sol
-│   ├── MaverickV2.sol
-│   ├── DodoV1.sol, DodoV2.sol
-│   ├── BalancerV3.sol
-│   ├── Ekubo.sol
-│   ├── Permit2Payment.sol   # Transient storage + Permit2 integration
-│   ├── SettlerErrors.sol    # Custom errors
-│   └── univ3forks/          # UniV3 fork configurations
-│
-├── allowanceholder/         # AllowanceHolder integration
-├── bridge/                  # Cross-chain bridge support
-├── deployer/                # Deployment infrastructure
-├── multicall/               # ERC-2771 multicall forwarding
-├── utils/                   # Utilities (512Math, UnsafeMath, etc.)
-└── vendor/                  # Vendored libraries (SafeTransferLib, FullMath)
+### Gas and size
 
-test/
-├── integration/             # Fork tests (run with FOUNDRY_PROFILE=integration)
-├── unit/                    # Unit tests
-└── utils/                   # Test utilities (Permit2Signature, ActionDataBuilder)
-```
+- **Measure.** Measure gas and deployed bytecode size for any optimization, and record how. When gas is equal, choose the smaller bytecode.
+- **Prefer Solidity.** Use assembly where it measurably saves gas or size, or where Solidity cannot express the operation, and say why in a comment when the reason is not obvious. Mark assembly `memory-safe` when it meets [Solidity's memory-safety rules](https://docs.soliditylang.org/en/latest/assembly.html#memory-safety).
+- **Duplicated code.** Update every copy of code duplicated for gas, such as the `_dispatchVIP` copies in every chain's flavor files, and say in each copy that it is duplicated.
 
-### Key Design Patterns
+### Assembly style
 
-#### 1. Action Dispatch System
+- Write numbers in hex (`0x20`, not `32`). Named Solidity constants stay decimal.
+- Put the literal on the left of commutative operations (`add(0x40, ptr)`), and flip comparisons to keep it there (`gt(C, x)` for `x < C`).
+- Build selectors and padded values by shifting rather than masking where you can, and avoid `PUSH32` (see `src/vendor/SafeTransferLib.sol`).
+- Combine revert conditions into one branch with `src/utils/FastLogic.sol`.
+- Treat any nonzero `bool` on the stack as true. Handle values narrower than a word as [Solidity's conventions](https://docs.soliditylang.org/en/latest/assembly.html#values-of-typed-variables) and [cleanup rules](https://docs.soliditylang.org/en/latest/internals/variable_cleanup.html) describe, including when you move them between the stack and memory, storage, calldata or returndata.
+- Revert with a left-padded `uint32` selector: `mstore(0x00, 0x12345678) revert(0x1c, 0x04)`. Define every custom error in `SettlerErrors.sol`.
 
-Actions are identified by 4-byte selectors from `ISettlerActions`. Dispatch happens at two levels:
-- **VIP dispatch** (first action only): Direct Permit2 transfers (`TRANSFER_FROM`, `UNISWAPV3_VIP`, etc.)
-- **Regular dispatch** (all actions): Pool interactions using settler-held balances
+### Inputs and calls
 
-```solidity
-// In Settler.execute()
-if (!_dispatchVIP(action, data)) {
-    if (!_dispatch(0, action, data)) {
-        revertActionInvalid(0, action, data);
-    }
-}
-```
+- **ABI encoding.** Accept any valid encoding, including non-strict ones. `CalldataDecoder` skips bounds checks on purpose.
+- **Dirty bits.** Revert on dirty bits in calldata or returndata. Silently clean dirty bits in other values, such as narrow values on the stack.
+- **Invalid input.** Reject it where it enters rather than falling back to a default.
+- **Empty calls.** Treat a call to an address with no code, or a call that returns too little data, as a failure unless the target's verified code rules it out.
+- **Units.** Name them (shares or assets, wei or tokens) and state the rounding direction in fixed-point math.
+- **External functions.** Do not add one without a strong reason. Each one adds attack surface. `msg.sender == address(this)` does not protect one, because `BASIC` can make Settler call itself. A venue callback needs no new external function: Settler's fallback handles it through `_setOperatorAndCall` (see Callbacks).
+- **Events.** Tell the data team before you add or change one.
+- **Arbitrary calls.** Check `_isRestrictedTarget` before calling an address the caller chooses. You may skip the check when the call uses a hardcoded selector that no restricted target implements. Say so in a comment, as `src/Settler.sol` does for permit calls.
 
-#### 2. Transient Storage for Reentrancy
+## Callbacks
 
-Uses EIP-1153 transient storage (`tload`/`tstore`) for:
-- `_OPERATOR_SLOT`: Active operator + callback selector + callback function pointer
-- `_WITNESS_SLOT`: EIP-712 witness hash for metatxns
-- `_PAYER_SLOT`: Current payer (implicit reentrancy guard)
+- **One path.** Route every venue callback through `_setOperatorAndCall` (`src/core/Permit2Payment.sol`). It records the expected caller, selector and handler, clears them before the handler runs, and reverts if the callback never comes.
+- **Trusted caller.** The expected caller must be an address an attacker cannot control: a pool derived from its deployer and init hash, or a fixed contract such as a vault or `PoolManager`.
+- **Unchanged data.** UniswapV3 callback decoding skips bounds checks because the pool must return Settler's callback data unchanged, including its length. That data selects the payment mode and token, and may carry the taker's permit and signature. A pool that alters it can make Settler pay the wrong token or amount, or spend the wrong Permit2 permit.
 
-#### 3. CalldataDecoder (Lax Decoding)
+## Actions
 
-Custom ABI decoder in `SettlerBase.sol` that:
-- Omits bounds/overflow checking for gas efficiency
-- Allows negative offsets and calldata aliasing
-- Enables advanced calldata reuse patterns
+- **Prefer `BASIC`** when the solver only needs to insert an amount into calldata. Add a new action only when Settler must pay in a callback, compute a value at runtime, or enforce something the venue cannot.
+- **Match siblings.** Put `recipient` first and `minBuyAmount` last. VIP actions take `recipient` then `permit`. Reuse sibling names such as `zeroForOne`, and use the ERC-7528 address for native tokens.
+- **Explicit fields.** If Settler reads a field, make it an action argument, not an offset into opaque `bytes`.
+- **Direct output.** Add a `recipient` so output can go straight to the taker when the venue allows it.
+- **Amounts.** Allow partial fills: the amount a venue's callback asks for is the fill amount. Where the venue does not enforce the action's limits, Settler must (for example, never pay more than the sell amount).
+- **Slippage.** Check a per-leg `minBuyAmount` against the amount the venue returns or transfers. Never prove a leg's output from the recipient's balance change around an external call, because another transfer in the same transaction can inflate it. If the venue reports no output amount, drop the per-leg minimum and rely on the final slippage check. The final check measures only what Settler holds, so output that relies on it must pass through Settler.
 
-#### 4. Mixin-Based Composition
+## Integrating a venue
 
-Chain-specific functionality is composed via mixins. When adding a new DEX:
-1. Create action implementation in `src/core/`
-2. Add to chain's `Common.sol` mixin
-3. Add action selector to `ISettlerActions.sol`
-4. Implement in `_dispatch()` and optionally `_dispatchVIP()`
+Before adding a DEX or UniswapV3 fork, identify which contracts and returned values the action trusts, and show that:
 
-## Solidity Contribution Guidelines
+1. **Bytecode:** their source (public or supplied privately) recompiles to exactly the deployed bytecode.
+2. **Pool addresses:** for CREATE2 pools, real pool addresses recompute from the contract that deploys the pool (which may differ from the factory), its salt and its init hash.
+3. **No admin control:** no admin can change the behavior Settler relies on. No upgradeable pools, replaceable code or repointable addresses. An upgradeable factory with immutable pools is acceptable.
+4. **Callback data:** the venue passes callback data (the `data` argument of `swap` for UniswapV3 forks) to the callback unchanged.
+5. **Callback ABI:** the callback's selector, arguments and amount signs match what Settler handles. A fork that renames its callback has a different selector.
+6. **Callback control:** you know who controls the token, amount and destination the callback passes.
 
-### General Principles
-
-- **Think first, code second**: Minimize lines changed; consider ripple effects
-- **Prefer simplicity**: Fewer moving parts = fewer bugs and lower audit overhead
-- **Contract size matters**: This codebase is at the edge of the 24KB limit
-
-### Assembly Usage
-
-| Rule | Rationale |
-|------|-----------|
-| Use assembly only when essential | Keeps code readable and auditable |
-| Assembly is mandatory for low-level external calls | Full control over call parameters & return data, saves gas |
-| Precede every assembly block with: brief justification + equivalent Solidity pseudocode | Documents intent for reviewers |
-| Mark assembly blocks `memory-safe` when criteria are met | Enables compiler optimizations |
-| Use hex for all numeric constants in assembly (e.g. `0x60` not `96`, `0x20` not `32`) | Codebase convention; keeps assembly style uniform |
-| Put constant arguments on the left of commutative operations (e.g. `add(0x40, data)`, not `add(data, 0x40)`) | Matches repo style and keeps assembly easy to scan |
-
-### Gas Optimization
-
-- Keep a dedicated **Gas Optimization** section in PR descriptions
-- Prefer `calldata` over `memory` for function arguments
-- Limit storage operations; use transient storage where possible
-- Use `unchecked` blocks for safe arithmetic
-- Use `DANGEROUS_freeMemory` modifier sparingly (see `FreeMemory.sol`)
+Get verified source from the explorer that has it:
 
 ```bash
-npm run snapshot:main   # captures gas baseline from main
-npm run diff:main       # compares your branch vs. main
+cast source --chain <chainId> <address>                                   # Etherscan
+cast source --explorer-api-url https://<blockscout-host>/api <address>    # Blockscout
+curl 'https://sourcify.dev/server/v2/contract/<chainId>/<address>?fields=all'   # Sourcify
 ```
 
-### Stack Too Deep Solutions
+Report how you checked each point. If any point fails or cannot be checked, stop and report it. A new action needs a fork test against live contracts. A new UniswapV3 fork needs one when its address derivation, callback or swap behavior differs from existing forks.
 
-1. **Scoped blocks**: Wrap code in `{ ... }` to drop unused vars
-2. **Internal helper functions**: Encapsulate logic to shorten call frames
-3. **Struct hack (tests only)**: Bundle locals into a temporary struct
-4. **Refactor first**: Delete unnecessary variables before other tricks
+## Tests
 
-### Error Handling
-
-Use custom errors (defined in `src/core/SettlerErrors.sol`) with the if/revert pattern:
-
-```solidity
-if (amount == 0) revert AmountMustBePositive();
-```
-
-For code size optimization, implement reverts in assembly. Solidity generates right-padded `bytes4` constants which are expensive; assembly allows left-padded `uint32` constants that consume less contract size:
-
-```solidity
-// Assembly revert saves contract size
-assembly ("memory-safe") {
-    mstore(0, 0x12345678) // uint32 selector, left-padded
-    revert(0x1c, 0x04)
-}
-```
-
-Errors must always be defined in `SettlerErrors.sol` regardless of whether thrown from Solidity or assembly.
-
-### Security Checklist
-
-- Review every change with an adversarial mindset
-- Favor the simplest design that meets requirements
-- After coding, ask: "What new attack surface did I introduce?"
-- Reject any change that raises security risk without strong justification
-- **Confused Deputy Prevention**: Always check `_isRestrictedTarget()` before arbitrary calls
-- **Callback Security**: Verify callbacks come from trusted addresses (derived via initHash)
-
-### Reentrancy Protection
-
-Follow the Checks-Effects-Interactions (CEI) pattern: all state changes before external calls. This codebase also uses transient storage (`_PAYER_SLOT`) as an implicit reentrancy guard:
-
-```solidity
-modifier takerSubmitted() override {
-    address msgSender = _operator();
-    TransientStorage.setPayer(msgSender);  // Sets guard
-    _;
-    TransientStorage.clearPayer(msgSender); // Clears guard
-}
-```
-
-## Testing Guidelines
-
-### Core Testing Principles
-
-**Every feature or change MUST have comprehensive tests before creating a PR.** This is non-negotiable for maintaining code quality and preventing regressions.
+- **End to end on a fork.** Integration tests sign and submit through Settler's entry point, trade against the live venue, and assert what the taker receives.
+- **Extend, don't duplicate.** Add to the existing test contract for the feature or venue rather than writing a parallel one.
+- **Tests must fail when the code is wrong.** Assert amounts, recipients and revert reasons, and test both swap directions. Ask whether the test would still pass with a dead router, the wrong recipient or the wrong token.
+- **Bugs.** First add a test that fails, then fix the bug.
+- **Gas snapshots.** Measure gas only around the action, and use constants or immutables in tests so the numbers stay accurate.
+- **RPC URLs.** Fork tests need variables such as `MAINNET_RPC_URL`. If they are not set, ask the user for them.
 
 ### CRITICAL: Test the Real Contract, Not Mocks
 
@@ -248,169 +147,31 @@ function test_execute() {
 - NEVER for infrastructure contracts (Permit2, etc.)
 - NEVER in integration tests
 
-### When to Write Tests
+## Commands
 
-- **New Features/Actions**: Write tests demonstrating the complete flow and all edge cases
-- **Bug Fixes**: Add tests that reproduce the bug and verify the fix
-- **Refactoring**: Ensure existing tests still pass; add new ones if behavior changes
-- **Gas Optimizations**: Include benchmark tests showing before/after comparisons
-
-### Types of Tests
-
-- **Unit tests**: Happy paths, failure cases, edge cases, revert conditions. Name format: `test_FeatureName_Scenario_Outcome()`
-- **Integration tests (fork tests)**: Live against forked mainnet state. Inherit from `BasePairTest`:
-
-```solidity
-abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDefaultFork {
-    function fromToken() internal view virtual returns (IERC20);
-    function toToken() internal view virtual returns (IERC20);
-    function amount() internal view virtual returns (uint256);
-}
-```
-
-- **Fuzz tests**: Highly encouraged. Foundry is configured for 100,000 fuzz runs. Use `bound()` and `vm.assume()` to constrain inputs.
-
-```solidity
-function testFuzz_myFeature(uint256 amount, address user) public {
-    amount = bound(amount, 1, type(uint128).max);
-    vm.assume(user != address(0));
-    // Test logic
-}
-```
-
-### Test Commands
-
-**IMPORTANT:** The canonical test commands are defined in the CI workflow files. Before running tests, read these files to get the exact commands:
-
-- `.github/workflows/test.yml` - Unit tests, build steps, and special contract tests
-- `.github/workflows/integration.yml` - Integration/fork tests
-
-**RPC URLs Required:** Many tests require RPC URLs for forked network access. If you need to run integration tests or fork tests and don't have the RPC URLs configured, use the `AskUserQuestion` tool to request them from the user. Required environment variables include:
-- `MAINNET_RPC_URL`
-- `BNB_MAINNET_RPC_URL`
-- `PLASMA_MAINNET_RPC_URL`
-- `ARBITRUM_MAINNET_RPC_URL`
-- `BASE_MAINNET_RPC_URL`
-- `MONAD_MAINNET_RPC_URL`
-
-## Development Workflow
-
-### Prerequisites
-
-Foundry v1.5.1, Node.js 18.x, and git submodules (`git submodule update --recursive --init`).
-
-### Solc Versions
-
-The codebase uses `auto_detect_solc = true` — the compiler version is determined by each file's pragma. Multiple Solidity compiler versions are in use:
-
-| Component | Solc Version | EVM Version | Optimizer Runs |
-|-----------|--------------|-------------|----------------|
-| Core libraries (`src/core/`, `src/*.sol`) | `^0.8.25` (auto-detected) | osaka | 2,000 |
-| Chain contracts (`src/chains/*/`) | `=0.8.34` | osaka | 2,000 |
-| AllowanceHolder + Deployer | `=0.8.25` (CI-pinned) | osaka | 2,000 |
-| UniswapV4 (`lib/v4-core/`) | 0.8.26 (CI-pinned) | osaka | 2,000 |
-| MultiCall | 0.8.28 | london | 1,000,000 |
-| CrossChainReceiverFactory | 0.8.28 | london | 1,000,000 |
-
-### Building
+Use the compiler, EVM and optimizer settings in CI (`.github/workflows/test.yml`, `integration.yml`, `size.yml`).
 
 ```bash
-# Standard build (skips special contracts)
-forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' --skip 'script/*'
-
-# Build AllowanceHolder and Deployer (pinned to 0.8.25)
-FOUNDRY_SOLC_VERSION=0.8.25 forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol
-
-# Build MultiCall (requires london EVM)
-FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 \
-  forge build -- src/multicall/MultiCall.sol
-
-# Build CrossChainReceiverFactory (requires london EVM)
-FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 \
-  forge build -- src/CrossChainReceiverFactory.sol
-
-# Build UniswapV4 dependencies
-FOUNDRY_SOLC_VERSION=0.8.26 forge build -- lib/v4-core/src/PoolManager.sol
-
-# Check contract sizes
-forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
-
-# Format code
-forge fmt
+forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'src/chains/*' --skip 'test/*' --skip 'script/*'
+forge build --sizes -- src/chains/<Chain>          # per-chain size check
+forge test                                          # unit tests
+FOUNDRY_PROFILE=integration forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'   # fork tests, writes gas snapshots (Arbitrum runs separately via ./arbos-forge)
+COMPARE_GIT_SHA=$(git merge-base HEAD master) npm run compare_gas                            # gas vs master
+npm run check_vips                                  # VIP signatures vs ISettlerActions.sol
+forge fmt <files you changed>                       # never format the whole tree
 ```
 
-### Foundry Configuration
+## Comments and writing
 
-Key settings in `foundry.toml`:
-- `auto_detect_solc = true` (compiler version determined by pragma)
-- `via_ir = true` (required for contract size)
-- `optimizer_runs = 2_000`
-- `evm_version = "osaka"`
-- `fuzz.runs = 100_000`
-- Unit tests exclude `test/integration/*`
-- Integration tests (`FOUNDRY_PROFILE=integration`) only match `test/integration/*`
+- **What to comment.** Explain why, never how or what. Clear names should answer what. Comment only what a reader cannot get from the code: derivations, odd encodings, external facts (with a link), policy choices, invariants, and duplicated code that must change together.
+- **Existing comments.** Keep correct ones. Fix ones your change makes wrong.
+- **Plain words.** In comments, commits, PRs and replies, use plain words and active voice. Define the terms and assumptions a reader without your conversation needs. Do not invent jargon.
+- **Nothing private.** Never mention Slack, chats or private links in code, commits or PRs.
 
-### Commit Hygiene
-
-**Stage only files you intentionally modified** (no `git add .`). Always run `git diff --staged` before committing.
-
-```bash
-# ✅ Stage specific files and review
-git add src/core/MyFeature.sol test/unit/MyFeatureTest.t.sol
-git diff --staged
-git commit -m "Fix bug in MyFeature" -m 'Co-Authored-By: AI Agent <ai-agent@example.com>'
-```
-
-You MUST add a `Co-Authored-By:` line at the end of each commit message explicitly referencing yourself as the coauthor. Refer to yourself using the name that best describes your identity as a model, harness, or agentic system, and use an email address that is reflective of your creator(s). If this is ambiguous, add multiple `Co-Authored-By:` lines.
-
-### Before Committing
-
-```bash
-# Build (matches CI)
-forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
-
-# Run unit tests
-forge test
-
-# Check formatting
-forge fmt --check
-
-# Gas comparison (requires npm install)
-npm run compare_gas
-
-# Gas diff vs main
-npm run diff:main
-```
-
-### CI Workflow
-
-See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for the full CI pipeline (builds, unit tests, integration tests, gas comparison).
-
-### Adding a New Chain
-
-1. Create chain directory: `src/chains/<ChainName>/`
-2. Create `Common.sol` with chain-specific mixin
-3. Create flavor files: `TakerSubmitted.sol`, `MetaTxn.sol`, `Intent.sol`, `BridgeSettler.sol`
-4. Configure UniV3 forks in `_uniV3ForkInfo()`
-5. Set `_POOL_MANAGER()` if UniswapV4 is available
-6. Add to `chain_config.json`
-
-### Adding a New DEX Integration
-
-1. Create action mixin in `src/core/<DexName>.sol`
-2. Add action selector to `ISettlerActions.sol`
-3. Add to relevant chain mixins' `_dispatch()` method
-4. Add VIP variant if it supports callback-based Permit2 payment
-5. Write integration tests
-
-## Key Constants
-
-```solidity
-uint256 internal constant BASIS = 1_000_000;  // ppm (parts-per-million) proportion denominator
-IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-```
-
-## Critical Reminders
+Comments must refer to behavior and intent, never to function or variable names.
+A comment must explain _what_ a function does only when, by external constraints
+or the desire to optimize, that function is forced into an obtuse, arcane, or
+non-idiomatic structure in order to achieve its goal.
 
 Comments, notes, commit messages, PR descriptions, and docs must describe only
 the current implementation unless historical context is required for present
@@ -423,70 +184,22 @@ names, tracking IDs, TODO placeholders, or similar references unless the
 referenced artifact is committed in this repository and the reference is
 required for current correctness.
 
-### Commenting Discipline
+## Git and pull requests
 
-Comments must be added only where the code cannot speak for itself, and code
-must be written so that this is rare. Delete any comment that restates what the
-code does.
+- **Staging.** Stage only the files you meant to change, and read `git diff --staged` before committing.
+- **Authorship.** Commit as the human you work for. End each commit message with one `Co-Authored-By:` line for each agent that wrote or reviewed the work, and one for the harness that ran them. Name each by model or product, with an email from its maker, for example `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`, `Co-Authored-By: GPT-6 Astra <noreply@openai.com>` and `Co-Authored-By: Claude Code <noreply@anthropic.com>`.
+- **History.** Never rewrite published history: no force-push, and no deleting and recreating a remote branch. Never pass `-f` or `--force` to override a tool's safety check.
+- **Permission.** Push, open PRs or post comments only when asked. Keep each PR to one concern.
+- **PR descriptions.** Write plain prose: the business case, why current code does not cover it, what changed, alternatives you rejected (`CONTRIBUTING.md` requires these), and the gas and size effect. For a new venue, say how you ran each check. Leave out test counts, lists of commands run, and generic headers.
+- **Changelog.** Add a `CHANGELOG.md` entry under `[Unreleased]` for any user-visible change. Name every chain it affects and match the wording of earlier entries.
+- **Frozen files.** Do not edit files that must match a deployed or third-party version: `audits/` (including file names), `sh/initial_description_*.md` (uploaded on chain at deploy), and `src/vendor/SafeTransferLib_Solmate.sol` (keeps AllowanceHolder byte-for-byte identical).
+- **No new docs.** Do not create documentation files unless asked.
 
-Comments must explain only their associated code. A comment must never explain
-the chat, the task, the plan, or the changes from a previous revision.
+## Code Review Rules
 
-Comments must refer to behavior and intent, never to function or variable names.
-A comment must explain _what_ a function does only when, by external constraints
-or the desire to optimize, that function is forced into an obtuse, arcane, or
-non-idiomatic structure in order to achieve its goal.
+Flag a PR that breaks a rule above. Also check that:
 
-### DO NOT
-
-- Create documentation files unless explicitly requested
-- Write notes, comments, docs, commit messages, or PR descriptions that describe historical evolution instead of the current system unless the history is required for current correctness
-- Write comments, code, docs, commit messages, PR descriptions, or other in-repo literature that cite opaque outside task identifiers, plan labels, milestones, tracking IDs, TODO placeholders, or issue labels
-- Use comments to explain what used to be true, what changed, why something was once necessary, or that a workaround/kludge existed previously
-- Make up performance numbers or generic justifications for changes
-- Add features beyond what was asked (no over-engineering)
-- Modify the `_dispatch` copy/paste pattern without updating all locations
-- Create standalone test files; use the project's test infrastructure
-- Use the `-f` or the `--force` flag to _**ANY**_ tool or utility, _EVER_.
-
-### ALWAYS
-
-- Read relevant existing code before making changes
-- Write comments as current-state documentation only
-- Check gas impact with `npm run diff:main`
-- Follow existing patterns in chain-specific code
-- Mark assembly blocks `memory-safe` when appropriate
-- Update both `_dispatch()` and `_dispatchVIP()` when adding VIP actions
-- Consider all three settler flavors when making changes
-- Measure performance changes properly; let improvements stand on technical merit
-
-### Contract Size Constraints
-
-The codebase is at the edge of the 24KB contract size limit:
-- `via_ir = true` is required
-- Functions are often written in assembly to save bytes
-- ABI encoding is done manually to reduce size
-- `DANGEROUS_freeMemory` modifier allows memory reuse
-- Unused code paths should be removed, not commented out
-
-## Using Cast
-
-### Settler-Specific Commands
-
-```bash
-# Get current Settler address from deployer
-cast call 0x00000000000004533Fe15556B1E086BB1A72cEae "ownerOf(uint256)(address)" 2
-
-# Check previous Settler (dwell time)
-cast call 0x00000000000004533Fe15556B1E086BB1A72cEae "prev(uint128)(address)" 2
-
-# Get next Settler address
-cast call 0x00000000000004533Fe15556B1E086BB1A72cEae "next(uint128)(address)" 2
-
-# Trace a transaction
-cast run <txhash> --rpc-url $RPC_URL
-```
-
-### Forge Standard Library
-
-See `lib/forge-std/src/*.sol` for cheatcodes and utilities that streamline testing (e.g., `Vm.sol`, `Test.sol`, `StdCheats.sol`).
+- A human has reviewed any AI-written change (`CONTRIBUTING.md`).
+- CI passes, including the size check.
+- Affected gas snapshots are regenerated and committed.
+- The description matches the code.
