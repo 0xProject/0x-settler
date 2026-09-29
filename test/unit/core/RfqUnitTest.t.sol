@@ -176,6 +176,10 @@ contract RecipientCheckRfq is RfqOrderSettlementDummy {
         expectedBuyToken = buyToken;
     }
 
+    function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
+    }
+
     function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
         require(recipient == expectedRecipient && buyToken == expectedBuyToken);
         revert ReceivePolicyBlocked(recipient);

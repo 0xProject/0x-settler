@@ -7,6 +7,9 @@ import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
 import {BaseSettlerMetaTxn} from "src/chains/Base/MetaTxn.sol";
+import {TempoSettler} from "src/chains/Tempo/TakerSubmitted.sol";
+import {TempoSettlerMetaTxn} from "src/chains/Tempo/MetaTxn.sol";
+import {TempoSettlerIntent} from "src/chains/Tempo/Intent.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IUniV2Pair} from "src/core/UniswapV2.sol";
 import {IVelodromePair} from "src/core/Velodrome.sol";
@@ -329,6 +332,10 @@ contract RecipientCheckSettler is BaseSettler {
         expectedBuyToken = buyToken;
     }
 
+    function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
+    }
+
     function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
         require(recipient == expectedRecipient && buyToken == expectedBuyToken);
         revert ReceivePolicyBlocked(recipient);
@@ -342,6 +349,10 @@ contract RecipientCheckMetaTxn is BaseSettlerMetaTxn {
     constructor(address recipient, IERC20 buyToken) BaseSettlerMetaTxn(bytes20(0)) {
         expectedRecipient = recipient;
         expectedBuyToken = buyToken;
+    }
+
+    function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
     }
 
     function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
@@ -513,6 +524,29 @@ contract RecipientCheckUnitTest is Test {
         }
     }
 
+    function test_RecipientCheck_Default_DodoV2_DoesNotReadBuyToken() public {
+        vm.mockCall(pool, abi.encodeWithSelector(IDodoV2.sellBase.selector), abi.encode(1 ether));
+        vm.mockCall(pool, abi.encodeWithSelector(IDodoV2.sellQuote.selector), abi.encode(1 ether));
+        for (uint256 direction; direction < 2; ++direction) {
+            _executeDefault(
+                abi.encodeCall(
+                    ISettlerActions.DODOV2, (recipient, address(sellToken), 1_000_000, pool, direction == 1, 0)
+                )
+            );
+        }
+    }
+
+    function test_RecipientCheck_Default_MaverickV2_DoesNotReadBuyToken() public {
+        vm.mockCall(pool, abi.encodeWithSelector(IMaverickV2Pool.swap.selector), abi.encode(1 ether, 1 ether));
+        for (uint256 direction; direction < 2; ++direction) {
+            _executeDefault(
+                abi.encodeCall(
+                    ISettlerActions.MAVERICKV2, (recipient, address(sellToken), 1_000_000, pool, direction == 1, 0, 0)
+                )
+            );
+        }
+    }
+
     function test_RecipientCheck_Bebop_Reverts() public {
         ISettlerActions.BebopOrder memory order;
         order.maker_token = address(buyToken);
@@ -548,6 +582,16 @@ contract RecipientCheckUnitTest is Test {
         assertEq(buyToken.balanceOf(address(settler)), 1 ether);
     }
 
+    function _executeDefault(bytes memory action) private {
+        BaseSettler defaultSettler =
+            BaseSettler(payable(deployCode("TakerSubmitted.sol:BaseSettler", abi.encode(bytes20(0)))));
+        sellToken.mint(address(defaultSettler), 1 ether);
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = action;
+        assertTrue(defaultSettler.execute(_noSlippage(), actions, bytes32(0)));
+        assertEq(sellToken.balanceOf(address(defaultSettler)), 0);
+    }
+
     function _noSlippage() private pure returns (ISettlerBase.AllowedSlippage memory) {
         return ISettlerBase.AllowedSlippage(payable(address(0)), IERC20(address(0)), 0);
     }
@@ -557,5 +601,51 @@ contract RecipientCheckUnitTest is Test {
             ISignatureTransfer.PermitTransferFrom(
                 ISignatureTransfer.TokenPermissions(token, 1 ether), 0, block.timestamp
             );
+    }
+}
+
+contract TempoRecipientCheckHarness is TempoSettler {
+    constructor() TempoSettler(bytes20(0)) {}
+
+    function hasRecipientCheck() external pure returns (bool) {
+        return _hasRecipientCheck();
+    }
+}
+
+contract TempoMetaTxnRecipientCheckHarness is TempoSettlerMetaTxn {
+    constructor() TempoSettlerMetaTxn(bytes20(0)) {}
+
+    function hasRecipientCheck() external pure returns (bool) {
+        return _hasRecipientCheck();
+    }
+}
+
+contract TempoIntentRecipientCheckHarness is TempoSettlerIntent {
+    constructor() TempoSettlerIntent(bytes20(0)) {}
+
+    function hasRecipientCheck() external pure returns (bool) {
+        return _hasRecipientCheck();
+    }
+}
+
+contract TempoRecipientCheckUnitTest is Test {
+    function test_RecipientCheck_TempoTaker_Enabled() public {
+        TempoRecipientCheckHarness settler =
+            TempoRecipientCheckHarness(payable(deployCode("BasicUnitTest.t.sol:TempoRecipientCheckHarness")));
+        assertTrue(settler.hasRecipientCheck());
+    }
+
+    function test_RecipientCheck_TempoMetaTxn_Enabled() public {
+        TempoMetaTxnRecipientCheckHarness settler = TempoMetaTxnRecipientCheckHarness(
+            payable(deployCode("BasicUnitTest.t.sol:TempoMetaTxnRecipientCheckHarness"))
+        );
+        assertTrue(settler.hasRecipientCheck());
+    }
+
+    function test_RecipientCheck_TempoIntent_Enabled() public {
+        TempoIntentRecipientCheckHarness settler = TempoIntentRecipientCheckHarness(
+            payable(deployCode("BasicUnitTest.t.sol:TempoIntentRecipientCheckHarness"))
+        );
+        assertTrue(settler.hasRecipientCheck());
     }
 }

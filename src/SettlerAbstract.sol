@@ -36,6 +36,10 @@ abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {
         returns (bool);
 
     function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual {}
+
+    function _hasRecipientCheck() internal pure virtual returns (bool) {
+        return false;
+    }
 }
 
 abstract contract SettlerBridgeAbstract is SettlerAbstract {

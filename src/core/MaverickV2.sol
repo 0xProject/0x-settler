@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {fastGetToken} from "../utils/TokenGetter.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
@@ -119,19 +121,11 @@ library FastMaverickV2Pool {
     using Ternary for bool;
     using FastLogic for bool;
 
-    function fastTokenAOrB(IMaverickV2Pool pool, bool tokenAIn) internal view returns (IERC20 token) {
-        // selector for `tokenA()` or `tokenB()`
-        uint256 selector = tokenAIn.ternary(uint256(0x0fc63d10), uint256(0x5f64b55b));
-        assembly ("memory-safe") {
-            mstore(0x00, selector)
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            token := mload(0x00)
-            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
-        }
+    function fastTokenAOrB(IMaverickV2Pool pool, bool tokenAIn) internal view returns (IERC20) {
+        return fastGetToken(
+            address(pool),
+            tokenAIn.ternary(uint32(IMaverickV2Pool.tokenA.selector), uint32(IMaverickV2Pool.tokenB.selector))
+        );
     }
 
     function fastEncodeSwap(
@@ -203,7 +197,6 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         int32 tickLimit,
         uint256 minBuyAmount
     ) private returns (uint256 buyAmount) {
-        _checkRecipient(recipient, pool.fastTokenAOrB(!tokenAIn));
         bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, new bytes(0));
 
         assembly ("memory-safe") {
@@ -244,6 +237,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
         }
+        _checkRecipient(recipient, _hasRecipientCheck() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0)));
         return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount);
     }
 }

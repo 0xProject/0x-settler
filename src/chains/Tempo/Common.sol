@@ -45,6 +45,10 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
 
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return true;
+    }
+
     // A recipient's TIP-1028 receive policy can send a TIP-20 payout to the ReceivePolicyGuard
     // rather than the recipient. The payout must reach the recipient.
     function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual override {
