@@ -35,7 +35,7 @@ abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {
         virtual
         returns (bool);
 
-    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut) internal virtual;
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual {}
 }
 
 abstract contract SettlerBridgeAbstract is SettlerAbstract {

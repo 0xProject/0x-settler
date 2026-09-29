@@ -132,6 +132,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
         }
+        _checkRecipient(recipient, pool.fastToken0or1(zeroForOne));
         pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }

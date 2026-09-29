@@ -22,7 +22,7 @@ import {SwapMath} from "@uniswapv4/libraries/SwapMath.sol";
 import {BalanceDelta} from "@uniswapv4/types/BalanceDelta.sol";
 import {StateLibrary} from "@uniswapv4/libraries/StateLibrary.sol";
 
-import {SignatureExpired} from "src/core/SettlerErrors.sol";
+import {SignatureExpired, ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
 import {Panic} from "src/utils/Panic.sol";
 import {Revert} from "src/utils/Revert.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
@@ -198,10 +198,6 @@ contract UniswapV4Stub is UniswapV4 {
         revert("unimplemented");
     }
 
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
-        revert("unimplemented");
-    }
-
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
@@ -322,6 +318,21 @@ contract UniswapV4Stub is UniswapV4 {
     }
 
     receive() external payable {}
+}
+
+contract RecipientCheckUniswapV4Stub is UniswapV4Stub {
+    address private immutable expectedRecipient;
+    IERC20 private immutable expectedBuyToken;
+
+    constructor(address recipient, IERC20 buyToken) {
+        expectedRecipient = recipient;
+        expectedBuyToken = buyToken;
+    }
+
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
+        require(recipient == expectedRecipient && buyToken == expectedBuyToken);
+        revert ReceivePolicyBlocked(recipient);
+    }
 }
 
 abstract contract BaseUniswapV4UnitTest is Test {
@@ -950,6 +961,37 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
     }
 
+    function test_RecipientCheck_UniswapV4_Reverts() public {
+        _rejectRecipient(IERC20(Currency.unwrap(pools[1].currency1)));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
+        this.swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
+    }
+
+    function test_RecipientCheck_UniswapV4_FeeOnTransfer_Reverts() public {
+        _rejectRecipient(IERC20(Currency.unwrap(pools[1].currency0)));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
+        this.swapSingle(1, TOTAL_SUPPLY / 1_000, true, false, new bytes(0));
+    }
+
+    function test_RecipientCheck_UniswapV4_NativeOutput_Reverts() public {
+        _rejectRecipient(IERC20(ETH));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
+        this.swapSingle(0, TOTAL_SUPPLY / 1_000, false, false, new bytes(0));
+    }
+
+    function test_RecipientCheck_UniswapV4_Multihop_Reverts() public {
+        bool zeroForOne = pools[1].currency0 == pools[0].currency1;
+        _rejectRecipient(IERC20(Currency.unwrap(zeroForOne ? pools[1].currency1 : pools[1].currency0)));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
+        this.testSwapMultihop();
+    }
+
+    function _rejectRecipient(IERC20 buyToken) private {
+        address implementation =
+            vm.deployCode("UniswapV4UnitTest.t.sol:RecipientCheckUniswapV4Stub", abi.encode(address(this), buyToken));
+        vm.etch(address(stub), implementation.code);
+    }
+
     struct SwapMultihopState {
         PoolKey poolKey0;
         PoolKey poolKey1;
@@ -1394,7 +1436,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         excludeSender(stubPrediction);
         excludeSender(address(POOL_MANAGER));
         {
-            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](12)});
+            FuzzSelector memory exclusion = FuzzSelector({addr: address(this), selectors: new bytes4[](16)});
             exclusion.selectors[0] = this.setUp.selector;
             exclusion.selectors[1] = this.getBalanceOf.selector;
             exclusion.selectors[2] = this.getSlot0.selector;
@@ -1407,6 +1449,10 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             exclusion.selectors[9] = this.testSwapMultihop.selector;
             exclusion.selectors[10] = this.testSwapMultiplex.selector;
             exclusion.selectors[11] = this.testSwapDiamond.selector;
+            exclusion.selectors[12] = this.test_RecipientCheck_UniswapV4_Reverts.selector;
+            exclusion.selectors[13] = this.test_RecipientCheck_UniswapV4_FeeOnTransfer_Reverts.selector;
+            exclusion.selectors[14] = this.test_RecipientCheck_UniswapV4_NativeOutput_Reverts.selector;
+            exclusion.selectors[15] = this.test_RecipientCheck_UniswapV4_Multihop_Reverts.selector;
             excludeSelector(exclusion);
         }
 

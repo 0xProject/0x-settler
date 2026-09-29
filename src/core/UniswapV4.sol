@@ -362,6 +362,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
+            _checkRecipient(recipient, state.buy().token());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -369,6 +370,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
+                    _checkRecipient(payer == address(this) ? address(this) : _msgSender(), globalSellToken);
                     Take._callSelector(
                         uint32(IPoolManager.take.selector),
                         globalSellToken,

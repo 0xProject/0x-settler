@@ -144,6 +144,7 @@ abstract contract MakerPSM is SettlerSwapAbstract {
         // Configured approval pairs: LitePSM/DAI/USDC, SkyPSM/USDS/USDC, UsddPSM/USDD/USDT.
         IERC20 gem = IERC20((psm == UsddPSM).ternary(address(USDT), address(USDC)));
         (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(gem, dai);
+        _checkRecipient(recipient, buyToken);
         uint256 sellAmount;
         unchecked {
             // phantom overflow can't happen here because:

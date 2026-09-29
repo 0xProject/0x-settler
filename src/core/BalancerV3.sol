@@ -556,6 +556,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
+            _checkRecipient(recipient, state.buy().token());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -563,6 +564,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
+                    _checkRecipient(payer == address(this) ? address(this) : _msgSender(), globalSellToken);
                     Take._callSelector(
                         uint32(IBalancerV3Vault.sendTo.selector),
                         globalSellToken,

@@ -11,6 +11,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
@@ -43,6 +44,14 @@ contract TempoSettler is Settler, TempoMixin {
     }
 
     // Solidity inheritance is stupid
+    function _checkRecipient(address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerSwapAbstract, TempoMixin)
+    {
+        super._checkRecipient(recipient, buyToken);
+    }
+
     function _isRestrictedTarget(address target) internal view override(Settler, TempoMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }

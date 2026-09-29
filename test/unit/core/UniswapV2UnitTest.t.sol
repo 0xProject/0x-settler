@@ -37,10 +37,6 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         revert("unimplemented");
     }
 
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
-        revert("unimplemented");
-    }
-
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
@@ -66,6 +62,10 @@ contract UniswapV2UnitTest is Utils, Test {
 
     function setUp() public {
         uni = new UniswapV2Dummy();
+        vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token0, ()), abi.encode(TOKEN0 < TOKEN1 ? TOKEN0 : TOKEN1));
+        vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token1, ()), abi.encode(TOKEN0 < TOKEN1 ? TOKEN1 : TOKEN0));
+        vm.mockCall(POOL2, abi.encodeCall(IUniV2Pair.token0, ()), abi.encode(TOKEN1 < TOKEN2 ? TOKEN1 : TOKEN2));
+        vm.mockCall(POOL2, abi.encodeCall(IUniV2Pair.token1, ()), abi.encode(TOKEN1 < TOKEN2 ? TOKEN2 : TOKEN1));
     }
 
     function testUniswapV2Sell() public {

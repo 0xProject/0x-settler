@@ -539,6 +539,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
+            _checkRecipient(recipient, state.buy().token());
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPancakeInfinityVault.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -546,6 +547,7 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
+                    _checkRecipient(payer == address(this) ? address(this) : _msgSender(), globalSellToken);
                     Take._callSelector(
                         uint32(IPancakeInfinityVault.take.selector),
                         globalSellToken,

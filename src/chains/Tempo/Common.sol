@@ -12,7 +12,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId, ReceivePolicyBlocked} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3TempoFactory,
@@ -27,11 +27,33 @@ import {TEMPO_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
+interface ITempoAddressRegistry {
+    function resolveRecipient(address to) external view returns (address);
+}
+
+interface ITempoReceivePolicy {
+    function validateReceivePolicy(address token, address sender, address receiver)
+        external
+        view
+        returns (bool authorized, uint8 blockedReason);
+}
+
 abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContracts, UniswapV4 {
     address internal constant _TEMPO_ADDRESS_REGISTRY = 0xfDC0000000000000000000000000000000000000;
 
     constructor() {
         assert(block.chainid == 4217 || block.chainid == 31337);
+    }
+
+    // A recipient's TIP-1028 receive policy can send a TIP-20 payout to the ReceivePolicyGuard
+    // rather than the recipient. The payout must reach the recipient.
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual override {
+        if (uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000) {
+            address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
+            (bool authorized,) = ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY)
+                .validateReceivePolicy(address(buyToken), address(this), resolved);
+            if (!authorized) revert ReceivePolicyBlocked(recipient);
+        }
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerMetaTxn} from "./interfaces/ISettlerMetaTxn.sol";
 
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
@@ -75,6 +76,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
+            _checkRecipient(recipient, IERC20(permit.permitted.token));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
 
@@ -150,7 +152,8 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,
-        bytes32 /* zid & affiliate */,
+        bytes32,
+        /* zid & affiliate */
         address msgSender,
         bytes calldata sig
     ) public virtual override metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {

@@ -32,6 +32,7 @@ abstract contract Renegade is SettlerSwapAbstract {
         uint256 minBuyAmount
     ) internal {
         if (data.length < 0x120) revertInvalidRenegadeData(); // remaining static head plus required options fields
+        _checkRecipient(recipient, buyToken);
 
         uint256 sellAmt = sellToken.fastBalanceOf(address(this));
         if (sellAmt > maxSellAmount) sellAmt = maxSellAmount;

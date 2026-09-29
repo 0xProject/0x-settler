@@ -84,6 +84,7 @@ abstract contract DodoV2 is SettlerSwapAbstract {
             }
             sellToken.safeTransfer(address(dodo), sellAmount);
         }
+        _checkRecipient(recipient, dodo.fastToken(quoteForBase));
         buyAmount = dodo.fastSell(!quoteForBase, recipient);
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(dodo.fastToken(quoteForBase), minBuyAmount, buyAmount);

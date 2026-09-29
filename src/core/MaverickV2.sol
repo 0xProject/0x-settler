@@ -203,6 +203,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         int32 tickLimit,
         uint256 minBuyAmount
     ) private returns (uint256 buyAmount) {
+        _checkRecipient(recipient, pool.fastTokenAOrB(!tokenAIn));
         bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, new bytes(0));
 
         assembly ("memory-safe") {
