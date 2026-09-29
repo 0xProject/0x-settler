@@ -239,8 +239,7 @@ declare -r -i gas_limit
 
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(send --chain $chainid --private-key)
-    maybe_broadcast+=("$(get_secret wrappedNativeStorage key)")
+    maybe_broadcast+=(send --chain $chainid --interactive)
 else
     maybe_broadcast+=(call --trace -vvvv)
 fi
