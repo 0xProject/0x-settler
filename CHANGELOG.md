@@ -14,10 +14,10 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb, Base, and RobinHood
-* Add Tempo address registry `0xfDC0000000000000000000000000000000000000` to the
-  list of restricted targets
+* Add Tempo ReceivePolicyGuard `0xB10C000000000000000000000000000000000000` to
+  the list of restricted targets
 * On Tempo, check that the recipient of an **intent** does not have a customized
-  received policy before transferring
+  receive policy before transferring
 
 ## 2026-09-25
 

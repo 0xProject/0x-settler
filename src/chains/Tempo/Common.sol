@@ -12,7 +12,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId, ReceivePolicyBlocked} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3TempoFactory,
@@ -24,7 +24,6 @@ import {
 import {TEMPO_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
