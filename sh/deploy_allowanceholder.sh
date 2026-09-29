@@ -151,8 +151,7 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
 
-    maybe_broadcast+=(send --chain $chainid --private-key)
-    maybe_broadcast+=("$(get_secret allowanceHolder key)")
+    maybe_broadcast+=(send --chain $chainid --interactive)
 else
     gas_limit=$eip7825_gas_limit
     maybe_broadcast+=(call --trace -vvvv)
