@@ -1141,6 +1141,7 @@
       "crossChainFactory": null
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=5042",
+    "sourcifyApi": "https://sourcify.dev/server/",
     "blockscoutApi": "https://explorer.arc.io/api"
   }
 }
