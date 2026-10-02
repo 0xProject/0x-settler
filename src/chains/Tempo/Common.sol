@@ -81,11 +81,22 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
     }
 
     // I hate Solidity inheritance
-    function _hasRecipientCheck() internal pure virtual override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts) returns (bool) {
+    function _hasRecipientCheck()
+        internal
+        pure
+        virtual
+        override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts)
+        returns (bool)
+    {
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts) {
+    function _checkRecipient(address recipient, IERC20 buyToken)
+        internal
+        view
+        virtual
+        override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts)
+    {
         super._checkRecipient(recipient, buyToken);
     }
 

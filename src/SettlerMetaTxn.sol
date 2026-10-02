@@ -152,8 +152,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,
-        bytes32,
-        /* zid & affiliate */
+        bytes32 /* zid & affiliate */,
         address msgSender,
         bytes calldata sig
     ) public virtual override metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {

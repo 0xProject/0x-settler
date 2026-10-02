@@ -48,7 +48,11 @@ contract TempoSettler is Settler, TempoMixin {
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view override(SettlerAbstract, SettlerBase, TempoMixin) {
+    function _checkRecipient(address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, SettlerBase, TempoMixin)
+    {
         super._checkRecipient(recipient, buyToken);
     }
 

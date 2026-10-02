@@ -50,7 +50,13 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
     }
 
     // Solidity inheritance is stupid
-    function _hasRecipientCheck() internal pure virtual override(SettlerAbstract, SettlerBase, TempoMixin) returns (bool) {
+    function _hasRecipientCheck()
+        internal
+        pure
+        virtual
+        override(SettlerAbstract, SettlerBase, TempoMixin)
+        returns (bool)
+    {
         return super._hasRecipientCheck();
     }
 

@@ -38,11 +38,20 @@ contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across 
     }
 
     // I hate Solidity inheritance
-    function _hasRecipientCheck() internal pure override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts) returns (bool) {
+    function _hasRecipientCheck()
+        internal
+        pure
+        override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts)
+        returns (bool)
+    {
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts) {
+    function _checkRecipient(address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts)
+    {
         super._checkRecipient(recipient, buyToken);
     }
 
