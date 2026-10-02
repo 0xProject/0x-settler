@@ -55,7 +55,12 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
 
     // A recipient's TIP-1028 receive policy can send a TIP-20 payout to the ReceivePolicyGuard
     // rather than the recipient. The payout must reach the recipient.
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual override(SettlerSwapAbstract, SettlerBase) {
+    function _checkRecipient(address recipient, IERC20 buyToken)
+        internal
+        view
+        virtual
+        override(SettlerSwapAbstract, SettlerBase)
+    {
         if ((uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000).andNot(recipient == address(this))) {
             address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
             (bool authorized,) = ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY)
