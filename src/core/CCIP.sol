@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 /// @dev Interface for CCIP Router
 interface IRouterClient {
@@ -27,9 +28,13 @@ interface IRouterClient {
     function getFee(uint64 destinationChainSelector, EVM2AnyMessage calldata message) external view returns (uint256);
 
     function isChainSupported(uint64 chainSelector) external view returns (bool);
+
+    function getOnRamp(uint64 destinationChainSelector) external view returns (address);
 }
 
 interface IOnRamp {
+    function getPoolBySourceToken(uint64 destinationChainSelector, IERC20 sourceToken) external view returns (address);
+
     /// @dev Matches Internal.EVM2EVMMessage from the CCIP onRamp for event decoding
     struct EVM2EVMMessage {
         uint64 sourceChainSelector;
@@ -51,7 +56,7 @@ interface IOnRamp {
 /// @title CCIP
 /// @notice Chainlink CCIP bridge integration for BridgeSettler
 /// @dev Handles ERC20 token bridging via CCIP with native token fee payment
-contract CCIP {
+abstract contract CCIP is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @notice Bridge ERC20 tokens via CCIP, paying fees in native token
@@ -103,6 +108,17 @@ contract CCIP {
             }
             // read token from tokenAmounts[0]
             token := mload(add(0x20, tokenAmountsPtr))
+        }
+
+        if (_hasRecipientCheck()) {
+            uint64 destinationChainSelector;
+            // Only the first ABI word is needed to find the pool that receives the deposit.
+            // destinationChainSelector = abi.decode(ccipSendData, (uint64));
+            assembly ("memory-safe") {
+                destinationChainSelector := mload(add(0x20, ccipSendData))
+            }
+            address onRamp = IRouterClient(router).getOnRamp(destinationChainSelector);
+            _checkRecipient(IOnRamp(onRamp).getPoolBySourceToken(destinationChainSelector, token), token);
         }
 
         uint256 amount = token.fastBalanceOf(address(this));

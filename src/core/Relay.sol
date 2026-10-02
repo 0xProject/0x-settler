@@ -3,13 +3,15 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-contract Relay {
+abstract contract Relay is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     event RelayAction(bytes32 requestId); // Graffiti for bridging operations through Relay
 
     function bridgeERC20ToRelay(IERC20 token, address to, bytes32 requestId) internal {
+        _checkRecipient(to, token);
         emit RelayAction(requestId);
 
         uint256 amount = token.fastBalanceOf(address(this));

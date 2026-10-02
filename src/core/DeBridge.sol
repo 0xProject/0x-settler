@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IDlnSource {
     /// @dev Struct representing the creation parameters for creating an order on the (EVM) chain.
@@ -53,7 +54,7 @@ interface IDlnSource {
 
 IDlnSource constant DLN_SOURCE = IDlnSource(0xeF4fB24aD0916217251F553c0596F8Edc630EB66);
 
-contract DeBridge {
+abstract contract DeBridge is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @notice Bridge ERC20 tokens via DeBridge
@@ -82,6 +83,7 @@ contract DeBridge {
             amount = balance - globalFee;
             globalFee = balance;
         } else {
+            _checkRecipient(address(source), inputToken);
             amount = inputToken.fastBalanceOf(address(this));
             inputToken.safeApproveIfBelow(address(source), amount);
         }

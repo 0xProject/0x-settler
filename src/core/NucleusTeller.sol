@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 /// @dev Mirrors the relevant subset of the deployed Nucleus WPAXG Teller
 /// (0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF), sourced from paxoslabs/nucleus-boring-vault at
@@ -28,7 +29,7 @@ interface INucleusTeller {
 
 /// @title NucleusTeller
 /// @notice BridgeSettler integration for Nucleus Teller WPAXG.
-contract NucleusTeller {
+abstract contract NucleusTeller is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @notice Paxos Nucleus WPAXG Teller (same address on Ethereum and Optimism)
@@ -68,6 +69,7 @@ contract NucleusTeller {
             depositAsset := mload(add(0x20, depositAndBridgeCallData))
         }
 
+        _checkRecipient(address(WPAXG), depositAsset);
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
         depositAsset.safeApproveIfBelow(address(WPAXG), depositAmount);
 
