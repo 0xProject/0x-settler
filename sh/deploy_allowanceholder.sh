@@ -143,7 +143,6 @@ if [[ $(cast keccak "$allowanceholder_initcode") != '0x7510de5fbf18124b7fab39b9a
 fi
 
 declare -i gas_limit
-declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -i gas_estimate
     gas_estimate="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" --create "$allowanceholder_initcode")"
@@ -151,16 +150,20 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
 
-    maybe_broadcast+=(send --chain $chainid --private-key)
-    maybe_broadcast+=("$(get_secret allowanceHolder key)")
+    . "$project_root"/sh/common_sign_deployment.sh
+
+    declare unsigned_tx
+    unsigned_tx="$(cast mktx --raw-unsigned --chain $chainid --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode")"
+    declare -r unsigned_tx
+    declare signed_tx
+    signed_tx="$(sign_deployment_transaction allowanceHolder "$(get_secret allowanceHolder deployer)" "$unsigned_tx")"
+    declare -r signed_tx
+    cast publish --rpc-url "$rpc_url" "$signed_tx"
 else
     gas_limit=$eip7825_gas_limit
-    maybe_broadcast+=(call --trace -vvvv)
+    cast call --trace -vvvv --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode"
 fi
 declare -r -i gas_limit
-declare -r -a maybe_broadcast
-
-cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
