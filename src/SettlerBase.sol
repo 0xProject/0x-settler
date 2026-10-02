@@ -84,6 +84,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual override {}
+
     function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because

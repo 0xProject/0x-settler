@@ -10,7 +10,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract, SettlerSwapAbstract} from "../../SettlerAbstract.sol";
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -23,14 +23,14 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
     constructor(bytes20 gitCommit) TempoSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _hasRecipientCheck() internal pure override(SettlerSwapAbstract, TempoSettlerMetaTxn) returns (bool) {
+    function _hasRecipientCheck() internal pure override(SettlerBase, TempoSettlerMetaTxn) returns (bool) {
         return super._hasRecipientCheck();
     }
 
     function _checkRecipient(address recipient, IERC20 buyToken)
         internal
         view
-        override(SettlerSwapAbstract, TempoSettlerMetaTxn)
+        override(SettlerBase, TempoSettlerMetaTxn)
     {
         super._checkRecipient(recipient, buyToken);
     }

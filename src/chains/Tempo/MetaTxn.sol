@@ -11,7 +11,6 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
@@ -50,7 +49,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
     }
 
     // Solidity inheritance is stupid
-    function _hasRecipientCheck() internal pure virtual override(SettlerSwapAbstract, TempoMixin) returns (bool) {
+    function _hasRecipientCheck() internal pure virtual override(SettlerBase, TempoMixin) returns (bool) {
         return super._hasRecipientCheck();
     }
 
@@ -58,7 +57,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
         internal
         view
         virtual
-        override(SettlerSwapAbstract, TempoMixin)
+        override(SettlerBase, TempoMixin)
     {
         super._checkRecipient(recipient, buyToken);
     }
