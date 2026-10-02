@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
 import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {Across} from "../../core/Across.sol";
+
+// Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
 contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
@@ -33,6 +38,14 @@ contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across 
     }
 
     // I hate Solidity inheritance
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts) returns (bool) {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts) {
+        super._checkRecipient(recipient, buyToken);
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view

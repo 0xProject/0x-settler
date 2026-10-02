@@ -23,14 +23,14 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
     constructor(bytes20 gitCommit) TempoSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
-    function _hasRecipientCheck() internal pure override(SettlerBase, TempoSettlerMetaTxn) returns (bool) {
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn) returns (bool) {
         return super._hasRecipientCheck();
     }
 
     function _checkRecipient(address recipient, IERC20 buyToken)
         internal
         view
-        override(SettlerBase, TempoSettlerMetaTxn)
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
     {
         super._checkRecipient(recipient, buyToken);
     }

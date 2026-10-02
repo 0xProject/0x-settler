@@ -27,6 +27,10 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
     function _tokenId() internal pure virtual returns (uint256);
 
     function _div512to256(uint512 n, uint512 d) internal view virtual returns (uint256);
+
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual;
+
+    function _hasRecipientCheck() internal pure virtual returns (bool);
 }
 
 abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {
@@ -34,10 +38,6 @@ abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {
         internal
         virtual
         returns (bool);
-
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual;
-
-    function _hasRecipientCheck() internal pure virtual returns (bool);
 }
 
 abstract contract SettlerBridgeAbstract is SettlerAbstract {
