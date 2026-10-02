@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {fastGetToken} from "../utils/TokenGetter.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
@@ -35,26 +37,10 @@ library FastDodoV2 {
         }
     }
 
-    function _get(IDodoV2 dodo, uint256 sig) private view returns (bytes32 r) {
-        assembly ("memory-safe") {
-            mstore(0x00, sig)
-            if iszero(staticcall(gas(), dodo, 0x1c, 0x04, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            if iszero(gt(returndatasize(), 0x1f)) { revert(0x00, 0x00) }
-
-            r := mload(0x00)
-        }
-    }
-
     function fastToken(IDodoV2 dodo, bool isBase) internal view returns (IERC20) {
-        uint256 result = uint256(
-            _get(dodo, isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector)))
+        return fastGetToken(
+            address(dodo), isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector))
         );
-        require(result >> 160 == 0);
-        return IERC20(address(uint160(result)));
     }
 
     function fastSell(IDodoV2 dodo, bool isBase, address to) internal returns (uint256 receiveQuoteAmount) {
@@ -84,6 +70,7 @@ abstract contract DodoV2 is SettlerSwapAbstract {
             }
             sellToken.safeTransfer(address(dodo), sellAmount);
         }
+        _checkRecipient(recipient, _hasRecipientCheck() ? dodo.fastToken(quoteForBase) : IERC20(address(0)));
         buyAmount = dodo.fastSell(!quoteForBase, recipient);
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(dodo.fastToken(quoteForBase), minBuyAmount, buyAmount);

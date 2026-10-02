@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
+import {ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {
     Permit2PaymentMetaTxn,
@@ -35,10 +36,6 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
     }
 
     function _tokenId() internal pure override returns (uint256) {
-        revert("unimplemented");
-    }
-
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
         revert("unimplemented");
     }
 
@@ -170,6 +167,25 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
     }
 }
 
+contract RecipientCheckRfq is RfqOrderSettlementDummy {
+    address private immutable expectedRecipient;
+    IERC20 private immutable expectedBuyToken;
+
+    constructor(address recipient, IERC20 buyToken) {
+        expectedRecipient = recipient;
+        expectedBuyToken = buyToken;
+    }
+
+    function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
+    }
+
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
+        require(recipient == expectedRecipient && buyToken == expectedBuyToken);
+        revert ReceivePolicyBlocked(recipient);
+    }
+}
+
 contract RfqUnitTest is Utils, Test {
     RfqOrderSettlementDummy rfq;
     RfqOrderSettlementMetaTxnDummy rfqMeta;
@@ -192,6 +208,16 @@ contract RfqUnitTest is Utils, Test {
     function setUp() public {
         rfq = new RfqOrderSettlementDummy();
         rfqMeta = new RfqOrderSettlementMetaTxnDummy();
+    }
+
+    function test_RecipientCheck_RfqVIP_Reverts() public {
+        RecipientCheckRfq checked = new RecipientCheckRfq(RECIPIENT, IERC20(TOKEN1));
+        ISignatureTransfer.PermitTransferFrom memory makerPermit;
+        makerPermit.permitted.token = TOKEN1;
+        ISignatureTransfer.PermitTransferFrom memory takerPermit;
+        takerPermit.permitted.token = TOKEN0;
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, RECIPIENT));
+        checked.fillRfqOrderDirectCounterparties(RECIPIENT, makerPermit, MAKER, "", takerPermit, "");
     }
 
     function testRfqDirectCounterparties() public {

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {MakerPSM, IPSM} from "src/core/MakerPSM.sol";
+import {ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
 
 import {uint512} from "src/utils/512Math.sol";
 
@@ -42,10 +43,6 @@ contract MakerPSMDummy is MakerPSM {
     }
 
     function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
         revert("unimplemented");
     }
 
@@ -162,7 +159,25 @@ contract MakerPSMDummy is MakerPSM {
     function sellToPool(address recipient, uint256 ppm, uint256 amountOutMin) public {
         super.sellToMakerPsm(recipient, ppm, false, amountOutMin, psm, dai);
     }
+}
 
+contract RecipientCheckMakerPSM is MakerPSMDummy {
+    address private immutable expectedRecipient;
+    IERC20 private immutable expectedBuyToken;
+
+    constructor(IPSM psm, IERC20 dai, address recipient, IERC20 buyToken) MakerPSMDummy(psm, dai) {
+        expectedRecipient = recipient;
+        expectedBuyToken = buyToken;
+    }
+
+    function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
+    }
+
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
+        require(recipient == expectedRecipient && buyToken == expectedBuyToken);
+        revert ReceivePolicyBlocked(recipient);
+    }
 }
 
 contract MakerPSMUnitTest is Utils, Test {
@@ -214,6 +229,20 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(address(USDC), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         _mockExpectCall(address(USDT), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         psm = new MakerPSMDummy(IPSM(PSM), IERC20(PSM_DAI));
+    }
+
+    function test_RecipientCheck_MakerPSM_BuyGem_Reverts() public {
+        RecipientCheckMakerPSM checked =
+            new RecipientCheckMakerPSM(IPSM(PSM), IERC20(PSM_DAI), RECIPIENT, IERC20(PSM_GEM));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, RECIPIENT));
+        checked.buyFromPool(RECIPIENT, 1_000_000);
+    }
+
+    function test_RecipientCheck_MakerPSM_SellGem_Reverts() public {
+        RecipientCheckMakerPSM checked =
+            new RecipientCheckMakerPSM(IPSM(PSM), IERC20(PSM_DAI), RECIPIENT, IERC20(PSM_DAI));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, RECIPIENT));
+        checked.sellToPool(RECIPIENT, 1_000_000);
     }
 
     function testMakerPSMBuy() public {

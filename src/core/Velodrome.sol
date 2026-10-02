@@ -310,6 +310,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
 
         // Perform the swap
         {
+            _checkRecipient(recipient, buyToken);
             (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
             pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
         }

@@ -35,10 +35,6 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
-        revert("unimplemented");
-    }
-
     function _isRestrictedTarget(address) internal pure override returns (bool) {
         revert("unimplemented");
     }
