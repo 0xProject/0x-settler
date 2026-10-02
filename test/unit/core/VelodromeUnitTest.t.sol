@@ -11,6 +11,12 @@ import {uint512/*, uint512_external, alloc*/} from "src/utils/512Math.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract VelodromeConvergenceDummy is Velodrome {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, IERC20) internal view virtual override {}
+
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
     }

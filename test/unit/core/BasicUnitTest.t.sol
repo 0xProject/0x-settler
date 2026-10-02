@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {SettlerAbstract} from "src/SettlerAbstract.sol";
+import {SettlerBase} from "src/SettlerBase.sol";
 import {Basic} from "src/core/Basic.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
@@ -28,6 +30,12 @@ import {Test} from "@forge-std/Test.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, IERC20) internal view virtual override {}
+
     function sellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {
         super.basicSellToPool(sellToken, ppm, pool, offset, data);
     }
@@ -332,11 +340,11 @@ contract RecipientCheckSettler is BaseSettler {
         expectedBuyToken = buyToken;
     }
 
-    function _hasRecipientCheck() internal pure override returns (bool) {
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase) returns (bool) {
         return true;
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view override(SettlerAbstract, SettlerBase) {
         require(recipient == expectedRecipient && buyToken == expectedBuyToken);
         revert ReceivePolicyBlocked(recipient);
     }
@@ -351,11 +359,11 @@ contract RecipientCheckMetaTxn is BaseSettlerMetaTxn {
         expectedBuyToken = buyToken;
     }
 
-    function _hasRecipientCheck() internal pure override returns (bool) {
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase) returns (bool) {
         return true;
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
+    function _checkRecipient(address recipient, IERC20 buyToken) internal view override(SettlerAbstract, SettlerBase) {
         require(recipient == expectedRecipient && buyToken == expectedBuyToken);
         revert ReceivePolicyBlocked(recipient);
     }
