@@ -356,12 +356,15 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function _isSupportedFactory(address deployer) internal pure virtual returns (bool) {
-        return deployer == _NONEIP155_CREATE2_FACTORY || deployer == _SAFE_SINGLETON_FACTORY
-            || deployer == _ERC7955_CREATE2_FACTORY || deployer == _EIP7997_CREATE2_FACTORY;
+        return deployer == _NONEIP155_CREATE2_FACTORY
+            || deployer == _SAFE_SINGLETON_FACTORY
+            || deployer == _ERC7955_CREATE2_FACTORY
+            || deployer == _EIP7997_CREATE2_FACTORY;
     }
 
     function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure virtual returns (bool) {
-        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
             || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH;
     }
 
