@@ -14,6 +14,12 @@ import {Test} from "@forge-std/Test.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 contract MakerPSMDummy is MakerPSM {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, IERC20) internal view virtual override {}
+
     IPSM psm;
     IERC20 dai;
 

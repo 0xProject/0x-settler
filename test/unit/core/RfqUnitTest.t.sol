@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {SettlerAbstract} from "src/SettlerAbstract.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 import {ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
@@ -23,6 +24,12 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Test} from "@forge-std/Test.sol";
 
 abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Payment {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, IERC20) internal view virtual override {}
+
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
     }
@@ -176,11 +183,15 @@ contract RecipientCheckRfq is RfqOrderSettlementDummy {
         expectedBuyToken = buyToken;
     }
 
-    function _hasRecipientCheck() internal pure override returns (bool) {
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, RfqOrderSettlementDummyBase) returns (bool) {
         return true;
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
+    function _checkRecipient(address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, RfqOrderSettlementDummyBase)
+    {
         require(recipient == expectedRecipient && buyToken == expectedBuyToken);
         revert ReceivePolicyBlocked(recipient);
     }

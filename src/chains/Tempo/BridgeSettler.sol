@@ -4,6 +4,7 @@ pragma solidity =0.8.34;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
 import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
@@ -59,7 +60,7 @@ contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across 
         internal
         view
         virtual
-        override(BridgeSettler, BlockTempoSystemContracts)
+        override(BridgeSettler, BlockTempoSystemContracts, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

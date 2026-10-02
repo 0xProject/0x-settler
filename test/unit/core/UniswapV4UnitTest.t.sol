@@ -174,6 +174,12 @@ contract UniswapV4Stub is UniswapV4 {
         _deployer = msg.sender;
     }
 
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, IERC20) internal view virtual override {}
+
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
     }
