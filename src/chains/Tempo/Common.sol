@@ -91,13 +91,13 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken)
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
         virtual
         override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts)
     {
-        super._checkRecipient(recipient, buyToken);
+        super._checkRecipient(sender, recipient, buyToken);
     }
 
     function _fallback(bytes calldata data)

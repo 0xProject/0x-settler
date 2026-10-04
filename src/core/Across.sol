@@ -52,7 +52,7 @@ abstract contract Across is SettlerAbstract {
             // then it is at offset 0x40, which at 0x60 in depositData
             inputToken := mload(add(0x60, depositData))
         }
-        _checkRecipient(spoke, inputToken);
+        _checkRecipient(address(this), spoke, inputToken);
         uint256 amount = inputToken.fastBalanceOf(address(this));
         inputToken.safeApproveIfBelow(spoke, amount);
         _bridgeToAcross(amount, 0 wei, spoke, depositData);

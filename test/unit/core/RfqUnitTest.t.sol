@@ -28,7 +28,7 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
         return false;
     }
 
-    function _checkRecipient(address, IERC20) internal view virtual override {}
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
@@ -187,12 +187,12 @@ contract RecipientCheckRfq is RfqOrderSettlementDummy {
         return true;
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken)
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
         override(SettlerAbstract, RfqOrderSettlementDummyBase)
     {
-        require(recipient == expectedRecipient && buyToken == expectedBuyToken);
+        require(sender == _msgSender() && recipient == expectedRecipient && buyToken == expectedBuyToken);
         revert ReceivePolicyBlocked(recipient);
     }
 }
@@ -221,13 +221,13 @@ contract RfqUnitTest is Utils, Test {
         rfqMeta = new RfqOrderSettlementMetaTxnDummy();
     }
 
-    function test_RecipientCheck_RfqVIP_Reverts() public {
-        RecipientCheckRfq checked = new RecipientCheckRfq(RECIPIENT, IERC20(TOKEN1));
+    function test_RecipientCheck_RfqVIP_TakerTransfer_Reverts() public {
+        RecipientCheckRfq checked = new RecipientCheckRfq(MAKER, IERC20(TOKEN0));
         ISignatureTransfer.PermitTransferFrom memory makerPermit;
         makerPermit.permitted.token = TOKEN1;
         ISignatureTransfer.PermitTransferFrom memory takerPermit;
         takerPermit.permitted.token = TOKEN0;
-        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, RECIPIENT));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, MAKER));
         checked.fillRfqOrderDirectCounterparties(RECIPIENT, makerPermit, MAKER, "", takerPermit, "");
     }
 

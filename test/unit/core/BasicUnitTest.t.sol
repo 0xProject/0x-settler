@@ -22,7 +22,7 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
         return false;
     }
 
-    function _checkRecipient(address, IERC20) internal view virtual override {}
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function sellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {
         super.basicSellToPool(sellToken, ppm, pool, offset, data);

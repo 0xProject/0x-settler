@@ -43,7 +43,7 @@ abstract contract StargateV2 is SettlerAbstract {
 
             nativeFee = value;
         } else {
-            _checkRecipient(pool, token);
+            _checkRecipient(address(this), pool, token);
             updatedInputAmount = token.fastBalanceOf(address(this));
             token.safeApproveIfBelow(pool, updatedInputAmount);
         }

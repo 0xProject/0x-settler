@@ -48,12 +48,12 @@ contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across 
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken)
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
         override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts)
     {
-        super._checkRecipient(recipient, buyToken);
+        super._checkRecipient(sender, recipient, buyToken);
     }
 
     function _isRestrictedTarget(address target)

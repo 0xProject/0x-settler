@@ -230,6 +230,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 // overflow here would also break MaverickV2.
                 sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
             }
+            _checkRecipient(address(this), address(pool), sellToken);
             sellToken.safeTransfer(address(pool), sellAmount);
         } else {
             sellAmount = sellToken.fastBalanceOf(address(pool));
@@ -237,7 +238,9 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
         }
-        _checkRecipient(recipient, _hasRecipientCheck() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0)));
+        _checkRecipient(
+            address(pool), recipient, _hasRecipientCheck() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0))
+        );
         return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount);
     }
 }

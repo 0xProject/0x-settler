@@ -79,7 +79,6 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        _checkRecipient(recipient, IERC20(makerPermit.permitted.token));
         if (!_hasMetaTxn()) {
             assert(makerPermit.permitted.amount <= type(uint256).max - Constants.BASIS);
         }
@@ -132,7 +131,6 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         IERC20 takerToken,
         uint256 maxTakerAmount
     ) internal {
-        _checkRecipient(recipient, IERC20(permit.permitted.token));
         if (!_hasMetaTxn()) {
             assert(permit.permitted.amount <= type(uint256).max - Constants.BASIS);
         }
@@ -165,6 +163,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         }
 
         // Now that we have all the relevant information, make the transfers and log the order.
+        _checkRecipient(address(this), maker, takerToken);
         takerToken.safeTransfer(maker, takerAmount);
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false

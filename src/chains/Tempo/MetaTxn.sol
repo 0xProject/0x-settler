@@ -60,13 +60,13 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken)
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
         virtual
         override(SettlerAbstract, SettlerBase, TempoMixin)
     {
-        super._checkRecipient(recipient, buyToken);
+        super._checkRecipient(sender, recipient, buyToken);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)

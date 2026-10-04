@@ -178,7 +178,7 @@ contract UniswapV4Stub is UniswapV4 {
         return false;
     }
 
-    function _checkRecipient(address, IERC20) internal view virtual override {}
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
@@ -327,10 +327,12 @@ contract UniswapV4Stub is UniswapV4 {
 }
 
 contract RecipientCheckUniswapV4Stub is UniswapV4Stub {
+    address private immutable expectedSender;
     address private immutable expectedRecipient;
     IERC20 private immutable expectedBuyToken;
 
-    constructor(address recipient, IERC20 buyToken) {
+    constructor(address sender, address recipient, IERC20 buyToken) {
+        expectedSender = sender;
         expectedRecipient = recipient;
         expectedBuyToken = buyToken;
     }
@@ -339,9 +341,11 @@ contract RecipientCheckUniswapV4Stub is UniswapV4Stub {
         return true;
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view override {
-        require(recipient == expectedRecipient && buyToken == expectedBuyToken);
-        revert ReceivePolicyBlocked(recipient);
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view override {
+        if (recipient == expectedRecipient && buyToken == expectedBuyToken) {
+            require(sender == expectedSender);
+            revert ReceivePolicyBlocked(recipient);
+        }
     }
 }
 
@@ -972,33 +976,44 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function test_RecipientCheck_UniswapV4_Reverts() public {
-        _rejectRecipient(IERC20(Currency.unwrap(pools[1].currency1)));
+        _rejectTransfer(address(stub), address(POOL_MANAGER), IERC20(Currency.unwrap(pools[1].currency0)));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(POOL_MANAGER)));
+        this.swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
+        _rejectTransfer(address(POOL_MANAGER), address(this), IERC20(Currency.unwrap(pools[1].currency1)));
         vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
         this.swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
     }
 
     function test_RecipientCheck_UniswapV4_FeeOnTransfer_Reverts() public {
-        _rejectRecipient(IERC20(Currency.unwrap(pools[1].currency0)));
+        _rejectTransfer(address(stub), address(POOL_MANAGER), IERC20(Currency.unwrap(pools[1].currency1)));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(POOL_MANAGER)));
+        this.swapSingle(1, TOTAL_SUPPLY / 1_000, true, false, new bytes(0));
+        _rejectTransfer(address(POOL_MANAGER), address(this), IERC20(Currency.unwrap(pools[1].currency0)));
         vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
         this.swapSingle(1, TOTAL_SUPPLY / 1_000, true, false, new bytes(0));
     }
 
     function test_RecipientCheck_UniswapV4_NativeOutput_Reverts() public {
-        _rejectRecipient(IERC20(ETH));
+        _rejectTransfer(address(POOL_MANAGER), address(this), IERC20(ETH));
         vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
         this.swapSingle(0, TOTAL_SUPPLY / 1_000, false, false, new bytes(0));
     }
 
     function test_RecipientCheck_UniswapV4_Multihop_Reverts() public {
         bool zeroForOne = pools[1].currency0 == pools[0].currency1;
-        _rejectRecipient(IERC20(Currency.unwrap(zeroForOne ? pools[1].currency1 : pools[1].currency0)));
+        _rejectTransfer(
+            address(POOL_MANAGER),
+            address(this),
+            IERC20(Currency.unwrap(zeroForOne ? pools[1].currency1 : pools[1].currency0))
+        );
         vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, address(this)));
         this.testSwapMultihop();
     }
 
-    function _rejectRecipient(IERC20 buyToken) private {
-        address implementation =
-            vm.deployCode("UniswapV4UnitTest.t.sol:RecipientCheckUniswapV4Stub", abi.encode(address(this), buyToken));
+    function _rejectTransfer(address sender, address recipient, IERC20 buyToken) private {
+        address implementation = vm.deployCode(
+            "UniswapV4UnitTest.t.sol:RecipientCheckUniswapV4Stub", abi.encode(sender, recipient, buyToken)
+        );
         vm.etch(address(stub), implementation.code);
     }
 

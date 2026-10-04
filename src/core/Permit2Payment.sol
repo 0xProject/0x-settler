@@ -271,6 +271,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        _checkRecipient(from, transferDetails.to, IERC20(permit.permitted.token));
         if (isForwarded) {
             assembly ("memory-safe") {
                 mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
@@ -406,6 +407,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        _checkRecipient(_msgSender(), transferDetails.to, IERC20(permit.permitted.token));
         if (isForwarded) {
             if (sig.length != 0) {
                 assembly ("memory-safe") {

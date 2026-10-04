@@ -118,7 +118,7 @@ abstract contract CCIP is SettlerAbstract {
                 destinationChainSelector := mload(add(0x20, ccipSendData))
             }
             address onRamp = IRouterClient(router).getOnRamp(destinationChainSelector);
-            _checkRecipient(IOnRamp(onRamp).getPoolBySourceToken(destinationChainSelector, token), token);
+            _checkRecipient(address(this), IOnRamp(onRamp).getPoolBySourceToken(destinationChainSelector, token), token);
         }
 
         uint256 amount = token.fastBalanceOf(address(this));

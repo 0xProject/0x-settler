@@ -83,7 +83,7 @@ abstract contract DeBridge is SettlerAbstract {
             amount = balance - globalFee;
             globalFee = balance;
         } else {
-            _checkRecipient(address(source), inputToken);
+            _checkRecipient(address(this), address(source), inputToken);
             amount = inputToken.fastBalanceOf(address(this));
             inputToken.safeApproveIfBelow(address(source), amount);
         }

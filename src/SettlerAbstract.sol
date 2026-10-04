@@ -28,7 +28,7 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 
     function _div512to256(uint512 n, uint512 d) internal view virtual returns (uint256);
 
-    function _checkRecipient(address recipient, IERC20 buyToken) internal view virtual;
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual;
 
     function _hasRecipientCheck() internal pure virtual returns (bool);
 }

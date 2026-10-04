@@ -8,6 +8,10 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Math} from "../utils/UnsafeMath.sol";
 import "./Constants.sol" as Constants;
 
+interface IRenegadeGasSponsor {
+    function darkpoolAddress() external view returns (address);
+}
+
 abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using Math for uint256;
@@ -32,11 +36,17 @@ abstract contract Renegade is SettlerSwapAbstract {
         uint256 minBuyAmount
     ) internal {
         if (data.length < 0x120) revertInvalidRenegadeData(); // remaining static head plus required options fields
-        _checkRecipient(recipient, buyToken);
+        address target = _renegadeGasSponsorV2();
+        if (_hasRecipientCheck()) {
+            _checkRecipient(
+                IRenegadeGasSponsor(target).darkpoolAddress(),
+                recipient == address(0) ? address(this) : recipient,
+                buyToken
+            );
+        }
 
         uint256 sellAmt = sellToken.fastBalanceOf(address(this));
         if (sellAmt > maxSellAmount) sellAmt = maxSellAmount;
-        address target = _renegadeGasSponsorV2();
         sellToken.safeApproveIfBelow(target, sellAmt);
 
         uint256 buyAmt;

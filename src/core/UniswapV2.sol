@@ -112,6 +112,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             unchecked {
                 sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * ppm / Constants.BASIS;
             }
+            _checkRecipient(address(this), pool, IERC20(sellToken));
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);
         }
         (uint256 sellReserve, uint256 buyReserve) = FastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
@@ -126,7 +127,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
         }
-        _checkRecipient(recipient, _hasRecipientCheck() ? pool.fastToken0or1(zeroForOne) : IERC20(address(0)));
+        _checkRecipient(pool, recipient, _hasRecipientCheck() ? pool.fastToken0or1(zeroForOne) : IERC20(address(0)));
         pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }

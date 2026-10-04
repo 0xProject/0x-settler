@@ -299,6 +299,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             IEkuboCore(msg.sender).unsafeStartPayments(sellToken);
 
             if (payer == address(this)) {
+                _checkRecipient(address(this), msg.sender, sellToken);
                 sellToken.safeTransfer(msg.sender, sellAmount);
             } else {
                 ISignatureTransfer.SignatureTransferDetails memory transferDetails =
@@ -459,7 +460,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            _checkRecipient(recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
+            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
             uint256 globalBuyAmount =
                 CompactTake.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -468,7 +469,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
                 // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
                     address refundRecipient = payer == address(this) ? address(this) : _msgSender();
-                    _checkRecipient(refundRecipient, globalSellToken);
+                    _checkRecipient(msg.sender, refundRecipient, globalSellToken);
                     CompactTake._callSelector(
                         uint32(IEkuboCore.withdraw.selector), globalSellToken, refundRecipient, globalSellAmount
                     );

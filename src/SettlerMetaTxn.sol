@@ -76,7 +76,6 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
-            _checkRecipient(recipient, IERC20(permit.permitted.token));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
 

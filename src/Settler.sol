@@ -73,7 +73,6 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            _checkRecipient(recipient, IERC20(permit.permitted.token));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);

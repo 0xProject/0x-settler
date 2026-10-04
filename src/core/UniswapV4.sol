@@ -262,6 +262,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     ) private returns (uint256) {
         IPoolManager(msg.sender).unsafeSync(sellToken);
         if (payer == address(this)) {
+            _checkRecipient(address(this), msg.sender, sellToken);
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
             // assert(payer == address(0));
@@ -362,7 +363,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            _checkRecipient(recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
+            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -371,7 +372,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
                     address refundRecipient = payer == address(this) ? address(this) : _msgSender();
-                    _checkRecipient(refundRecipient, globalSellToken);
+                    _checkRecipient(msg.sender, refundRecipient, globalSellToken);
                     Take._callSelector(
                         uint32(IPoolManager.take.selector), globalSellToken, refundRecipient, globalSellAmount
                     );

@@ -60,7 +60,7 @@ abstract contract Mayan is SettlerAbstract {
             mstore(protocolDataOffsetPtr, add(0xe0, protocolDataOffset))
         }
         IMayanForwarder forwarder = MAYAN_FORWARDER;
-        _checkRecipient(address(forwarder), token);
+        _checkRecipient(address(this), address(forwarder), token);
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(address(forwarder), amount);
 

@@ -69,7 +69,7 @@ abstract contract NucleusTeller is SettlerAbstract {
             depositAsset := mload(add(0x20, depositAndBridgeCallData))
         }
 
-        _checkRecipient(address(WPAXG), depositAsset);
+        _checkRecipient(address(this), address(WPAXG), depositAsset);
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
         depositAsset.safeApproveIfBelow(address(WPAXG), depositAmount);
 

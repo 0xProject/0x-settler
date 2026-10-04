@@ -18,33 +18,47 @@ import {IDlnSource, DLN_SOURCE} from "src/core/DeBridge.sol";
 import {IOFT} from "src/core/LayerZeroOFT.sol";
 import {MAYAN_FORWARDER} from "src/core/Mayan.sol";
 import {INucleusTeller} from "src/core/NucleusTeller.sol";
-import {ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
+import {ReceivePolicyBlocked, ConfusedDeputy} from "src/core/SettlerErrors.sol";
 
 contract BridgeRecipientCheckHarness is MainnetBridgeSettler {
     address private immutable expectedRecipient;
     IERC20 private immutable expectedToken;
+    address private expectedSender;
 
     constructor(address recipient, IERC20 token) MainnetBridgeSettler(bytes20(0)) {
         expectedRecipient = recipient;
         expectedToken = token;
+        expectedSender = address(this);
+    }
+
+    function expectSender(address sender) external {
+        expectedSender = sender;
     }
 
     function _hasRecipientCheck() internal pure override(SettlerAbstract, BridgeSettlerBase) returns (bool) {
         return true;
     }
 
-    function _checkRecipient(address recipient, IERC20 token)
+    function _checkRecipient(address sender, address recipient, IERC20 token)
         internal
         view
         override(SettlerAbstract, BridgeSettlerBase)
     {
-        require(recipient == expectedRecipient && token == expectedToken);
+        require(sender == expectedSender && recipient == expectedRecipient && token == expectedToken);
         revert ReceivePolicyBlocked(recipient);
     }
 }
 
 contract TempoBridgeRecipientCheckHarness is TempoBridgeSettler {
     constructor() TempoBridgeSettler(bytes20(0)) {}
+
+    function checkRecipient(address sender, address recipient, IERC20 token) external view {
+        _checkRecipient(sender, recipient, token);
+    }
+
+    function restrictedTarget(address target) external view returns (bool) {
+        return _isRestrictedTarget(target);
+    }
 
     function hasRecipientCheck() external pure returns (bool) {
         return _hasRecipientCheck();
@@ -62,7 +76,11 @@ contract BridgeRecipientCheckUnitTest is BridgeSettlerTestBase {
     }
 
     function test_RecipientCheck_TransferFrom_Reverts() public {
-        _expectBlocked(_getDefaultTransferFrom(recipient, address(token), 1 ether), recipient);
+        BridgeRecipientCheckHarness checkedSettler = new BridgeRecipientCheckHarness(recipient, token);
+        checkedSettler.expectSender(address(this));
+        bytes[] memory actions = ActionDataBuilder.build(_getDefaultTransferFrom(recipient, address(token), 1 ether));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, recipient));
+        checkedSettler.execute(actions, bytes32(0));
     }
 
     function test_RecipientCheck_Relay_Reverts() public {
@@ -170,9 +188,29 @@ contract BridgeRecipientCheckUnitTest is BridgeSettlerTestBase {
         assertEq(token.allowance(address(bridgeSettler), address(bridgeDummy)), type(uint256).max);
     }
 
+    function test_RecipientCheck_TempoBridge_BasicRegistryCall_Reverts() public {
+        TempoBridgeSettler tempo = new TempoBridgeSettler(bytes20(0));
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                IBridgeSettlerActions.BASIC,
+                (
+                    address(0),
+                    0,
+                    0x403c000000000000000000000000000000000000,
+                    0,
+                    abi.encodeWithSignature("setReceivePolicy(uint64,uint64,address)", uint64(0), uint64(0), address(0))
+                )
+            )
+        );
+        vm.expectRevert(ConfusedDeputy.selector);
+        tempo.execute(actions, bytes32(0));
+    }
+
     function test_RecipientCheck_TempoBridge_Enabled() public {
         TempoBridgeRecipientCheckHarness tempo = new TempoBridgeRecipientCheckHarness();
         assertTrue(tempo.hasRecipientCheck());
+        assertTrue(tempo.restrictedTarget(0x403c000000000000000000000000000000000000));
+        assertTrue(tempo.restrictedTarget(0xB10C000000000000000000000000000000000000));
     }
 
     function test_RecipientCheck_TempoRelay_NonTIP20_Transfers() public {

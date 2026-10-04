@@ -2,7 +2,6 @@
 pragma solidity ^0.8.25;
 
 import {BridgeSettlerBase} from "./BridgeSettlerBase.sol";
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {revertActionInvalid} from "../core/SettlerErrors.sol";
 import {CalldataDecoder} from "../SettlerBase.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -27,7 +26,6 @@ abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentT
         if (action == uint32(IBridgeSettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            _checkRecipient(recipient, IERC20(permit.permitted.token));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);

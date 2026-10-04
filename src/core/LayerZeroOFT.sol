@@ -101,7 +101,7 @@ abstract contract LayerZeroOFT is SettlerAbstract {
             }
             nativeFee += updatedInputAmount;
         } else {
-            _checkRecipient(oft, token);
+            _checkRecipient(address(this), oft, token);
             updatedInputAmount = token.fastBalanceOf(address(this));
             token.safeApproveIfBelow(oft, updatedInputAmount);
         }

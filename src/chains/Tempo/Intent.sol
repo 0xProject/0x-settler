@@ -32,12 +32,12 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
         return super._hasRecipientCheck();
     }
 
-    function _checkRecipient(address recipient, IERC20 buyToken)
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
         override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
     {
-        super._checkRecipient(recipient, buyToken);
+        super._checkRecipient(sender, recipient, buyToken);
     }
 
     function executeMetaTxn(

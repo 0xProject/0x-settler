@@ -19,7 +19,7 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         return false;
     }
 
-    function _checkRecipient(address, IERC20) internal view virtual override {}
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function getToken(address pool, bool zeroForOne) external view returns (IERC20) {
         return FastUniswapV2Pool.fastToken0or1(pool, zeroForOne);
