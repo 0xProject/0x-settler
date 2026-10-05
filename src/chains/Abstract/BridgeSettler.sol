@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
+import {StargateV2} from "../../core/StargateV2.sol";
 
-contract AbstractBridgeSettler is BridgeSettler {
+contract AbstractBridgeSettler is BridgeSettler, StargateV2 {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 2741 || block.chainid == 31337);
     }
@@ -16,6 +18,9 @@ contract AbstractBridgeSettler is BridgeSettler {
     {
         if (super._dispatch(i, action, data)) {
             return true;
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_STARGATE_V2.selector)) {
+            (IERC20 token, address pool, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
+            bridgeToStargateV2(token, pool, sendData);
         } else {
             return false;
         }

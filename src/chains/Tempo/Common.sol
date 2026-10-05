@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -26,7 +27,9 @@ import {TEMPO_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract TempoMixin is FreeMemory, SettlerBase, UniswapV4 {
+abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContracts, UniswapV4 {
+    address internal constant _TEMPO_ADDRESS_REGISTRY = 0xfDC0000000000000000000000000000000000000;
+
     constructor() {
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
@@ -86,5 +89,15 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, UniswapV4 {
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Permit2PaymentAbstract, BlockTempoSystemContracts)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

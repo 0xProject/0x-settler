@@ -3,9 +3,12 @@ pragma solidity =0.8.34;
 
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
+
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
+
 import {Across} from "../../core/Across.sol";
 
-contract TempoBridgeSettler is BridgeSettler, Across {
+contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
@@ -27,5 +30,16 @@ contract TempoBridgeSettler is BridgeSettler, Across {
             return false;
         }
         return true;
+    }
+
+    // I hate Solidity inheritance
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BridgeSettler, BlockTempoSystemContracts)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

@@ -8,17 +8,13 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboV2Test} from "./EkuboV2.t.sol";
 import {EkuboV3Test} from "./EkuboV3.t.sol";
-import {EulerSwapTest} from "./EulerSwap.t.sol";
-import {SettlerPairTest} from "./SettlerPairTest.t.sol";
-import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 
 // Solidity inheritance is stupid
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
-import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test) {
         super.setUp();
     }
 
@@ -35,20 +31,8 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Te
         return IERC4626(0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8); // aUSDT
     }
 
-    function eulerSwapPool() internal pure override returns (address) {
-        return 0x47bF727906669E8d06993e8D252912B4B90C28a8;
-    }
-
-    function eulerSwapBlock() internal pure override returns (uint256) {
-        return 22727039;
-    }
-
     function _testName() internal pure override returns (string memory) {
         return "USDC-USDT";
-    }
-
-    function reverseTestName() internal pure override returns (string memory) {
-        return "USDT-USDC";
     }
 
     function fromToken() internal pure override returns (IERC20) {
