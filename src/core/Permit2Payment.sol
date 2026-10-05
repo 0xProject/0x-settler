@@ -271,6 +271,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        // Maker and callback payments do not use the direct transfer action, so their recipient policy is checked here.
         _checkRecipient(from, transferDetails.to, IERC20(permit.permitted.token));
         if (isForwarded) {
             assembly ("memory-safe") {
@@ -407,7 +408,13 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        _checkRecipient(_msgSender(), transferDetails.to, IERC20(permit.permitted.token));
+        // Pool callbacks also need recipient validation for both Permit2 and AllowanceHolder payments.
+        // Keeping payer reads in the transfer branches avoids extra gas when recipient checks are disabled.
+        address from;
+        if (_hasRecipientCheck()) {
+            from = _msgSender();
+            _checkRecipient(from, transferDetails.to, IERC20(permit.permitted.token));
+        }
         if (isForwarded) {
             if (sig.length != 0) {
                 assembly ("memory-safe") {
@@ -425,7 +432,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             }
             // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
             _allowanceHolderTransferFrom(
-                permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
+                permit.permitted.token,
+                _hasRecipientCheck() ? from : _msgSender(),
+                transferDetails.to,
+                transferDetails.requestedAmount
             );
         } else {
             // This is effectively
@@ -442,7 +452,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // compiles down to just a single PUSH opcode just before the CALL, with optimization
             // turned on.
             ISignatureTransfer _PERMIT2 = PERMIT2;
-            address from = _msgSender();
+            if (!_hasRecipientCheck()) {
+                from = _msgSender();
+            }
             assembly ("memory-safe") {
                 let ptr := mload(0x40)
                 mstore(ptr, 0x30f28b7a) // selector for `permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes)`
