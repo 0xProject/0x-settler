@@ -574,6 +574,42 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         assertEq(p1.callCount(), 0);
     }
 
+    /// @dev If the select overhead constant undercounts, some gas limit starves a trial that needs
+    ///      its whole cap, skips its failure, and commits the next candidate instead.
+    function test_gasLimit_overheadCoversTightTrial() public {
+        GasFloorPool probe = new GasFloorPool(IERC20(address(buy)));
+        buy.mint(address(probe), 9 ether);
+        p1.set(7 ether, false);
+        (,, uint256 floor) = _probe(probe, 0, 1_000_000);
+        uint256 lo;
+        uint256 hi = 1_000_000;
+        while (lo < hi) {
+            uint256 mid = (lo + hi) / 2;
+            (bool ok,,) = _probe(probe, floor, mid);
+            (lo, hi) = ok ? (lo, mid) : (mid + 1, hi);
+        }
+        (, bool probeWon,) = _probe(probe, floor, lo);
+        assertTrue(probeWon);
+    }
+
+    function _probe(GasFloorPool probe, uint256 floor, uint256 txGas)
+        internal
+        returns (bool ok, bool probeWon, uint256 gasSeen)
+    {
+        bytes[] memory first = new bytes[](1);
+        first[0] = abi.encodeCall(
+            ISettlerActions.BASIC, (address(0), 0, address(probe), 0, abi.encodeCall(GasFloorPool.swap, (floor)))
+        );
+        bytes memory action = _selectAction(
+            TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(first, _candidate(address(p1)))
+        );
+        uint256 snapshot = vm.snapshotState();
+        (ok,) = _tryExecute(action, txGas, 0);
+        probeWon = buy.balanceOf(recipient) == 9 ether;
+        gasSeen = probe.gasSeen();
+        vm.revertToState(snapshot);
+    }
+
     function test_nativeCheck_nestedValueCheckSeesZero() public {
         vm.deal(taker, 1 ether);
         bytes memory nativeCheck = abi.encodeCall(ISettlerActions.NATIVE_CHECK, (type(uint256).max, 0));
@@ -932,5 +968,20 @@ contract GasHeavyPool {
             }
         }
         t.transfer(msg.sender, amt);
+    }
+}
+
+contract GasFloorPool {
+    IERC20 internal immutable t;
+    uint256 public gasSeen;
+
+    constructor(IERC20 _t) {
+        t = _t;
+    }
+
+    function swap(uint256 floor) external {
+        gasSeen = gasleft();
+        require(gasSeen >= floor);
+        t.transfer(msg.sender, 9 ether);
     }
 }
