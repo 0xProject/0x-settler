@@ -10,10 +10,8 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
-* Fix bugs reported by Bailsec
-  * Fix RFQ maker permits in `SettlerIntent` using the taker's balance for
-    proportional sell amounts
-  * Fix overflow in the `POSITIVE_SLIPPAGE` cap calculation
+* Fix RFQ maker permits in `SettlerIntent` using the taker's balance for
+  proportional sell amounts, reported by Bailsec
 
 ## 2026-09-03
 

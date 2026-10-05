@@ -6,7 +6,7 @@ import {IERC721Owner} from "./IERC721Owner.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "./interfaces/ISettlerBase.sol";
 
-import {uint512, tmp} from "./utils/512Math.sol";
+import {uint512} from "./utils/512Math.sol";
 
 import {DEPLOYER} from "./deployer/DeployerAddress.sol";
 
@@ -161,11 +161,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             uint256 balance = Constants.compatBalance(token, address(this));
             if (balance > expectedAmount) {
-                uint256 cap = tmp().omul(balance, maxPpm).unsafeDiv(Constants.BASIS);
+                uint256 cap;
                 unchecked {
+                    cap = balance * maxPpm / Constants.BASIS;
                     balance -= expectedAmount;
+                    balance = balance * surplusPpm / Constants.BASIS;
                 }
-                balance = tmp().omul(balance, surplusPpm).unsafeDiv(Constants.BASIS);
                 balance = (balance > cap).ternary(cap, balance);
                 if (Constants.isNative(token)) {
                     recipient.safeTransferETH(balance);

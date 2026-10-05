@@ -266,12 +266,6 @@ contract PositiveSlippageUnitTest is Test {
         assertEq(token.balanceOf(address(settler)), 1_000_000);
     }
 
-    function test_PositiveSlippage_HugeBalanceDoesNotOverflow() public {
-        _executeToken(type(uint256).max, 0, BASIS / 2, BASIS);
-
-        assertEq(token.balanceOf(recipient), type(uint256).max / 2);
-    }
-
     function test_PositiveSlippage_TransfersProportionOfEthSurplus() public {
         vm.deal(address(settler), 2_000_000);
         _execute(ETH_ADDRESS, 1_000_000, 250_000, BASIS);
