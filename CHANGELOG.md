@@ -14,6 +14,10 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb, Base, and RobinHood
+* Add `DEEPSTATE` action for the Deepstate order book on RobinHood
+  * Deepstate only sizes orders in `token0`. To sell `token1`, pass an
+    `inversePriceX128` that matches `tick` (see `ISettlerActions`). Any sell
+    token left unspent stays in Settler
 * Add Tempo ReceivePolicyGuard `0xB10C000000000000000000000000000000000000` to
   the list of restricted targets
 * On Tempo, check that the recipient of an **intent** does not have a customized
