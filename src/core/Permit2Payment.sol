@@ -165,23 +165,24 @@ library TransientStorage {
                 revert(0x10, 0x24)
             }
 
-            tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
+            tstore(_PAYER_SLOT, shl(0x60, payer))
         }
     }
 
     function getPayer() internal view returns (address payer) {
         assembly ("memory-safe") {
-            payer := tload(_PAYER_SLOT)
+            payer := shr(0x60, tload(_PAYER_SLOT))
         }
     }
 
     function clearPayer(address expectedOldPayer) internal {
-        assembly ("memory-safe") {
-            if shl(0x60, xor(tload(_PAYER_SLOT), expectedOldPayer)) {
+        if (getPayer() != expectedOldPayer) {
+            assembly ("memory-safe") {
                 mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
                 revert(0x1c, 0x04)
             }
-
+        }
+        assembly ("memory-safe") {
             tstore(_PAYER_SLOT, 0x00)
         }
     }
