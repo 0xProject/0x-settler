@@ -22,6 +22,7 @@ import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {FastLogic} from "../../utils/FastLogic.sol";
 import {Ternary} from "../../utils/Ternary.sol";
+import {tmp} from "../../utils/512Math.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -115,12 +116,11 @@ abstract contract MainnetMixin is
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
-                uint256 cap;
+                uint256 cap = tmp().omul(balance, maxPpm).unsafeDiv(Constants.BASIS);
                 unchecked {
-                    cap = balance * maxPpm / Constants.BASIS;
                     balance -= expectedAmount;
-                    balance = balance * surplusPpm / Constants.BASIS;
                 }
+                balance = tmp().omul(balance, surplusPpm).unsafeDiv(Constants.BASIS);
                 balance = (balance > cap).ternary(cap, balance);
                 if (isETH) {
                     recipient.safeTransferETH(balance);
