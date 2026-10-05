@@ -60,8 +60,9 @@ library TransientStorage {
         uint32 selector,
         function(bytes calldata) internal returns (bytes memory) callback
     ) internal {
+        address payer = getPayer();
         assembly ("memory-safe") {
-            if iszero(shl(0x60, xor(tload(_PAYER_SLOT), operator))) {
+            if iszero(shl(0x60, xor(payer, operator))) {
                 mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
                 revert(0x1c, 0x04)
             }
@@ -165,24 +166,23 @@ library TransientStorage {
                 revert(0x10, 0x24)
             }
 
-            tstore(_PAYER_SLOT, shl(0x60, payer))
+            tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
         }
     }
 
     function getPayer() internal view returns (address payer) {
         assembly ("memory-safe") {
-            payer := shr(0x60, tload(_PAYER_SLOT))
+            payer := tload(_PAYER_SLOT)
         }
     }
 
     function clearPayer(address expectedOldPayer) internal {
-        if (getPayer() != expectedOldPayer) {
-            assembly ("memory-safe") {
+        address oldPayer = getPayer();
+        assembly ("memory-safe") {
+            if shl(0x60, xor(oldPayer, expectedOldPayer)) {
                 mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
                 revert(0x1c, 0x04)
             }
-        }
-        assembly ("memory-safe") {
             tstore(_PAYER_SLOT, 0x00)
         }
     }
