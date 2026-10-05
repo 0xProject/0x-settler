@@ -271,7 +271,8 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        // Maker and callback payments do not use the direct transfer action, so their recipient policy is checked here.
+        // Maker and callback payments do not use the direct transfer action, so their recipient
+        // policy is checked here.
         _checkRecipient(from, transferDetails.to, IERC20(permit.permitted.token));
         if (isForwarded) {
             assembly ("memory-safe") {
@@ -408,8 +409,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         bytes memory sig,
         bool isForwarded
     ) internal override {
-        // Pool callbacks also need recipient validation for both Permit2 and AllowanceHolder payments.
-        // Keeping payer reads in the transfer branches avoids extra gas when recipient checks are disabled.
+        // Pool callbacks also need recipient validation for both Permit2 and AllowanceHolder
+        // payments. Keeping payer reads in the transfer branches avoids extra gas when recipient
+        // checks are disabled.
         address from;
         if (_hasRecipientCheck()) {
             from = _msgSender();

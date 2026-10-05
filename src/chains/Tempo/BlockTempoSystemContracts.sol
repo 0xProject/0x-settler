@@ -15,7 +15,7 @@ interface ITempoAddressRegistry {
 }
 
 interface ITempoReceivePolicy {
-    function validateReceivePolicy(address token, address sender, address receiver)
+    function validateReceivePolicy(IERC20 token, address sender, address receiver)
         external
         view
         returns (bool authorized, uint8 blockedReason);
@@ -39,7 +39,8 @@ abstract contract BlockTempoSystemContracts is SettlerAbstract {
 
     // A recipient's TIP-1028 receive policy can send a TIP-20 payout to the ReceivePolicyGuard
     // rather than the recipient. The payout must reach the recipient.
-    // This contract cannot configure a receive policy because arbitrary calls to the registry are forbidden.
+    // This contract cannot configure a receive policy because arbitrary calls to the registry are
+    // forbidden.
     function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
@@ -49,7 +50,7 @@ abstract contract BlockTempoSystemContracts is SettlerAbstract {
         if ((uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000).andNot(recipient == address(this))) {
             address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
             (bool authorized,) =
-                ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY).validateReceivePolicy(address(buyToken), sender, resolved);
+                ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY).validateReceivePolicy(buyToken, sender, resolved);
             if (!authorized) revert ReceivePolicyBlocked(recipient);
         }
     }
