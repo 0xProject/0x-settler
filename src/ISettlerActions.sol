@@ -234,8 +234,8 @@ interface ISettlerActions {
     /// `TickMath32.getPriceFactorAtTick(tick)`: the Q128 reciprocal of the limit price as the engine represents it.
     /// Only used when selling the higher-addressed token (a bid): Deepstate sizes bids in the lower-addressed
     /// token, so the sell amount is converted through this value. Sizing at the limit price means the engine can
-    /// never take more than the sell amount; if the book is better than the limit, the difference stays unspent.
-    /// Ignored for an ask.
+    /// never take more than the sell amount. A larger value lets it take more. If the book is better than the limit,
+    /// the leftover stays in the Settler as `sellToken`. Ignored for an ask.
     // Pre-req: Funded
     // Post-req: Payout
     function DEEPSTATE(
