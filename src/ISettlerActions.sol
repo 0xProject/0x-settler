@@ -229,15 +229,11 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
-    /// @dev Tries funded action sequences (`candidates`) in order, and commits the first to meet
-    ///      its score `target`. A score is the increase in the `token` balance held by Settler, and
-    ///      a candidate that lowers that balance reverts. A zero `target` commits any non-reverting
-    ///      candidate. Candidates run with Settler as the caller and no call value. They must not
-    ///      contain `CHECK_SLIPPAGE` or `NATIVE_CHECK` actions. `targets` are the per-candidate
-    ///      minimum outputs that terminate the trials (commit). `targets[i]` pairs with
-    ///      `candidates[i]`. `trialGasLimit` must be nonzero and below 2**64. Each non-final trial
-    ///      requests exactly `trialGasLimit` gas; the final candidate's action sequence gas
-    ///      consumption is uncapped.
+    /// @dev Tries `candidates` in order and commits the first whose increase in Settler's `token`
+    ///      balance meets its `targets` entry. A decrease reverts the candidate. Candidates run
+    ///      with Settler as the caller and no value, so they must not contain `CHECK_SLIPPAGE` or
+    ///      `NATIVE_CHECK`. Each non-final candidate gets `trialGasLimit` gas, which must be
+    ///      nonzero and fit in 64 bits.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
