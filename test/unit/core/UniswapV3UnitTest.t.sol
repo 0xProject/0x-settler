@@ -101,7 +101,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return false;
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         pure
         override
@@ -110,7 +110,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return permit.permitted.amount;
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         pure
         override
@@ -119,7 +119,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return permit.permitted.amount;
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+    function _permitToTransferDetails(address, ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
         override

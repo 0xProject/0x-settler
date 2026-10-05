@@ -160,7 +160,16 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             mstore(swapCallbackData, length)
         }
 
-        buyAmount = _uniV3ForkSwap(recipient, encodedPath, _permitToSellAmount(permit), minBuyAmount, swapCallbackData);
+        buyAmount = _uniV3ForkSwap(
+            recipient,
+            encodedPath,
+            _permitToSellAmount(
+                address(0) /* sentinel for `_msgSender()` */,
+                permit
+            ),
+            minBuyAmount,
+            swapCallbackData
+        );
     }
 
     // Executes successive swaps along an encoded uniswap path.

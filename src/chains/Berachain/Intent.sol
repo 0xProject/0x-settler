@@ -72,22 +72,22 @@ contract BerachainSettlerIntent is SettlerIntent, BerachainSettlerMetaTxn {
         return super._dispatchVIP(action, data, sig);
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
-        return super._permitToSellAmountCalldata(permit);
+        return super._permitToSellAmountCalldata(owner, permit);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
-        return super._permitToSellAmount(permit);
+        return super._permitToSellAmount(owner, permit);
     }
 
     function _isRestrictedTarget(address target)

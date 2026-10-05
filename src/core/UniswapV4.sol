@@ -262,7 +262,12 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             if (payer != address(this)) {
-                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+                globalSell.setAmount(
+                    _permitToSellAmountCalldata(
+                        address(0) /* sentinel for `_msgSender()` */,
+                        permit
+                    )
+                );
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(_pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig));

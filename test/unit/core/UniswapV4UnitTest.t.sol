@@ -210,7 +210,7 @@ contract UniswapV4Stub is UniswapV4 {
         return msg.sender;
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         pure
         override
@@ -219,7 +219,7 @@ contract UniswapV4Stub is UniswapV4 {
         return permit.permitted.amount;
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory)
         internal
         pure
         override
@@ -228,14 +228,13 @@ contract UniswapV4Stub is UniswapV4 {
         revert("unimplemented");
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+    function _permitToTransferDetails(address, ISignatureTransfer.PermitTransferFrom memory, address)
         internal
         pure
         override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
     {
-        transferDetails.to = recipient;
-        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(permit);
+        revert("unimplemented");
     }
 
     function _transferFromIKnowWhatImDoing(
