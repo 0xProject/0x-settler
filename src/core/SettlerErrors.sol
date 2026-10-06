@@ -19,6 +19,9 @@ function revertConfusedDeputy() pure {
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
 
+/// @notice Thrown when the payout recipient's TIP-1028 receive policy would divert the transfer
+error ReceivePolicyBlocked(address recipient);
+
 /// @notice Thrown when Renegade action data is malformed
 error InvalidRenegadeData();
 

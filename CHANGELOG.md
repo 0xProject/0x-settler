@@ -13,8 +13,27 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
-* Add `FLUXPOOL` action on Bnb
+* Add `FLUXPOOL` action on Bnb, Base, and RobinHood
+* Add `DEEPSTATE` action for the Deepstate order book on RobinHood
+  * Deepstate only sizes orders in `token0`. To sell `token1`, pass an
+    `inversePriceX128` that matches `tick` (see `ISettlerActions`). Any sell
+    token left unspent stays in Settler
+* Add Tempo ReceivePolicyGuard `0xB10C000000000000000000000000000000000000` to
+  the list of restricted targets
+* On Tempo, revert if the recipient's receive policy would block a transfer
+  (except in `BASIC`)
+* Add SushiSwapV3 UniV3 fork to Arc with fork ID 2
+* Add SushiSwapV4 CL as a PancakeInfinity fork to Arc
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+    `METATXN_PANCAKE_INFINITY_VIP`
 * Add AchSwap V3 UniV3 fork to Arc with fork ID 47
+
+## 2026-09-25
+
+### Non-breaking changes
+
+* Add the TIP403 registry `0x403c000000000000000000000000000000000000`
+  on Tempo to the list of restricted addresses; Immunefi bug #94068
 
 ## 2026-09-14
 

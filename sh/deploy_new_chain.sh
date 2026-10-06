@@ -401,7 +401,7 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     echo 'Verified Safe module -- now verifying Deployer implementation' >&2
 
-    verify_contract "$(cast abi-encode 'constructor(uint256)' 1)" "$deployer_impl" src/deployer/Deployer.sol:Deployer
+    verify_contract "$(cast abi-encode 'constructor(uint256)' 1)" "$deployer_impl" src/deployer/Deployer.sol:Deployer 0.8.25
 
     if [[ $era_vm = [Ff]alse ]] ; then
         echo 'Verified Deployer implementation -- now verifying SafeGuard (timelock)' >&2

@@ -163,6 +163,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         }
 
         // Now that we have all the relevant information, make the transfers and log the order.
+        _checkRecipient(address(this), maker, takerToken);
         takerToken.safeTransfer(maker, takerAmount);
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false

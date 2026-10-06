@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 //import {Velodrome} from "src/core/VelodromeAlt.sol";
 import {Velodrome} from "src/core/Velodrome.sol";
@@ -10,6 +11,12 @@ import {uint512/*, uint512_external, alloc*/} from "src/utils/512Math.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract VelodromeConvergenceDummy is Velodrome {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
     }

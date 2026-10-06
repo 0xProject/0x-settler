@@ -110,6 +110,7 @@ abstract contract MainnetMixin is
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
+            _checkRecipient(address(this), recipient, token);
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {

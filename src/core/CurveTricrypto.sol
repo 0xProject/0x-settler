@@ -12,6 +12,8 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertConfusedDeputy} from "./SettlerErrors.sol";
 
 interface ICurveTricrypto {
+    function coins(uint256 index) external view returns (IERC20);
+
     function exchange_extended(
         uint256 sellIndex,
         uint256 buyIndex,
@@ -88,6 +90,9 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         uint8 sellIndex = uint8(poolInfo >> 8);
         uint8 buyIndex = uint8(poolInfo);
         address pool = _curveFactory().deriveContract(factoryNonce);
+        _checkRecipient(
+            pool, recipient, _hasRecipientCheck() ? ICurveTricrypto(pool).coins(buyIndex) : IERC20(address(0))
+        );
         /*
         bytes32 codePrefixHashActual;
         assembly ("memory-safe") {

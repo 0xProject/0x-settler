@@ -3,6 +3,7 @@ pragma solidity =0.8.34;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
@@ -39,5 +40,14 @@ contract UnichainBridgeSettler is BridgeSettler, Across, Mayan, StargateV2 {
             return false;
         }
         return true;
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(BridgeSettler, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

@@ -3,6 +3,7 @@ pragma solidity =0.8.34;
 
 import {TempoSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -22,6 +23,23 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
     constructor(bytes20 gitCommit) TempoSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
+    function _hasRecipientCheck()
+        internal
+        pure
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,

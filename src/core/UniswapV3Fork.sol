@@ -205,6 +205,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
 
             // Intermediate tokens go to this contract. Final tokens go to `recipient`.
             address to = isPathMultiHop.ternary(address(this), recipient);
+            if (!isPathMultiHop) {
+                _checkRecipient(address(pool), recipient, outputToken);
+            }
 
             (bytes memory data, uint256 freeMemPtr) =
                 FastUniswapV3Pool.fastEncodeSwap(to, zeroForOne, sellAmount, sqrtPriceLimitX96, swapCallbackData);
@@ -361,6 +364,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             assembly ("memory-safe") {
                 token := shr(0x60, calldataload(permit2Data.offset))
             }
+            _checkRecipient(address(this), msg.sender, token);
             token.safeTransfer(msg.sender, amount);
         } else {
             assert(payer == address(0));

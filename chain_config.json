@@ -1140,6 +1140,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": null
     },
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=5042",
     "blockscoutApi": "https://explorer.arc.io/api"
   }
 }

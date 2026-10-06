@@ -24,6 +24,12 @@ interface IPSM {
     /// @return address of gemJoin contract
     function gemJoin() external view returns (address);
 
+    function pocket() external view returns (address);
+
+    function usdsJoin() external view returns (address);
+
+    function usddJoin() external view returns (address);
+
     /// @dev Sell gem (USDC/USDT) for dai (DAI/USDS/USDD)
     /// @param usr The address of the account trading gem for dai.
     /// @param gemAmt The amount of gem to sell in gem base units
@@ -144,6 +150,19 @@ abstract contract MakerPSM is SettlerSwapAbstract {
         // Configured approval pairs: LitePSM/DAI/USDC, SkyPSM/USDS/USDC, UsddPSM/USDD/USDT.
         IERC20 gem = IERC20((psm == UsddPSM).ternary(address(USDT), address(USDC)));
         (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(gem, dai);
+        if (_hasRecipientCheck()) {
+            address sender;
+            if (buyGem) {
+                sender = psm == UsddPSM ? UsddGemJoin : psm.pocket();
+            } else if (psm == SkyPSM) {
+                sender = psm.usdsJoin();
+            } else if (psm == UsddPSM) {
+                sender = psm.usddJoin();
+            } else {
+                sender = address(psm);
+            }
+            _checkRecipient(sender, recipient, buyToken);
+        }
         uint256 sellAmount;
         unchecked {
             // phantom overflow can't happen here because:

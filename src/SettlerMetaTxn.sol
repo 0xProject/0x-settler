@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerMetaTxn} from "./interfaces/ISettlerMetaTxn.sol";
 
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
