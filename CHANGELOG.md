@@ -28,6 +28,8 @@
     `METATXN_PANCAKE_INFINITY_VIP`
 * Fix RFQ maker permits in `SettlerIntent` using the taker's balance for
   proportional sell amounts, reported by Bailsec
+* Add Rubicon CLMM UniV3 fork to Mainnet with fork ID 47
+* Add AchSwap V3 UniV3 fork to Arc with fork ID 48
 
 ## 2026-09-25
 
