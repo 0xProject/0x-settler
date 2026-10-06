@@ -18,6 +18,7 @@ import {
 import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
+import {FluxPool} from "../../core/FluxPool.sol";
 
 import {IMsgSender} from "../../interfaces/IMsgSender.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -72,12 +73,17 @@ abstract contract BaseMixin is
     PancakeInfinity,
     Renegade,
     Bebop,
-    Hanji
+    Hanji,
+    FluxPool
 {
     using FastLogic for bool;
 
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
+    }
+
+    function _fluxSwap() internal pure override returns (address) {
+        return 0x388e0D8f610a80C75e8a049C39DDc5816f56c012;
     }
 
     function _renegadeGasSponsorV2() internal pure override returns (address) {
@@ -178,6 +184,11 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
+            (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
+
+            sellToFluxPool(sellToken, ppm, poolId, zeroForOne, minBuyAmount);
         } else {
             return false;
         }

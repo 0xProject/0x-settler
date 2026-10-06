@@ -18,6 +18,12 @@ import {Test} from "@forge-std/Test.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     function sellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {
         super.basicSellToPool(sellToken, ppm, pool, offset, data);
     }

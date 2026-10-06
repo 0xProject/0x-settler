@@ -3,7 +3,8 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {ETH_ADDRESS} from "./Constants.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
+import "./Constants.sol" as Constants;
 
 interface IOFT {
     event OFTSent(
@@ -65,7 +66,7 @@ library FastLayerZeroOFT {
     }
 }
 
-contract LayerZeroOFT {
+abstract contract LayerZeroOFT is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using FastLayerZeroOFT for address;
 
@@ -87,7 +88,7 @@ contract LayerZeroOFT {
             nativeFee := mload(add(0x40, sendData))
         }
 
-        if (address(token) == ETH_ADDRESS) {
+        if (Constants.isNative(token)) {
             uint256 value = address(this).balance;
             updatedInputAmount = value - nativeFee;
 
@@ -100,6 +101,7 @@ contract LayerZeroOFT {
             }
             nativeFee += updatedInputAmount;
         } else {
+            _checkRecipient(address(this), oft, token);
             updatedInputAmount = token.fastBalanceOf(address(this));
             token.safeApproveIfBelow(oft, updatedInputAmount);
         }

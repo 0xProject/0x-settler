@@ -15,6 +15,7 @@ import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
+import {Select} from "./core/Select.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
@@ -54,7 +55,7 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
+abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome, Select {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using FastLogic for bool;
@@ -84,6 +85,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual override {}
+
     function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
@@ -97,13 +104,13 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        bool isETH = (address(buyToken) == Constants.ETH_ADDRESS);
-        uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
+        uint256 amountOut = Constants.compatBalance(buyToken, address(this));
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
         amountOut = transferExactLimit.ternary(minAmountOut, amountOut);
-        if (isETH) {
+        _checkRecipient(address(this), recipient, buyToken);
+        if (Constants.isNative(buyToken)) {
             recipient.safeTransferETH(amountOut);
         } else {
             buyToken.safeTransfer(recipient, amountOut);
@@ -159,8 +166,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
-            bool isETH = (address(token) == Constants.ETH_ADDRESS);
-            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            _checkRecipient(address(this), recipient, token);
+            uint256 balance = Constants.compatBalance(token, address(this));
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
@@ -169,12 +176,14 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                     balance = balance * surplusPpm / Constants.BASIS;
                 }
                 balance = (balance > cap).ternary(cap, balance);
-                if (isETH) {
+                if (Constants.isNative(token)) {
                     recipient.safeTransferETH(balance);
                 } else {
                     token.safeTransfer(recipient, balance);
                 }
             }
+        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
+            select(data);
         } else {
             return false;
         }

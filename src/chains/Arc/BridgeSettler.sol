@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
 import {Across} from "../../core/Across.sol";
@@ -28,5 +29,14 @@ contract ArcBridgeSettler is BridgeSettler, Across {
             return false;
         }
         return true;
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(BridgeSettler, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }
