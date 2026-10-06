@@ -47,8 +47,7 @@ contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
 
             if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
                 sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else {
-                // if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))
+            } else { // if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))
                 sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             }
         } else {

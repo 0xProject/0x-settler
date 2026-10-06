@@ -61,8 +61,7 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else {
-                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
                 sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else {

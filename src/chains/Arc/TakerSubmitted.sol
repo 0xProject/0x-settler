@@ -41,8 +41,7 @@ contract ArcSettler is Settler, ArcMixin {
 
             if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
                 sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else {
-                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
                 sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             }
         } else {
