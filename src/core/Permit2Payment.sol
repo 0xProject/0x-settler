@@ -426,7 +426,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                 transferDetails.requestedAmount
             );
         } else {
-            PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
+            PERMIT2.permitTransferFrom(permit, transferDetails, _hasRecipientCheck() ? from : _msgSender(), sig);
         }
     }
 
