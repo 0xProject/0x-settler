@@ -9,7 +9,6 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
-import {EulerSwapTest} from "./EulerSwap.t.sol";
 
 // Solidity inheritance is stupid
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
