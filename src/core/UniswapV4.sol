@@ -82,6 +82,22 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         uint256 hashMod,
         bytes memory fills,
         uint256 amountOutMin
+    ) internal returns (uint256) {
+        return sellToUniswapV4(
+            _POOL_MANAGER(), recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+        );
+    }
+
+    function sellToUniswapV4(
+        IPoolManager poolManager,
+        address recipient,
+        IERC20 sellToken,
+        uint256 ppm,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
     ) internal returns (uint256 buyAmount) {
         bytes memory data = Encoder.encode(
             uint32(IPoolManager.unlock.selector),
@@ -95,7 +111,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(poolManager), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -107,6 +123,22 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     }
 
     function sellToUniswapV4VIP(
+        address recipient,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) internal returns (uint256) {
+        return sellToUniswapV4VIP(
+            _POOL_MANAGER(), recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+        );
+    }
+
+    function sellToUniswapV4VIP(
+        IPoolManager poolManager,
         address recipient,
         bool feeOnTransfer,
         uint256 hashMul,
@@ -129,7 +161,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(_POOL_MANAGER()), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
+            address(poolManager), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -230,6 +262,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
     ) private returns (uint256) {
         IPoolManager(msg.sender).unsafeSync(sellToken);
         if (payer == address(this)) {
+            _checkRecipient(address(this), msg.sender, sellToken);
             sellToken.safeTransfer(msg.sender, sellAmount);
         } else {
             // assert(payer == address(0));
@@ -262,7 +295,12 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             if (payer != address(this)) {
-                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+                globalSell.setAmount(
+                    _permitToSellAmountCalldata(
+                        address(0) /* sentinel for `_msgSender()` */,
+                        permit
+                    )
+                );
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(_pay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig));
@@ -330,6 +368,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
+            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPoolManager.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -337,11 +376,10 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // pool manager. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
+                    address refundRecipient = payer == address(this) ? address(this) : _msgSender();
+                    _checkRecipient(msg.sender, refundRecipient, globalSellToken);
                     Take._callSelector(
-                        uint32(IPoolManager.take.selector),
-                        globalSellToken,
-                        payer == address(this) ? address(this) : _msgSender(),
-                        globalSellAmount
+                        uint32(IPoolManager.take.selector), globalSellToken, refundRecipient, globalSellAmount
                     );
                 }
             } else {
@@ -361,7 +399,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                if (address(globalSellToken) == Constants.ETH_ADDRESS) {
+                if (Constants.isNative(globalSellToken)) {
                     IPoolManager(msg.sender).unsafeSync(IERC20(address(0)));
                     IPoolManager(msg.sender).unsafeSettle(debt);
                 } else {

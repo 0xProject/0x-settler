@@ -3,13 +3,15 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
-contract Relay {
+abstract contract Relay is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     event RelayAction(bytes32 requestId); // Graffiti for bridging operations through Relay
 
     function bridgeERC20ToRelay(IERC20 token, address to, bytes32 requestId) internal {
+        _checkRecipient(address(this), to, token);
         emit RelayAction(requestId);
 
         uint256 amount = token.fastBalanceOf(address(this));
@@ -43,6 +45,8 @@ contract Relay {
     function bridgeNativeToRelay(address to, bytes32 requestId) internal {
         emit RelayAction(requestId);
 
+        // The fixed 32-byte payload is shorter than the 100 bytes required by Tempo's
+        // setReceivePolicy(uint64,uint64,address), so this call cannot change this contract's receive policy.
         assembly ("memory-safe") {
             mstore(0x00, requestId)
             if iszero(call(gas(), to, selfbalance(), 0x00, 0x20, 0x00, 0x00)) {

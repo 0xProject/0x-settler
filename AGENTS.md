@@ -32,7 +32,7 @@ SettlerSwapAbstract (virtual dispatch interface)
     +-- BridgeSettlerBase (tokenId=5)
 ```
 
-Each chain has its own `Common.sol` mixin that inherits from `SettlerBase` and adds chain-specific DEX support (e.g., `MainnetMixin` adds MakerPSM, MaverickV2, DodoV1/V2, UniswapV4, BalancerV3, Ekubo, EulerSwap).
+Each chain has its own `Common.sol` mixin that inherits from `SettlerBase` and adds chain-specific DEX support (e.g., `MainnetMixin` adds MakerPSM, MaverickV2, DodoV1/V2, UniswapV4, BalancerV3, and Ekubo).
 
 ### Directory Structure
 
@@ -65,7 +65,6 @@ src/
 │   ├── DodoV1.sol, DodoV2.sol
 │   ├── BalancerV3.sol
 │   ├── Ekubo.sol
-│   ├── EulerSwap.sol
 │   ├── Permit2Payment.sol   # Transient storage + Permit2 integration
 │   ├── SettlerErrors.sol    # Custom errors
 │   └── univ3forks/          # UniV3 fork configurations
@@ -312,7 +311,6 @@ The codebase uses `auto_detect_solc = true` — the compiler version is determin
 | UniswapV4 (`lib/v4-core/`) | 0.8.26 (CI-pinned) | osaka | 2,000 |
 | MultiCall | 0.8.28 | london | 1,000,000 |
 | CrossChainReceiverFactory | 0.8.28 | london | 1,000,000 |
-| EulerSwapBUSL tests | `^0.8.24` (auto-detected) | osaka | 2,000 |
 
 ### Building
 

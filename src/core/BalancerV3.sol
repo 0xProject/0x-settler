@@ -442,6 +442,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     ) private returns (uint256) {
         if (payer == address(this)) {
             if (sellAmount != 0) {
+                _checkRecipient(address(this), msg.sender, sellToken);
                 sellToken.safeTransfer(msg.sender, sellAmount);
             }
         } else {
@@ -480,7 +481,12 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         {
             NotePtr globalSell = state.globalSell();
             if (payer != address(this)) {
-                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+                globalSell.setAmount(
+                    _permitToSellAmountCalldata(
+                        address(0) /* sentinel for `_msgSender()` */,
+                        permit
+                    )
+                );
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(
@@ -556,6 +562,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
+            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -563,11 +570,10 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
+                    address refundRecipient = payer == address(this) ? address(this) : _msgSender();
+                    _checkRecipient(msg.sender, refundRecipient, globalSellToken);
                     Take._callSelector(
-                        uint32(IBalancerV3Vault.sendTo.selector),
-                        globalSellToken,
-                        payer == address(this) ? address(this) : _msgSender(),
-                        globalSellAmount
+                        uint32(IBalancerV3Vault.sendTo.selector), globalSellToken, refundRecipient, globalSellAmount
                     );
                 }
             } else {

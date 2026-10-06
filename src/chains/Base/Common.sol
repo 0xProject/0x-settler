@@ -8,7 +8,6 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {
@@ -19,13 +18,13 @@ import {
 import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
+import {FluxPool} from "../../core/FluxPool.sol";
 
 import {IMsgSender} from "../../interfaces/IMsgSender.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
@@ -72,15 +71,19 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    //EulerSwap,
     Renegade,
     Bebop,
-    Hanji
+    Hanji,
+    FluxPool
 {
     using FastLogic for bool;
 
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
+    }
+
+    function _fluxSwap() internal pure override returns (address) {
+        return 0x388e0D8f610a80C75e8a049C39DDc5816f56c012;
     }
 
     function _renegadeGasSponsorV2() internal pure override returns (address) {
@@ -117,13 +120,6 @@ abstract contract BaseMixin is
             } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
                 sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
-        /*
-        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
-
-            sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
-        */
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -188,6 +184,11 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
+            (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
+
+            sellToFluxPool(sellToken, ppm, poolId, zeroForOne, minBuyAmount);
         } else {
             return false;
         }
@@ -264,12 +265,6 @@ abstract contract BaseMixin is
     function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
         return pancakeInfinityBinManager;
     }
-
-    /*
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989);
-    }
-    */
 
     function _fallback(bytes calldata data)
         internal

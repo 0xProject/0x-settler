@@ -3,6 +3,7 @@ pragma solidity =0.8.34;
 
 import {TempoSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -22,6 +23,23 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
     constructor(bytes20 gitCommit) TempoSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
+    function _hasRecipientCheck()
+        internal
+        pure
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,
@@ -72,22 +90,22 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
         return super._dispatchVIP(action, data, sig);
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
-        return super._permitToSellAmountCalldata(permit);
+        return super._permitToSellAmountCalldata(owner, permit);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         override(SettlerIntent, Permit2PaymentAbstract, Permit2PaymentMetaTxn)
         returns (uint256)
     {
-        return super._permitToSellAmount(permit);
+        return super._permitToSellAmount(owner, permit);
     }
 
     function _isRestrictedTarget(address target)

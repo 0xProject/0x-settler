@@ -6,6 +6,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
 
+/// @notice Thrown when a SELECT candidate misses its target.
+error Shortfall(uint256 score);
+
 /// @notice Thrown when a validating a target contract to avoid certain types of targets
 error ConfusedDeputy();
 
@@ -18,6 +21,9 @@ function revertConfusedDeputy() pure {
 
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
+
+/// @notice Thrown when the payout recipient's TIP-1028 receive policy would divert the transfer
+error ReceivePolicyBlocked(address recipient);
 
 /// @notice Thrown when Renegade action data is malformed
 error InvalidRenegadeData();
@@ -47,6 +53,19 @@ function revertTooMuchSlippage(IERC20 buyToken, uint256 expectedBuyAmount, uint2
         mstore(0x34, expectedBuyAmount)
         mstore(0x14, buyToken)
         mstore(0x00, 0x97a6f3b9000000000000000000000000) // selector for `TooMuchSlippage(address,uint256,uint256)` with `buyToken`'s padding
+        revert(0x10, 0x64)
+    }
+}
+
+/// @notice Thrown when a pool demands more of the sell token than the action offered
+error ExcessiveSellAmount(IERC20 sellToken, uint256 maxSellAmount, uint256 sellAmount);
+
+function revertExcessiveSellAmount(IERC20 sellToken, uint256 maxSellAmount, uint256 sellAmount) pure {
+    assembly ("memory-safe") {
+        mstore(0x54, sellAmount)
+        mstore(0x34, maxSellAmount)
+        mstore(0x14, sellToken)
+        mstore(0x00, 0x8b115ca5000000000000000000000000) // selector for `ExcessiveSellAmount(address,uint256,uint256)` with `sellToken`'s padding
         revert(0x10, 0x64)
     }
 }

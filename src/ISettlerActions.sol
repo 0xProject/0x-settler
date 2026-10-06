@@ -51,6 +51,37 @@ interface ISettlerActions {
         uint256 maxTakerAmount
     ) external;
 
+    // TODO: remove these actions and generalize the existing `UNISWAPV4` actions
+    function TSUNAMI(
+        address recipient,
+        address sellToken,
+        uint256 ppm,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+    function TSUNAMI_VIP(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        bytes memory sig,
+        uint256 amountOutMin
+    ) external;
+    function METATXN_TSUNAMI_VIP(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bool feeOnTransfer,
+        uint256 hashMul,
+        uint256 hashMod,
+        bytes memory fills,
+        uint256 amountOutMin
+    ) external;
+
     function UNISWAPV4(
         address recipient,
         address sellToken,
@@ -216,13 +247,50 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount, uint256 maxPpm)
-        external;
+    function POSITIVE_SLIPPAGE(
+        address payable recipient,
+        address token,
+        uint256 expectedAmount,
+        uint256 surplusPpm,
+        uint256 maxPpm
+    ) external;
 
     /// @dev Trades against a basic AMM which follows the approval, transferFrom(msg.sender) interaction
     // Pre-req: Funded
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
+
+    /// @dev Fills one Deepstate book with the current `sellToken` balance. Native ETH is the ERC-7528 address in
+    /// both `sellToken` and `buyToken`. Unmatched quantity is discarded rather than rested, so it stays in the
+    /// Settler as `sellToken` for later actions.
+    /// @param epoch Book epoch to match against. The book must already be initialized.
+    /// @param tick Limit price enforced by the engine: `2 ** (96 * tick / 2**31)` units of the higher-addressed
+    /// token per unit of the lower-addressed token.
+    /// @param inversePriceX128 `floor(2**(128 + shift) / factor)` where `(factor, shift)` is Deepstate's
+    /// `TickMath32.getPriceFactorAtTick(tick)`: the Q128 reciprocal of the limit price as the engine represents it.
+    /// Only used when selling the higher-addressed token (a bid): Deepstate sizes bids in the lower-addressed
+    /// token, so the sell amount is converted through this value. Sizing at the limit price means the engine can
+    /// never take more than the sell amount. A larger value lets it take more. If the book is better than the limit,
+    /// the leftover stays in the Settler as `sellToken`. Ignored for an ask.
+    // Pre-req: Funded
+    // Post-req: Payout
+    function DEEPSTATE(
+        address sellToken,
+        uint256 ppm,
+        address buyToken,
+        uint256 epoch,
+        int32 tick,
+        uint256 inversePriceX128
+    ) external;
+
+    /// @dev Tries `candidates` in order and commits the first whose increase in Settler's `token`
+    ///      balance meets its `targets` entry. A decrease reverts the candidate. Candidates run
+    ///      with Settler as the caller and no value, so they must not contain `CHECK_SLIPPAGE` or
+    ///      `NATIVE_CHECK`. Each non-final candidate gets `trialGasLimit` gas, which must be
+    ///      nonzero and fit in 64 bits.
+    // Pre-req: Funded
+    function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
+        external;
 
     function EKUBO(
         address recipient,
@@ -267,14 +335,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function EULERSWAP(
-        address recipient,
-        address sellToken,
-        uint256 ppm,
-        address pool,
-        bool zeroForOne,
-        uint256 amountOutMin
-    ) external;
+    function FLUXPOOL(address sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) external;
 
     function RENEGADE(
         address recipient,
