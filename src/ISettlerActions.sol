@@ -283,6 +283,15 @@ interface ISettlerActions {
         uint256 inversePriceX128
     ) external;
 
+    /// @dev Tries `candidates` in order and commits the first whose increase in Settler's `token`
+    ///      balance meets its `targets` entry. A decrease reverts the candidate. Candidates run
+    ///      with Settler as the caller and no value, so they must not contain `CHECK_SLIPPAGE` or
+    ///      `NATIVE_CHECK`. Each non-final candidate gets `trialGasLimit` gas, which must be
+    ///      nonzero and fit in 64 bits.
+    // Pre-req: Funded
+    function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
+        external;
+
     function EKUBO(
         address recipient,
         address sellToken,

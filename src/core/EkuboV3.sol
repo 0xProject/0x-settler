@@ -291,7 +291,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         bool isForwarded,
         bytes calldata sig
     ) private returns (uint256 payment) {
-        if (address(sellToken) == Constants.ETH_ADDRESS) {
+        if (Constants.isNative(sellToken)) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -340,7 +340,12 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             if (payer != address(this)) {
-                globalSell.setAmount(_permitToSellAmountCalldata(permit));
+                globalSell.setAmount(
+                    _permitToSellAmountCalldata(
+                        address(0) /* sentinel for `_msgSender()` */,
+                        permit
+                    )
+                );
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(

@@ -26,6 +26,8 @@
 * Add SushiSwapV4 CL as a PancakeInfinity fork to Arc
   * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
     `METATXN_PANCAKE_INFINITY_VIP`
+* Fix RFQ maker permits in `SettlerIntent` using the taker's balance for
+  proportional sell amounts, reported by Bailsec
 
 ## 2026-09-25
 
@@ -89,6 +91,7 @@
 
 ### Non-breaking changes
 
+* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2
