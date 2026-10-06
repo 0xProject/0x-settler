@@ -20,8 +20,8 @@
     token left unspent stays in Settler
 * Add Tempo ReceivePolicyGuard `0xB10C000000000000000000000000000000000000` to
   the list of restricted targets
-* On Tempo, check that the recipient of an **intent** does not have a customized
-  receive policy before transferring
+* On Tempo, revert if the recipient's receive policy would block a transfer
+  (except in `BASIC`)
 
 ## 2026-09-25
 
