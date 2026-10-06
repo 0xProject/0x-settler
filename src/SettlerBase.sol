@@ -84,6 +84,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual override {}
+
     function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
@@ -103,20 +109,17 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
         amountOut = transferExactLimit.ternary(minAmountOut, amountOut);
+        _checkRecipient(address(this), recipient, buyToken);
         if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
-            _transferBuyToken(buyToken, recipient, amountOut);
+            buyToken.safeTransfer(recipient, amountOut);
         }
 
         // zeroize `slippage`
         assembly ("memory-safe") {
             codecopy(slippage, codesize(), 0x60)
         }
-    }
-
-    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut) internal virtual override {
-        buyToken.safeTransfer(recipient, amountOut);
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory)
@@ -163,6 +166,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
+            _checkRecipient(address(this), recipient, token);
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {

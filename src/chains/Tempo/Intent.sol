@@ -9,21 +9,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
-import {ReceivePolicyBlocked} from "../../core/SettlerErrors.sol";
-
-interface ITempoAddressRegistry {
-    function resolveRecipient(address to) external view returns (address);
-}
-
-interface ITempoReceivePolicy {
-    function validateReceivePolicy(address token, address sender, address receiver)
-        external
-        view
-        returns (bool authorized, uint8 blockedReason);
-}
-
 // Solidity inheritance is stupid
-import {SettlerAbstract, SettlerSwapAbstract} from "../../SettlerAbstract.sol";
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -35,23 +22,24 @@ import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
     constructor(bytes20 gitCommit) TempoSettlerMetaTxn(gitCommit) {}
 
-    // A recipient's TIP-1028 receive policy would send a TIP-20 payout to the ReceivePolicyGuard
-    // rather than the recipient. Revert instead.
-    function _transferBuyToken(IERC20 buyToken, address recipient, uint256 amountOut)
+    // Solidity inheritance is stupid
+    function _hasRecipientCheck()
         internal
-        virtual
-        override(SettlerSwapAbstract, SettlerBase)
+        pure
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+        returns (bool)
     {
-        if (uint160(address(buyToken)) >> 64 == 0x20c000000000000000000000) {
-            address resolved = ITempoAddressRegistry(_TEMPO_ADDRESS_REGISTRY).resolveRecipient(recipient);
-            (bool authorized,) = ITempoReceivePolicy(_TEMPO_TIP403_REGISTRY)
-                .validateReceivePolicy(address(buyToken), address(this), resolved);
-            if (!authorized) revert ReceivePolicyBlocked(recipient);
-        }
-        super._transferBuyToken(buyToken, recipient, amountOut);
+        return super._hasRecipientCheck();
     }
 
-    // Solidity inheritance is stupid
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,

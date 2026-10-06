@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {MakerPSM, IPSM} from "src/core/MakerPSM.sol";
+import {ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
 
 import {uint512} from "src/utils/512Math.sol";
 
@@ -13,6 +14,12 @@ import {Test} from "@forge-std/Test.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 contract MakerPSMDummy is MakerPSM {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     IPSM psm;
     IERC20 dai;
 
@@ -42,10 +49,6 @@ contract MakerPSMDummy is MakerPSM {
     }
 
     function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
         revert("unimplemented");
     }
 
@@ -162,7 +165,27 @@ contract MakerPSMDummy is MakerPSM {
     function sellToPool(address recipient, uint256 ppm, uint256 amountOutMin) public {
         super.sellToMakerPsm(recipient, ppm, false, amountOutMin, psm, dai);
     }
+}
 
+contract RecipientCheckMakerPSM is MakerPSMDummy {
+    address private immutable expectedRecipient;
+    IERC20 private immutable expectedBuyToken;
+    address private immutable expectedSender;
+
+    constructor(IPSM psm, IERC20 dai, address sender, address recipient, IERC20 buyToken) MakerPSMDummy(psm, dai) {
+        expectedRecipient = recipient;
+        expectedBuyToken = buyToken;
+        expectedSender = sender;
+    }
+
+    function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view override {
+        require(sender == expectedSender && recipient == expectedRecipient && buyToken == expectedBuyToken);
+        revert ReceivePolicyBlocked(recipient);
+    }
 }
 
 contract MakerPSMUnitTest is Utils, Test {
@@ -214,6 +237,33 @@ contract MakerPSMUnitTest is Utils, Test {
         _mockExpectCall(address(USDC), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         _mockExpectCall(address(USDT), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         psm = new MakerPSMDummy(IPSM(PSM), IERC20(PSM_DAI));
+    }
+
+    function test_RecipientCheck_MakerPSM_BuyGem_Reverts() public {
+        address sender = PSM == USDD_PSM ? USDD_GEM_JOIN : makeAddr("gem holder");
+        if (PSM != USDD_PSM) {
+            _mockExpectCall(PSM, abi.encodeCall(IPSM.pocket, ()), abi.encode(sender));
+        }
+        RecipientCheckMakerPSM checked =
+            new RecipientCheckMakerPSM(IPSM(PSM), IERC20(PSM_DAI), sender, RECIPIENT, IERC20(PSM_GEM));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, RECIPIENT));
+        checked.buyFromPool(RECIPIENT, 1_000_000);
+    }
+
+    function test_RecipientCheck_MakerPSM_SellGem_Reverts() public {
+        address sender = PSM;
+        if (PSM == SKY_PSM || PSM == USDD_PSM) {
+            sender = makeAddr("stablecoin issuer");
+            _mockExpectCall(
+                PSM,
+                abi.encodeWithSelector(PSM == SKY_PSM ? IPSM.usdsJoin.selector : IPSM.usddJoin.selector),
+                abi.encode(sender)
+            );
+        }
+        RecipientCheckMakerPSM checked =
+            new RecipientCheckMakerPSM(IPSM(PSM), IERC20(PSM_DAI), sender, RECIPIENT, IERC20(PSM_DAI));
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, RECIPIENT));
+        checked.sellToPool(RECIPIENT, 1_000_000);
     }
 
     function testMakerPSMBuy() public {

@@ -42,6 +42,9 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.25
 
+      - name: Build Tempo recipient check harnesses
+        run: forge build -- test/unit/tempo/SettlerRecipientCheck.t.sol test/unit/tempo/BridgeRecipientCheck.t.sol
+
       - name: Run tests
         run: forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'
         env:

@@ -389,6 +389,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
+            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
@@ -447,6 +448,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             // then extra data added in _ekuboPayV2
             sellAmount := calldataload(add(0x40, data.offset))
         }
+        _checkRecipient(address(this), msg.sender, sellToken);
         sellToken.safeTransfer(msg.sender, sellAmount);
     }
 }

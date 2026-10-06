@@ -10,6 +10,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -49,6 +50,25 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
     }
 
     // Solidity inheritance is stupid
+    function _hasRecipientCheck()
+        internal
+        pure
+        virtual
+        override(SettlerAbstract, SettlerBase, TempoMixin)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        virtual
+        override(SettlerAbstract, SettlerBase, TempoMixin)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual

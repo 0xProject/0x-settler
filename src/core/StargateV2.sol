@@ -6,12 +6,13 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {IOFT} from "src/core/LayerZeroOFT.sol";
 import {ETH_ADDRESS} from "./Constants.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IStargateV2 is IOFT {
     function sendToken(SendParam memory SendParam, MessagingFee memory messagingFee, address refundAddress) external;
 }
 
-contract StargateV2 {
+abstract contract StargateV2 is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @dev Bridge through StargateV2
@@ -42,6 +43,7 @@ contract StargateV2 {
 
             nativeFee = value;
         } else {
+            _checkRecipient(address(this), pool, token);
             updatedInputAmount = token.fastBalanceOf(address(this));
             token.safeApproveIfBelow(pool, updatedInputAmount);
         }

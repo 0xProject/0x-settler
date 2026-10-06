@@ -24,12 +24,11 @@ import {
 import {TEMPO_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
+import {SettlerAbstract, SettlerSwapAbstract} from "../../SettlerAbstract.sol";
+import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContracts, UniswapV4 {
-    address internal constant _TEMPO_ADDRESS_REGISTRY = 0xfDC0000000000000000000000000000000000000;
-
     constructor() {
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
@@ -82,6 +81,25 @@ abstract contract TempoMixin is FreeMemory, SettlerBase, BlockTempoSystemContrac
     }
 
     // I hate Solidity inheritance
+    function _hasRecipientCheck()
+        internal
+        pure
+        virtual
+        override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        virtual
+        override(SettlerAbstract, SettlerBase, BlockTempoSystemContracts)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function _fallback(bytes calldata data)
         internal
         virtual

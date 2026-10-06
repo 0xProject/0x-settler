@@ -79,6 +79,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
         // The curve is unverified and swappable by the owner, so never pay more than we offered.
         if (amountToPay > sellAmount) revertExcessiveSellAmount(sellToken, sellAmount, amountToPay);
 
+        _checkRecipient(address(this), FLUX_VAULT, sellToken);
         sellToken.safeTransfer(FLUX_VAULT, amountToPay);
         return new bytes(0);
     }

@@ -18,6 +18,12 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     address private constant _PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     address internal immutable uniFactory;
@@ -75,10 +81,6 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
     }
 
     function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
-    function _transferBuyToken(IERC20, address, uint256) internal pure override {
         revert("unimplemented");
     }
 

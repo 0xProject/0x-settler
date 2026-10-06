@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IMayanForwarder {
     struct PermitParams {
@@ -26,7 +27,7 @@ interface IMayanForwarder {
 
 IMayanForwarder constant MAYAN_FORWARDER = IMayanForwarder(0x337685fdaB40D39bd02028545a4FfA7D287cC3E2);
 
-contract Mayan {
+abstract contract Mayan is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @notice Bridge ERC20 tokens to Mayan
@@ -59,6 +60,7 @@ contract Mayan {
             mstore(protocolDataOffsetPtr, add(0xe0, protocolDataOffset))
         }
         IMayanForwarder forwarder = MAYAN_FORWARDER;
+        _checkRecipient(address(this), address(forwarder), token);
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(address(forwarder), amount);
 
