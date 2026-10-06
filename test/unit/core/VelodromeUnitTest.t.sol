@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 //import {Velodrome} from "src/core/VelodromeAlt.sol";
 import {Velodrome} from "src/core/Velodrome.sol";
@@ -10,6 +11,12 @@ import {uint512/*, uint512_external, alloc*/} from "src/utils/512Math.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract VelodromeConvergenceDummy is Velodrome {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
     }
@@ -42,7 +49,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata)
         internal
         pure
         override
@@ -51,7 +58,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory)
         internal
         pure
         override
@@ -60,7 +67,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory, address)
+    function _permitToTransferDetails(address, ISignatureTransfer.PermitTransferFrom memory, address)
         internal
         pure
         override
@@ -115,6 +122,16 @@ contract VelodromeConvergenceDummy is Velodrome {
         uint32,
         function(bytes calldata) internal returns (bytes memory)
     ) internal pure override returns (bytes memory) {
+        revert("unimplemented");
+    }
+
+    function _setOperatorAndTryCall(
+        uint256,
+        address,
+        bytes memory,
+        uint32,
+        function(bytes calldata) internal returns (bytes memory)
+    ) internal pure override returns (bool) {
         revert("unimplemented");
     }
 

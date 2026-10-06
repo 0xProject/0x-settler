@@ -14,25 +14,13 @@ import {EulerSwapTest} from "./EulerSwap.t.sol";
 // Solidity inheritance is stupid
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest {
+    function setUp() public override(SettlerPairTest) {
         super.setUp();
-    }
-
-    function eulerSwapPool() internal pure override returns (address) {
-        return 0x47bF727906669E8d06993e8D252912B4B90C28a8;
-    }
-
-    function eulerSwapBlock() internal pure override returns (uint256) {
-        return 22727039;
     }
 
     function _testName() internal pure override returns (string memory) {
         return "USDC-USDT";
-    }
-
-    function reverseTestName() internal pure override returns (string memory) {
-        return "USDT-USDC";
     }
 
     function fromToken() internal pure override returns (IERC20) {

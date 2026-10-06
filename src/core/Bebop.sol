@@ -121,6 +121,7 @@ abstract contract Bebop is SettlerSwapAbstract {
         ISettlerActions.BebopMakerSignature memory makerSignature,
         uint256 amountOutMin
     ) internal returns (uint256 makerFilledAmount) {
+        _checkRecipient(order.maker_address, recipient, IERC20(order.maker_token));
         uint256 takerFilledAmount = sellToken.fastBalanceOf(address(this));
         {
             uint256 maxTakerAmount = order.taker_amount;

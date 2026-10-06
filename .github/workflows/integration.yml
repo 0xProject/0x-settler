@@ -42,8 +42,11 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.25
 
+      - name: Build Tempo recipient check harnesses
+        run: forge build -- test/unit/tempo/SettlerRecipientCheck.t.sol test/unit/tempo/BridgeRecipientCheck.t.sol
+
       - name: Run tests
-        run: forge test --skip 'src/*' --skip 'test/0.8.34/*' --skip 'test/integration/arbitrum/*'
+        run: forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'
         env:
           FOUNDRY_PROFILE: integration
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
@@ -60,10 +63,11 @@ jobs:
           tar -xzf arbos.tar.gz
 
       - name: Run Arbitrum tests
-        run: ./arbos-forge test --skip 'src/*' --skip 'test/0.8.34/*' --mp 'test/integration/arbitrum/*'
+        run: ./arbos-forge test --skip 'src/*' --mp 'test/integration/arbitrum/*'
         env:
           FOUNDRY_PROFILE: integration
           ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
+          ROBINHOOD_MAINNET_RPC_URL: ${{ secrets.ROBINHOOD_MAINNET_RPC_URL }}
 
       - name: Gas comparison
         run: npm run compare_gas

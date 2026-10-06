@@ -18,19 +18,23 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
 
     function _operator() internal view virtual returns (address);
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         virtual
         returns (uint256 sellAmount);
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
         returns (uint256 sellAmount);
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+    function _permitToTransferDetails(
+        address owner,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address recipient
+    )
         internal
         view
         virtual
@@ -74,6 +78,14 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         uint32 selector,
         function(bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
+
+    function _setOperatorAndTryCall(
+        uint256 gasLimit,
+        address target,
+        bytes memory data,
+        uint32 selector,
+        function(bytes calldata) internal returns (bytes memory) callback
+    ) internal virtual returns (bool);
 
     modifier metaTx(address msgSender, bytes32 witness) virtual;
 

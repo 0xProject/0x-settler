@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {fastGetToken} from "../utils/TokenGetter.sol";
+
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
@@ -41,19 +43,11 @@ library FastUniswapV2Pool {
         }
     }
 
-    function fastToken0or1(address pool, bool zeroForOne) internal view returns (IERC20 token) {
-        // selector for `token1()` or `token0()`
-        uint256 selector = zeroForOne.ternary(uint256(0xd21220a7), uint256(0x0dfe1681));
-        assembly ("memory-safe") {
-            mstore(0x00, selector)
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            token := mload(0x00)
-            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
-        }
+    function fastToken0or1(address pool, bool zeroForOne) internal view returns (IERC20) {
+        return
+            fastGetToken(
+                pool, zeroForOne.ternary(uint32(IUniV2Pair.token1.selector), uint32(IUniV2Pair.token0.selector))
+            );
     }
 
     function fastSwap(address pool, bool zeroForOne, uint256 buyAmount, address recipient) internal {
@@ -118,6 +112,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             unchecked {
                 sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * ppm / Constants.BASIS;
             }
+            _checkRecipient(address(this), pool, IERC20(sellToken));
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);
         }
         (uint256 sellReserve, uint256 buyReserve) = FastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
@@ -132,6 +127,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
         }
+        _checkRecipient(pool, recipient, _hasRecipientCheck() ? pool.fastToken0or1(zeroForOne) : IERC20(address(0)));
         pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }

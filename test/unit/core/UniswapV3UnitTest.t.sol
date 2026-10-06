@@ -18,6 +18,12 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     address private constant _PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     address internal immutable uniFactory;
@@ -101,7 +107,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return false;
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         pure
         override
@@ -110,7 +116,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return permit.permitted.amount;
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         pure
         override
@@ -119,7 +125,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return permit.permitted.amount;
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+    function _permitToTransferDetails(address, ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
         internal
         pure
         override
@@ -200,6 +206,16 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
             }
         }
         return returndata;
+    }
+
+    function _setOperatorAndTryCall(
+        uint256,
+        address,
+        bytes memory,
+        uint32,
+        function(bytes calldata) internal returns (bytes memory)
+    ) internal pure override returns (bool) {
+        revert("unimplemented");
     }
 
     modifier metaTx(address, bytes32) override {

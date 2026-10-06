@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {SettlerAbstract} from "src/SettlerAbstract.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
+import {ReceivePolicyBlocked} from "src/core/SettlerErrors.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {
     Permit2PaymentMetaTxn,
@@ -22,6 +24,12 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Test} from "@forge-std/Test.sol";
 
 abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Payment {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
     function considerationWitnessType() external pure returns (string memory) {
         return CONSIDERATION_WITNESS;
     }
@@ -166,6 +174,29 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
     }
 }
 
+contract RecipientCheckRfq is RfqOrderSettlementDummy {
+    address private immutable expectedRecipient;
+    IERC20 private immutable expectedBuyToken;
+
+    constructor(address recipient, IERC20 buyToken) {
+        expectedRecipient = recipient;
+        expectedBuyToken = buyToken;
+    }
+
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, RfqOrderSettlementDummyBase) returns (bool) {
+        return true;
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, RfqOrderSettlementDummyBase)
+    {
+        require(sender == _msgSender() && recipient == expectedRecipient && buyToken == expectedBuyToken);
+        revert ReceivePolicyBlocked(recipient);
+    }
+}
+
 contract RfqUnitTest is Utils, Test {
     RfqOrderSettlementDummy rfq;
     RfqOrderSettlementMetaTxnDummy rfqMeta;
@@ -188,6 +219,16 @@ contract RfqUnitTest is Utils, Test {
     function setUp() public {
         rfq = new RfqOrderSettlementDummy();
         rfqMeta = new RfqOrderSettlementMetaTxnDummy();
+    }
+
+    function test_RecipientCheck_RfqVIP_TakerTransfer_Reverts() public {
+        RecipientCheckRfq checked = new RecipientCheckRfq(MAKER, IERC20(TOKEN0));
+        ISignatureTransfer.PermitTransferFrom memory makerPermit;
+        makerPermit.permitted.token = TOKEN1;
+        ISignatureTransfer.PermitTransferFrom memory takerPermit;
+        takerPermit.permitted.token = TOKEN0;
+        vm.expectRevert(abi.encodeWithSelector(ReceivePolicyBlocked.selector, MAKER));
+        checked.fillRfqOrderDirectCounterparties(RECIPIENT, makerPermit, MAKER, "", takerPermit, "");
     }
 
     function testRfqDirectCounterparties() public {
