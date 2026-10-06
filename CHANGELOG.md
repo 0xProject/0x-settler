@@ -22,6 +22,10 @@
   the list of restricted targets
 * On Tempo, revert if the recipient's receive policy would block a transfer
   (except in `BASIC`)
+* Add SushiSwapV3 UniV3 fork to Arc with fork ID 2
+* Add SushiSwapV4 CL as a PancakeInfinity fork to Arc
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+    `METATXN_PANCAKE_INFINITY_VIP`
 
 ## 2026-09-25
 
