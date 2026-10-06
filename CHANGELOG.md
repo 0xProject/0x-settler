@@ -26,7 +26,7 @@
 * Add SushiSwapV4 CL as a PancakeInfinity fork to Arc
   * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
     `METATXN_PANCAKE_INFINITY_VIP`
-* Add AchSwap V3 UniV3 fork to Arc with fork ID 47
+* Add AchSwap V3 UniV3 fork to Arc with fork ID 48
 
 ## 2026-09-25
 
