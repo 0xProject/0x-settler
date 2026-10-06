@@ -6,9 +6,11 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
-import {USDC, USDT} from "src/core/MakerPSM.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+
+IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+IERC20 constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
 contract PositiveSlippageUnitTest is Test {
     uint256 private constant BASIS = 1_000_000;
