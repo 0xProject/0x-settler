@@ -873,7 +873,8 @@ To make gas comparisons fair we will use the following methodology:
 
 - Market Makers have balances of both tokens. Since AMM Pools have non-zero
   balances of both tokens this is a fair comparison.
-- The Taker does not have a balance of the token being bought.
+- The Taker does not have a balance of the token being bought, except in the
+  USDC/USDT tests, where the Taker starts with 1,000 USDT.
 - Fee Recipient has a non-zero balance of the fee tokens.
 - Nonces for Permit2 and Rfq orders (0x V4) are initialized.
 - `setUp` is used as much as possible with limited setup performed in the
