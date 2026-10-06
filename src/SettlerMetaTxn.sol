@@ -77,7 +77,11 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
+                _permitToTransferDetails(
+                    address(0) /* sentinel for `_msgSender()` */,
+                    permit,
+                    recipient
+                );
 
             // We simultaneously transfer-in the taker's tokens and authenticate the
             // metatransaction.

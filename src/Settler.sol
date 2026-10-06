@@ -74,7 +74,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
+                _permitToTransferDetails(
+                    address(0) /* sentinel for `_msgSender()` */,
+                    permit,
+                    recipient
+                );
             _transferFrom(permit, transferDetails, sig);
         } /*
         // RFQ_VIP is temporarily removed because Solver has no support for it

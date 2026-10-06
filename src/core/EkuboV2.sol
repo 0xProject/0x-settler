@@ -220,7 +220,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     }
 
     function _ekuboPayV2(IERC20 sellToken, uint256 sellAmount) private returns (uint256 payment) {
-        if (address(sellToken) == Constants.ETH_ADDRESS) {
+        if (Constants.isNative(sellToken)) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
@@ -450,5 +450,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         }
         _checkRecipient(address(this), msg.sender, sellToken);
         sellToken.safeTransfer(msg.sender, sellAmount);
+
+        return new bytes(0);
     }
 }
