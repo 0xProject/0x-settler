@@ -126,13 +126,14 @@ abstract contract Hanji is SettlerSwapAbstract {
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bool sendNative = Constants.isNative(sellToken);
-        uint256 balance = Constants.compatBalance(sellToken, address(this));
         uint256 sellAmount;
         unchecked {
-            sellAmount = balance * ppm / Constants.BASIS;
-        }
-        if (!sendNative) {
-            sellToken.safeApproveIfBelow(pool, sellAmount);
+            if (sendNative) {
+                sellAmount = address(this).balance * ppm / Constants.BASIS;
+            } else {
+                sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
+                sellToken.safeApproveIfBelow(pool, sellAmount);
+            }
         }
 
         uint256 scaledSellAmount = sellAmount.unsafeDiv(sellScalingFactor);

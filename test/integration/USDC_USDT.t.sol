@@ -16,6 +16,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 contract USDCUSDTTest is SettlerPairTest {
     function setUp() public override(SettlerPairTest) {
         super.setUp();
+        deal(address(toToken()), FROM, amount());
     }
 
     function _testName() internal pure override returns (string memory) {

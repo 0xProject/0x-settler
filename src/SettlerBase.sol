@@ -104,7 +104,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        uint256 amountOut = Constants.compatBalance(buyToken, address(this));
+        uint256 amountOut = Constants.compatSelfBalance(buyToken);
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
@@ -167,7 +167,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             _checkRecipient(address(this), recipient, token);
-            uint256 balance = Constants.compatBalance(token, address(this));
+            uint256 balance = Constants.compatSelfBalance(token);
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {

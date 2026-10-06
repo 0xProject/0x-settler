@@ -48,9 +48,9 @@ abstract contract Select is SettlerSwapAbstract {
         // assets held by Settler. This is outside `SELECT`'s threat model. Final slippage still
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
-        uint256 balBefore = Constants.compatBalance(token, address(this));
+        uint256 balBefore = Constants.compatSelfBalance(token);
         _runActions(actions);
-        uint256 score = Constants.compatBalance(token, address(this)) - balBefore;
+        uint256 score = Constants.compatSelfBalance(token) - balBefore;
         if (score < minOut) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`

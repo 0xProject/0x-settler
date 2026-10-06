@@ -5,8 +5,6 @@ import {Basic} from "src/core/Basic.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
-import {ISettlerActions} from "src/ISettlerActions.sol";
-import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {uint512} from "src/utils/512Math.sol";
 
@@ -14,7 +12,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Utils} from "../Utils.sol";
 
 import {Test} from "@forge-std/Test.sol";
-import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 
 contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
     function _hasRecipientCheck() internal pure virtual override returns (bool) {
@@ -235,4 +232,3 @@ contract BasicUnitTest is Utils, Test {
         basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), ppm, POOL, offset, data);
     }
 }
-
