@@ -21,6 +21,12 @@ import {
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
 import {sushiswapV3ArcFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
+import {
+    achSwapV3Factory,
+    achSwapV3InitHash,
+    achSwapV3ForkId,
+    IAchSwapV3SwapCallback
+} from "../../core/univ3forks/AchSwapV3.sol";
 import {ARC_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {sushiswapV4Vault, sushiswapV4ClManager} from "../../core/pancakeInfinityForks/SushiswapV4.sol";
 
@@ -84,6 +90,10 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
             factory = sushiswapV3ArcFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == achSwapV3ForkId) {
+            factory = achSwapV3Factory;
+            initHash = achSwapV3InitHash;
+            callbackSelector = uint32(IAchSwapV3SwapCallback.AchSwapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
