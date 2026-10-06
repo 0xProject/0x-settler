@@ -23,3 +23,19 @@ function isNative(IERC20 token) pure returns (bool) {
 function compatBalance(IERC20 token, address holder) view returns (uint256) {
     return isNative(token) ? holder.balance : SafeTransferLib.fastBalanceOf(token, holder);
 }
+
+function compatSelfBalance(IERC20 token) view returns (uint256 r) {
+    if (isNative(token)) {
+        // Free functions cannot use `this`. Equivalent Solidity: return address(this).balance;
+        assembly ("memory-safe") {
+            r := selfbalance()
+        }
+    } else {
+        address self;
+        // Free functions cannot use `this`. Equivalent Solidity: self = address(this);
+        assembly ("memory-safe") {
+            self := address()
+        }
+        r = SafeTransferLib.fastBalanceOf(token, self);
+    }
+}
