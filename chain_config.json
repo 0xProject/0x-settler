@@ -205,7 +205,7 @@
     "hardfork": {
       "shanghai": true,
       "cancun": true,
-      "osaka": false,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -555,7 +555,7 @@
     "hardfork": {
       "shanghai": true,
       "cancun": true,
-      "osaka": false,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -704,7 +704,7 @@
     "hardfork": {
       "shanghai": true,
       "cancun": true,
-      "osaka": false,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "--legacy",
