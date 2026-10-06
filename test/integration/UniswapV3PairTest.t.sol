@@ -42,56 +42,6 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         snapEnd();
     }
 
-    function testUniswapV3UniversalRouterToNative()
-        public
-        skipIf(uniswapV3PathCompat().length == 0)
-        skipIf(toToken() != WETH)
-    {
-        bytes memory commands = new bytes(3);
-        bytes[] memory inputs = new bytes[](3);
-
-        IAllowanceTransfer.PermitSingle memory permit =
-            defaultERC20PermitSingle(address(fromToken()), PERMIT2_FROM_NONCE);
-        bytes memory signature =
-            getPermitSingleSignature(permit, address(UNIVERSAL_ROUTER), FROM_PRIVATE_KEY, permit2Domain);
-        bytes memory path = uniswapV3PathCompat();
-
-        (commands[0], inputs[0]) = encodePermit2Permit(fromToken(), PERMIT2_FROM_NONCE, signature);
-        (commands[1], inputs[1]) = encodeV3Swap(RECIPIENT_ROUTER, amount(), 0 wei, path, true);
-        (commands[2], inputs[2]) = encodeUnwrapWeth(RECIPIENT_TAKER, slippageLimit());
-
-        (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
-        require(success);
-
-        vm.startPrank(FROM, FROM);
-        snapStartName("universalRouter_uniswapV3");
-        UNIVERSAL_ROUTER.execute(commands, inputs, block.timestamp);
-        snapEnd();
-        vm.stopPrank();
-    }
-
-    function testUniswapV3UniversalRouterFromNative()
-        public
-        skipIf(uniswapV3PathCompat().length == 0)
-        skipIf(fromToken() != WETH)
-    {
-        bytes memory commands = new bytes(2);
-        bytes[] memory inputs = new bytes[](2);
-
-        bytes memory path = uniswapV3PathCompat();
-
-        (commands[0], inputs[0]) = encodeWrapEth(RECIPIENT_ROUTER, CONTRACT_BALANCE);
-        (commands[1], inputs[1]) = encodeV3Swap(RECIPIENT_TAKER, CONTRACT_BALANCE, slippageLimit(), path, false);
-
-        vm.deal(FROM, amount());
-
-        vm.startPrank(FROM, FROM);
-        snapStartName("universalRouter_uniswapV3");
-        UNIVERSAL_ROUTER.execute{value: amount()}(commands, inputs, block.timestamp);
-        snapEnd();
-        vm.stopPrank();
-    }
-
     function testSettler_uniswapV3VIP_toNative()
         public
         skipIf(uniswapV3PathVIP().length == 0)
