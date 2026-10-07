@@ -142,28 +142,21 @@ declare -i num_mnemonics
 num_mnemonics="$(get_secret intentWorkers 'mnemonic | length')"
 declare -r -i num_mnemonics
 
-declare -a solvers=()
-declare privkey
-declare solver
+function generate_solver_addresses {
+    SOLVER_MNEMONIC="$(get_secret intentWorkers "$1")" FOUNDRY_VERBOSITY=0 \
+        forge script --json --sig 'run(uint32)' \
+        --skip 'src/*' --skip 'test/*' --skip DeploySafes.s.sol \
+        -- script/GenerateSolvers.s.sol "$2" \
+        | jq -r '.returns.solvers.value | scan("0x[0-9a-fA-F]{40}")'
+}
 
-for (( i = 0 ; i < num_mnemonics ; i++ )) ; do
-    declare production_mnemonic
-    production_mnemonic="$(get_secret intentWorkers 'mnemonic['$i'].production')"
-
-    declare staging_mnemonic
-    staging_mnemonic="$(get_secret intentWorkers 'mnemonic['$i'].staging')"
-
-    for (( j = 0 ; j < num_production_addresses ; j++ )) ; do
-        privkey="$(cast wallet private-key "$production_mnemonic" "m/44'/60'/0'/0/$j")"
-        solver="$(cast wallet address "$privkey")"
-        solvers+=("$solver")
+declare solvers
+solvers="$(
+    for (( i = 0 ; i < num_mnemonics ; i++ )) ; do
+        generate_solver_addresses 'mnemonic['$i'].production' "$num_production_addresses"
+        generate_solver_addresses 'mnemonic['$i'].staging' "$num_staging_addresses"
     done
+)"
+declare -r solvers
 
-    for (( j = 0 ; j < num_staging_addresses ; j++ )) ; do
-        privkey="$(cast wallet private-key "$staging_mnemonic" "m/44'/60'/0'/0/$j")"
-        solver="$(cast wallet address "$privkey")"
-        solvers+=("$solver")
-    done
-done
-
-printf '%s\n' "${solvers[@]}"
+printf '%s\n' "$solvers"
