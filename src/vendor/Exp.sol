@@ -52,8 +52,9 @@ library Exp {
     ///      nondecreasing in `y`. Jointly, for accepted (y₁, x₁, r₁ = mulExpRay(y₁, x₁)) and (y₂,
     ///      x₂, r₂ = mulExpRay(y₂, x₂)), r₁ ≤ r₂ when 0 ≤ y₁ ≤ y₂ ∧ x₁ ≤ x₂, when y₁ ≤ y₂ ≤ 0 ∧ x₂
     ///      ≤ x₁, and when y₁ ≤ 0 ≤ y₂ (for any x₁, x₂).
-    /// @dev Reverts with `Panic(17)` iff bitlen(|y|) + round(x / (10²⁷⋅ln(2))) > 125 (below
-    ///      x = -2¹⁵² ≈ -5.709⋅10⁴⁵ it may revert regardless). At y = 0 the rule reads x >
+    /// @dev Reverts with `Panic(17)` iff min(bitlen(|y|), 127) + round(x / (10²⁷⋅ln(2))) > 125
+    ///      (below x = -2¹⁵² ≈ -5.709⋅10⁴⁵ it may revert regardless). The cap at 127 only matters
+    ///      for y = type(int128).min, the one magnitude with bitlen 128. At y = 0 the rule reads x >
     ///      86989971160273136331862631243 ≈ 86.99⋅10²⁷. Hence it never reverts when A < 2¹²⁴⋅√2 ≈
     ///      3.008⋅10³⁷ ∧ y ≠ 0, nor when 2√2⋅A < |y|, and always reverts when A > 2¹²⁵⋅√2 ≈
     ///      6.015⋅10³⁷. Every accepted x ≤ -88376265521393026950697095485 ≈ -88.38⋅10²⁷ returns 0.
