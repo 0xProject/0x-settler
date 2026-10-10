@@ -2,6 +2,16 @@
 
 ### Breaking changes
 
+### Non-breaking changes
+
+* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
+  (contract is not deployed; no funds at risk) after a report in
+  Immunefi bug 78645
+
+## 2026-10-09
+
+### Breaking changes
+
 * Remove the `EULERSWAP` action from Mainnet, BNB, Avalanche, Berachain,
   Plasma, Sonic, and Unichain
 * Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
@@ -10,9 +20,6 @@
 ### Non-breaking changes
 
 * Add `BRIDGE_TO_STARGATE_V2` to Abstract
-* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
-  (contract is not deployed; no funds at risk) after a report in
-  Immunefi bug 78645
 * Add `FLUXPOOL` action on Bnb, Base, and RobinHood
 * Add `DEEPSTATE` action for the Deepstate order book on RobinHood
   * Deepstate only sizes orders in `token0`. To sell `token1`, pass an
