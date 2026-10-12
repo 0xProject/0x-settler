@@ -339,6 +339,20 @@ contract ExpTest is Test {
         this.mulExpRayExternal(y, type(int256).min);
     }
 
+    /// The documented revert rule, min(bitlen(|y|), 127) + round(x / (10²⁷⋅ln(2))) > 125, matches the
+    /// implementation at y = type(int128).min. Without the cap, bitlen(2¹²⁷) = 128 would predict a
+    /// revert across the whole k = -2 octave, where the call returns ⌊2¹²⁷⋅exp(x / 10²⁷)⌋.
+    function testMulExpRayMinRevertRuleCap() external {
+        int128 y = type(int128).min;
+        // k = -2: min(128, 127) - 2 = 125, not > 125, so the documented rule says "no revert"
+        assertEq(
+            Exp.mulExpRay(y, -1.5e27), -37963629513377880106911801809653249263, "k = -2 returns a value"
+        );
+        // k = -1: min(128, 127) - 1 = 126 > 125, so the documented rule says "revert"
+        vm.expectRevert(stdError.arithmeticError);
+        this.mulExpRayExternal(y, _octaveStart(-1));
+    }
+
     function testMulExpRayHighGuardReverts() external {
         // Octave 125 exceeds the headroom of any nonzero magnitude (accuracy guard) ...
         vm.expectRevert(stdError.arithmeticError);
