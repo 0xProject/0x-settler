@@ -711,11 +711,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
         // If the Guard is removed, that must be the final action of the multicall. `check()` below
         // implements a stricter check that rejects Guard removal entirely during a multicall. The
-        // signer-configuration bounds that follow exist only to keep the `lockDown`/`unlock` game
+        // checks below on the number of signers exist only to keep the `lockDown`/`unlock` game
         // non-degenerate for future Guard'd transactions, so they do not apply to the end state of
-        // the transaction that uninstalls the Guard. This permits the Safe to be reconfigured
-        // atomically with Guard removal (e.g. collapsing to a single owner when a chain is
-        // abandoned).
+        // the transaction that uninstalls the Guard. This permits the Safe ownership to be
+        // reconfigured atomically with Guard removal
         if (_maybeSetGuardRemoved(_safe)) {
             return;
         }
@@ -767,7 +766,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
         // These checks against the signer configuration of the Safe are not included in
         // `_checkAfterExecution` to allow `this.check()` to pass on some intermediate/temporary
-        // invalid states that `checkAfterExecution` rejects unless the transaction uninstalls the
+        // invalid states that `checkAfterExecution` rejects, unless the transaction uninstalls the
         // Guard.
         uint256 ownerCount;
         result = result && (ownerCount = _safe.ownerCount()) >= _MINIMUM_OWNERS;
@@ -838,9 +837,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // upgrades to other singleton implementation contracts. However, we do set the
         // `_guardRemoved` flag, which disables all Guard functionality (failing open). It is not
         // possible to un-set `_guardRemoved` once set.
-        if (_safe.getGuard() != address(this)) {
+        if (removed = _safe.getGuard() != address(this)) {
             _removeSelf();
-            return true;
         }
     }
 
