@@ -119,7 +119,7 @@ contract DeploySafes is Script {
     bytes32 internal constant toeholdHash = 0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
     // keccak256 of the creation code of `ZeroExSettlerDeployerSafeGuardOnePointFourPointOne` compiled with solc
     // 0.8.25, the London hardfork, and 200 optimizer runs; only this build lands the guard at its canonical address
-    bytes32 internal constant guardCreationHash = 0x57e06fb42f4b25b0cd98e6a97ba8cf7fabe07620016ac359c92e44ea527d580d;
+    bytes32 internal constant guardCreationHash = 0xb76813314777eda499ed516dac6fff95bec92b9d5d7296000af0a99b776bf0be;
     // The migration bytecode etched during EraVm simulation is the EVM build; its immutables point at the
     // EVM-canonical v1.4.1 singleton rather than the chain's EraVm deployment, so the simulation needs code there.
     address internal constant singletonV141Canonical = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
