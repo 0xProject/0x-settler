@@ -131,10 +131,12 @@ forge build
 
 declare version
 version="$(cast call --rpc-url "$rpc_url" "$deployer_address" 'version()(string)')"
-version="$(xargs -n1 echo <<<"$version")" # remove embedded quotes
-declare -i version
-version+=1
-declare -r -i version
+if [[ $version =~ ^\"(0|[1-9][0-9]{0,77})\"$ ]] ; then
+    version="$(BC_LINE_LENGTH=0 bc <<<"${BASH_REMATCH[1]} + 1")"
+else
+    die 'Deployer returned an invalid version'
+fi
+declare -r version
 
 declare constructor_args
 constructor_args="$(cast abi-encode 'constructor(uint256)' "$version")"

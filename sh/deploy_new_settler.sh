@@ -216,7 +216,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
         gas_estimate_retries+=1
     done
     declare -i gas_limit
-    gas_limit="$(apply_gas_multiplier $gas_estimate)"
+    gas_limit="$(apply_gas_multiplier "$gas_estimate")"
 
     # switch the wallet to the correct chain
     jq -Mc \

@@ -125,6 +125,7 @@ interface IZeroExSettlerDeployerSafeGuard is IGuard {
     error TxHashNotApproved(bytes32 txHash);
 
     function timelockEnd(bytes32) external view returns (uint256);
+    function txInfo(bytes32) external view returns (uint256 timelockEnd, address cantCancel);
     function lockedDownBy() external view returns (address);
     function delay() external view returns (uint24);
     function safe() external view returns (address);
@@ -1156,8 +1157,12 @@ contract TestSafeGuardOperations is Test {
         assertTrue(success);
         assertEq(address(uint160(bytes20(returndata))), address(_guard));
 
+        assertEq(_guard.safe(), address(_SAFE));
+    }
+
+    function _installGuard() internal {
         vm.prank(address(_SAFE));
-        safeSetup.setGuard(address(_guard));
+        ISafeSetup(address(_SAFE)).setGuard(address(_guard));
         vm.prank(address(_SAFE));
         _guard.setDelay(_TIMELOCK_DELAY);
 
@@ -1271,7 +1276,104 @@ contract TestSafeGuardOperations is Test {
         return abi.encodePacked(uint8(Operation.Call), target, uint256(0), data.length, data);
     }
 
+    function test_LockDown_BeforeInstallation_RevertsGuardNotInstalled() external {
+        bytes32 approvedHash = _guard.unlockTxHash();
+        vm.prank(_owners[4].addr);
+        _SAFE.approveHash(approvedHash);
+
+        vm.expectRevert(IZeroExSettlerDeployerSafeGuard.GuardNotInstalled.selector);
+        vm.prank(_owners[4].addr);
+        _guard.lockDown();
+        assertEq(_guard.lockedDownBy(), address(0));
+    }
+
+    function test_Enqueue_BeforeInstallation_Succeeds() external {
+        SafeTx memory safeTx = _pokeTx();
+        bytes32 txHash = _safeTxHash(safeTx);
+        _enqueue(safeTx, _sign(txHash));
+
+        (uint256 timelockEnd,) = _guard.txInfo(txHash);
+        assertEq(timelockEnd, block.timestamp + _guard.delay());
+        assertEq(_SAFE.nonce(), safeTx.nonce);
+    }
+
+    function test_Cancel_BeforeInstallation_Succeeds() external {
+        SafeTx memory safeTx = _pokeTx();
+        bytes32 txHash = _safeTxHash(safeTx);
+        _enqueue(safeTx, _sign(txHash));
+
+        bytes32 resignHash = _guard.resignTxHash(_owners[4].addr);
+        vm.prank(_owners[4].addr);
+        _SAFE.approveHash(resignHash);
+        vm.prank(_owners[4].addr);
+        _guard.cancel(txHash);
+
+        (uint256 timelockEnd,) = _guard.txInfo(txHash);
+        assertEq(timelockEnd, type(uint256).max);
+        assertEq(_SAFE.nonce(), safeTx.nonce);
+    }
+
+    function test_Install_LockedGuard_Reverts() external {
+        vm.store(address(_guard), bytes32(0), bytes32(uint256(uint160(_owners[4].addr))));
+        assertEq(_guard.lockedDownBy(), _owners[4].addr);
+
+        SafeTx memory safeTx = _pokeTx();
+        safeTx.to = address(_SAFE);
+        safeTx.data = abi.encodeCall(ISafeSetup.setGuard, (address(_guard)));
+        bytes memory signatures = _sign(_safeTxHash(safeTx));
+
+        vm.expectRevert(bytes("GS013"));
+        _execute(safeTx, signatures);
+        assertEq(_SAFE.nonce(), safeTx.nonce);
+        assertEq(
+            abi.decode(_SAFE.getStorageAt(uint256(keccak256("guard_manager.guard.address")), 1), (address)), address(0)
+        );
+    }
+
+    function test_Unlock_AfterInstallation_UsesCurrentApproval() external {
+        bytes32 approvalBeforeInstallation = _guard.unlockTxHash();
+        vm.prank(_owners[4].addr);
+        _SAFE.approveHash(approvalBeforeInstallation);
+
+        SafeTx memory safeTx = _pokeTx();
+        safeTx.to = address(_SAFE);
+        safeTx.data = abi.encodeCall(ISafeSetup.setGuard, (address(_guard)));
+        assertTrue(_execute(safeTx, _sign(_safeTxHash(safeTx))));
+
+        bytes32 approvedHash = _guard.unlockTxHash();
+        assertNotEq(approvedHash, approvalBeforeInstallation);
+        vm.expectRevert(
+            abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.TxHashNotApproved.selector, approvedHash)
+        );
+        vm.prank(_owners[4].addr);
+        _guard.lockDown();
+
+        vm.prank(_owners[4].addr);
+        _SAFE.approveHash(approvedHash);
+        vm.prank(_owners[4].addr);
+        _guard.lockDown();
+        assertEq(_guard.lockedDownBy(), _owners[4].addr);
+
+        safeTx = _pokeTx();
+        safeTx.to = address(_guard);
+        safeTx.data = abi.encodeCall(_guard.unlock, ());
+        bytes32 txHash = _safeTxHash(safeTx);
+        assertEq(txHash, approvedHash);
+        bytes memory signatures;
+        for (uint256 i; i < 4; ++i) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(_owners[i], txHash);
+            signatures = bytes.concat(signatures, abi.encodePacked(r, s, v));
+        }
+        signatures = bytes.concat(
+            signatures, abi.encodePacked(bytes32(uint256(uint160(_owners[4].addr))), bytes32(0), uint8(1))
+        );
+        assertTrue(_execute(safeTx, signatures));
+        assertEq(_guard.lockedDownBy(), address(0));
+        assertEq(_SAFE.nonce(), safeTx.nonce + 1);
+    }
+
     function test_Timelock_EnqueueStrictDelayExecute_Succeeds() external {
+        _installGuard();
         SafeTx memory safeTx = _pokeTx();
         bytes32 txHash = _safeTxHash(safeTx);
         bytes memory signatures = _sign(txHash);
@@ -1309,6 +1411,7 @@ contract TestSafeGuardOperations is Test {
     }
 
     function test_Timelock_NeverEnqueued_RevertsNotQueued() external {
+        _installGuard();
         SafeTx memory safeTx = _pokeTx();
         bytes32 txHash = _safeTxHash(safeTx);
 
@@ -1317,6 +1420,7 @@ contract TestSafeGuardOperations is Test {
     }
 
     function test_Multisend_MissingInterleavedCheck_RevertsGuardCheckNotEnforced() external {
+        _installGuard();
         bytes memory pokeData = abi.encodeCall(this.poke, ());
         bytes memory calls = bytes.concat(_subcall(address(this), pokeData), _subcall(address(this), pokeData));
         SafeTx memory safeTx = SafeTx({
@@ -1341,6 +1445,7 @@ contract TestSafeGuardOperations is Test {
     }
 
     function test_Abandon_QueuedGuardRemoval_Succeeds() external {
+        _installGuard();
         SafeTx memory safeTx = SafeTx({
             to: address(_SAFE),
             value: 0,
@@ -1371,5 +1476,9 @@ contract TestSafeGuardOperations is Test {
         SafeTx memory nextSafeTx = _pokeTx();
         vm.expectRevert(IZeroExSettlerDeployerSafeGuard.GuardNotInstalled.selector);
         _enqueue(nextSafeTx, _sign(_safeTxHash(nextSafeTx)));
+
+        vm.expectRevert(IZeroExSettlerDeployerSafeGuard.GuardNotInstalled.selector);
+        vm.prank(_owners[4].addr);
+        _guard.lockDown();
     }
 }
