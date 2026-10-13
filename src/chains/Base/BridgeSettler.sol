@@ -3,6 +3,7 @@ pragma solidity =0.8.34;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
@@ -50,5 +51,14 @@ contract BaseBridgeSettler is IMsgSender, BridgeSettler, Across, Mayan, Stargate
     function msgSender() external view override returns (address result) {
         result = _msgSender();
         require(result != address(0));
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(BridgeSettler, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

@@ -42,13 +42,25 @@ declare -r -a maybe_tx_gas_limit
 # Apply gas multiplier and check transaction gas limit
 # Usage: gas_limit="$(apply_gas_multiplier <gas_estimate>)"
 function apply_gas_multiplier {
-    declare -i _gas_estimate="$1"
+    if [[ ! $1 =~ ^(0|[1-9][0-9]{0,18}|0x[0-9a-fA-F]{1,16})$ ]] ; then
+        die 'Invalid gas estimate'
+    fi
+
+    declare _gas_estimate
+    _gas_estimate="$(cast to-dec "$1")"
     shift
+    if [[ ${#_gas_estimate} -gt 19 || ( ${#_gas_estimate} -eq 19 && $_gas_estimate > 9223372036854775807 ) ]] ; then
+        die 'Gas estimate exceeds the shell integer range'
+    fi
+    declare -i _gas_estimate
 
     if (( transaction_gas_limit > 0 && _gas_estimate > transaction_gas_limit )) ; then
         die "Gas estimate without buffer /already/ exceeds the $transaction_gas_limit_description"
     fi
 
+    if (( gas_estimate_multiplier <= 0 || _gas_estimate > 9223372036854775807 / gas_estimate_multiplier )) ; then
+        die 'Gas multiplier exceeds the shell integer range or is not positive'
+    fi
     declare -i _gas_limit=$((_gas_estimate * gas_estimate_multiplier / 100))
 
     if (( transaction_gas_limit > 0 && _gas_limit > transaction_gas_limit )) ; then

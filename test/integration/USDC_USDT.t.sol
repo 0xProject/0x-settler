@@ -16,6 +16,7 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test {
     function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test) {
         super.setUp();
+        deal(address(toToken()), FROM, amount());
     }
 
     function balancerV3Pool() internal pure override returns (address) {

@@ -63,3 +63,7 @@
    45. GigaDEX V3
    <!-- -->
    46. Alandale (Algebra-like; factory is upgradeable, pools are not)
+   <!-- -->
+   47. Rubicon CLMM
+   <!-- -->
+   48. AchSwap V3

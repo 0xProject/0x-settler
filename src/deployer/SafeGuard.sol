@@ -748,7 +748,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     // This function has mostly the same checks as `_checkAfterExecution`, but is returns `false`
     // on failure of those checks instead of reverting.
     function _checkAfterExecutionReturnBool(ISafeMinimal _safe) internal view returns (bool result) {
-        result = true;
+        result = lockedDownBy == address(0);
 
         // See comments in `_checkAfterExecution` for an explanation of all these conditions
         result = result && _safe.masterCopy() == _SINGLETON;
@@ -1006,6 +1006,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function lockDown() external normalOperation onlyOwner {
         ISafeMinimal _safe = safe;
+        if (_safe.getGuard() != address(this)) {
+            revert GuardNotInstalled();
+        }
 
         bytes32 txHash = _unlockTxHash(_safe);
         _requirePreApproved(_safe, txHash);

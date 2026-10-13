@@ -3,12 +3,14 @@ pragma solidity =0.8.34;
 
 import {TempoMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
@@ -42,12 +44,19 @@ contract TempoSettler is Settler, TempoMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase, TempoMixin) returns (bool) {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
-        override(Settler, Permit2PaymentAbstract)
-        returns (bool)
+        override(SettlerAbstract, SettlerBase, TempoMixin)
     {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
+    function _isRestrictedTarget(address target) internal view override(Settler, TempoMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

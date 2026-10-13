@@ -293,24 +293,24 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return super._witnessTypeSuffix();
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         virtual
         override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, Permit2PaymentIntent)
         returns (uint256)
     {
-        return super._permitToSellAmountCalldata(permit);
+        return super._permitToSellAmountCalldata(owner, permit);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
         override(Permit2PaymentAbstract, Permit2PaymentMetaTxn, Permit2PaymentIntent)
         returns (uint256)
     {
-        return super._permitToSellAmount(permit);
+        return super._permitToSellAmount(owner, permit);
     }
 
     function _isRestrictedTarget(address target)

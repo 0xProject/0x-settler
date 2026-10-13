@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
+
+import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
+
 import {Across} from "../../core/Across.sol";
 
-contract TempoBridgeSettler is BridgeSettler, Across {
+// Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
+
+contract TempoBridgeSettler is BridgeSettler, BlockTempoSystemContracts, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
@@ -27,5 +36,33 @@ contract TempoBridgeSettler is BridgeSettler, Across {
             return false;
         }
         return true;
+    }
+
+    // I hate Solidity inheritance
+    function _hasRecipientCheck()
+        internal
+        pure
+        override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, BridgeSettlerBase, BlockTempoSystemContracts)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BridgeSettler, BlockTempoSystemContracts, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

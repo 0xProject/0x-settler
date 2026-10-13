@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
@@ -73,7 +74,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
+                _permitToTransferDetails(
+                    address(0) /* sentinel for `_msgSender()` */,
+                    permit,
+                    recipient
+                );
             _transferFrom(permit, transferDetails, sig);
         } /*
         // RFQ_VIP is temporarily removed because Solver has no support for it

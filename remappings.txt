@@ -5,5 +5,6 @@
 @uniswapv4/=lib/v4-core/src
 
 forge-std/src/=lib/forge-std/src
+lib/permit2/:forge-std/=lib/forge-std/src
 solmate/=lib/solmate
 openzeppelin-contracts=lib/openzeppelin-contracts/contracts
