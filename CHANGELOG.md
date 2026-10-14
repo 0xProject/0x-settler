@@ -2,6 +2,8 @@
 
 ### Breaking changes
 
+* Remove Scroll, Sonic, Berachain, and Mantle chains
+
 ### Non-breaking changes
 
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
