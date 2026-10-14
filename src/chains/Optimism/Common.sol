@@ -30,7 +30,7 @@ import {
 } from "../../core/univ3forks/SolidlyV3.sol";
 import {dackieSwapV3OptimismFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
 
-import {OPTIMISM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4OptimismPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -55,14 +55,15 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
@@ -125,8 +126,12 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return OPTIMISM_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4OptimismPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

@@ -8,7 +8,8 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
 import {IPoolManager as Settler_IPoolManager, IUnlockCallback} from "src/core/UniswapV4Types.sol";
-import {MAINNET_POOL_MANAGER as POOL_MANAGER} from "src/core/UniswapV4Addresses.sol";
+import {uniswapV4MainnetPoolManager as POOL_MANAGER, uniswapV4ForkId} from "src/core/univ4forks/UniswapV4.sol";
+import {revertUnknownForkId} from "src/core/SettlerErrors.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 
 import {IPoolManager} from "@uniswapv4/interfaces/IPoolManager.sol";
@@ -114,8 +115,12 @@ contract UniswapV4Stub is UniswapV4 {
     using Revert for bool;
     using SafeTransferLib for IERC20;
 
-    function _POOL_MANAGER() internal pure override returns (Settler_IPoolManager) {
-        return POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (Settler_IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = POOL_MANAGER;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     function sellToUniswapV4(
@@ -128,7 +133,9 @@ contract UniswapV4Stub is UniswapV4 {
         uint256 amountOutMin
     ) external payable returns (uint256) {
         require(_operator() == _msgSender());
-        return super.sellToUniswapV4(_msgSender(), sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        return super.sellToUniswapV4(
+            _msgSender(), sellToken, ppm, uniswapV4ForkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+        );
     }
 
     function sellToUniswapV4VIP(
@@ -141,7 +148,9 @@ contract UniswapV4Stub is UniswapV4 {
         uint256 amountOutMin
     ) external returns (uint256) {
         require(_operator() == _msgSender());
-        return super.sellToUniswapV4VIP(_msgSender(), feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+        return super.sellToUniswapV4VIP(
+            _msgSender(), uniswapV4ForkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+        );
     }
 
     // bytes32(uint256(keccak256("operator slot")) - 1)

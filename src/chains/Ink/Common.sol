@@ -8,7 +8,6 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
-import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -21,20 +20,17 @@ import {
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
 
-import {INK_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4InkPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
+import {tsunamiPoolManager, tsunamiForkId} from "../../core/univ4forks/Tsunami.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
-    using FastLogic for bool;
-
     constructor() {
         assert(block.chainid == 57073 || block.chainid == 31337);
     }
-
-    IPoolManager internal constant _TSUNAMI_POOL_MANAGER = IPoolManager(0x6E4723A612831AfB9f5B2a5aE22723c37aAB9560);
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
@@ -45,34 +41,20 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.TSUNAMI.selector))) {
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.TSUNAMI.selector))
-                sellToUniswapV4(
-                    _TSUNAMI_POOL_MANAGER,
-                    recipient,
-                    sellToken,
-                    ppm,
-                    feeOnTransfer,
-                    hashMul,
-                    hashMod,
-                    fills,
-                    amountOutMin
-                );
-            }
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
@@ -94,8 +76,14 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return INK_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4InkPoolManager;
+        } else if (forkId == tsunamiForkId) {
+            poolManager = tsunamiPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

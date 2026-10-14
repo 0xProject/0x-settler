@@ -12,7 +12,7 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3ArcFactory,
@@ -27,8 +27,12 @@ import {
     achSwapV3ForkId,
     IAchSwapV3SwapCallback
 } from "../../core/univ3forks/AchSwapV3.sol";
-import {ARC_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
-import {sushiswapV4Vault, sushiswapV4ClManager} from "../../core/pancakeInfinityForks/SushiswapV4.sol";
+import {uniswapV4ArcPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
+import {
+    sushiswapV4Vault,
+    sushiswapV4ClManager,
+    sushiswapV4ForkId
+} from "../../core/pancakeInfinityForks/SushiswapV4.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
 
@@ -58,17 +62,20 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+                sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+                sellToPancakeInfinity(
+                    recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+                );
             }
         } else {
             return false;
@@ -99,21 +106,28 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return ARC_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4ArcPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
-        return sushiswapV4Vault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return sushiswapV4ClManager;
-    }
-
-    // SushiSwap V4 does not have a Bin pool manager.
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        revertUnknownPoolManagerId(1);
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId == sushiswapV4ForkId) {
+            vault = sushiswapV4Vault;
+            clManager = sushiswapV4ClManager;
+            // SushiSwap V4 does not have a Bin pool manager
+            binManager = address(0);
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

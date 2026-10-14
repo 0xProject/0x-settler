@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {RobinHoodSettler} from "src/chains/RobinHood/TakerSubmitted.sol";
 import {RobinHoodSettlerMetaTxn} from "src/chains/RobinHood/MetaTxn.sol";
-import {orvexVault, orvexClManager} from "src/core/pancakeInfinityForks/OrvexCL.sol";
+import {orvexVault, orvexClManager, orvexForkId} from "src/core/pancakeInfinityForks/OrvexCL.sol";
 
 import {PancakeInfinityTest} from "./PancakeInfinity.t.sol";
 
@@ -30,6 +30,10 @@ abstract contract OrvexCLTest is PancakeInfinityTest {
 
     function clPoolManager() internal pure override returns (address) {
         return orvexClManager;
+    }
+
+    function forkId() internal pure override returns (uint8) {
+        return orvexForkId;
     }
 
     // Orvex does not have a Bin pool manager
