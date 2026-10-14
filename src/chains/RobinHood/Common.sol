@@ -5,6 +5,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
@@ -45,6 +46,8 @@ import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, PancakeInfinity, Bebop {
+    using FastLogic for bool;
+
     constructor() {
         assert(block.chainid == 4663 || block.chainid == 31337);
     }
@@ -58,7 +61,8 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -71,7 +75,13 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(
+                    recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+                );
+            }
         } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
             (
                 address recipient,
@@ -85,22 +95,6 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToEkuboV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 ppm,
-                uint8 forkId,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
-
-            sellToPancakeInfinity(
-                recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
-            );
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,

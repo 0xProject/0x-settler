@@ -20,6 +20,7 @@ import {Bebop} from "../../core/Bebop.sol";
 import {FluxPool} from "../../core/FluxPool.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
@@ -63,6 +64,8 @@ abstract contract BnbMixin is
     Bebop,
     FluxPool
 {
+    using FastLogic for bool;
+
     constructor() {
         assert(block.chainid == 56 || block.chainid == 31337);
     }
@@ -76,7 +79,8 @@ abstract contract BnbMixin is
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -89,7 +93,13 @@ abstract contract BnbMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(
+                    recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+                );
+            }
         } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
             (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
@@ -119,22 +129,6 @@ abstract contract BnbMixin is
             );
 
             sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
-        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 ppm,
-                uint8 forkId,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
-
-            sellToPancakeInfinity(
-                recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
-            );
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));

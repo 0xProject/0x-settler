@@ -370,16 +370,15 @@ library StateLib {
 
 using StateLib for State global;
 
-// Offsets, from an encoded `bytes memory` payload pointer, of the bytes that `Encoder` reserves
-// between the header and the fills.
-uint256 constant ENCODER_EXTRA_DATA_OFFSET = 0xd4;
-uint256 constant ENCODER_EXTRA_DATA_OFFSET_VIP = 0x132;
-
 library Encoder {
     using FastLogic for bool;
 
-    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills, at
-    /// `ENCODER_EXTRA_DATA_OFFSET` from `data`, for the caller to fill in.
+    // Offsets, from an encoded `bytes memory` pointer, of the bytes between the header and the fills
+    uint256 private constant _EXTRA_DATA_OFFSET = 212;
+    uint256 private constant _EXTRA_DATA_OFFSET_VIP = 306;
+
+    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills for the
+    /// caller to fill in; `extraData` locates them.
     function encode(
         uint256 unlockSelector,
         address recipient,
@@ -401,7 +400,7 @@ library Encoder {
             data := mload(0x40)
 
             let pathLen := mload(fills)
-            mcopy(add(add(ENCODER_EXTRA_DATA_OFFSET, extraDataSize), data), add(0x20, fills), pathLen)
+            mcopy(add(add(_EXTRA_DATA_OFFSET, extraDataSize), data), add(0x20, fills), pathLen)
 
             mstore(add(0xb4, data), ppm)
             mstore(add(0xb1, data), sellToken)
@@ -438,8 +437,8 @@ library Encoder {
         );
     }
 
-    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills, at
-    /// `ENCODER_EXTRA_DATA_OFFSET_VIP` from `data`, for the caller to fill in.
+    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills for the
+    /// caller to fill in; `extraDataVIP` locates them.
     function encodeVIP(
         uint256 unlockSelector,
         address recipient,
@@ -465,7 +464,7 @@ library Encoder {
             let sigLen := mload(sig)
 
             {
-                let ptr := add(add(ENCODER_EXTRA_DATA_OFFSET_VIP, extraDataSize), data)
+                let ptr := add(add(_EXTRA_DATA_OFFSET_VIP, extraDataSize), data)
 
                 // sig length as 3 bytes goes at the end of the callback
                 mstore(sub(add(sigLen, add(pathLen, ptr)), 0x1d), sigLen)
@@ -515,6 +514,18 @@ library Encoder {
         return encodeVIP(
             unlockSelector, recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, isForwarded, amountOutMin, 0
         );
+    }
+
+    function extraData(bytes memory data) internal pure returns (uint256 ptr) {
+        assembly ("memory-safe") {
+            ptr := add(_EXTRA_DATA_OFFSET, data)
+        }
+    }
+
+    function extraDataVIP(bytes memory data) internal pure returns (uint256 ptr) {
+        assembly ("memory-safe") {
+            ptr := add(_EXTRA_DATA_OFFSET_VIP, data)
+        }
     }
 }
 
