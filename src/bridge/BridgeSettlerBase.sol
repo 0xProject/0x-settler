@@ -41,6 +41,12 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
         }
     }
 
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual override {}
+
     function _requireValidSettler(address settler) private view {
         // Any revert in `ownerOf` or `prev` will be bubbled. Any error in ABIDecoding the result
         // will result in a revert without a reason string.
@@ -62,7 +68,7 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 abi.decode(data, (address, uint256, address, bytes));
             // Swaps are going to be directed to Settler, so `settler` must be an active settler
             _requireValidSettler(settler);
-            if (token == address(Constants.ETH_ADDRESS)) {
+            if (Constants.isNative(token)) {
                 // Native token swap
                 // Settler address was validated to be a correct settler, so we pass the
                 // arbitrary data as we know it is not a restricted target.

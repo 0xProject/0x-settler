@@ -237,16 +237,19 @@ else
 fi
 declare -r -i gas_limit
 
-declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(send --chain $chainid --private-key)
-    maybe_broadcast+=("$(get_secret wrappedNativeStorage key)")
-else
-    maybe_broadcast+=(call --trace -vvvv)
-fi
-declare -r -a maybe_broadcast
+    . "$project_root"/sh/common_sign_deployment.sh
 
-cast "${maybe_broadcast[@]}" --from "$signer" --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "$forwarding_multicall" "$deploy_calldata"
+    declare unsigned_tx
+    unsigned_tx="$(cast mktx --raw-unsigned --chain $chainid --from "$signer" --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "$forwarding_multicall" "$deploy_calldata")"
+    declare -r unsigned_tx
+    declare signed_tx
+    signed_tx="$(sign_deployment_transaction wrappedNativeStorage "$signer" "$unsigned_tx")"
+    declare -r signed_tx
+    cast publish --rpc-url "$rpc_url" "$signed_tx"
+else
+    cast call --trace -vvvv --from "$signer" --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "$forwarding_multicall" "$deploy_calldata"
+fi
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60

@@ -2,14 +2,11 @@
 
 ### Breaking changes
 
-* Remove the `EULERSWAP` action from Mainnet, BNB, Avalanche, Berachain,
-  Plasma, Sonic, and Unichain
-* Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
-  proportion of surplus transferred
 * Add a `forkId` argument to `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
   `METATXN_PANCAKE_INFINITY_VIP` that selects the PancakeSwap Infinity fork
   (after `ppm` in `PANCAKE_INFINITY`; after `permit` in the VIP variants). See
   [PANCAKE_INFINITY_FORKS.md](PANCAKE_INFINITY_FORKS.md) for the list of forks.
+  * On Arc, SushiSwap V4 is fork `2`
 * Add a `forkId` argument to `UNISWAPV4`, `UNISWAPV4_VIP`, and
   `METATXN_UNISWAPV4_VIP` that selects the UniswapV4 fork (after `ppm` in
   `UNISWAPV4`; after `permit` in the VIP variants). See
@@ -19,11 +16,46 @@
 
 ### Non-breaking changes
 
-* Add `BRIDGE_TO_STARGATE_V2` to Abstract
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
-* Add `FLUXPOOL` action on Bnb
+
+## 2026-10-09
+
+### Breaking changes
+
+* Remove the `EULERSWAP` action from Mainnet, BNB, Avalanche, Berachain,
+  Plasma, Sonic, and Unichain
+* Add a new argument to `POSITIVE_SLIPPAGE`, `surplusPpm`, that controls the
+  proportion of surplus transferred
+
+### Non-breaking changes
+
+* Add `BRIDGE_TO_STARGATE_V2` to Abstract
+* Add `FLUXPOOL` action on Bnb, Base, and RobinHood
+* Add `DEEPSTATE` action for the Deepstate order book on RobinHood
+  * Deepstate only sizes orders in `token0`. To sell `token1`, pass an
+    `inversePriceX128` that matches `tick` (see `ISettlerActions`). Any sell
+    token left unspent stays in Settler
+* Add Tempo ReceivePolicyGuard `0xB10C000000000000000000000000000000000000` to
+  the list of restricted targets
+* On Tempo, revert if the recipient's receive policy would block a transfer
+  (except in `BASIC`)
+* Add SushiSwapV3 UniV3 fork to Arc with fork ID 2
+* Add SushiSwapV4 CL as a PancakeInfinity fork to Arc
+  * Add `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+    `METATXN_PANCAKE_INFINITY_VIP`
+* Fix RFQ maker permits in `SettlerIntent` using the taker's balance for
+  proportional sell amounts, reported by Bailsec
+* Add Rubicon CLMM UniV3 fork to Mainnet with fork ID 47
+* Add AchSwap V3 UniV3 fork to Arc with fork ID 48
+
+## 2026-09-25
+
+### Non-breaking changes
+
+* Add the TIP403 registry `0x403c000000000000000000000000000000000000`
+  on Tempo to the list of restricted addresses; Immunefi bug #94068
 
 ## 2026-09-14
 
@@ -80,6 +112,7 @@
 
 ### Non-breaking changes
 
+* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2

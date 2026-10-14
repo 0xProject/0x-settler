@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
+import {UniswapV2, IUniV2Pair, FastUniswapV2Pool} from "src/core/UniswapV2.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {Context} from "src/Context.sol";
+import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
 
 import {uint512} from "src/utils/512Math.sol";
 
@@ -14,6 +15,16 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Test} from "@forge-std/Test.sol";
 
 contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
+    function _hasRecipientCheck() internal pure virtual override returns (bool) {
+        return false;
+    }
+
+    function _checkRecipient(address, address, IERC20) internal view virtual override {}
+
+    function getToken(address pool, bool zeroForOne) external view returns (IERC20) {
+        return FastUniswapV2Pool.fastToken0or1(pool, zeroForOne);
+    }
+
     function sell(
         address recipient,
         address sellToken,
@@ -64,6 +75,48 @@ contract UniswapV2UnitTest is Utils, Test {
         uni = new UniswapV2Dummy();
     }
 
+    function test_GetToken_BothDirections_AcceptAddressBoundaries() public {
+        vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token0, ()), abi.encode(address(0)));
+        vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token1, ()), abi.encode(address(type(uint160).max)));
+        assertEq(address(uni.getToken(POOL, false)), address(0));
+        assertEq(address(uni.getToken(POOL, true)), address(type(uint160).max));
+    }
+
+    function test_GetToken_ShortReturn_Reverts() public {
+        for (uint256 length; length < 32; ++length) {
+            vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token0, ()), new bytes(length));
+            vm.expectRevert(bytes(""));
+            uni.getToken(POOL, false);
+        }
+    }
+
+    function test_GetToken_DirtyAddress_Reverts() public {
+        vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token0, ()), abi.encode(uint256(1) << 160));
+        vm.expectRevert(bytes(""));
+        uni.getToken(POOL, false);
+    }
+
+    function test_GetToken_ExtraReturnData_AcceptsAddress() public {
+        vm.mockCall(POOL, abi.encodeCall(IUniV2Pair.token0, ()), abi.encode(TOKEN0, type(uint256).max));
+        assertEq(address(uni.getToken(POOL, false)), TOKEN0);
+    }
+
+    function test_GetToken_EmptyTarget_Reverts() public {
+        vm.expectRevert(bytes(""));
+        uni.getToken(address(0), false);
+    }
+
+    function test_GetToken_Revert_PropagatesData() public {
+        bytes memory reason = abi.encodeWithSignature("Error(string)", "token lookup");
+        vm.mockCallRevert(POOL, abi.encodeCall(IUniV2Pair.token0, ()), reason);
+        vm.expectRevert(reason);
+        uni.getToken(POOL, false);
+
+        vm.mockCallRevert(POOL, abi.encodeCall(IUniV2Pair.token0, ()), "");
+        vm.expectRevert(bytes(""));
+        uni.getToken(POOL, false);
+    }
+
     function testUniswapV2Sell() public {
         uint256 ppm = 1_000_000;
         uint256 amount = 99999;
@@ -94,14 +147,12 @@ contract UniswapV2UnitTest is Utils, Test {
 
         // UniswapV2Pool.getReserves
         _mockExpectCall(POOL, abi.encodeCall(IUniV2Pair.getReserves, ()), abi.encode(uint256(9999), uint256(9999)));
-        // UniswapV2Pool.swap
-
-        // slippage is now checked before the swap call
-        // _mockExpectCall(
-        //     POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
-        // );
-
-        vm.expectRevert();
+        _mockExpectCall(
+            POOL,
+            abi.encodeWithSelector(TOKEN0 < TOKEN1 ? IUniV2Pair.token1.selector : IUniV2Pair.token0.selector),
+            abi.encode(TOKEN1)
+        );
+        vm.expectRevert(abi.encodeWithSelector(TooMuchSlippage.selector, TOKEN1, minBuyAmount, 9087));
         uni.sell(RECIPIENT, TOKEN0, ppm, POOL, swapInfo, minBuyAmount);
     }
 

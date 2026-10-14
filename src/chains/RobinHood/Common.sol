@@ -11,6 +11,8 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
 import {Hanji} from "../../core/Hanji.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {Deepstate} from "../../core/Deepstate.sol";
+import {FluxPool} from "../../core/FluxPool.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -45,7 +47,17 @@ import {orvexVault, orvexClManager, orvexForkId} from "../../core/pancakeInfinit
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3, Hanji, PancakeInfinity, Bebop {
+abstract contract RobinHoodMixin is
+    FreeMemory,
+    SettlerBase,
+    UniswapV4,
+    EkuboV3,
+    Hanji,
+    PancakeInfinity,
+    Bebop,
+    Deepstate,
+    FluxPool
+{
     using FastLogic for bool;
 
     constructor() {
@@ -108,6 +120,16 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.DEEPSTATE.selector)) {
+            (IERC20 sellToken, uint256 ppm, IERC20 buyToken, uint256 epoch, int32 tick, uint256 inversePriceX128) =
+                abi.decode(data, (IERC20, uint256, IERC20, uint256, int32, uint256));
+
+            sellToDeepstate(sellToken, ppm, buyToken, epoch, tick, inversePriceX128);
+        } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
+            (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
+                abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
+
+            sellToFluxPool(sellToken, ppm, poolId, zeroForOne, minBuyAmount);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -171,6 +193,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+
+    function _fluxSwap() internal pure override returns (address) {
+        return 0x388e0D8f610a80C75e8a049C39DDc5816f56c012;
     }
 
     function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {

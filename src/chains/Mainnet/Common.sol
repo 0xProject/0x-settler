@@ -40,6 +40,7 @@ import {
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
+import {rubiconCLMMFactory, rubiconCLMMInitHash, rubiconCLMMForkId} from "../../core/univ3forks/RubiconCLMM.sol";
 
 import {uniswapV4MainnetPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
@@ -110,6 +111,7 @@ abstract contract MainnetMixin is
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
+            _checkRecipient(address(this), recipient, token);
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
@@ -200,6 +202,8 @@ abstract contract MainnetMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, ppm, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
+            select(data);
         } else {
             return false;
         }
@@ -223,6 +227,10 @@ abstract contract MainnetMixin is
         } else if (forkId == sushiswapV3ForkId) {
             factory = sushiswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == rubiconCLMMForkId) {
+            factory = rubiconCLMMFactory;
+            initHash = rubiconCLMMInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

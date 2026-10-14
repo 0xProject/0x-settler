@@ -264,6 +264,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
                 sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
             }
             if (sellAmount != 0) {
+                _checkRecipient(address(this), address(pair), sellToken);
                 sellToken.safeTransfer(address(pair), sellAmount);
             }
             if ((sellAmount == 0).or(sellTokenHasFee)) {
@@ -310,6 +311,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
 
         // Perform the swap
         {
+            _checkRecipient(address(pair), recipient, buyToken);
             (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
             pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
         }

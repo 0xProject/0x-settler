@@ -176,6 +176,10 @@ abstract contract BnbMixin is
         }
     }
 
+    function _fluxSwap() internal pure override returns (address) {
+        return 0xff7fe6b6951Afd81Bc5eF9d205c28e5117012FD8;
+    }
+
     function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
         if (forkId == uniswapV4ForkId) {
             poolManager = uniswapV4BnbPoolManager;

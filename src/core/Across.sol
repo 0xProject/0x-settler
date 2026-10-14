@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {tmp} from "../utils/512Math.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface ISpokePool {
     function deposit(
@@ -38,7 +39,7 @@ interface ISpokePool {
     );
 }
 
-contract Across {
+abstract contract Across is SettlerAbstract {
     using SafeTransferLib for IERC20;
 
     /// @notice Bridge ERC20 tokens via Across
@@ -51,6 +52,7 @@ contract Across {
             // then it is at offset 0x40, which at 0x60 in depositData
             inputToken := mload(add(0x60, depositData))
         }
+        _checkRecipient(address(this), spoke, inputToken);
         uint256 amount = inputToken.fastBalanceOf(address(this));
         inputToken.safeApproveIfBelow(spoke, amount);
         _bridgeToAcross(amount, 0 wei, spoke, depositData);

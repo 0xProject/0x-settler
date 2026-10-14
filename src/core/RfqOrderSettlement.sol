@@ -79,18 +79,19 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) internal {
-        if (!_hasMetaTxn()) {
-            assert(makerPermit.permitted.amount <= type(uint256).max - Constants.BASIS);
-        }
         (ISignatureTransfer.SignatureTransferDetails memory makerTransferDetails, uint256 makerAmount) =
-            _permitToTransferDetails(makerPermit, recipient);
+            _permitToTransferDetails(maker, makerPermit, recipient);
         // In theory, the taker permit could invoke the balance-proportional sell amount logic. However,
         // because we hash the sell amount computed here into the maker's consideration (witness) only a
         // balance-proportional sell amount that corresponds exactly to the signed order would avoid a
         // revert. In other words, no unexpected behavior is possible. It's pointless to prohibit the
         // use of that logic.
         (ISignatureTransfer.SignatureTransferDetails memory takerTransferDetails, uint256 takerAmount) =
-            _permitToTransferDetails(takerPermit, maker);
+            _permitToTransferDetails(
+                address(0) /* sentinel for `_msgSender()` */,
+                takerPermit,
+                maker
+            );
 
         bytes32 witness = _hashConsideration(
             Consideration({
@@ -131,14 +132,11 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         IERC20 takerToken,
         uint256 maxTakerAmount
     ) internal {
-        if (!_hasMetaTxn()) {
-            assert(permit.permitted.amount <= type(uint256).max - Constants.BASIS);
-        }
         // Compute witnesses. These are based on the quoted maximum amounts. We will modify them
         // later to adjust for the actual settled amount, which may be modified by encountered
         // slippage.
         (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 makerAmount) =
-            _permitToTransferDetails(permit, recipient);
+            _permitToTransferDetails(maker, permit, recipient);
 
         bytes32 takerWitness = _hashConsideration(
             Consideration({
@@ -163,6 +161,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         }
 
         // Now that we have all the relevant information, make the transfers and log the order.
+        _checkRecipient(address(this), maker, takerToken);
         takerToken.safeTransfer(maker, takerAmount);
         _transferFromIKnowWhatImDoing(
             permit, transferDetails, maker, makerWitness, CONSIDERATION_WITNESS, makerSig, false

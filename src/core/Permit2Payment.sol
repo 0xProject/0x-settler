@@ -60,8 +60,9 @@ library TransientStorage {
         uint32 selector,
         function(bytes calldata) internal returns (bytes memory) callback
     ) internal {
+        address payer = getPayer();
         assembly ("memory-safe") {
-            if iszero(shl(0x60, xor(tload(_PAYER_SLOT), operator))) {
+            if iszero(shl(0x60, xor(payer, operator))) {
                 mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
                 revert(0x1c, 0x04)
             }
@@ -93,6 +94,12 @@ library TransientStorage {
                 mstore(0x20, slotValue)
                 revert(0x1c, 0x24)
             }
+        }
+    }
+
+    function clearOperatorAndCallback() internal {
+        assembly ("memory-safe") {
+            tstore(_OPERATOR_SLOT, 0x00)
         }
     }
 
@@ -159,7 +166,7 @@ library TransientStorage {
                 revert(0x10, 0x24)
             }
 
-            tstore(_PAYER_SLOT, payer)
+            tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
         }
     }
 
@@ -170,12 +177,12 @@ library TransientStorage {
     }
 
     function clearPayer(address expectedOldPayer) internal {
+        address oldPayer = getPayer();
         assembly ("memory-safe") {
-            if shl(0x60, xor(tload(_PAYER_SLOT), expectedOldPayer)) {
+            if shl(0x60, xor(oldPayer, expectedOldPayer)) {
                 mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
                 revert(0x1c, 0x04)
             }
-
             tstore(_PAYER_SLOT, 0x00)
         }
     }
@@ -228,6 +235,29 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
+
+    /// @dev Revert-tolerant variant of `_setOperatorAndCall` for trial calls: the call runs under
+    ///      an explicit gas limit and failure returns `false` instead of bubbling. Returndata is
+    ///      left uncopied so a failed call cannot charge the caller for large revert data. The
+    ///      trust requirements on `target` above apply here too.
+    function _setOperatorAndTryCall(
+        uint256 gasLimit,
+        address target,
+        bytes memory data,
+        uint32 selector,
+        function(bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bool success) {
+        TransientStorage.setOperatorAndCallback(target, selector, callback);
+        assembly ("memory-safe") {
+            success := call(gasLimit, target, 0x00, add(0x20, data), mload(data), 0x00, 0x00)
+        }
+        if (success) {
+            TransientStorage.checkSpentOperatorAndCallback();
+        } else {
+            // The failed call reverted its own tstore changes but not ours.
+            TransientStorage.clearOperatorAndCallback();
+        }
+    }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
@@ -249,14 +279,18 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         }
     }
 
-    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+    function _permitToTransferDetails(
+        address owner,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address recipient
+    )
         internal
         view
         override
         returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
     {
         transferDetails.to = recipient;
-        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(permit);
+        transferDetails.requestedAmount = sellAmount = _permitToSellAmount(owner, permit);
     }
 
     // This function is provided *EXCLUSIVELY* for use here and in RfqOrderSettlement. Any other use
@@ -271,6 +305,9 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        // Maker and callback payments do not use the direct transfer action, so their recipient
+        // policy is checked here.
+        _checkRecipient(from, transferDetails.to, IERC20(permit.permitted.token));
         if (isForwarded) {
             assembly ("memory-safe") {
                 mstore(0x00, 0x1c500e5c) // selector for `ForwarderNotAllowed()`
@@ -364,32 +401,36 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         assert(!_hasMetaTxn());
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         override
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        unchecked {
-            if (~sellAmount < Constants.BASIS) {
-                sellAmount = Constants.BASIS - ~sellAmount;
+        if (~sellAmount < Constants.BASIS) {
+            if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
+                unchecked {
+                    sellAmount = Constants.BASIS - ~sellAmount;
+                }
                 sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
                     .unsafeDiv(Constants.BASIS);
             }
         }
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         override
         returns (uint256 sellAmount)
     {
         sellAmount = permit.permitted.amount;
-        unchecked {
-            if (~sellAmount < Constants.BASIS) {
-                sellAmount = Constants.BASIS - ~sellAmount;
+        if (~sellAmount < Constants.BASIS) {
+            if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
+                unchecked {
+                    sellAmount = Constants.BASIS - ~sellAmount;
+                }
                 sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
                     .unsafeDiv(Constants.BASIS);
             }
@@ -406,6 +447,14 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         bytes memory sig,
         bool isForwarded
     ) internal override {
+        // Pool callbacks also need recipient validation for both Permit2 and AllowanceHolder
+        // payments. Keeping payer reads in the transfer branches avoids extra gas when recipient
+        // checks are disabled.
+        address from;
+        if (_hasRecipientCheck()) {
+            from = _msgSender();
+            _checkRecipient(from, transferDetails.to, IERC20(permit.permitted.token));
+        }
         if (isForwarded) {
             if (sig.length != 0) {
                 assembly ("memory-safe") {
@@ -423,7 +472,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             }
             // we don't check `requestedAmount` because it's checked by AllowanceHolder itself
             _allowanceHolderTransferFrom(
-                permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
+                permit.permitted.token,
+                _hasRecipientCheck() ? from : _msgSender(),
+                transferDetails.to,
+                transferDetails.requestedAmount
             );
         } else {
             // This is effectively
@@ -440,7 +492,9 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             // compiles down to just a single PUSH opcode just before the CALL, with optimization
             // turned on.
             ISignatureTransfer _PERMIT2 = PERMIT2;
-            address from = _msgSender();
+            if (!_hasRecipientCheck()) {
+                from = _msgSender();
+            }
             assembly ("memory-safe") {
                 let ptr := mload(0x40)
                 mstore(ptr, 0x30f28b7a) // selector for `permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes)`
@@ -558,7 +612,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         );
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         virtual
@@ -568,7 +622,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
         return permit.permitted.amount;
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
@@ -648,35 +702,38 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =
         0xe98f46388916ca2f096ea767dc04dddb45d2ca2c2f44e7bcc529d6aded9c11f0;
 
-    function _toCanonicalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
+    function _toCanonicalSellAmount(address owner, IERC20 token, uint256 sellAmount) private view returns (uint256) {
         unchecked {
             if (~sellAmount < Constants.BASIS) {
-                if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
-                    sellAmount = Constants.BASIS - ~sellAmount;
-                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(Constants.BASIS);
+                if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
+                    owner = _msgSender();
+                    if (owner.codehash == _BRIDGE_WALLET_CODEHASH) {
+                        sellAmount = Constants.BASIS - ~sellAmount;
+                        sellAmount = tmp().omul(token.fastBalanceOf(owner), sellAmount).unsafeDiv(Constants.BASIS);
+                    }
                 }
             }
         }
         return sellAmount;
     }
 
-    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
+    function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
         virtual
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
+        sellAmount = _toCanonicalSellAmount(owner, IERC20(permit.permitted.token), permit.permitted.amount);
     }
 
-    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+    function _permitToSellAmount(address owner, ISignatureTransfer.PermitTransferFrom memory permit)
         internal
         view
         virtual
         override
         returns (uint256 sellAmount)
     {
-        sellAmount = _toCanonicalSellAmount(IERC20(permit.permitted.token), permit.permitted.amount);
+        sellAmount = _toCanonicalSellAmount(owner, IERC20(permit.permitted.token), permit.permitted.amount);
     }
 }

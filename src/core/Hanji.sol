@@ -125,7 +125,7 @@ abstract contract Hanji is SettlerSwapAbstract {
         uint256 priceLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bool sendNative = address(sellToken) == Constants.ETH_ADDRESS;
+        bool sendNative = Constants.isNative(sellToken);
         uint256 sellAmount;
         unchecked {
             if (sendNative) {
