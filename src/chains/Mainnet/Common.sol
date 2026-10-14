@@ -27,6 +27,8 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 import "../../core/Constants.sol" as Constants;
 
+import {namiMainnetFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {
     uniswapV3MainnetFactory,
     uniswapV3InitHash,
@@ -221,6 +223,10 @@ abstract contract MainnetMixin is
             factory = rubiconCLMMFactory;
             initHash = rubiconCLMMInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiMainnetFactory;
+            initHash = namiInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

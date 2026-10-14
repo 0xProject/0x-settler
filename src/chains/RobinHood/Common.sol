@@ -17,6 +17,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
 
+import {namiRobinhoodFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
 import {
     uniswapV3RobinhoodFactory,
     uniswapV3InitHash,
@@ -177,6 +178,10 @@ abstract contract RobinHoodMixin is
         } else if (forkId == alandaleForkId) {
             factory = alandaleFactory;
             initHash = alandaleInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiRobinhoodFactory;
+            initHash = namiInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

@@ -27,6 +27,8 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
+import {namiBaseFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {
     uniswapV3BaseFactory,
     uniswapV3InitHash,
@@ -243,6 +245,10 @@ abstract contract BaseMixin is
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
+                } else if (forkId == namiForkId) {
+                    factory = namiBaseFactory;
+                    initHash = namiInitHash;
+                    callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);
                 }
