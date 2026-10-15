@@ -27,8 +27,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 import "../../core/Constants.sol" as Constants;
 
-import {namiMainnetFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
-import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {
     uniswapV3MainnetFactory,
     uniswapV3InitHash,
@@ -43,6 +41,8 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {rubiconCLMMFactory, rubiconCLMMInitHash, rubiconCLMMForkId} from "../../core/univ3forks/RubiconCLMM.sol";
+import {namiMainnetFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
