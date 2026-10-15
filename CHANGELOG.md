@@ -2,6 +2,8 @@
 
 ### Breaking changes
 
+* Remove `RENEGADE` action from Arbitrum and Base
+
 ### Non-breaking changes
 
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
