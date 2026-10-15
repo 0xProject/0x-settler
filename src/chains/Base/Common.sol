@@ -55,6 +55,8 @@ import {
 } from "../../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/AlienBaseV3.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
+import {namiBaseFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -215,6 +217,10 @@ abstract contract BaseMixin is
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
+                } else if (forkId == namiForkId) {
+                    factory = namiBaseFactory;
+                    initHash = namiInitHash;
+                    callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);
                 }

@@ -9,6 +9,7 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
 
 ## 2026-10-09
 
