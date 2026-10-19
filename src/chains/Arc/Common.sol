@@ -29,6 +29,11 @@ import {
 } from "../../core/univ3forks/AchSwapV3.sol";
 import {uniswapV4ArcPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 import {
+    pancakeInfinityVault,
+    pancakeInfinityClManager,
+    pancakeInfinityForkId
+} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
+import {
     sushiswapV4Vault,
     sushiswapV4ClManager,
     sushiswapV4ForkId
@@ -72,7 +77,8 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+            } else {
+                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
                 sellToPancakeInfinity(
                     recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
                 );
@@ -120,7 +126,11 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
         override
         returns (address vault, address clManager, address binManager)
     {
-        if (forkId == sushiswapV4ForkId) {
+        if (forkId == pancakeInfinityForkId) {
+            vault = pancakeInfinityVault;
+            clManager = pancakeInfinityClManager;
+            binManager = address(0);
+        } else if (forkId == sushiswapV4ForkId) {
             vault = sushiswapV4Vault;
             clManager = sushiswapV4ClManager;
             // SushiSwap V4 does not have a Bin pool manager
