@@ -16,7 +16,7 @@
 
 ### Non-breaking changes
 
-* Add PancakeSwap Infinity to Arc (CL only; no Bin pool manager)
+* Add PancakeSwap Infinity concentrated liquidity pools to Arc
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
