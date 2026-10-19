@@ -16,7 +16,7 @@
 
 ### Non-breaking changes
 
-* Add PancakeSwap Infinity CL on Arc as fork `0`; Bin pools are not supported
+* Add PancakeSwap Infinity to Arc (CL only; no Bin pool manager)
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
