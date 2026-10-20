@@ -39,6 +39,10 @@ contract BridgeRecipientCheckHarness is MainnetBridgeSettler {
         return true;
     }
 
+    function _recipientCheckNeedsToken() internal pure override(SettlerAbstract, BridgeSettlerBase) returns (bool) {
+        return true;
+    }
+
     function _checkRecipient(address sender, address recipient, IERC20 token)
         internal
         view
@@ -62,6 +66,10 @@ contract TempoBridgeRecipientCheckHarness is TempoBridgeSettler {
 
     function hasRecipientCheck() external pure returns (bool) {
         return _hasRecipientCheck();
+    }
+
+    function recipientCheckNeedsToken() external pure returns (bool) {
+        return _recipientCheckNeedsToken();
     }
 }
 
@@ -209,6 +217,7 @@ contract BridgeRecipientCheckUnitTest is BridgeSettlerTestBase {
     function test_RecipientCheck_TempoBridge_Enabled() public {
         TempoBridgeRecipientCheckHarness tempo = new TempoBridgeRecipientCheckHarness();
         assertTrue(tempo.hasRecipientCheck());
+        assertTrue(tempo.recipientCheckNeedsToken());
         assertTrue(tempo.restrictedTarget(0x403c000000000000000000000000000000000000));
         assertTrue(tempo.restrictedTarget(0xB10C000000000000000000000000000000000000));
     }

@@ -28,6 +28,10 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function considerationWitnessType() external pure returns (string memory) {

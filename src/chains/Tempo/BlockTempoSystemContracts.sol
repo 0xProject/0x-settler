@@ -37,6 +37,10 @@ abstract contract BlockTempoSystemContracts is SettlerAbstract {
         return true;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override(SettlerAbstract) returns (bool) {
+        return true;
+    }
+
     // A recipient's TIP-1028 receive policy can send a TIP-20 payout to the ReceivePolicyGuard
     // rather than the recipient. The payout must reach the recipient.
     // This contract cannot configure a receive policy because arbitrary calls to the registry are

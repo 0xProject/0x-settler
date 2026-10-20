@@ -30,7 +30,13 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 
     function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual;
 
+    // True when `_checkRecipient` is not empty. Call sites that must first resolve the sender or
+    // the recipient at a cost consult this before invoking the hook.
     function _hasRecipientCheck() internal pure virtual returns (bool);
+
+    // True when `_checkRecipient` reads the buy token. Pool call sites that must look the token
+    // up at a cost consult this before passing it to the hook.
+    function _recipientCheckNeedsToken() internal pure virtual returns (bool);
 }
 
 abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {

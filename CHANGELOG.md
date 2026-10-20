@@ -10,6 +10,12 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add HyperEVM CoreWriter `0x3333333333333333333333333333333333333333` to the
+  list of restricted targets
+* On HyperEVM, revert if a payout names a HyperCore system address
+  (`0x2222222222222222222222222222222222222222` or
+  `0x2000000000000000000000000000000000000000` plus a token index) as
+  recipient unless the payer funds the transfer (except in `BASIC`)
 
 ## 2026-10-09
 
