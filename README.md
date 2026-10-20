@@ -1456,6 +1456,12 @@ If `PUSH0` is not supported, then `hardfork.shanghai` should be `false` in
 `hardfork.cancun` should be `false` in `chain_config.json`. If `CLZ` is not
 supported, then `hardfork.osaka` should be `false` in `chain_config.json`.
 
+`hardfork.amsterdam` is not about opcode support. It should be `true` only on
+chains that meter gas in two dimensions (EIP-8037). On those chains the EIP-7825
+cap of 2^24 applies to execution gas only, so the deployment scripts stop
+capping the transaction gas limit at 2^24 and cap it at the block gas limit
+instead. The compiler configuration is unaffected.
+
 You may be tempted to use a blockchain explorer (e.g. Etherscan or Tenderly) to
 examine the trace of the resulting transaction or to read the logs. You may also
 be tempted to do an `eth_call`, local fork, devnet, or some other form of
