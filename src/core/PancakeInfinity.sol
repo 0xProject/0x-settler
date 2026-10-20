@@ -208,21 +208,6 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
         virtual
         returns (address vault, address clManager, address binManager);
 
-    // Packs the pool managers into the `lock` payload bytes that `Encoder` reserved for them. The
-    // first store ends where the fills begin; the second rewrites the head of the Bin pool manager
-    // together with the CL pool manager.
-    //
-    // mcopy(extraDataPtr, abi.encodePacked(clManager, binManager), 40)
-    function _pancakeInfinityWritePoolManagers(uint256 extraDataPtr, address clManager, address binManager)
-        private
-        pure
-    {
-        assembly ("memory-safe") {
-            mstore(add(0x08, extraDataPtr), binManager)
-            mstore(extraDataPtr, or(shl(0x60, clManager), shr(0x40, binManager)))
-        }
-    }
-
     //// `forkId` selects the vault and pool managers of a PancakeSwap Infinity deployment. The
     //// master list of fork IDs is `PANCAKE_INFINITY_FORKS.md` at the repository root.
     ////
@@ -290,10 +275,13 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             hashMod,
             fills,
             amountOutMin,
-            _POOL_MANAGERS_LENGTH
+            _FORK_ID_LENGTH
         );
-        (address vault, address clManager, address binManager) = _pancakeInfinityForkInfo(forkId);
-        _pancakeInfinityWritePoolManagers(Encoder.extraData(data), clManager, binManager);
+        (address vault,,) = _pancakeInfinityForkInfo(forkId);
+        uint256 forkIdPtr = Encoder.extraData(data);
+        assembly ("memory-safe") {
+            mstore8(forkIdPtr, forkId)
+        }
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             vault, data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback
         );
@@ -328,10 +316,13 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
             sig,
             _isForwarded(),
             amountOutMin,
-            _POOL_MANAGERS_LENGTH
+            _FORK_ID_LENGTH
         );
-        (address vault, address clManager, address binManager) = _pancakeInfinityForkInfo(forkId);
-        _pancakeInfinityWritePoolManagers(Encoder.extraDataVIP(data), clManager, binManager);
+        (address vault,,) = _pancakeInfinityForkInfo(forkId);
+        uint256 forkIdPtr = Encoder.extraDataVIP(data);
+        assembly ("memory-safe") {
+            mstore8(forkIdPtr, forkId)
+        }
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             vault, data, uint32(IPancakeInfinityLockCallback.lockAcquired.selector), _pancakeInfinityCallback
         );
@@ -402,9 +393,8 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
     // 3 - hook data length
     uint256 private constant _HOP_DATA_LENGTH = 83;
 
-    // 20 - CL pool manager
-    // 20 - Bin pool manager
-    uint256 private constant _POOL_MANAGERS_LENGTH = 40;
+    // 1 - fork ID
+    uint256 private constant _FORK_ID_LENGTH = 1;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -447,14 +437,19 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
         state.checkZeroSellAmount();
         data = newData;
 
-        // the fork's pool managers precede the fills
+        // the fork ID precedes the fills
+        uint8 forkId;
+        assembly ("memory-safe") {
+            forkId := shr(0xf8, calldataload(data.offset))
+            data.offset := add(_FORK_ID_LENGTH, data.offset)
+            data.length := sub(data.length, _FORK_ID_LENGTH)
+        }
         IPancakeInfinityPoolManager clManager;
         IPancakeInfinityPoolManager binManager;
-        assembly ("memory-safe") {
-            clManager := shr(0x60, calldataload(data.offset))
-            binManager := shr(0x60, calldataload(add(0x14, data.offset)))
-            data.offset := add(_POOL_MANAGERS_LENGTH, data.offset)
-            data.length := sub(data.length, _POOL_MANAGERS_LENGTH)
+        {
+            (, address cl, address bin) = _pancakeInfinityForkInfo(forkId);
+            clManager = IPancakeInfinityPoolManager(cl);
+            binManager = IPancakeInfinityPoolManager(bin);
         }
 
         PoolKey memory poolKey;
