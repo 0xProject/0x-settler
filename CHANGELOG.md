@@ -3,6 +3,7 @@
 ### Breaking changes
 
 * Remove `RENEGADE` action from Arbitrum and Base
+* Remove Scroll, Sonic, Berachain, and Mantle chains
 
 ### Non-breaking changes
 
