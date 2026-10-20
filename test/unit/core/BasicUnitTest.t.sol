@@ -18,6 +18,10 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function sellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {

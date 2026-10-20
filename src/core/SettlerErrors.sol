@@ -25,6 +25,9 @@ error InvalidTarget();
 /// @notice Thrown when the payout recipient's TIP-1028 receive policy would divert the transfer
 error ReceivePolicyBlocked(address recipient);
 
+/// @notice Thrown when a transfer to a HyperCore system address would be credited to its sender instead of to the named recipient
+error HyperCoreSystemAddress(address recipient);
+
 /// @notice Thrown when validating the caller against the expected caller
 error InvalidSender();
 

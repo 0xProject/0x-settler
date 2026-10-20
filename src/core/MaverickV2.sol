@@ -239,7 +239,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
             }
         }
         _checkRecipient(
-            address(pool), recipient, _hasRecipientCheck() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0))
+            address(pool), recipient, _recipientCheckNeedsToken() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0))
         );
         return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount);
     }

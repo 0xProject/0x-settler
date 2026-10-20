@@ -45,6 +45,10 @@ contract RecipientCheckSettler is BaseSettler {
         return true;
     }
 
+    function _recipientCheckNeedsToken() internal pure override(SettlerAbstract, SettlerBase) returns (bool) {
+        return true;
+    }
+
     function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
@@ -75,6 +79,10 @@ contract RecipientCheckMetaTxn is BaseSettlerMetaTxn {
     }
 
     function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase) returns (bool) {
+        return true;
+    }
+
+    function _recipientCheckNeedsToken() internal pure override(SettlerAbstract, SettlerBase) returns (bool) {
         return true;
     }
 
@@ -431,6 +439,10 @@ contract TempoRecipientCheckHarness is TempoSettler {
     function hasRecipientCheck() external pure returns (bool) {
         return _hasRecipientCheck();
     }
+
+    function recipientCheckNeedsToken() external pure returns (bool) {
+        return _recipientCheckNeedsToken();
+    }
 }
 
 contract TempoMetaTxnRecipientCheckHarness is TempoSettlerMetaTxn {
@@ -447,6 +459,10 @@ contract TempoMetaTxnRecipientCheckHarness is TempoSettlerMetaTxn {
     function hasRecipientCheck() external pure returns (bool) {
         return _hasRecipientCheck();
     }
+
+    function recipientCheckNeedsToken() external pure returns (bool) {
+        return _recipientCheckNeedsToken();
+    }
 }
 
 contract TempoIntentRecipientCheckHarness is TempoSettlerIntent {
@@ -462,6 +478,10 @@ contract TempoIntentRecipientCheckHarness is TempoSettlerIntent {
 
     function hasRecipientCheck() external pure returns (bool) {
         return _hasRecipientCheck();
+    }
+
+    function recipientCheckNeedsToken() external pure returns (bool) {
+        return _recipientCheckNeedsToken();
     }
 }
 
@@ -488,6 +508,7 @@ contract TempoRecipientCheckUnitTest is Test {
         TempoRecipientCheckHarness settler =
             TempoRecipientCheckHarness(payable(deployCode("SettlerRecipientCheck.t.sol:TempoRecipientCheckHarness")));
         assertTrue(settler.hasRecipientCheck());
+        assertTrue(settler.recipientCheckNeedsToken());
         assertTrue(settler.restrictedTarget(0x403c000000000000000000000000000000000000));
         assertTrue(settler.restrictedTarget(0xB10C000000000000000000000000000000000000));
     }
@@ -497,6 +518,7 @@ contract TempoRecipientCheckUnitTest is Test {
             payable(deployCode("SettlerRecipientCheck.t.sol:TempoMetaTxnRecipientCheckHarness"))
         );
         assertTrue(settler.hasRecipientCheck());
+        assertTrue(settler.recipientCheckNeedsToken());
         assertTrue(settler.restrictedTarget(0x403c000000000000000000000000000000000000));
         assertTrue(settler.restrictedTarget(0xB10C000000000000000000000000000000000000));
     }
@@ -506,6 +528,7 @@ contract TempoRecipientCheckUnitTest is Test {
             payable(deployCode("SettlerRecipientCheck.t.sol:TempoIntentRecipientCheckHarness"))
         );
         assertTrue(settler.hasRecipientCheck());
+        assertTrue(settler.recipientCheckNeedsToken());
         assertTrue(settler.restrictedTarget(0x403c000000000000000000000000000000000000));
         assertTrue(settler.restrictedTarget(0xB10C000000000000000000000000000000000000));
     }
