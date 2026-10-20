@@ -6,6 +6,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": true,
       "eraVm": false
     },
     "extraFlags": "",
@@ -56,6 +57,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -106,6 +108,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -156,6 +159,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -206,6 +210,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -256,6 +261,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -306,6 +312,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -356,6 +363,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -406,6 +414,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -456,6 +465,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -506,6 +516,7 @@
       "shanghai": true,
       "cancun": false,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -556,6 +567,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -606,6 +618,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -656,6 +669,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -705,6 +719,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -755,6 +770,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -805,6 +821,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -855,6 +872,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -904,6 +922,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
@@ -954,6 +973,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": false,
+      "amsterdam": false,
       "eraVm": true
     },
     "extraFlags": "",
@@ -1002,6 +1022,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -1049,6 +1070,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
@@ -1099,6 +1121,7 @@
       "shanghai": true,
       "cancun": true,
       "osaka": true,
+      "amsterdam": false,
       "eraVm": false
     },
     "extraFlags": "",
