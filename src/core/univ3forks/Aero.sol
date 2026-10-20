@@ -8,5 +8,5 @@ address constant aeroMainnetFactory = 0xAbD524b6f8dAae68314Ad2fD7698cb65b4f8D398
 address constant aeroInkFactory = aeroMainnetFactory;
 address constant aeroRobinHoodFactory = aeroMainnetFactory;
 address constant aeroArcFactory = 0xb89Df768aF2CFE637ceB352c587Fe8edAf491d03;
-bytes32 constant aeroInitHash = 0xe0f49d3ea3bb7a5d5337aa66d36475deba24fa83c711692bd71de26a6500449f; // ERC1167 proxy
+bytes32 constant aeroInitHash = 0xe0f49d3ea3bb7a5d5337aa66d36475deba24fa83c711692bd71de26a6500449f; // ERC1167 proxy targeting 0x0Df9fc8730eeC048e9832B31B4bFf4351158e19B
 uint8 constant aeroForkId = 49;
