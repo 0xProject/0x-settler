@@ -6,6 +6,9 @@
 
 ### Non-breaking changes
 
+* Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
+  RobinHood, and Arc with fork ID 49
+
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645

@@ -67,3 +67,5 @@
    47. Rubicon CLMM
    <!-- -->
    48. AchSwap V3
+   <!-- -->
+   49. Aero CL

@@ -13,6 +13,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroInkFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3InkFactory,
@@ -88,6 +89,10 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3InkFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroInkFactory;
+            initHash = aeroInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

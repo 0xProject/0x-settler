@@ -25,6 +25,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroBaseFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3BaseFactory,
@@ -215,6 +216,9 @@ abstract contract BaseMixin is
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
+                } else if (forkId == aeroForkId) {
+                    factory = aeroBaseFactory;
+                    initHash = aeroInitHash;
                 } else {
                     revertUnknownForkId(forkId);
                 }
