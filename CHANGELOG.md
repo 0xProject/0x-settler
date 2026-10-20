@@ -2,6 +2,7 @@
 
 ### Breaking changes
 
+* Remove `RENEGADE` action from Arbitrum and Base
 * Remove Scroll, Sonic, Berachain, and Mantle chains
 
 ### Non-breaking changes
@@ -21,6 +22,7 @@
 
 ### Non-breaking changes
 
+* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Add `BRIDGE_TO_STARGATE_V2` to Abstract
 * Add `FLUXPOOL` action on Bnb, Base, and RobinHood
 * Add `DEEPSTATE` action for the Deepstate order book on RobinHood
@@ -102,7 +104,6 @@
 
 ### Non-breaking changes
 
-* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2

@@ -65,7 +65,7 @@ if [[ $(cast to-checksum "$safe_address") = "${upgrade_safe_address:-null}" ]] ;
         if [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
             die 'Safe '"$safe_address"' has no Guard installed, but governance.timelock says it has '"$configured_safe_guard"' for '"$chain_name"
         fi
-    elif [[ ${configured_safe_guard:-null} != [nN][uU][lL][lL] ]] ; then
+    elif [[ ${configured_safe_guard:-null} = [nN][uU][lL][lL] ]] ; then
         die 'Safe '"$safe_address"' has an installed Guard, but governance.timelock is missing for chain '"$chain_name"
     elif [[ $installed_safe_guard != "$configured_safe_guard" ]] ; then
         die 'Safe '"$safe_address"' has unexpected Guard '"$installed_safe_guard" \

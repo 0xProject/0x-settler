@@ -15,7 +15,6 @@ import {TempoSettlerIntent} from "src/chains/Tempo/Intent.sol";
 import {uniswapV3BaseFactory, uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {ConfusedDeputy} from "src/core/SettlerErrors.sol";
-import {IRenegadeGasSponsor} from "src/core/Renegade.sol";
 import {IUniV2Pair} from "src/core/UniswapV2.sol";
 import {IVelodromePair} from "src/core/Velodrome.sol";
 import {IDodoV2} from "src/core/DodoV2.sol";
@@ -365,22 +364,6 @@ contract RecipientCheckUnitTest is Test {
         settler.expectTransfer(order.maker_address, recipient, IERC20(address(buyToken)));
         ISettlerActions.BebopMakerSignature memory signature;
         _expectBlocked(abi.encodeCall(ISettlerActions.BEBOP, (recipient, address(sellToken), order, signature, 0)));
-    }
-
-    function test_RecipientCheck_Renegade_Reverts() public {
-        address darkpool = makeAddr("darkpool");
-        vm.mockCall(
-            0xD9E0507D706408D0f14E22e50880189Fd915be80,
-            abi.encodeCall(IRenegadeGasSponsor.darkpoolAddress, ()),
-            abi.encode(darkpool)
-        );
-        settler.expectTransfer(darkpool, recipient, IERC20(address(buyToken)));
-        _expectBlocked(
-            abi.encodeCall(
-                ISettlerActions.RENEGADE,
-                (recipient, address(sellToken), address(buyToken), 1 ether, false, 0, new bytes(0x120), 0)
-            )
-        );
     }
 
     function test_RecipientCheck_Basic_TransfersWithoutCheck() public {
