@@ -96,7 +96,8 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             hashMul,
             hashMod,
             fills,
-            amountOutMin
+            amountOutMin,
+            0
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(_uniV4ForkInfo(forkId)), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
@@ -131,7 +132,8 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
             permit,
             sig,
             _isForwarded(),
-            amountOutMin
+            amountOutMin,
+            0
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(_uniV4ForkInfo(forkId)), data, uint32(IUnlockCallback.unlockCallback.selector), _uniV4Callback
