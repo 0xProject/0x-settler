@@ -421,22 +421,6 @@ library Encoder {
         }
     }
 
-    function encode(
-        uint256 unlockSelector,
-        address recipient,
-        IERC20 sellToken,
-        uint256 ppm,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) internal view returns (bytes memory data) {
-        return encode(
-            unlockSelector, recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin, 0
-        );
-    }
-
     /// `extraDataSize` uninitialized bytes are reserved between the header and the fills for the
     /// caller to fill in; `extraDataVIP` locates them.
     function encodeVIP(
@@ -497,23 +481,6 @@ library Encoder {
 
             mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
         }
-    }
-
-    function encodeVIP(
-        uint256 unlockSelector,
-        address recipient,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        bool isForwarded,
-        uint256 amountOutMin
-    ) internal pure returns (bytes memory data) {
-        return encodeVIP(
-            unlockSelector, recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, isForwarded, amountOutMin, 0
-        );
     }
 
     function extraData(bytes memory data) internal pure returns (uint256 ptr) {
