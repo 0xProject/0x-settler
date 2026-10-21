@@ -325,7 +325,9 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        _mockExpectCall(
+            TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount + 1)
+        );
         bool zeroForOne = TOKEN0 < TOKEN1;
 
         deployCodeTo(
@@ -358,7 +360,9 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
-        _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        _mockExpectCall(
+            TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount + 1)
+        );
         bool zeroForOne = TOKEN0 < TOKEN1;
 
         deployCodeTo(

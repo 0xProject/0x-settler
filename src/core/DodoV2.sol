@@ -66,7 +66,7 @@ abstract contract DodoV2 is SettlerSwapAbstract {
         if (ppm != 0) {
             uint256 sellAmount;
             unchecked {
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(Constants.BASIS);
             }
             _checkRecipient(address(this), address(dodo), sellToken);
             sellToken.safeTransfer(address(dodo), sellAmount);

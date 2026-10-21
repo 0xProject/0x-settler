@@ -106,7 +106,7 @@ abstract contract Deepstate is SettlerSwapAbstract {
             if (sendNative) {
                 sellAmount = (address(this).balance * ppm).unsafeDiv(BASIS);
             } else {
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(BASIS);
                 sellToken.safeApproveIfBelow(address(ROBINHOOD_DEEPSTATE), sellAmount);
             }
         }

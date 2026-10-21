@@ -875,8 +875,8 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
         assertLt(sellTokenBalanceAfter, sellTokenBalanceBefore, "sell token balance did not decrease");
         assertGt(buyTokenBalanceAfter, buyTokenBalanceBefore, "buy token balance did not increase");
-        assertEq(_balanceOf(sellToken, _stub), 0, "sell token dust leftover");
-        assertEq(_balanceOf(buyToken, _stub), 0, "buy token dust leftover");
+        assertLe(_balanceOf(sellToken, _stub), 1, "sell token dust beyond the kept wei");
+        assertLe(_balanceOf(buyToken, _stub), 1, "buy token dust beyond the kept wei");
 
         return (sellTokenBalanceAfter, buyTokenBalanceAfter);
     }
@@ -990,6 +990,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
 
     function testSwapSingle() public {
         swapSingle(1, TOTAL_SUPPLY / 1_000, false, true, new bytes(0));
+        assertEq(IERC20(Currency.unwrap(pools[1].currency0)).balanceOf(address(stub)), 1);
     }
 
     function test_RecipientCheck_UniswapV4_Reverts() public {

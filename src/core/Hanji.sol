@@ -131,7 +131,7 @@ abstract contract Hanji is SettlerSwapAbstract {
             if (sendNative) {
                 sellAmount = address(this).balance * ppm / Constants.BASIS;
             } else {
-                sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
+                sellAmount = sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm / Constants.BASIS;
                 sellToken.safeApproveIfBelow(pool, sellAmount);
             }
         }

@@ -42,6 +42,7 @@ contract WethWrapTest is BasePairTest {
         vm.chainId(1);
 
         vm.label(address(_settler), "Settler");
+        deal(address(_weth), address(_settler), 1); // kept wei
     }
 
     function testWethDeposit() public {
@@ -65,7 +66,7 @@ contract WethWrapTest is BasePairTest {
     }
 
     function testWethWithdraw() public {
-        deal(address(_weth), address(_settler), amount());
+        deal(address(_weth), address(_settler), amount() + 1);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,

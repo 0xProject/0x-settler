@@ -34,6 +34,12 @@ library UnsafeMath {
         }
     }
 
+    function saturatingDec(uint256 x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(x, lt(0x00, x))
+        }
+    }
+
     function unsafeDec(int256 x) internal pure returns (int256) {
         unchecked {
             return x - 1;

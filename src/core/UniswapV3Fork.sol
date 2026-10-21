@@ -125,7 +125,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             encodedPath,
             // We don't care about phantom overflow here because reserves are limited to 128
             // bits. Any token balance that would overflow here would also break UniV3.
-            (inputToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS),
+            (inputToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(Constants.BASIS),
             minBuyAmount,
             swapCallbackData
         );
