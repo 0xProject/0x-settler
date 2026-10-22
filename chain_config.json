@@ -1007,7 +1007,7 @@
     "deployment": {
       "deployer": null,
       "allowanceHolder": null,
-      "forwardingMultiCall": null,
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": null
     }
   }
