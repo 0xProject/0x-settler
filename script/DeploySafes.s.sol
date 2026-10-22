@@ -110,6 +110,7 @@ contract DeploySafes is Script {
     bytes32 internal constant multicallV141HashEraVm =
         0x44c70b30fed5c3a07358a52c2fb028f651031010ef99e4d8c3b45c208e88a264;
     bytes32 internal constant migrationHash = 0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99;
+    bytes32 internal constant migrationAltHash = 0x955a1c102e58ef9480e814fa33f5c10b10e12bd68645ce97b142395af7c2ccfd;
     bytes32 internal constant migrationHashEraVm = 0x6815c12fbdeb438fb0fb1e1484ac190ca2fc98065b93f95db846596c3c0eee70;
     // keccak256("fallback_manager.handler.address")
     bytes32 internal constant fallbackHandlerSlot = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
@@ -447,7 +448,9 @@ contract DeploySafes is Script {
             "Safe v1.4.1 multicall codehash"
         );
         require(
-            safeMigration.codehash == (safeCompatConfig.isEraVm ? migrationHashEraVm : migrationHash),
+            safeCompatConfig.isEraVm
+                ? safeMigration.codehash == migrationHashEraVm
+                : (safeMigration.codehash == migrationHash || safeMigration.codehash == migrationAltHash),
             "Safe migration codehash"
         );
 

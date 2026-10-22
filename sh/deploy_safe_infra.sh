@@ -2,7 +2,7 @@
 
 echo 'Duncan wrote this script for his own use' >&2
 echo 'read the whole thing and make appropriate modifications before using it' >&2
-echo 'this has only been tested on Arbitrum Sepolia' >&2
+echo 'this has only been tested on Arbitrum Sepolia and Elysium' >&2
 exit 1
 
 ## POSIX Bash implementation of realpath
