@@ -149,32 +149,59 @@ declare -r multicall_v141_hash='0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c1
 declare -r migration_hash='0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99'
 
 declare singleton
-singleton="$(get_config_strict 'safe["v1.3.0"].singleton')"
+singleton="$(get_config 'safe["v1.3.0"].singleton')"
+if [[ $singleton = [nN][uU][lL][lL] ]] ; then
+    singleton="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${singleton_init:66}")"
+fi
 declare -r singleton
 declare factory
-factory="$(get_config_strict 'safe["v1.3.0"].factory')"
+factory="$(get_config 'safe["v1.3.0"].factory')"
+if [[ $factory = [nN][uU][lL][lL] ]] ; then
+    factory="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${factory_init:66}")"
+fi
 declare -r factory
 declare fallback
-fallback="$(get_config_strict 'safe["v1.3.0"].fallback')"
+fallback="$(get_config 'safe["v1.3.0"].fallback')"
+if [[ $fallback = [nN][uU][lL][lL] ]] ; then
+    fallback="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${fallback_init:66}")"
+fi
 declare -r fallback
 declare multicall
-multicall="$(get_config_strict 'safe["v1.3.0"].multiCall')"
+multicall="$(get_config 'safe["v1.3.0"].multiCall')"
+if [[ $multicall = [nN][uU][lL][lL] ]] ; then
+    multicall="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${multicall_init:66}")"
+fi
 declare -r multicall
 
 declare singleton_v141
-singleton_v141="$(get_config_strict 'safe["v1.4.1"].singleton')"
+singleton_v141="$(get_config 'safe["v1.4.1"].singleton')"
+if [[ $singleton_v141 = [nN][uU][lL][lL] ]] ; then
+    singleton_v141="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${singleton_v141_init:66}")"
+fi
 declare -r singleton_v141
 declare factory_v141
-factory_v141="$(get_config_strict 'safe["v1.4.1"].factory')"
+factory_v141="$(get_config 'safe["v1.4.1"].factory')"
+if [[ $factory_v141 = [nN][uU][lL][lL] ]] ; then
+    factory_v141="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${factory_v141_init:66}")"
+fi
 declare -r factory_v141
 declare fallback_v141
-fallback_v141="$(get_config_strict 'safe["v1.4.1"].fallback')"
+fallback_v141="$(get_config 'safe["v1.4.1"].fallback')"
+if [[ $fallback_v141 = [nN][uU][lL][lL] ]] ; then
+    fallback_v141="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${fallback_v141_init:66}")"
+fi
 declare -r fallback_v141
 declare multicall_v141
-multicall_v141="$(get_config_strict 'safe["v1.4.1"].multiCall')"
+multicall_v141="$(get_config 'safe["v1.4.1"].multiCall')"
+if [[ $multicall_v141 = [nN][uU][lL][lL] ]] ; then
+    multicall_v141="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${multicall_v141_init:66}")"
+fi
 declare -r multicall_v141
 declare migration
-migration="$(get_config_strict 'safe["v1.3.0"].migration["v1.4.1"]')"
+migration="$(get_config 'safe["v1.3.0"].migration["v1.4.1"]')"
+if [[ $migration = [nN][uU][lL][lL] ]] ; then
+    migration="$(cast create2 --deployer "$deployer" --salt "$(cast hash-zero)" --init-code 0x"${migration_init:66}")"
+fi
 declare -r migration
 
 if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$deployer")") != "$deployer_hash" ]] ; then
@@ -228,31 +255,45 @@ fi
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     if [[ ${deploy_singleton-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$singleton_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$singleton_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$singleton")") != "$singleton_hash" ]] ; then
+            die 'ERROR: failed to deploy singleton '"$singleton" >&2
+        fi
+        echo 'Singleton: '"$singleton" >&2
     fi
+
     if [[ ${deploy_factory-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$factory_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$factory_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$factory")") != "$factory_hash" ]] ; then
+            die 'ERROR: failed to deploy factory '"$factory" >&2
+        fi
+        echo 'Factory: '"$factory" >&2
     fi
+
     if [[ ${deploy_fallback-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$fallback_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$fallback_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$fallback")") != "$fallback_hash" ]] ; then
+            die 'ERROR: failed to deploy fallback '"$fallback" >&2
+        fi
+        echo 'Fallback: '"$fallback" >&2
     fi
     if [[ ${deploy_multicall-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$multicall_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$multicall_init"
     fi
     if [[ ${deploy_singleton_v141-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$singleton_v141_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$singleton_v141_init"
     fi
     if [[ ${deploy_factory_v141-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$factory_v141_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$factory_v141_init"
     fi
     if [[ ${deploy_fallback_v141-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$fallback_v141_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$fallback_v141_init"
     fi
     if [[ ${deploy_multicall_v141-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$multicall_v141_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$multicall_v141_init"
     fi
     if [[ ${deploy_migration-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$migration_init"
+        cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$migration_init"
     fi
 fi
 
