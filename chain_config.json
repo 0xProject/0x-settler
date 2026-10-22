@@ -966,9 +966,9 @@
     "chainId": 99901,
     "displayName": "Elysium",
     "hardfork": {
-      "shanghai": null,
-      "cancun": null,
-      "osaka": null,
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
       "amsterdam": false,
       "eraVm": false
     },

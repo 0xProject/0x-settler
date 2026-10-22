@@ -125,8 +125,8 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
-  Arbitrum, Bnb, World Chain, Ink, Avalanche, Unichain, HyperEvm, Plasma, Monad
-  mainnet, Abstract, Linea, Tempo, RobinHood, Arc)
+  Arbitrum, Bnb, World Chain, Ink, Avalanche, Unichain, HyperEvm, Plasma, Monad,
+  Abstract, Linea, Tempo, RobinHood, Arc, Elysium)
 
 ### ERC2771 forwarding MultiCall address
 
