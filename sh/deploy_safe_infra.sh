@@ -277,23 +277,55 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
         fi
         echo 'Fallback: '"$fallback" >&2
     fi
+
     if [[ ${deploy_multicall-no} = [Yy]es ]] ; then
         cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$multicall_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$multicall")") != "$multicall_hash" ]] ; then
+            die 'ERROR: failed to deploy multicall '"$multicall" >&2
+        fi
+        echo 'Multicall: '"$multicall" >&2
     fi
+
+
     if [[ ${deploy_singleton_v141-no} = [Yy]es ]] ; then
         cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$singleton_v141_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$singleton_v141")") != "$singleton_v141_hash" ]] ; then
+            die 'ERROR: failed to deploy singleton_v141 '"$singleton_v141" >&2
+        fi
+        echo 'Singleton_V141: '"$singleton_v141" >&2
     fi
+
     if [[ ${deploy_factory_v141-no} = [Yy]es ]] ; then
         cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$factory_v141_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$factory_v141")") != "$factory_v141_hash" ]] ; then
+            die 'ERROR: failed to deploy factory_v141 '"$factory_v141" >&2
+        fi
+        echo 'Factory_V141: '"$factory_v141" >&2
     fi
+
     if [[ ${deploy_fallback_v141-no} = [Yy]es ]] ; then
         cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$fallback_v141_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$fallback_v141")") != "$fallback_v141_hash" ]] ; then
+            die 'ERROR: failed to deploy fallback_v141 '"$fallback_v141" >&2
+        fi
+        echo 'Fallback_V141: '"$fallback_v141" >&2
     fi
+
     if [[ ${deploy_multicall_v141-no} = [Yy]es ]] ; then
         cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$multicall_v141_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$multicall_v141")") != "$multicall_v141_hash" ]] ; then
+            die 'ERROR: failed to deploy multicall_v141 '"$multicall_v141" >&2
+        fi
+        echo 'Multicall_V141: '"$multicall_v141" >&2
+
     fi
+
     if [[ ${deploy_migration-no} = [Yy]es ]] ; then
         cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --gas-limit 16777215 --gas-price 0.1gwei --priority-gas-price 0.0001gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$deployer" "$migration_init"
+        if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$migration")") != "$migration_hash" ]] ; then
+            die 'ERROR: failed to deploy migration '"$migration" >&2
+        fi
+        echo 'Migration: '"$migration" >&2
     fi
 fi
 
