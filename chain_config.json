@@ -983,17 +983,17 @@
         "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
         "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
         "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
-        "multiCall": null,
+        "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
         "migration": {
           "v1.4.1": null
         }
       },
       "v1.4.1": {
         "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-        "singleton": null,
-        "factory": null,
-        "fallback": null,
-        "multiCall": null
+        "singleton": "0x76667330c237Fb40f28d74563cdAAae4b06C23Ec",
+        "factory": "0xd9d2Ba03a7754250FDD71333F444636471CACBC4",
+        "fallback": "0xcB4a8d3609A7CCa2D9c063a742f75c899BF2f7b5",
+        "multiCall": "0x32228dDEA8b9A2bd7f2d71A958fF241D79ca5eEC"
       },
       "apiUrl": "NOT SUPPORTED"
     },
