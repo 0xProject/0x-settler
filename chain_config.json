@@ -972,7 +972,7 @@
       "amsterdam": false,
       "eraVm": false
     },
-    "extraFlags": "",
+    "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate --skip-simulation",
     "gasMultiplierPercent": 1000,
     "minGasPriceGwei": 1,
@@ -998,14 +998,14 @@
       "apiUrl": "NOT SUPPORTED"
     },
     "governance": {
-      "upgradeSafe": null,
-      "deploymentSafe": null,
-      "pause": null,
-      "daoSafe": null,
-      "timelock": null
+      "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
+      "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x4445FC2db698042Af660c8eF762ADF4182ef4c42",
+      "timelock": "0xd0aC73911842C24f4F4472475299cda8f269a6e6"
     },
     "deployment": {
-      "deployer": null,
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": null
