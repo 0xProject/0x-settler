@@ -149,7 +149,7 @@ declare -r factory_v141_hash='0x50c3cdc4074750a7a974204a716c999edd37482f907608d9
 declare -r fallback_v141_hash='0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9'
 declare -r multicall_v141_hash='0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939'
 declare -r migration_hash='0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99'
-declare -r migration_hash_alt='TODO'
+declare -r migration_hash_alt='0x955a1c102e58ef9480e814fa33f5c10b10e12bd68645ce97b142395af7c2ccfd'
 
 declare singleton
 singleton="$(get_config 'safe["v1.3.0"].singleton')"

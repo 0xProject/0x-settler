@@ -985,7 +985,7 @@
         "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
         "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
         "migration": {
-          "v1.4.1": null
+          "v1.4.1": "0x2E16757bA45834aE4f106d24A525a6002166E1F9"
         }
       },
       "v1.4.1": {
