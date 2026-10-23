@@ -141,8 +141,13 @@ abstract contract Select is SettlerSwapAbstract {
             bool isLast = i == n;
             uint256 beforeGas;
 
-            if (_setOperatorAndTryCall(address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected, (!isLast).ternary(gasCap, beforeGas = gasleft())))
-            {
+            if (_setOperatorAndTryCall(
+                    address(this),
+                    callData,
+                    _EXECUTE_SELECTED_SELECTOR,
+                    _executeSelected,
+                    (!isLast).ternary(gasCap, beforeGas = gasleft())
+                )) {
                 break;
             }
 
