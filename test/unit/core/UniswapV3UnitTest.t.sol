@@ -213,11 +213,11 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
     }
 
     function _setOperatorAndTryCall(
-        uint256,
         address,
         bytes memory,
         uint32,
-        function(bytes calldata) internal returns (bytes memory)
+        function(bytes calldata) internal returns (bytes memory),
+        uint256
     ) internal pure override returns (bool) {
         revert("unimplemented");
     }
