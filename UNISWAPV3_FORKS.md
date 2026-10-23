@@ -68,4 +68,4 @@
    <!-- -->
    48. AchSwap V3
    <!-- -->
-   49. Nami
+   49. Nami (Algebra-like)
