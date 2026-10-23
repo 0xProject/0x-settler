@@ -16,6 +16,7 @@
   (`0x2222222222222222222222222222222222222222` or
   `0x2000000000000000000000000000000000000000` plus a token index) as
   recipient unless the payer funds the transfer (except in `BASIC`)
+* Deploy Settler to Elysium chain, the HyperEVM L2
 
 ## 2026-10-09
 
