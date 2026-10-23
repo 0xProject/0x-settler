@@ -139,7 +139,7 @@ library FastDodoV1 {
     }
 }
 
-library DodoSqrt {
+library Math {
     using UnsafeMath for uint256;
 
     function sqrt(uint256 x) internal pure returns (uint256 y) {
@@ -156,7 +156,7 @@ library DodoSqrt {
 
 library DecimalMath {
     using UnsafeMath for uint256;
-    using DodoSqrt for uint256;
+    using Math for uint256;
 
     uint256 constant ONE = 10 ** 18;
 
@@ -187,7 +187,7 @@ library DecimalMath {
 
 library DodoMath {
     using UnsafeMath for uint256;
-    using DodoSqrt for uint256;
+    using Math for uint256;
 
     /*
         Integrate dodo curve fron V1 to V2
@@ -291,7 +291,7 @@ library DodoMath {
 }
 
 abstract contract DodoSellHelper {
-    using DodoSqrt for uint256;
+    using Math for uint256;
     using FastDodoV1 for IDodoV1;
     using Ternary for bool;
 
