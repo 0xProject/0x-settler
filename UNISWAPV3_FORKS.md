@@ -68,4 +68,6 @@
    <!-- -->
    48. AchSwap V3
    <!-- -->
-   49. Aero CL
+   49. Nami (Algebra-like)
+   <!-- -->
+   50. Aero CL

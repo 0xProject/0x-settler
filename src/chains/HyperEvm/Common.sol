@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {BlockHyperEvmSystemContracts} from "./BlockHyperEvmSystemContracts.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Bebop} from "../../core/Bebop.sol";
@@ -23,10 +24,10 @@ import {
 import {prjxV3Factory, prjxV3InitHash, prjxV3ForkId} from "../../core/univ3forks/PrjxV3.sol";
 
 // Solidity inheritance is stupid
-import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
+import {SettlerAbstract, SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract HyperEvmMixin is FreeMemory, SettlerBase, Bebop {
+abstract contract HyperEvmMixin is FreeMemory, SettlerBase, BlockHyperEvmSystemContracts, Bebop {
     constructor() {
         assert(block.chainid == 999 || block.chainid == 31337);
     }
@@ -86,11 +87,30 @@ abstract contract HyperEvmMixin is FreeMemory, SettlerBase, Bebop {
     }
 
     // I hate Solidity inheritance
+    function _hasRecipientCheck()
+        internal
+        pure
+        virtual
+        override(SettlerAbstract, SettlerBase, BlockHyperEvmSystemContracts)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        virtual
+        override(SettlerAbstract, SettlerBase, BlockHyperEvmSystemContracts)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view
         virtual
-        override(Bebop, Permit2PaymentAbstract)
+        override(Bebop, BlockHyperEvmSystemContracts, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

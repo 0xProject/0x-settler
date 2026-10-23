@@ -3,14 +3,28 @@
 ### Breaking changes
 
 * Remove `RENEGADE` action from Arbitrum and Base
+* Remove Scroll, Sonic, Berachain, and Mantle chains
 
 ### Non-breaking changes
 
 * Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
-  RobinHood, and Arc with fork ID 49
+  RobinHood, and Arc with fork ID 50
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add HyperEVM CoreWriter `0x3333333333333333333333333333333333333333` to the
+  list of restricted targets
+* On HyperEVM, revert if a payout names a HyperCore system address
+  (`0x2222222222222222222222222222222222222222` or
+  `0x2000000000000000000000000000000000000000` plus a token index) as
+  recipient unless the payer funds the transfer (except in `BASIC`)
+* Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
+
+## 2026-10-22
+
+### Non-breaking changes
+
+* Deploy Settler to Elysium chain, the HyperEVM L2
 
 ## 2026-10-09
 

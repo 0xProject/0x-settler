@@ -32,6 +32,15 @@ contract TempoSettlerIntent is SettlerIntent, TempoSettlerMetaTxn {
         return super._hasRecipientCheck();
     }
 
+    function _recipientCheckNeedsToken()
+        internal
+        pure
+        override(SettlerAbstract, SettlerBase, TempoSettlerMetaTxn)
+        returns (bool)
+    {
+        return super._recipientCheckNeedsToken();
+    }
+
     function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view

@@ -38,7 +38,9 @@ import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3fo
 import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
 import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
 import {alandaleFactory, alandaleInitHash, alandaleForkId} from "../../core/univ3forks/Alandale.sol";
+import {namiRobinhoodFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
+
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {orvexVault, orvexClManager} from "../../core/pancakeInfinityForks/OrvexCL.sol";
@@ -178,6 +180,10 @@ abstract contract RobinHoodMixin is
         } else if (forkId == alandaleForkId) {
             factory = alandaleFactory;
             initHash = alandaleInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiRobinhoodFactory;
+            initHash = namiInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else if (forkId == aeroForkId) {
             factory = aeroRobinHoodFactory;

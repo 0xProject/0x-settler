@@ -89,6 +89,10 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual override {}
 
     function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
