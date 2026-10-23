@@ -401,7 +401,7 @@ contract RecipientCheckUnitTest is Test {
         bytes[] memory actions = new bytes[](1);
         actions[0] = action;
         assertTrue(defaultSettler.execute(_noSlippage(), actions, bytes32(0)));
-        assertEq(sellToken.balanceOf(address(defaultSettler)), 0);
+        assertEq(sellToken.balanceOf(address(defaultSettler)), 1);
     }
 
     function _noSlippage() private pure returns (ISettlerBase.AllowedSlippage memory) {

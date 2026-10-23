@@ -2,6 +2,7 @@
 pragma solidity >=0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {Math} from "../utils/UnsafeMath.sol";
 
 /// @notice Safe ETH and ERC20 transfer library that gracefully handles missing return values.
 /// @author Modified from Solady (https://github.com/vectorized/solady/blob/main/src/utils/SafeTransferLib.sol)
@@ -45,6 +46,11 @@ library SafeTransferLib {
 
             r := mload(0x00)
         }
+    }
+
+    // Retain one wei to avoid clearing the ERC20 balance slot.
+    function fastSpendableBalance(IERC20 token) internal view returns (uint256) {
+        return Math.saturatingDec(fastBalanceOf(token, address(this)));
     }
 
     function safeTransferFrom(IERC20 token, address from, address to, uint256 amount) internal {

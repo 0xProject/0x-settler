@@ -683,9 +683,7 @@ library Decoder {
 
                 unchecked {
                     NotePtr globalSell = state.globalSell();
-                    globalSell.setAmount(
-                        (globalSell.token().fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS)
-                    );
+                    globalSell.setAmount((globalSell.token().fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS));
                 }
             } else {
                 assert(payer == address(0));

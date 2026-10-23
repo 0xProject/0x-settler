@@ -65,6 +65,8 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         buy.mint(address(p0), 1_000 ether);
         buy.mint(address(p1), 1_000 ether);
         buy.mint(address(p2), 1_000 ether);
+        buy.mint(address(settler), 1); // kept wei
+        sell.mint(address(settler), 1);
     }
 
     function _rfqCandidate(uint256 makerAmount, uint256 nonce) internal view returns (bytes[] memory c) {
@@ -330,6 +332,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
         uint256 amount = 1 ether;
         uint256 nonce = 44;
         sell.mint(metaTaker, amount);
+        sell.mint(address(metaTxn), 1); // kept wei
         vm.prank(metaTaker);
         sell.approve(address(permit2), type(uint256).max);
 
@@ -364,7 +367,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
         assertTrue(metaTxn.executeMetaTxn(slippage, actions, bytes32(0), metaTaker, sig));
         assertEq(sell.balanceOf(metaTaker), amount, "signed funds returned after SELECT");
-        assertEq(sell.balanceOf(address(metaTxn)), 0, "SELECT left no custody");
+        assertEq(sell.balanceOf(address(metaTxn)), 1, "SELECT left only the kept wei");
         assertTrue(_nonceUsed(metaTaker, nonce), "signed Permit2 nonce consumed");
     }
 
@@ -468,6 +471,7 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         p1 = new Pool(IERC20(address(buy)));
         buy.mint(address(p0), 1_000 ether);
         buy.mint(address(p1), 1_000 ether);
+        buy.mint(address(settler), 1); // kept wei
     }
 
     function _candidate(address p) internal pure returns (bytes[] memory c) {
@@ -872,6 +876,7 @@ contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
         p0 = new Pool(IERC20(address(buy)));
         buy.mint(address(p0), 1_000 ether);
         p0.set(7 ether, false);
+        buy.mint(address(settler), 1); // kept wei
     }
 
     /// @dev One candidate, one authored action, with its inner action offset overwritten.
@@ -920,7 +925,7 @@ contract SelectContainmentTest is Permit2Signature, DeployPermit2 {
         } catch {
             assertEq(buy.balanceOf(recipient), 0, "a failed trial paid nothing");
         }
-        assertEq(buy.balanceOf(address(settler)), 0, "no residue either way");
+        assertEq(buy.balanceOf(address(settler)), 1, "only the kept wei either way");
     }
 }
 

@@ -108,7 +108,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        uint256 amountOut = Constants.compatSelfBalance(buyToken);
+        uint256 amountOut = Constants.isNative(buyToken) ? address(this).balance : buyToken.fastSpendableBalance();
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }

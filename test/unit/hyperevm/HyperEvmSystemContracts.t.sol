@@ -187,7 +187,8 @@ contract HyperEvmSystemContractsUnitTest is Permit2Signature, DeployPermit2 {
         settler.execute(
             ISettlerBase.AllowedSlippage(recipient, IERC20(address(buyToken)), 1), new bytes[](0), bytes32(0)
         );
-        assertEq(buyToken.balanceOf(recipient), 1 ether);
+        assertEq(buyToken.balanceOf(recipient), 1 ether - 1);
+        assertEq(buyToken.balanceOf(address(settler)), 1);
     }
 
     function test_SystemContracts_PositiveSlippage_SystemAddress_Reverts() public {

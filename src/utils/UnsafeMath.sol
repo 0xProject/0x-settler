@@ -148,6 +148,12 @@ library Math {
         }
     }
 
+    function saturatingDec(uint256 x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := sub(x, lt(0x00, x))
+        }
+    }
+
     function absDiff(uint256 x, uint256 y) internal pure returns (uint256 r, bool sign) {
         assembly ("memory-safe") {
             sign := lt(x, y)

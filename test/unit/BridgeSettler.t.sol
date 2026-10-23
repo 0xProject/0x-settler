@@ -149,7 +149,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         vm.expectCall(
             address(token), abi.encodeCall(IERC20.transferFrom, (address(bridgeSettler), address(settler), amount))
         );
-        vm.expectCall(address(token), abi.encodeCall(IERC20.transfer, (address(bridgeSettler), amount)));
+        vm.expectCall(address(token), abi.encodeCall(IERC20.transfer, (address(bridgeSettler), amount - 1)));
         vm.prank(user);
         ALLOWANCE_HOLDER.exec(
             address(bridgeSettler),
@@ -159,7 +159,10 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
             abi.encodeCall(BridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
 
-        assertEq(token.balanceOf(address(bridgeDummy)), amount, "Bridge did not receive the assets");
+        // first use: Settler and BridgeSettler each keep 1 wei
+        assertEq(token.balanceOf(address(bridgeDummy)), amount - 2, "Bridge did not receive the assets");
+        assertEq(token.balanceOf(address(settler)), 1);
+        assertEq(token.balanceOf(address(bridgeSettler)), 1);
     }
 
     function testUserFlowWithNative() public {

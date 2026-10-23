@@ -56,7 +56,7 @@ contract FluxPoolUnitTest is Test {
 
         MockERC20 sellToken_ = new MockERC20("Sell", "SELL", 18);
         MockERC20 buyToken_ = new MockERC20("Buy", "BUY", 18);
-        sellToken_.mint(address(settler), SELL_BALANCE);
+        sellToken_.mint(address(settler), SELL_BALANCE + 1); // + kept wei
         buyToken_.mint(FLUX_SWAP, BUY_AMOUNT);
         sellToken = IERC20(address(sellToken_));
         buyToken = IERC20(address(buyToken_));
@@ -66,7 +66,7 @@ contract FluxPoolUnitTest is Test {
     function testFuzzFluxPoolPaysComputedAmount(uint96 sellBalance, uint24 ppm_) public {
         sellBalance = uint96(bound(sellBalance, 1_000_000, type(uint96).max));
         uint256 ppm = bound(ppm_, 1, 1_000_000);
-        deal(address(sellToken), address(settler), sellBalance);
+        deal(address(sellToken), address(settler), uint256(sellBalance) + 1);
 
         uint256 sellAmount = uint256(sellBalance) * ppm / 1_000_000;
         // Tightly packed: no ABI padding after the 52-byte callback data.
@@ -80,7 +80,7 @@ contract FluxPoolUnitTest is Test {
         _execute(ppm, 0);
 
         assertEq(sellToken.balanceOf(FLUX_VAULT), sellAmount);
-        assertEq(sellToken.balanceOf(address(settler)), sellBalance - sellAmount);
+        assertEq(sellToken.balanceOf(address(settler)), sellBalance - sellAmount + 1);
         assertEq(buyToken.balanceOf(address(settler)), BUY_AMOUNT);
     }
 
@@ -94,7 +94,7 @@ contract FluxPoolUnitTest is Test {
         fluxSwap.configure(-1, buyToken, BUY_AMOUNT);
         _execute(1_000_000, 0);
         assertEq(sellToken.balanceOf(FLUX_VAULT), SELL_BALANCE - 1);
-        assertEq(sellToken.balanceOf(address(settler)), 1);
+        assertEq(sellToken.balanceOf(address(settler)), 2);
     }
 
     function _execute(uint256 ppm, uint256 minBuyAmount) private {
