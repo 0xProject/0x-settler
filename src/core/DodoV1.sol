@@ -6,7 +6,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {Math as UtilsMath, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IDodoV1 {
@@ -139,7 +139,7 @@ library FastDodoV1 {
     }
 }
 
-library Math {
+library DodoSqrt {
     using UnsafeMath for uint256;
 
     function sqrt(uint256 x) internal pure returns (uint256 y) {
@@ -156,7 +156,7 @@ library Math {
 
 library DecimalMath {
     using UnsafeMath for uint256;
-    using Math for uint256;
+    using DodoSqrt for uint256;
 
     uint256 constant ONE = 10 ** 18;
 
@@ -187,7 +187,7 @@ library DecimalMath {
 
 library DodoMath {
     using UnsafeMath for uint256;
-    using Math for uint256;
+    using DodoSqrt for uint256;
 
     /*
         Integrate dodo curve fron V1 to V2
@@ -291,7 +291,7 @@ library DodoMath {
 }
 
 abstract contract DodoSellHelper {
-    using Math for uint256;
+    using DodoSqrt for uint256;
     using FastDodoV1 for IDodoV1;
     using Ternary for bool;
 
@@ -347,7 +347,7 @@ abstract contract DodoSellHelper {
 }
 
 abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
-    using UtilsMath for uint256;
+    using Math for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastDodoV1 for IDodoV1;
