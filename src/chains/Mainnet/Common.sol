@@ -25,6 +25,7 @@ import {Ternary} from "../../utils/Ternary.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroMainnetFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 import "../../core/Constants.sol" as Constants;
 
 import {
@@ -227,6 +228,10 @@ abstract contract MainnetMixin is
             factory = namiMainnetFactory;
             initHash = namiInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroMainnetFactory;
+            initHash = aeroInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

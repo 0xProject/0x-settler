@@ -16,6 +16,7 @@ import {FluxPool} from "../../core/FluxPool.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
+import {aeroRobinHoodFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3RobinhoodFactory,
@@ -184,6 +185,10 @@ abstract contract RobinHoodMixin is
             factory = namiRobinhoodFactory;
             initHash = namiInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroRobinHoodFactory;
+            initHash = aeroInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
