@@ -41,6 +41,8 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {rubiconCLMMFactory, rubiconCLMMInitHash, rubiconCLMMForkId} from "../../core/univ3forks/RubiconCLMM.sol";
+import {namiMainnetFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -221,6 +223,10 @@ abstract contract MainnetMixin is
             factory = rubiconCLMMFactory;
             initHash = rubiconCLMMInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiMainnetFactory;
+            initHash = namiInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

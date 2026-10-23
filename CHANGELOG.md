@@ -17,6 +17,7 @@
   `0x2000000000000000000000000000000000000000` plus a token index) as
   recipient unless the payer funds the transfer (except in `BASIC`)
 * Deploy Settler to Elysium chain, the HyperEVM L2
+* Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
 
 ## 2026-10-09
 
