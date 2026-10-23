@@ -25,6 +25,7 @@ import {Ternary} from "../../utils/Ternary.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroMainnetFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 import "../../core/Constants.sol" as Constants;
 
 import {
@@ -41,6 +42,8 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {rubiconCLMMFactory, rubiconCLMMInitHash, rubiconCLMMForkId} from "../../core/univ3forks/RubiconCLMM.sol";
+import {namiMainnetFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -220,6 +223,14 @@ abstract contract MainnetMixin is
         } else if (forkId == rubiconCLMMForkId) {
             factory = rubiconCLMMFactory;
             initHash = rubiconCLMMInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiMainnetFactory;
+            initHash = namiInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroMainnetFactory;
+            initHash = aeroInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);

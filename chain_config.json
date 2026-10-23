@@ -961,5 +961,54 @@
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=5042",
     "sourcifyApi": "https://sourcify.dev/server/"
+  },
+  "elysium": {
+    "chainId": 99901,
+    "displayName": "Elysium",
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
+      "amsterdam": false,
+      "eraVm": false
+    },
+    "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate --skip-simulation",
+    "gasMultiplierPercent": 1000,
+    "minGasPriceGwei": 1,
+    "wnative": null,
+    "safe": {
+      "v1.3.0": {
+        "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+        "singleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+        "factory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+        "fallback": "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
+        "multiCall": "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
+        "migration": {
+          "v1.4.1": "0x2E16757bA45834aE4f106d24A525a6002166E1F9"
+        }
+      },
+      "v1.4.1": {
+        "toehold": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+        "singleton": "0x76667330c237Fb40f28d74563cdAAae4b06C23Ec",
+        "factory": "0xd9d2Ba03a7754250FDD71333F444636471CACBC4",
+        "fallback": "0xcB4a8d3609A7CCa2D9c063a742f75c899BF2f7b5",
+        "multiCall": "0x32228dDEA8b9A2bd7f2d71A958fF241D79ca5eEC"
+      },
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
+      "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x4445FC2db698042Af660c8eF762ADF4182ef4c42",
+      "timelock": "0xd0aC73911842C24f4F4472475299cda8f269a6e6"
+    },
+    "deployment": {
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": null
+    }
   }
 }

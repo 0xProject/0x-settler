@@ -29,6 +29,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 99901 // elysium
         ) {
             return false;
         }
@@ -57,6 +58,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 99901 // elysium
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -88,6 +90,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
+                || block.chainid == 99901 // elysium
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;

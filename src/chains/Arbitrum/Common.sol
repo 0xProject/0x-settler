@@ -17,6 +17,7 @@ import {Bebop} from "../../core/Bebop.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroArbitrumFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -172,6 +173,10 @@ abstract contract ArbitrumMixin is
                 factory = dackieSwapV3ArbitrumFactory;
                 initHash = pancakeSwapV3InitHash;
                 callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+            } else if (forkId == aeroForkId) {
+                factory = aeroArbitrumFactory;
+                initHash = aeroInitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
             } else {
                 revertUnknownForkId(forkId);
             }
