@@ -20,8 +20,8 @@ abstract contract Select is SettlerSwapAbstract {
     using Ternary for bool;
     using CalldataDecoder for bytes[];
 
-    // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
-    uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
+    // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256,uint256)")))
+    uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0xa04c36b2;
 
     // An overestimate of the gas consumed between reading `gas()` and the trial `CALL`, including
     // the call's own access cost. This bound is the soundness condition for skipping a failed
@@ -33,8 +33,9 @@ abstract contract Select is SettlerSwapAbstract {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
+        uint256 balBefore;
         // Read the internally constructed callback head without writing memory:
-        //     [0x00 actions offset][0x20 token][0x40 minOut][actions length][offsets/actions]
+        //     [0x00 actions offset][0x20 token][0x40 minOut][0x60 balBefore][actions length][offsets/actions]
         // `select` built the head and copied the complete candidate region once. Reads past the end
         // of the trial calldata return zero. A failing action reverts only this trial.
         assembly ("memory-safe") {
@@ -43,12 +44,12 @@ abstract contract Select is SettlerSwapAbstract {
             actions.offset := add(0x20, actions.offset)
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
+            balBefore := calldataload(add(0x60, data.offset))
         }
         // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
         // assets held by Settler. This is outside `SELECT`'s threat model. Final slippage still
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
-        uint256 balBefore = Constants.compatSelfBalance(token);
         _runActions(actions);
         uint256 score = Constants.compatSelfBalance(token) - balBefore;
         if (score < minOut) {
@@ -63,6 +64,7 @@ abstract contract Select is SettlerSwapAbstract {
 
     function select(bytes calldata data) internal {
         uint256 gasCap;
+        IERC20 token;
         uint256 targetsData;
         uint256 candsData;
         uint256 candsLength;
@@ -77,7 +79,7 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             err := or(or(shr(0x40, gasCap), iszero(gasCap)), err)
-            let token := calldataload(add(0x20, dataStart))
+            token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
 
             let targetsOffset := calldataload(add(0x40, dataStart))
@@ -99,12 +101,19 @@ abstract contract Select is SettlerSwapAbstract {
 
             candsLength := sub(dataEnd, candsData)
             callData := mload(0x40)
-            let dst := add(0x84, callData)
+            let dst := add(0xa4, callData)
             calldatacopy(dst, candsData, candsLength)
             mstore(add(0x44, callData), token)
             mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
-            mstore(callData, add(0x64, candsLength))
+            mstore(callData, add(0x84, candsLength))
             mstore(0x40, add(dst, candsLength))
+        }
+
+        uint256 balBefore = Constants.compatSelfBalance(token);
+        // The shared callback head retains the starting balance across reverted trials.
+        // callData.balBefore = balBefore;
+        assembly ("memory-safe") {
+            mstore(add(0x84, callData), balBefore)
         }
 
         // A trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
@@ -118,11 +127,11 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 i;
         while (true) {
             // Select one candidate in the shared callback buffer by changing only its dynamic
-            // offset and target. The token, selector, length, and copied region remain unchanged.
+            // offset and target. The token, starting balance, selector, length, and copied region remain unchanged.
             assembly ("memory-safe") {
                 let offset := calldataload(add(shl(0x05, i), candsData))
                 if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
-                mstore(add(0x24, callData), add(0x60, offset))
+                mstore(add(0x24, callData), add(0x80, offset))
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
             }
 

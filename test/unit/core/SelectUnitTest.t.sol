@@ -5,6 +5,7 @@ import {Vm} from "@forge-std/Vm.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
+import {WETH} from "@solmate/tokens/WETH.sol";
 import {DeployPermit2} from "lib/permit2/test/utils/DeployPermit2.sol";
 
 import {ISettlerActions} from "src/ISettlerActions.sol";
@@ -30,8 +31,8 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 
     uint256 internal constant MAKER_PRIVATE_KEY = 0x123456;
     uint256 internal constant METATXN_TAKER_PRIVATE_KEY = 0x654321;
-    // The private callback tag: selector for `executeSelected(bytes[],address,uint256)`.
-    bytes4 internal constant SELECT_CALLBACK_TAG = 0x1bbdbb47;
+    // The private callback tag: selector for `executeSelected(bytes[],address,uint256,uint256)`.
+    bytes4 internal constant SELECT_CALLBACK_TAG = 0xa04c36b2;
     bytes32 internal constant META_TXN_PERMIT2_WITNESS_TYPEHASH = keccak256(
         "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
     );
@@ -126,8 +127,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
     }
 
     function _unarmedCallbackCall() internal pure returns (bytes memory) {
-        // An ABI-shaped callback payload: actions offset 0x60, zero token/minOut, empty actions array.
-        return abi.encodeWithSelector(SELECT_CALLBACK_TAG, uint256(0x60), uint256(0), uint256(0), uint256(0));
+        return abi.encodeWithSelector(SELECT_CALLBACK_TAG, new bytes[](0), address(0), uint256(0), uint256(0));
     }
 
     function _selectAction(uint256 gasCap, address token, uint256[] memory targets, bytes[][] memory candidates)
@@ -541,7 +541,10 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         p0.set(9 ether, false);
         p1.set(7 ether, false);
         bytes memory action = _selectAction(
-            TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
+            TEST_GAS_CAP,
+            address(buy),
+            new uint256[](2),
+            _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
         );
         (bool ok,) = _tryExecute(action, txGas, 0);
         assertEq(buy.balanceOf(recipient), ok ? 9 ether : 0);
@@ -566,12 +569,103 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         p0.set(9 ether, false);
         p1.set(7 ether, false);
         bytes memory action = _selectAction(
-            TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
+            TEST_GAS_CAP,
+            address(buy),
+            new uint256[](2),
+            _candidatePair(_candidate(address(p0)), _candidate(address(p1)))
         );
         (bool ok,) = _tryExecute(action, 180_000, 0);
         assertTrue(ok);
         assertEq(buy.balanceOf(recipient), 9 ether);
         assertEq(p1.callCount(), 0);
+    }
+
+    function test_select_multipleCandidates_readsInitialBalanceOnce() public {
+        buy.mint(address(settler), 5 ether);
+        p0.set(2 ether, false);
+        p1.set(7 ether, false);
+        bytes[][] memory candidates = new bytes[][](3);
+        candidates[0] = _candidate(address(p0));
+        candidates[1] = _candidate(address(p0));
+        candidates[2] = _candidate(address(p1));
+        uint256[] memory targets = new uint256[](3);
+        targets[0] = 3 ether;
+        targets[1] = 3 ether;
+        targets[2] = 7 ether;
+
+        // The final payout requires one balance read in addition to SELECT's four reads.
+        vm.expectCall(address(buy), abi.encodeCall(IERC20.balanceOf, (address(settler))), uint64(5));
+        _runAction(_selectAction(TEST_GAS_CAP, address(buy), targets, candidates), 12 ether);
+
+        assertEq(buy.balanceOf(recipient), 12 ether);
+        assertEq(p0.callCount(), 0);
+        assertEq(p1.callCount(), 1);
+    }
+
+    function test_select_balanceDecrease_revertsCandidate() public {
+        buy.mint(address(settler), 5 ether);
+        p1.set(7 ether, false);
+        bytes[] memory decreasing = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (address(0), 0, address(buy), 0, abi.encodeCall(IERC20.transfer, (recipient, 1 ether)))
+            )
+        );
+        bytes[][] memory candidates = _candidatePair(decreasing, _candidate(address(p1)));
+
+        _runAction(_selectAction(TEST_GAS_CAP, address(buy), new uint256[](2), candidates), 12 ether);
+
+        assertEq(buy.balanceOf(recipient), 12 ether);
+        assertEq(p1.callCount(), 1);
+    }
+
+    function test_select_nestedSameToken_usesIndependentInitialBalances() public {
+        buy.mint(address(settler), 11 ether);
+        p0.set(5 ether, false);
+        p1.set(7 ether, false);
+        bytes[][] memory innerCandidates = _candidatePair(new bytes[](0), _candidate(address(p1)));
+        uint256[] memory innerTargets = new uint256[](2);
+        innerTargets[0] = 1;
+        innerTargets[1] = 7 ether;
+        bytes[][] memory outerCandidates = new bytes[][](1);
+        outerCandidates[0] = new bytes[](2);
+        outerCandidates[0][0] = _candidate(address(p0))[0];
+        outerCandidates[0][1] = _selectAction(TEST_GAS_CAP, address(buy), innerTargets, innerCandidates);
+        uint256[] memory outerTargets = new uint256[](1);
+        outerTargets[0] = 12 ether;
+
+        _runAction(_selectAction(TEST_GAS_CAP, address(buy), outerTargets, outerCandidates), 23 ether);
+
+        assertEq(buy.balanceOf(recipient), 23 ether);
+        assertEq(p0.callCount(), 1);
+        assertEq(p1.callCount(), 1);
+    }
+
+    function test_select_nativeBalance_revertsMissAndCommitsFallback() public {
+        WETH weth = new WETH();
+        vm.deal(address(this), 7 ether);
+        weth.deposit{value: 7 ether}();
+        weth.transfer(address(settler), 7 ether);
+        vm.deal(address(settler), 5 ether);
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.BASIC, (address(0), 0, address(weth), 0, abi.encodeCall(WETH.withdraw, (5 ether)))
+            )
+        );
+        candidates[1] = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.BASIC, (address(0), 0, address(weth), 0, abi.encodeCall(WETH.withdraw, (7 ether)))
+            )
+        );
+        uint256[] memory targets = new uint256[](2);
+        targets[0] = 6 ether;
+        targets[1] = 7 ether;
+
+        _runAction(_selectAction(TEST_GAS_CAP, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, targets, candidates), 0);
+
+        assertEq(address(settler).balance, 12 ether);
+        assertEq(weth.balanceOf(address(settler)), 0);
     }
 
     /// @dev If the select overhead constant undercounts, some gas limit starves a trial that needs
@@ -600,9 +694,8 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         first[0] = abi.encodeCall(
             ISettlerActions.BASIC, (address(0), 0, address(probe), 0, abi.encodeCall(GasFloorPool.swap, (floor)))
         );
-        bytes memory action = _selectAction(
-            TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(first, _candidate(address(p1)))
-        );
+        bytes memory action =
+            _selectAction(TEST_GAS_CAP, address(buy), new uint256[](2), _candidatePair(first, _candidate(address(p1))));
         uint256 snapshot = vm.snapshotState();
         (ok,) = _tryExecute(action, txGas, 0);
         probeWon = buy.balanceOf(recipient) == 9 ether;
