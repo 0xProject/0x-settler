@@ -7,8 +7,6 @@
 
 ### Non-breaking changes
 
-* Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
-  RobinHood, and Arc with fork ID 50
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
@@ -19,6 +17,8 @@
   `0x2000000000000000000000000000000000000000` plus a token index) as
   recipient unless the payer funds the transfer (except in `BASIC`)
 * Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
+* Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
+  RobinHood, and Arc with fork ID 50
 
 ## 2026-10-22
 
