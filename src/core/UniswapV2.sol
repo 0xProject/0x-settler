@@ -8,7 +8,7 @@ import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -79,7 +79,7 @@ library FastUniswapV2Pool {
 
 abstract contract UniswapV2 is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using UnsafeMath for uint256;
+    using Math for uint256;
     using FastUniswapV2Pool for address;
 
     /// @dev Sell a token for another token using UniswapV2.

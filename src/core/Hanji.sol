@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
@@ -111,6 +111,7 @@ library FastHanjiPool {
 abstract contract Hanji is SettlerSwapAbstract {
     using FastHanjiPool for IHanjiPool;
     using SafeTransferLib for IERC20;
+    using Math for uint256;
     using UnsafeMath for uint256;
     using FastLogic for bool;
     using Ternary for bool;

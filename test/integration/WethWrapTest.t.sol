@@ -16,6 +16,7 @@ contract WethWrapTest is BasePairTest {
     WETHERC20 private constant _weth = WETHERC20(payable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
     address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     Settler private _settler;
+    Settler private _withdrawSettler;
 
     function amount() internal pure override returns (uint256) {
         return 1 ether;
@@ -39,10 +40,13 @@ contract WethWrapTest is BasePairTest {
         assertEq(block.chainid, 1);
         vm.chainId(31337);
         _settler = new Settler(bytes20(0));
+        _withdrawSettler = new Settler(bytes20(0));
         vm.chainId(1);
 
         vm.label(address(_settler), "Settler");
+        vm.label(address(_withdrawSettler), "WithdrawSettler");
         deal(address(_weth), address(_settler), 1); // kept wei
+        deal(address(_weth), address(_withdrawSettler), amount() + 1);
     }
 
     function testWethDeposit() public {
@@ -66,7 +70,6 @@ contract WethWrapTest is BasePairTest {
     }
 
     function testWethWithdraw() public {
-        deal(address(_weth), address(_settler), amount() + 1);
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,
@@ -75,7 +78,7 @@ contract WethWrapTest is BasePairTest {
         );
 
         uint256 balanceBefore = address(this).balance;
-        Settler settler = _settler;
+        Settler settler = _withdrawSettler;
         vm.startPrank(address(this));
         snapStart("wethWithdraw");
         settler.execute(

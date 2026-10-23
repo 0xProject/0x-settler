@@ -9,10 +9,11 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {tmp} from "../utils/512Math.sol";
 
 abstract contract Basic is SettlerAbstract {
+    using Math for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using Revert for bool;

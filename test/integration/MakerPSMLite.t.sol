@@ -95,8 +95,6 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     function testSettler_makerPsmLite() public skipIf(address(makerPsm()) == address(0)) setMakerPsmLiteBlockNumber {
-        // rolling the fork drops the kept wei
-        deal(address(fromToken()), address(settler), 1);
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
         bytes[] memory actions = ActionDataBuilder.build(
@@ -130,7 +128,6 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
         skipIf(address(makerPsm()) == address(0))
         setMakerPsmLiteBlockNumber
     {
-        deal(address(fromToken()), address(settlerMetaTxn), 1);
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 

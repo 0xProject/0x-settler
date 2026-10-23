@@ -6,7 +6,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math as UtilsMath, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IDodoV1 {
@@ -347,6 +347,7 @@ abstract contract DodoSellHelper {
 }
 
 abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
+    using UtilsMath for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastDodoV1 for IDodoV1;

@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {Panic} from "../utils/Panic.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import "./Constants.sol" as Constants;
 
@@ -475,6 +475,7 @@ library Encoder {
 }
 
 library Decoder {
+    using Math for uint256;
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note;
