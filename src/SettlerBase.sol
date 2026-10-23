@@ -18,7 +18,6 @@ import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 import {Select} from "./core/Select.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
-import {Math} from "./utils/UnsafeMath.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
 
@@ -58,7 +57,6 @@ library CalldataDecoder {
 
 abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome, Select {
     using SafeTransferLib for IERC20;
-    using Math for uint256;
     using SafeTransferLib for address payable;
     using FastLogic for bool;
     using Ternary for bool;
@@ -110,9 +108,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        uint256 amountOut = Constants.isNative(buyToken)
-            ? address(this).balance
-            : buyToken.fastBalanceOf(address(this)).saturatingDec();
+        uint256 amountOut = Constants.isNative(buyToken) ? address(this).balance : buyToken.fastSpendableBalance();
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }

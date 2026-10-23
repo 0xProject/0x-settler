@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {tmp, uint512} from "../utils/512Math.sol";
 import {ETH_ADDRESS, BASIS} from "./Constants.sol";
@@ -73,7 +73,6 @@ library FastDeepstate {
 
 abstract contract Deepstate is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using Math for uint256;
     using UnsafeMath for uint256;
     using Ternary for bool;
     using FastDeepstate for IDeepstateV1;
@@ -107,7 +106,7 @@ abstract contract Deepstate is SettlerSwapAbstract {
             if (sendNative) {
                 sellAmount = (address(this).balance * ppm).unsafeDiv(BASIS);
             } else {
-                sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(BASIS);
+                sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(BASIS);
                 sellToken.safeApproveIfBelow(address(ROBINHOOD_DEEPSTATE), sellAmount);
             }
         }

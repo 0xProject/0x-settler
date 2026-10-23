@@ -9,11 +9,10 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
-import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {tmp} from "../utils/512Math.sol";
 
 abstract contract Basic is SettlerAbstract {
-    using Math for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using Revert for bool;
@@ -50,8 +49,7 @@ abstract contract Basic is SettlerAbstract {
             if (offset != 0) revert InvalidOffset();
         } else {
             // We treat `ppm > Constants.BASIS` as a GIGO error
-            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)).saturatingDec(), ppm)
-                .unsafeDiv(Constants.BASIS);
+            uint256 amount = tmp().omul(sellToken.fastSpendableBalance(), ppm).unsafeDiv(Constants.BASIS);
 
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);

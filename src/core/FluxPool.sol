@@ -5,7 +5,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {Math} from "../utils/UnsafeMath.sol";
 import {revertExcessiveSellAmount} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 
@@ -28,7 +27,6 @@ address constant FLUX_VAULT = 0x0F8E0136f09e8b188d21EdDF17f65522f81f7151;
 
 abstract contract FluxPool is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using Math for uint256;
 
     constructor() {
         assert(block.chainid == 31337 || (_fluxSwap().code.length > 0 && FLUX_VAULT.code.length > 0));
@@ -41,7 +39,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
     {
         uint256 sellAmount;
         unchecked {
-            sellAmount = sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm / Constants.BASIS;
+            sellAmount = sellToken.fastSpendableBalance() * ppm / Constants.BASIS;
         }
 
         // Equivalent to `abi.encodeCall(IFluxSwap.swapWithCallback, (poolId, zeroForOne, sellAmount, minBuyAmount,

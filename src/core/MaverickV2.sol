@@ -7,7 +7,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
-import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {Revert} from "../utils/Revert.sol";
@@ -183,7 +183,6 @@ interface IMaverickV2SwapCallback {
 }
 
 abstract contract MaverickV2 is SettlerSwapAbstract {
-    using Math for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastMaverickV2Pool for IMaverickV2Pool;
@@ -229,7 +228,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 // We don't care about phantom overflow here because reserves
                 // are limited to 128 bits. Any token balance that would
                 // overflow here would also break MaverickV2.
-                sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(Constants.BASIS);
+                sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS);
             }
             _checkRecipient(address(this), address(pool), sellToken);
             sellToken.safeTransfer(address(pool), sellAmount);

@@ -8,7 +8,6 @@ import "./Constants.sol" as Constants;
 import {Panic} from "../utils/Panic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {Math} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -79,7 +78,6 @@ library FastUniswapV2Pool {
 
 abstract contract UniswapV2 is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using Math for uint256;
     using FastUniswapV2Pool for address;
 
     /// @dev Sell a token for another token using UniswapV2.
@@ -112,7 +110,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)).saturatingDec() * ppm / Constants.BASIS;
+                sellAmount = IERC20(sellToken).fastSpendableBalance() * ppm / Constants.BASIS;
             }
             _checkRecipient(address(this), pool, IERC20(sellToken));
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);

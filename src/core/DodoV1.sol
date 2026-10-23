@@ -6,7 +6,7 @@ import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 interface IDodoV1 {
@@ -347,7 +347,6 @@ abstract contract DodoSellHelper {
 }
 
 abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
-    using Math for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastDodoV1 for IDodoV1;
@@ -357,7 +356,7 @@ abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
     {
         uint256 sellAmount;
         unchecked {
-            sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(Constants.BASIS);
+            sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS);
         }
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {

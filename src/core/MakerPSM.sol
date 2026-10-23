@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import "./Constants.sol" as Constants;
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
@@ -120,7 +120,6 @@ IPSM constant UsddPSM = IPSM(0xcE355440c00014A229bbEc030A2B8f8EB45a2897);
 address constant UsddGemJoin = 0x217e42CEB2eAE9ECB788fDF0e31c806c531760A3;
 
 abstract contract MakerPSM is SettlerSwapAbstract {
-    using Math for uint256;
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastPSM for IPSM;
@@ -169,7 +168,7 @@ abstract contract MakerPSM is SettlerSwapAbstract {
             // phantom overflow can't happen here because:
             // 1. sellToken has decimals = 18 (sellToken is DAI, USDS, or USDD)
             // 2. PSM prohibits gemToken with decimals > 18 (sellToken is USDC or USDT)
-            sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(Constants.BASIS);
+            sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS);
         }
         if (buyGem) {
             unchecked {

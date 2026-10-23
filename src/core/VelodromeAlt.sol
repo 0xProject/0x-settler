@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
@@ -28,7 +28,6 @@ interface IVelodromePair {
 }
 
 abstract contract Velodrome is SettlerSwapAbstract {
-    using Math for uint256;
     using UnsafeMath for uint256;
     using FastLogic for bool;
     using SafeTransferLib for IERC20;
@@ -214,7 +213,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `ppm` value could overflow. We don't care to protect against
                 // unreasonable `ppm` values because that just means the taker is griefing themself.
-                sellAmount = (sellToken.fastBalanceOf(address(this)).saturatingDec() * ppm).unsafeDiv(Constants.BASIS);
+                sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS);
             }
             if (sellAmount != 0) {
                 _checkRecipient(address(this), address(pair), sellToken);
