@@ -19,6 +19,10 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function getToken(address pool, bool zeroForOne) external view returns (IERC20) {

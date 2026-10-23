@@ -15,7 +15,6 @@ import {
     pancakeInfinityClManager,
     pancakeInfinityBinManager
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
-import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
 import {FluxPool} from "../../core/FluxPool.sol";
@@ -73,7 +72,6 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    Renegade,
     Bebop,
     Hanji,
     FluxPool
@@ -86,10 +84,6 @@ abstract contract BaseMixin is
 
     function _fluxSwap() internal pure override returns (address) {
         return 0x388e0D8f610a80C75e8a049C39DDc5816f56c012;
-    }
-
-    function _renegadeGasSponsorV2() internal pure override returns (address) {
-        return 0xD9E0507D706408D0f14E22e50880189Fd915be80;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -151,28 +145,6 @@ abstract contract BaseMixin is
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, ppm, dodo, quoteForBase, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                IERC20 buyToken,
-                uint256 maxSellAmount,
-                bool refundNativeEth,
-                uint256 maxRefundAmount,
-                bytes memory renegadeData,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, IERC20, uint256, bool, uint256, bytes, uint256));
-
-            sellToRenegade(
-                recipient,
-                sellToken,
-                buyToken,
-                maxSellAmount,
-                refundNativeEth,
-                maxRefundAmount,
-                renegadeData,
-                minBuyAmount
-            );
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,

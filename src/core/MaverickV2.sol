@@ -22,7 +22,7 @@ import "./Constants.sol" as Constants;
 bytes32 constant maverickV2InitHash = 0xbb7b783eb4b8ca46925c5384a6b9919df57cb83da8f76e37291f58d0dd5c439a;
 
 // https://docs.mav.xyz/technical-reference/contract-addresses/v2-contract-addresses
-// For chains: mainnet, base, bnb, arbitrum, scroll, sepolia
+// For chains: mainnet, base, bnb, arbitrum, sepolia
 address constant maverickV2Factory = 0x0A7e848Aca42d879EF06507Fca0E7b33A0a63c1e;
 
 interface IMaverickV2Pool {
@@ -239,7 +239,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
             }
         }
         _checkRecipient(
-            address(pool), recipient, _hasRecipientCheck() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0))
+            address(pool), recipient, _recipientCheckNeedsToken() ? pool.fastTokenAOrB(!tokenAIn) : IERC20(address(0))
         );
         return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount);
     }

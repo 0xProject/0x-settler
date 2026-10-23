@@ -22,6 +22,10 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     address private constant _PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;

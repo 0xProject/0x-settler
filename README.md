@@ -125,11 +125,8 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
-  Arbitrum, Bnb, World Chain, Fantom Sonic, Ink, Avalanche, Unichain, Berachain,
-  Scroll, HyperEvm, Plasma, Monad mainnet, Abstract, Linea, Tempo, RobinHood,
-  Arc)
-* `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Mantle)
+  Arbitrum, Bnb, World Chain, Ink, Avalanche, Unichain, HyperEvm, Plasma, Monad,
+  Abstract, Linea, Tempo, RobinHood, Arc, Elysium)
 
 ### ERC2771 forwarding MultiCall address
 
@@ -1458,6 +1455,12 @@ If `PUSH0` is not supported, then `hardfork.shanghai` should be `false` in
 `chain_config.json`. If any of `TSTORE`/`TLOAD`/`MCOPY` are not supported, then
 `hardfork.cancun` should be `false` in `chain_config.json`. If `CLZ` is not
 supported, then `hardfork.osaka` should be `false` in `chain_config.json`.
+
+`hardfork.amsterdam` is not about opcode support. It should be `true` only on
+chains that meter gas in two dimensions (EIP-8037). On those chains the EIP-7825
+cap of 2^24 applies to execution gas only, so the deployment scripts stop
+capping the transaction gas limit at 2^24 and cap it at the block gas limit
+instead. The compiler configuration is unaffected.
 
 You may be tempted to use a blockchain explorer (e.g. Etherscan or Tenderly) to
 examine the trace of the resulting transaction or to read the logs. You may also

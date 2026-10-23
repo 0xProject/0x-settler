@@ -21,6 +21,12 @@ declare -r -i gas_estimate_multiplier
 # EIP-7825 gas limit cap (2^24)
 declare -r -i eip7825_gas_limit=16777216
 
+# EIP-8037 cap on the transaction `gas` field (2^32 - 1). On Amsterdam chains the EIP-7825 cap
+# bounds execution gas only. State gas (new accounts, new storage slots, deployed code) is paid
+# from the rest of `gas`, so `eth_estimateGas` legitimately returns more than 2^24 for a large
+# deployment and the transaction must carry that larger `gas`.
+declare -r -i eip8037_gas_limit=4294967295
+
 declare -r -i tempo_gas_limit=30000000
 
 declare -i transaction_gas_limit=$eip7825_gas_limit
@@ -33,6 +39,25 @@ if (( chainid == 4217 )) ; then
 elif (( chainid == 5000 )) || [[ $era_vm = [Tt]rue ]] ; then
     transaction_gas_limit=0
     transaction_gas_limit_description=
+    maybe_tx_gas_limit=()
+elif [[ $(get_config hardfork.amsterdam) = [Tt]rue ]] ; then
+    # EIP-8037 also requires `gas` to fit in the block gas limit in both dimensions. Every known
+    # block gas limit is below 2^32 - 1, so the block gas limit is normally the binding cap.
+    declare block_gas_limit
+    block_gas_limit="$(cast block latest -f gasLimit --rpc-url "$rpc_url")"
+    if [[ ! $block_gas_limit =~ ^[1-9][0-9]{0,18}$ ]] ; then
+        die 'Invalid block gas limit'
+    fi
+    declare -r -i block_gas_limit
+    if (( block_gas_limit < eip8037_gas_limit )) ; then
+        transaction_gas_limit=$block_gas_limit
+        transaction_gas_limit_description='block gas limit'
+    else
+        transaction_gas_limit=$eip8037_gas_limit
+        transaction_gas_limit_description='EIP-8037 limit'
+    fi
+    # Foundry 1.5.1's local EVM applies the EIP-7825 cap to the whole `gas` field, which rejects
+    # valid Amsterdam transactions.
     maybe_tx_gas_limit=()
 fi
 declare -r -i transaction_gas_limit
