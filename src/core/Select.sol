@@ -33,25 +33,24 @@ abstract contract Select is SettlerSwapAbstract {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
-        uint256 balBefore;
-        // Read the internally constructed callback head without writing memory:
-        //     [0x00 actions offset][0x20 token][0x40 minOut][0x60 balBefore][actions length][offsets/actions]
-        // `select` built the head and copied the complete candidate region once. Reads past the end
-        // of the trial calldata return zero. A failing action reverts only this trial.
+        uint256 beforeBalance;
+        // Read the callback head without writing memory:
+        //     [0x00 actions offset][0x20 token][0x40 minOut][0x60 beforeBalance][actions length][offsets/actions]
+        // `select` built the head and copied the complete candidate region.
         assembly ("memory-safe") {
             actions.offset := add(data.offset, calldataload(data.offset))
             actions.length := calldataload(actions.offset)
             actions.offset := add(0x20, actions.offset)
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
-            balBefore := calldataload(add(0x60, data.offset))
+            beforeBalance := calldataload(add(0x60, data.offset))
         }
         // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
-        // assets held by Settler. This is outside `SELECT`'s threat model. Final slippage still
+        // assets held by Settler. This is outside `SELECT`'s threat model. The slippage check
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         _runActions(actions);
-        uint256 score = Constants.compatSelfBalance(token) - balBefore;
+        uint256 score = Constants.compatSelfBalance(token) - beforeBalance;
         if (score < minOut) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`
@@ -71,7 +70,7 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 n;
         bytes memory callData;
         // Follow and bound both top-level array offsets. The candidate region is copied once after
-        // the private callback head, preserving every valid relative candidate offset.
+        // the callback head, preserving those calldata offsets.
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
@@ -109,11 +108,12 @@ abstract contract Select is SettlerSwapAbstract {
             mstore(0x40, add(dst, candsLength))
         }
 
-        uint256 balBefore = Constants.compatSelfBalance(token);
-        // The shared callback head retains the starting balance across reverted trials.
-        // callData.balBefore = balBefore;
-        assembly ("memory-safe") {
-            mstore(add(0x84, callData), balBefore)
+        {
+            uint256 beforeBalance = Constants.compatSelfBalance(token);
+            // callData.beforeBalance = beforeBalance;
+            assembly ("memory-safe") {
+                mstore(add(0x84, callData), beforeBalance)
+            }
         }
 
         // A trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
@@ -127,7 +127,7 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 i;
         while (true) {
             // Select one candidate in the shared callback buffer by changing only its dynamic
-            // offset and target. The token, starting balance, selector, length, and copied region remain unchanged.
+            // offset and target.
             assembly ("memory-safe") {
                 let offset := calldataload(add(shl(0x05, i), candsData))
                 if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
@@ -149,8 +149,7 @@ abstract contract Select is SettlerSwapAbstract {
             }
 
             if (bubbleFailure) {
-                // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and
-                // bubble it.
+                // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and bubble.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
