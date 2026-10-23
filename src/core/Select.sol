@@ -140,15 +140,13 @@ abstract contract Select is SettlerSwapAbstract {
             }
             bool isLast = i == n;
             uint256 beforeGas = gasleft();
-            bool bubbleFailure = isLast.or(beforeGas < beforeGasThreshold);
-            uint256 gasLimit = isLast.ternary(beforeGas, gasCap);
 
-            if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
+            if (_setOperatorAndTryCall(isLast.ternary(beforeGas, gasCap), address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
             {
                 break;
             }
 
-            if (bubbleFailure) {
+            if (isLast.or(beforeGas < beforeGasThreshold)) {
                 // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and bubble.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
