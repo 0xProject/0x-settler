@@ -141,7 +141,8 @@ abstract contract Attest is Select {
         }
         // The head is reserved first so that `Cuid.decode`, which allocates at the free memory
         // pointer, writes the length word and single data word of `appid` (at most 26 bytes)
-        // directly into the tail: result = abi.encode(taker, bytes12(metadata), appid, authority).
+        // directly into the tail
+        // result = abi.encode(taker, bytes12(metadata), appid, authority).
         assembly ("memory-safe") {
             result := mload(0x40)
             mstore(0x40, add(0xa0, result))

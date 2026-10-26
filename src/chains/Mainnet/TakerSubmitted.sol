@@ -16,8 +16,8 @@ import {Attest} from "../../core/Attest.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
-/// @custom:security-contact security@0x.org
 // The taker dispatcher must precede the chain dispatcher so candidates retain its checks.
+/// @custom:security-contact security@0x.org
 contract MainnetSettler is MainnetMixin, Settler, Attest {
     using FastLogic for bool;
 

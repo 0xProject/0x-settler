@@ -16,14 +16,8 @@ interface ISettlerActions {
     function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
 
     /// @dev Verify an EIP-712 signature over the taker and the entrypoint's `zid` argument, then
-    ///      expose the signer to liquidity sources through `attestation()` for the rest of the swap.
-    ///      Domain: `EIP712Domain(string name,uint256 chainId,address verifyingContract)` with name
-    ///      `0xSettler` and this Settler as `verifyingContract`. Message:
-    ///      `Attestation(address taker,uint256 deadline,bytes12 zid,string appid)` where `taker` is
-    ///      the account whose tokens are sold, `zid` is the high 12 bytes of the entrypoint's
-    ///      `bytes32` argument, and `appid` is a CUIDv1 whose characters after the leading `c` are
-    ///      the base-36 encoding of that argument's low 16 bytes. `vs` is EIP-2098: `s` with the
-    ///      parity of `v` in its top bit. Reverts after `deadline`.
+    ///      expose the signer to liquidity sources through `attestation()` for the rest of the
+    ///      swap.
     function ATTEST(uint256 deadline, bytes32 r, bytes32 vs) external;
 
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
