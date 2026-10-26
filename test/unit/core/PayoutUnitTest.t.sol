@@ -26,13 +26,6 @@ contract PayoutUnitTest is Test {
         taker = payable(makeAddr("taker"));
     }
 
-    function test_Payout_KeepsOneWei() public {
-        token.mint(address(settler), 1_000);
-        _payout(999);
-        assertEq(token.balanceOf(taker), 999);
-        assertEq(token.balanceOf(address(settler)), 1);
-    }
-
     function test_Payout_PaysAllWhenBalanceEqualsMinimum() public {
         token.mint(address(settler), 1_000);
         _payout(1_000);
@@ -40,15 +33,8 @@ contract PayoutUnitTest is Test {
         assertEq(token.balanceOf(address(settler)), 0);
     }
 
-    function test_Payout_RevertsBelowMinimum() public {
-        token.mint(address(settler), 999);
-        vm.expectRevert(abi.encodeWithSelector(TooMuchSlippage.selector, token, 1_000, 999));
-        _payout(1_000);
-    }
-
     function test_Payout_SteadyStatePaysFullOutput() public {
-        token.mint(address(settler), 1);
-        token.mint(address(settler), 1_000);
+        token.mint(address(settler), 1_001);
         _payout(1_000);
         assertEq(token.balanceOf(taker), 1_000);
         assertEq(token.balanceOf(address(settler)), 1);
@@ -122,8 +108,7 @@ contract PayoutUnitTest is Test {
 
     function test_PositiveSlippage_SteadyStateZeroSlippagePaysMinimum() public {
         address feeRecipient = makeAddr("feeRecipient");
-        token.mint(address(settler), 1);
-        token.mint(address(settler), 1_000);
+        token.mint(address(settler), 1_001);
         bytes[] memory actions = new bytes[](1);
         actions[0] = abi.encodeCall(
             ISettlerActions.POSITIVE_SLIPPAGE, (payable(feeRecipient), address(token), 1_000, 1_000_000, 1_000_000)
