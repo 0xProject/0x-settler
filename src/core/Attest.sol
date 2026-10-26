@@ -45,14 +45,12 @@ abstract contract Attest is Select {
         override
         returns (bool)
     {
-        if (super._dispatch(i, action, data, slippage)) {
-            return true;
-        } else if (action == uint32(ISettlerActions.ATTEST.selector)) {
+        if (action == uint32(ISettlerActions.ATTEST.selector)) {
             (uint256 deadline, bytes32 r, bytes32 vs) = abi.decode(data, (uint256, bytes32, bytes32));
             _attest(deadline, r, vs);
             return true;
         }
-        return false;
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _fallback(bytes calldata data) internal virtual override returns (bool success, bytes memory returndata) {

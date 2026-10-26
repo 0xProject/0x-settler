@@ -6,14 +6,15 @@ library Cuid {
     // The integer encodes the base-36 text after `c`. The timestamp has no leading zeros;
     // the counter, fingerprint, and random suffix occupy exactly 16 characters.
     function decode(uint128 packed) internal pure returns (string memory result) {
-        // Assembly avoids allocating a buffer for reversed digits: result = "c" + base36(packed, minDigits=17).
+        // Assembly avoids allocating a buffer for reversed digits
+        // result = "c" + base36(packed, minDigits=17).
         assembly ("memory-safe") {
             packed := and(0xffffffffffffffffffffffffffffffff, packed)
             let digits := 0x00
             let length := 0x00
-            for {} or(packed, lt(length, 0x11)) {} {
+            for {} or(gt(0x11, length), packed) {} {
                 let digit := mod(packed, 0x24)
-                let character := add(0x30, add(digit, mul(0x27, gt(digit, 0x09))))
+                let character := add(0x30, add(mul(0x27, lt(0x09, digit)), digit))
                 digits := or(shl(shl(0x03, length), character), digits)
                 length := add(0x01, length)
                 packed := div(packed, 0x24)
