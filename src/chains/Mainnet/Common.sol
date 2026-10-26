@@ -116,7 +116,7 @@ abstract contract MainnetMixin is
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             _checkRecipient(address(this), recipient, token);
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
-            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            uint256 balance = isETH ? address(this).balance : token.fastSpendableBalance();
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {

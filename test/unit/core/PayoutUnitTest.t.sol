@@ -114,6 +114,23 @@ contract PayoutUnitTest is Test {
         assertEq(token.balanceOf(address(settler)), 1);
     }
 
+    function test_PositiveSlippage_SteadyStateZeroSlippagePaysMinimum() public {
+        address feeRecipient = makeAddr("feeRecipient");
+        token.mint(address(settler), 1);
+        token.mint(address(settler), 1_000);
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.POSITIVE_SLIPPAGE, (payable(feeRecipient), address(token), 1_000, 1_000_000, 1_000_000)
+        );
+        settler.execute(
+            ISettlerBase.AllowedSlippage({recipient: taker, buyToken: IERC20(address(token)), minAmountOut: 1_000}),
+            actions,
+            bytes32(0)
+        );
+        assertEq(token.balanceOf(taker), 1_000);
+        assertEq(token.balanceOf(feeRecipient), 0);
+    }
+
     function _payout(uint256 minAmountOut) private {
         _payout(IERC20(address(token)), minAmountOut);
     }

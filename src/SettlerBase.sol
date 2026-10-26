@@ -171,7 +171,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             _checkRecipient(address(this), recipient, token);
-            uint256 balance = Constants.compatSelfBalance(token);
+            uint256 balance = Constants.isNative(token) ? address(this).balance : token.fastSpendableBalance();
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
