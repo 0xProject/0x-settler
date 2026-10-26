@@ -44,6 +44,11 @@ import {namiRobinhoodFactory, namiInitHash, namiForkId} from "../../core/univ3fo
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {uniswapV4RobinhoodPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
+import {pancakeInfinityForkId} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
+import {
+    pancakeInfinityRobinHoodVault,
+    pancakeInfinityRobinHoodClManager
+} from "../../core/pancakeInfinityForks/PancakeInfinityRobinHood.sol";
 import {orvexVault, orvexClManager, orvexForkId} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 
 // Solidity inheritance is stupid
@@ -92,7 +97,8 @@ abstract contract RobinHoodMixin is
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+            } else {
+                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
                 sellToPancakeInfinity(
                     recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
                 );
@@ -224,7 +230,11 @@ abstract contract RobinHoodMixin is
         override
         returns (address vault, address clManager, address binManager)
     {
-        if (forkId == orvexForkId) {
+        if (forkId == pancakeInfinityForkId) {
+            vault = pancakeInfinityRobinHoodVault;
+            clManager = pancakeInfinityRobinHoodClManager;
+            binManager = address(0);
+        } else if (forkId == orvexForkId) {
             vault = orvexVault;
             clManager = orvexClManager;
             // Orvex does not have a Bin pool manager
