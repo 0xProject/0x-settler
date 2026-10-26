@@ -64,6 +64,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
     function select(bytes calldata data) internal virtual;
 
+    function _chainId() internal pure virtual returns (uint256);
+
     event GitCommit(bytes20 indexed);
 
     // When/if you change this, you must make corresponding changes to

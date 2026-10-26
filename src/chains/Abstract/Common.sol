@@ -26,7 +26,11 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
     using FastLogic for bool;
 
     constructor() {
-        assert(block.chainid == 2741 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 2741;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)

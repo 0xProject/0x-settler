@@ -18,6 +18,15 @@ abstract contract Attest is Select {
     bytes32 private constant _DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
     bytes32 private constant _NAME_HASH = keccak256("0xSettler");
+    bytes32 private immutable _DOMAIN_SEPARATOR;
+
+    constructor() {
+        _DOMAIN_SEPARATOR = _domainSeparator(_chainId());
+    }
+
+    function _domainSeparator(uint256 chainId) private view returns (bytes32) {
+        return keccak256(abi.encode(_DOMAIN_TYPEHASH, _NAME_HASH, chainId, address(this)));
+    }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
@@ -57,21 +66,24 @@ abstract contract Attest is Select {
                 keccak256(bytes(Cuid.decode(uint128(uint256(metadata)))))
             )
         );
-        bytes32 domain = keccak256(abi.encode(_DOMAIN_TYPEHASH, _NAME_HASH, block.chainid, address(this)));
+        bytes32 domain = block.chainid == _chainId() ? _DOMAIN_SEPARATOR : _domainSeparator(block.chainid);
         bytes32 digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
         address authority;
-        // Failed recovery must leave a zero result, including when the precompile returns no bytes:
+        bool invalidSignature;
+        // Invalid signatures can return no bytes, leaving the scratch data intact; require nonempty output:
         // authority = ecrecover(digest, 27 + uint8(uint256(vs) >> 255), r, bytes32(uint256(vs) & (2**255 - 1))).
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, digest)
-            mstore(add(0x20, ptr), add(0x1b, shr(0xff, vs)))
-            mstore(add(0x40, ptr), r)
-            mstore(add(0x60, ptr), and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
-            mstore(0x00, 0x00)
-            if staticcall(gas(), 0x01, ptr, 0x80, 0x00, 0x20) { authority := mload(0x00) }
+            mstore(0x00, digest)
+            mstore(0x20, add(0x1b, shr(0xff, vs)))
+            mstore(0x40, r)
+            mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
+            authority := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
+            invalidSignature := or(iszero(returndatasize()), iszero(authority))
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
-        if (authority == address(0)) revert InvalidSignature();
+        if (invalidSignature) revert InvalidSignature();
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
         // These values are readable only while the payer's attestation bit is set:
@@ -84,8 +96,7 @@ abstract contract Attest is Select {
     }
 
     function attestation() internal view returns (bytes memory) {
-        address taker = _msgSender();
-        require(taker != address(0) && TransientStorage.isAttested());
+        address taker = TransientStorage.getAttestedPayer();
         bytes32 metadata;
         address authority;
         bytes32 authoritySlot = _AUTHORITY_SLOT;

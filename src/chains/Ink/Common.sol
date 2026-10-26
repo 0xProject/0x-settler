@@ -32,7 +32,11 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
     using FastLogic for bool;
 
     constructor() {
-        assert(block.chainid == 57073 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 57073;
     }
 
     IPoolManager internal constant _TSUNAMI_POOL_MANAGER = IPoolManager(0x6E4723A612831AfB9f5B2a5aE22723c37aAB9560);
