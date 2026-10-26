@@ -20,7 +20,7 @@ import {RobinHoodSettlerMetaTxn} from "src/chains/RobinHood/MetaTxn.sol";
 import {
     pancakeInfinityRobinHoodVault,
     pancakeInfinityRobinHoodClManager
-} from "src/core/pancakeInfinityForks/PancakeInfinityRobinHood.sol";
+} from "src/core/pancakeInfinityForks/PancakeInfinity.sol";
 
 contract RobinHoodWETHNVDATest is BebopPairTest, OrvexCLTest {
     function setUp() public override(PancakeInfinityTest, BebopPairTest) {
