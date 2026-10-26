@@ -12,12 +12,13 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
+contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin, Select {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -82,7 +83,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, TempoMixin)
+        override(SettlerBase, TempoMixin, Select)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -96,7 +97,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, TempoMixin)
+        override(SettlerMetaTxn, TempoMixin, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

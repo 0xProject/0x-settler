@@ -12,11 +12,12 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract ArcSettler is Settler, ArcMixin {
+contract ArcSettler is Settler, ArcMixin, Attest {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -62,7 +63,7 @@ contract ArcSettler is Settler, ArcMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, ArcMixin)
+        override(Settler, ArcMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -75,7 +76,7 @@ contract ArcSettler is Settler, ArcMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, ArcMixin)
+        override(Permit2PaymentAbstract, ArcMixin, Attest)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

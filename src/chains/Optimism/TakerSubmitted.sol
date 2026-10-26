@@ -10,11 +10,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract OptimismSettler is Settler, OptimismMixin {
+contract OptimismSettler is Settler, OptimismMixin, Select {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -57,13 +58,18 @@ contract OptimismSettler is Settler, OptimismMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target) internal view override(Settler, OptimismMixin) returns (bool) {
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Settler, OptimismMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, OptimismMixin)
+        override(Settler, OptimismMixin, Select)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);

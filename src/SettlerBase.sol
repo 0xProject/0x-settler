@@ -15,7 +15,6 @@ import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
-import {Select} from "./core/Select.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
@@ -55,13 +54,15 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome, Select {
+abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
     using FastLogic for bool;
     using Ternary for bool;
 
     receive() external payable {}
+
+    function select(bytes calldata data) internal virtual;
 
     event GitCommit(bytes20 indexed);
 

@@ -12,11 +12,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract InkSettler is Settler, InkMixin {
+contract InkSettler is Settler, InkMixin, Select {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -64,7 +65,7 @@ contract InkSettler is Settler, InkMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, InkMixin)
+        override(Settler, InkMixin, Select)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);

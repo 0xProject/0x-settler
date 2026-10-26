@@ -10,11 +10,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract ElysiumSettler is Settler, ElysiumMixin {
+contract ElysiumSettler is Settler, ElysiumMixin, Attest {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -38,7 +39,7 @@ contract ElysiumSettler is Settler, ElysiumMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, ElysiumMixin)
+        override(Settler, ElysiumMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -51,7 +52,7 @@ contract ElysiumSettler is Settler, ElysiumMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, ElysiumMixin)
+        override(Permit2PaymentAbstract, ElysiumMixin, Attest)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

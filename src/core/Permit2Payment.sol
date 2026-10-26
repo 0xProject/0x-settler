@@ -171,8 +171,23 @@ library TransientStorage {
     }
 
     function getPayer() internal view returns (address payer) {
+        // The attestation bit is not part of the address: payer = address(uint160(transient[payerSlot])).
         assembly ("memory-safe") {
-            payer := tload(_PAYER_SLOT)
+            payer := and(0xffffffffffffffffffffffffffffffffffffffff, tload(_PAYER_SLOT))
+        }
+    }
+
+    function setAttested() internal {
+        // The payer cleanup also invalidates attestation data: transient[payerSlot] |= 1 << 160.
+        assembly ("memory-safe") {
+            tstore(_PAYER_SLOT, or(shl(0xa0, 0x01), tload(_PAYER_SLOT)))
+        }
+    }
+
+    function isAttested() internal view returns (bool result) {
+        // The payer shares this slot with the flag: result = bool((transient[payerSlot] >> 160) & 1).
+        assembly ("memory-safe") {
+            result := and(0x01, shr(0xa0, tload(_PAYER_SLOT)))
         }
     }
 

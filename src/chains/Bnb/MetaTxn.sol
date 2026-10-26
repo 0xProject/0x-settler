@@ -10,11 +10,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
+contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin, Attest {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -64,7 +65,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, BnbMixin)
+        override(SettlerBase, BnbMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -74,7 +75,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, BnbMixin)
+        override(SettlerMetaTxn, BnbMixin, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -87,7 +88,7 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, BnbMixin)
+        override(Permit2PaymentAbstract, BnbMixin, Attest)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

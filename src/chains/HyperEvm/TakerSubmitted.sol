@@ -11,10 +11,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract HyperEvmSettler is Settler, HyperEvmMixin {
+contract HyperEvmSettler is Settler, HyperEvmMixin, Attest {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -39,13 +41,18 @@ contract HyperEvmSettler is Settler, HyperEvmMixin {
         super._checkRecipient(sender, recipient, buyToken);
     }
 
-    function _isRestrictedTarget(address target) internal view override(Settler, HyperEvmMixin) returns (bool) {
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Settler, HyperEvmMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, HyperEvmMixin)
+        override(Settler, HyperEvmMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -53,5 +60,14 @@ contract HyperEvmSettler is Settler, HyperEvmMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, Attest)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

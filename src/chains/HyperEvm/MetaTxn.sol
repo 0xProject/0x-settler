@@ -11,11 +11,13 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin {
+contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin, Attest {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -56,7 +58,7 @@ contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, HyperEvmMixin)
+        override(SettlerBase, HyperEvmMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -70,9 +72,18 @@ contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, HyperEvmMixin)
+        override(SettlerMetaTxn, HyperEvmMixin, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, Attest)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

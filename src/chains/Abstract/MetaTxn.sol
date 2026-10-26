@@ -10,13 +10,14 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 /// @custom:security-contact security@0x.org
-contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
+contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin, Select {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -38,7 +39,7 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, AbstractMixin)
+        override(SettlerBase, AbstractMixin, Select)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);

@@ -10,12 +10,13 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin {
+contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin, Attest {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -65,7 +66,7 @@ contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, MonadMixin)
+        override(SettlerBase, MonadMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -88,7 +89,7 @@ contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MonadMixin)
+        override(Permit2PaymentAbstract, MonadMixin, Attest)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

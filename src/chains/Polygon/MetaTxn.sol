@@ -10,11 +10,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
+contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin, Attest {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -50,7 +51,7 @@ contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, PolygonMixin)
+        override(SettlerBase, PolygonMixin, Attest)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -60,7 +61,7 @@ contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, PolygonMixin)
+        override(SettlerMetaTxn, PolygonMixin, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -73,7 +74,7 @@ contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, PolygonMixin)
+        override(Permit2PaymentAbstract, PolygonMixin, Attest)
         returns (bool, bytes memory)
     {
         return super._fallback(data);
