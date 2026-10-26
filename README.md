@@ -1326,8 +1326,9 @@ private key, so `authority` is only the recovered signer. A consumer must
 compare `authority` against its own list of trusted signers and must not act on
 `taker`, `zid`, or `appid` unless `authority` is trusted. Settler does not
 record used signatures; one signature is valid for every swap by the same taker
-until `deadline`. `attestation()` reverts with empty returndata when no `ATTEST`
-action has run in the current swap.
+until `deadline`. `zid` can be used as a nonce for cancellation, if
+desired. `attestation()` reverts with empty returndata when no `ATTEST` action
+has run in the current swap.
 
 # How to deploy
 
