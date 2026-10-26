@@ -177,7 +177,7 @@ library TransientStorage {
     }
 
     function setAttested() internal {
-        // The payer cleanup also invalidates attestation data: transient[payerSlot] |= 1 << 160.
+        // transient[payerSlot] |= 1 << 160
         assembly ("memory-safe") {
             tstore(_PAYER_SLOT, or(shl(0xa0, 0x01), tload(_PAYER_SLOT)))
         }
@@ -185,12 +185,12 @@ library TransientStorage {
 
     function getAttestedPayer() internal view returns (address payer) {
         bool attested;
-        // Both fields share one transient word: payer = address(word); attested = bool((word >> 160) & 1).
+        // payer = address(word); attested = bool((word >> 160) & 1)
         assembly ("memory-safe") {
             payer := tload(_PAYER_SLOT)
             attested := and(0x01, shr(0xa0, payer))
         }
-        // Only a live payer can be attested, and clearing the payer clears the entire word.
+        // `attested == true` implies `payer != address(0)`
         require(attested);
     }
 

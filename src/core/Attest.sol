@@ -26,7 +26,7 @@ abstract contract Attest is Select {
     function _domainSeparator(uint256 chainId) private view returns (bytes32 domain) {
         bytes32 domainTypeHash = _DOMAIN_TYPEHASH;
         bytes32 nameHash = _NAME_HASH;
-        // Scratch memory avoids allocation: domain = keccak256(abi.encode(domainTypeHash, nameHash, chainId, address(this))).
+        // domain = keccak256(abi.encode(domainTypeHash, nameHash, chainId, address(this))).
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, domainTypeHash)
@@ -87,8 +87,6 @@ abstract contract Attest is Select {
         bytes32 typeHash = _TYPEHASH;
         bytes32 domain = block.chainid == _chainId() ? _DOMAIN_SEPARATOR : _domainSeparator(block.chainid);
         address authority;
-        // The struct is encoded past the free memory pointer and the digest in scratch memory, so
-        // nothing is allocated:
         // structHash = keccak256(abi.encode(typeHash, taker, deadline, bytes12(metadata), keccak256(bytes(appid))));
         // digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
         // authority = ecrecover(digest, 27 + uint8(uint256(vs) >> 255), r, bytes32(uint256(vs) & (2**255 - 1)));
@@ -119,8 +117,7 @@ abstract contract Attest is Select {
         }
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
-        // These values are readable only while the payer's attestation bit is set:
-        // transient[authoritySlot] = authority; transient[attestationSlot] = metadata.
+        // transient[authoritySlot] = authority; transient[attestationSlot] = metadata
         assembly ("memory-safe") {
             tstore(authoritySlot, authority)
             tstore(attestationSlot, metadata)
@@ -137,7 +134,7 @@ abstract contract Attest is Select {
         address authority;
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
-        // Explicit slots match the attestation writes: authority = transient[authoritySlot]; metadata = transient[attestationSlot].
+        // authority = transient[authoritySlot]; metadata = transient[attestationSlot]
         assembly ("memory-safe") {
             authority := tload(authoritySlot)
             metadata := tload(attestationSlot)
