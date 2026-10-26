@@ -312,17 +312,6 @@ interface ISettlerActions {
 
     function FLUXPOOL(address sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) external;
 
-    function RENEGADE(
-        address recipient,
-        address sellToken,
-        address buyToken,
-        uint256 maxSellAmount,
-        bool refundNativeEth,
-        uint256 maxRefundAmount,
-        bytes memory data,
-        uint256 minBuyAmount
-    ) external;
-
     struct BebopMakerSignature {
         bytes signatureBytes;
         uint256 flags;

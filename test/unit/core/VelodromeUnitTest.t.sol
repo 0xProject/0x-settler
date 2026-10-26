@@ -15,6 +15,10 @@ contract VelodromeConvergenceDummy is Velodrome {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function _tokenId() internal pure override returns (uint256) {

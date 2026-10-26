@@ -12,7 +12,8 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
+import {aeroArcFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3ArcFactory,
@@ -101,6 +102,10 @@ abstract contract ArcMixin is FreeMemory, SettlerBase, UniswapV4, PancakeInfinit
             factory = achSwapV3Factory;
             initHash = achSwapV3InitHash;
             callbackSelector = uint32(IAchSwapV3SwapCallback.AchSwapV3SwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroArcFactory;
+            initHash = aeroInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

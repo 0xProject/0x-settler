@@ -187,6 +187,10 @@ contract UniswapV4Stub is UniswapV4 {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function _tokenId() internal pure override returns (uint256) {
@@ -356,6 +360,10 @@ contract RecipientCheckUniswapV4Stub is UniswapV4Stub {
     }
 
     function _hasRecipientCheck() internal pure override returns (bool) {
+        return true;
+    }
+
+    function _recipientCheckNeedsToken() internal pure override returns (bool) {
         return true;
     }
 

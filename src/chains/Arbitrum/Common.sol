@@ -12,12 +12,12 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
-import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroArbitrumFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3MainnetFactory,
@@ -57,15 +57,10 @@ abstract contract ArbitrumMixin is
     DodoV2,
     UniswapV4,
     BalancerV3,
-    Renegade,
     Bebop
 {
     constructor() {
         assert(block.chainid == 42161 || block.chainid == 31337);
-    }
-
-    function _renegadeGasSponsorV2() internal pure override returns (address) {
-        return 0xcE7a8D45daa9a5B29f6d255552F577d53fF9EBcf;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -138,28 +133,6 @@ abstract contract ArbitrumMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, ppm, dodo, quoteForBase, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                IERC20 buyToken,
-                uint256 maxSellAmount,
-                bool refundNativeEth,
-                uint256 maxRefundAmount,
-                bytes memory renegadeData,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, IERC20, uint256, bool, uint256, bytes, uint256));
-
-            sellToRenegade(
-                recipient,
-                sellToken,
-                buyToken,
-                maxSellAmount,
-                refundNativeEth,
-                maxRefundAmount,
-                renegadeData,
-                minBuyAmount
-            );
         } else {
             return false;
         }
@@ -201,6 +174,10 @@ abstract contract ArbitrumMixin is
                 factory = dackieSwapV3ArbitrumFactory;
                 initHash = pancakeSwapV3InitHash;
                 callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+            } else if (forkId == aeroForkId) {
+                factory = aeroArbitrumFactory;
+                initHash = aeroInitHash;
+                callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
             } else {
                 revertUnknownForkId(forkId);
             }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {ScrollSettlerMetaTxn} from "./MetaTxn.sol";
+import {ElysiumSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -16,11 +16,10 @@ import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
-import {uint512} from "../../utils/512Math.sol";
 
 /// @custom:security-contact security@0x.org
-contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
-    constructor(bytes20 gitCommit) ScrollSettlerMetaTxn(gitCommit) {}
+contract ElysiumSettlerIntent is SettlerIntent, ElysiumSettlerMetaTxn {
+    constructor(bytes20 gitCommit) ElysiumSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
@@ -35,7 +34,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(ScrollSettlerMetaTxn, SettlerBase)
+        override(ElysiumSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -49,7 +48,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._msgData();
     }
 
-    function _msgSender() internal view override(SettlerIntent, ScrollSettlerMetaTxn) returns (address) {
+    function _msgSender() internal view override(SettlerIntent, ElysiumSettlerMetaTxn) returns (address) {
         return super._msgSender();
     }
 
@@ -67,7 +66,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
         internal
-        override(ScrollSettlerMetaTxn, SettlerMetaTxn)
+        override(ElysiumSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
     {
         return super._dispatchVIP(action, data, sig);
@@ -91,23 +90,22 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._permitToSellAmount(owner, permit);
     }
 
-    function _div512to256(uint512 n, uint512 d)
-        internal
-        view
-        virtual
-        override(ScrollSettlerMetaTxn, SettlerBase, SettlerAbstract)
-        returns (uint256)
-    {
-        return super._div512to256(n, d);
-    }
-
     function _isRestrictedTarget(address target)
         internal
         view
         virtual
-        override(ScrollSettlerMetaTxn, SettlerIntent)
+        override(ElysiumSettlerMetaTxn, SettlerIntent)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, ElysiumSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

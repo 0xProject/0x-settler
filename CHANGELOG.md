@@ -6,20 +6,35 @@
   `METATXN_PANCAKE_INFINITY_VIP` that selects the PancakeSwap Infinity fork
   (after `ppm` in `PANCAKE_INFINITY`; after `permit` in the VIP variants). See
   [PANCAKE_INFINITY_FORKS.md](PANCAKE_INFINITY_FORKS.md) for the list of forks.
-  * On Arc, SushiSwap V4 is fork `2`
-  * On RobinHood, Orvex is fork `1`
 * Add a `forkId` argument to `UNISWAPV4`, `UNISWAPV4_VIP`, and
   `METATXN_UNISWAPV4_VIP` that selects the UniswapV4 fork (after `ppm` in
   `UNISWAPV4`; after `permit` in the VIP variants). See
   [UNISWAPV4_FORKS.md](UNISWAPV4_FORKS.md) for the list of forks.
 * Remove `TSUNAMI`, `TSUNAMI_VIP`, and `METATXN_TSUNAMI_VIP` from Ink; Tsunami
   is UniswapV4 fork `1` on Ink
+* Remove `RENEGADE` action from Arbitrum and Base
+* Remove Scroll, Sonic, Berachain, and Mantle chains
 
 ### Non-breaking changes
 
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add HyperEVM CoreWriter `0x3333333333333333333333333333333333333333` to the
+  list of restricted targets
+* On HyperEVM, revert if a payout names a HyperCore system address
+  (`0x2222222222222222222222222222222222222222` or
+  `0x2000000000000000000000000000000000000000` plus a token index) as
+  recipient unless the payer funds the transfer (except in `BASIC`)
+* Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
+* Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
+  RobinHood, and Arc with fork ID 50
+
+## 2026-10-22
+
+### Non-breaking changes
+
+* Deploy Settler to Elysium chain, the HyperEVM L2
 
 ## 2026-10-09
 
@@ -32,6 +47,7 @@
 
 ### Non-breaking changes
 
+* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Add `BRIDGE_TO_STARGATE_V2` to Abstract
 * Add `FLUXPOOL` action on Bnb, Base, and RobinHood
 * Add `DEEPSTATE` action for the Deepstate order book on RobinHood
@@ -113,7 +129,6 @@
 
 ### Non-breaking changes
 
-* Add `SELECT` for JIT routing via ordered, revertible candidate routes
 * Fix several bugs reported by Nethermind
   * SettlerMetaTxn now reverts on short actions
   * Fix wrong `buyToken` in `TooMuchSlippage` revert reason in MaverickV2

@@ -579,7 +579,9 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
+            _checkRecipient(
+                msg.sender, recipient, _recipientCheckNeedsToken() ? state.buy().token() : IERC20(address(0))
+            );
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IPancakeInfinityVault.take.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {

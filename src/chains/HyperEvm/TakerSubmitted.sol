@@ -9,6 +9,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 
@@ -26,6 +27,18 @@ contract HyperEvmSettler is Settler, HyperEvmMixin {
     }
 
     // Solidity inheritance is stupid
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase, HyperEvmMixin) returns (bool) {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, SettlerBase, HyperEvmMixin)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function _isRestrictedTarget(address target) internal view override(Settler, HyperEvmMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
