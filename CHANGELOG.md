@@ -19,6 +19,11 @@
 * Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
 * Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
   RobinHood, and Arc with fork ID 50
+* Add `ATTEST` action, which verifies an EIP-712 attestation of the taker and
+  the entrypoint's `zid` argument and exposes the signer to liquidity sources
+  through `attestation()`; see `ISettlerActions` for the signed message. Not
+  available on Abstract, Ink, Linea, Optimism, Plasma, Sepolia, Tempo,
+  Unichain, or WorldChain
 
 ## 2026-10-22
 

@@ -1301,6 +1301,42 @@ sequenceDiagram
     WETH-->>User: transfer
 ```
 
+## Attestations
+
+A swap may include the `ATTEST` action. It verifies an EIP-712 signature over
+the taker, a deadline, and the `zid` argument of the entrypoint. For the rest of
+that swap, Settler answers `attestation()` with the signed values and the
+recovered signer:
+
+```solidity
+interface IAttestation {
+    function attestation() external view returns (address taker, bytes12 zid, string memory appid, address authority);
+}
+```
+
+A liquidity source that Settler calls during settlement can query this from
+inside its own callback. The query does not disturb the callback that Settler
+expects from that liquidity source:
+
+```solidity
+(address taker, bytes12 zid, string memory appid, address authority) = IAttestation(msg.sender).attestation();
+```
+
+Settler does not check who signed. Anybody can build an `ATTEST` action with any
+private key, so `authority` is only the recovered signer. A consumer must
+compare `authority` against its own list of trusted signers and must not act on
+`taker`, `zid`, or `appid` unless `authority` is trusted. Settler does not
+record used signatures; one signature is valid for every swap by the same taker
+until `deadline`. The signature is bound to the chain ID and to the address of
+the Settler that verifies it, so each new Settler deployment needs new
+signatures.
+
+`attestation()` reverts with empty returndata when no `ATTEST` action has run in
+the current swap, when it is called outside a swap, and on a Settler that does
+not implement it. These cases are indistinguishable. `ATTEST` is not available
+on Abstract, Ink, Linea, Optimism, Plasma, Sepolia, Tempo, Unichain, or
+WorldChain. See `ISettlerActions` for the signed message.
+
 # How to deploy
 
 ## How to pause the contracts

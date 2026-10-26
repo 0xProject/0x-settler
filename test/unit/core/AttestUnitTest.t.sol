@@ -25,6 +25,13 @@ import {
 } from "src/core/SettlerErrors.sol";
 import {IDodoV2} from "src/core/DodoV2.sol";
 import {Cuid} from "src/utils/Cuid.sol";
+import {AddressDerivation} from "src/utils/AddressDerivation.sol";
+import {
+    uniswapV3BaseFactory,
+    uniswapV3InitHash,
+    uniswapV3ForkId,
+    IUniswapV3Callback
+} from "src/core/univ3forks/UniswapV3.sol";
 import {Permit2Signature} from "test/utils/Permit2Signature.sol";
 
 contract AttestUnitTest is Permit2Signature, DeployPermit2 {
@@ -283,6 +290,32 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
     }
 
+    function test_Attest_ReadableFromArmedPoolCallback() public {
+        MockERC20 buyToken = new MockERC20("Buy", "B", 18);
+        (IERC20 token0, IERC20 token1) = address(token) < address(buyToken)
+            ? (IERC20(address(token)), IERC20(address(buyToken)))
+            : (IERC20(address(buyToken)), IERC20(address(token)));
+        address pool = AddressDerivation.deriveDeterministicContract(
+            uniswapV3BaseFactory, keccak256(abi.encode(token0, token1, uint24(3000))), uniswapV3InitHash
+        );
+        vm.etch(pool, address(new AttestingPool(token0, token1)).code);
+        token.mint(address(settler), 1 ether);
+        buyToken.mint(pool, 1 ether);
+        bytes memory path =
+            abi.encodePacked(address(token), uniswapV3ForkId, uint24(3000), uint160(0), address(buyToken));
+        bytes[] memory actions = new bytes[](2);
+        actions[0] = _signed(address(settler), taker, block.timestamp, _metadata(), AUTHORITY_KEY);
+        actions[1] = abi.encodeCall(ISettlerActions.UNISWAPV3, (taker, 1_000_000, path, 1 ether));
+        _execute(actions, _metadata(), taker);
+        AttestingPool attesting = AttestingPool(pool);
+        assertEq(attesting.taker(), taker);
+        assertEq(attesting.zid(), ZID);
+        assertEq(attesting.appid(), APPID);
+        assertEq(attesting.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(token.balanceOf(pool), 1 ether);
+        assertEq(buyToken.balanceOf(taker), 1 ether);
+    }
+
     function testFuzz_Attest_PackedMetadataRoundTrips(uint128 appid, bytes12 zid, uint128 duration) public {
         bytes32 metadata = bytes32(zid) | bytes32(uint256(appid));
         uint256 authorityKey = uint256(appid) + 1;
@@ -470,5 +503,31 @@ contract AttestationCallbackHelper {
             require(keccak256(reason) == keccak256(abi.encodeWithSelector(ReentrantPayer.selector, expectedTaker)));
         }
         record(target);
+    }
+}
+
+contract AttestingPool {
+    IERC20 private immutable _TOKEN0;
+    IERC20 private immutable _TOKEN1;
+    address public taker;
+    bytes12 public zid;
+    string public appid;
+    address public authority;
+
+    constructor(IERC20 token0, IERC20 token1) {
+        _TOKEN0 = token0;
+        _TOKEN1 = token1;
+    }
+
+    function swap(address recipient, bool zeroForOne, int256 amountSpecified, uint160, bytes calldata data)
+        external
+        returns (int256 amount0, int256 amount1)
+    {
+        // Settler is waiting for this pool's swap callback. A query with a different selector must
+        // leave that expectation in place.
+        (taker, zid, appid, authority) = IAttestation(msg.sender).attestation();
+        (amount0, amount1) = zeroForOne ? (amountSpecified, -amountSpecified) : (-amountSpecified, amountSpecified);
+        IUniswapV3Callback(msg.sender).uniswapV3SwapCallback(amount0, amount1, data);
+        (zeroForOne ? _TOKEN1 : _TOKEN0).transfer(recipient, uint256(amountSpecified));
     }
 }

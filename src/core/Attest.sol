@@ -5,7 +5,6 @@ import {Select} from "./Select.sol";
 import {ISettlerActions} from "../ISettlerActions.sol";
 import {IAttestation} from "../interfaces/IAttestation.sol";
 import {TransientStorage} from "./Permit2Payment.sol";
-import {SignatureExpired, InvalidSignature} from "./SettlerErrors.sol";
 import {Cuid} from "../utils/Cuid.sol";
 
 abstract contract Attest is Select {
@@ -40,18 +39,22 @@ abstract contract Attest is Select {
         }
     }
 
+    // `ATTEST` runs at most once per swap, so it is matched after every other action rather than
+    // charging each of them for the comparison.
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
         override
         returns (bool)
     {
-        if (action == uint32(ISettlerActions.ATTEST.selector)) {
+        if (super._dispatch(i, action, data, slippage)) {
+            return true;
+        } else if (action == uint32(ISettlerActions.ATTEST.selector)) {
             (uint256 deadline, bytes32 r, bytes32 vs) = abi.decode(data, (uint256, bytes32, bytes32));
             _attest(deadline, r, vs);
             return true;
         }
-        return super._dispatch(i, action, data, slippage);
+        return false;
     }
 
     function _fallback(bytes calldata data) internal virtual override returns (bool success, bytes memory returndata) {
@@ -62,7 +65,19 @@ abstract contract Attest is Select {
     }
 
     function _attest(uint256 deadline, bytes32 r, bytes32 vs) private {
-        if (block.timestamp > deadline) revert SignatureExpired(deadline);
+        // The free memory pointer is restored by hand because `FreeMemory` cannot be a base of this
+        // contract: chain mixins linearize it between `SettlerBase` and `SettlerBase`'s parents.
+        uint256 freeMemPtr;
+        assembly ("memory-safe") {
+            freeMemPtr := mload(0x40)
+        }
+        if (block.timestamp > deadline) {
+            assembly ("memory-safe") {
+                mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
+                mstore(0x20, deadline)
+                revert(0x1c, 0x24)
+            }
+        }
         bytes32 metadata;
         // Every swap entrypoint has this argument at the same offset:
         // metadata = abi.decode(msg.data[132:164], (bytes32)).
@@ -80,9 +95,9 @@ abstract contract Attest is Select {
         );
         bytes32 domain = block.chainid == _chainId() ? _DOMAIN_SEPARATOR : _domainSeparator(block.chainid);
         address authority;
-        bool invalidSignature;
         // Reuse scratch memory: digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
-        // authority = ecrecover(digest, 27 + uint8(uint256(vs) >> 255), r, bytes32(uint256(vs) & (2**255 - 1))).
+        // authority = ecrecover(digest, 27 + uint8(uint256(vs) >> 255), r, bytes32(uint256(vs) & (2**255 - 1)));
+        // if (authority == address(0)) revert InvalidSignature();
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x00, 0x1901)
@@ -94,11 +109,13 @@ abstract contract Attest is Select {
             mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
             authority := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
             // Successful recovery returns a 160-bit address in 32 bytes, so the product cannot overflow.
-            invalidSignature := iszero(mul(returndatasize(), authority))
+            if iszero(mul(returndatasize(), authority)) {
+                mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
+                revert(0x1c, 0x04)
+            }
             mstore(0x40, ptr)
             mstore(0x60, 0x00)
         }
-        if (invalidSignature) revert InvalidSignature();
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
         // These values are readable only while the payer's attestation bit is set:
@@ -108,6 +125,9 @@ abstract contract Attest is Select {
             tstore(attestationSlot, metadata)
         }
         TransientStorage.setAttested();
+        assembly ("memory-safe") {
+            mstore(0x40, freeMemPtr)
+        }
     }
 
     function attestation() internal view returns (bytes memory) {
