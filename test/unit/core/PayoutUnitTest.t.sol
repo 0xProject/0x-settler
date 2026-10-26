@@ -33,8 +33,15 @@ contract PayoutUnitTest is Test {
         assertEq(token.balanceOf(address(settler)), 1);
     }
 
-    function test_Payout_RevertsWhenBalanceEqualsMinimum() public {
+    function test_Payout_PaysAllWhenBalanceEqualsMinimum() public {
         token.mint(address(settler), 1_000);
+        _payout(1_000);
+        assertEq(token.balanceOf(taker), 1_000);
+        assertEq(token.balanceOf(address(settler)), 0);
+    }
+
+    function test_Payout_RevertsBelowMinimum() public {
+        token.mint(address(settler), 999);
         vm.expectRevert(abi.encodeWithSelector(TooMuchSlippage.selector, token, 1_000, 999));
         _payout(1_000);
     }
@@ -77,16 +84,15 @@ contract PayoutUnitTest is Test {
         minAmountOut = bound(minAmountOut, 1, type(uint128).max);
         balance = bound(balance, 0, type(uint128).max);
         token.mint(address(settler), balance);
-        if (balance <= minAmountOut) {
-            vm.expectRevert(
-                abi.encodeWithSelector(TooMuchSlippage.selector, token, minAmountOut, balance - (balance != 0 ? 1 : 0))
-            );
+        if (balance < minAmountOut) {
+            vm.expectRevert(abi.encodeWithSelector(TooMuchSlippage.selector, token, minAmountOut, balance));
             _payout(minAmountOut);
             return;
         }
         _payout(minAmountOut);
-        assertEq(token.balanceOf(taker), balance - 1);
-        assertEq(token.balanceOf(address(settler)), 1);
+        uint256 kept = balance == minAmountOut ? 0 : 1;
+        assertEq(token.balanceOf(taker), balance - kept);
+        assertEq(token.balanceOf(address(settler)), kept);
     }
 
     function test_SellAll_KeepsOneWeiAcrossTrades() public {
