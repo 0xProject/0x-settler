@@ -14,7 +14,8 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {
     pancakeInfinityVault,
     pancakeInfinityClManager,
-    pancakeInfinityBinManager
+    pancakeInfinityBinManager,
+    pancakeInfinityForkId
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
@@ -97,8 +98,7 @@ abstract contract BaseMixin is
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.BALANCERV3.selector))
-            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
+            .or(action == uint32(ISettlerActions.BALANCERV3.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -112,18 +112,33 @@ abstract contract BaseMixin is
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+            } else {
                 sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
-        /*
-        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 ppm,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint8 forkId,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint8, uint256));
 
-            sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
-        */
+            sellToPancakeInfinity(
+                recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, forkId, amountOutMin
+            );
+
+            /*
+            } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+                (address recipient, IERC20 sellToken, uint256 ppm, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                    abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+
+                sellToEulerSwap(recipient, sellToken, ppm, pool, zeroForOne, amountOutMin);
+            */
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -253,16 +268,14 @@ abstract contract BaseMixin is
         return BASE_POOL_MANAGER;
     }
 
-    function _PANCAKE_INFINITY_VAULT(uint256) internal pure override returns (address) {
-        return pancakeInfinityVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityClManager;
-    }
-
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityBinManager;
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId != pancakeInfinityForkId) revertUnknownForkId(forkId);
+        return (pancakeInfinityVault, pancakeInfinityClManager, pancakeInfinityBinManager);
     }
 
     /*

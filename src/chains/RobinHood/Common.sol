@@ -13,7 +13,7 @@ import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
+import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 import {
     uniswapV3RobinhoodFactory,
@@ -37,12 +37,12 @@ import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/u
 import {alandaleFactory, alandaleInitHash, alandaleForkId} from "../../core/univ3forks/Alandale.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {pancakeInfinityForkId} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
-import {orvexVault, orvexClManager} from "../../core/pancakeInfinityForks/OrvexCL.sol";
+import {orvexVault, orvexClManager, orvexForkId} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 import {
     pancakeInfinityRobinHoodVault,
-    pancakeInfinityRobinHoodClManager,
-    pancakeInfinityRobinHoodClManagerId
+    pancakeInfinityRobinHoodClManager
 } from "../../core/pancakeInfinityForks/PancakeInfinityRobinHood.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
@@ -68,8 +68,7 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3.selector))
-            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
+            .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -83,11 +82,25 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
+            } else {
                 sellToEkuboV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
+        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 ppm,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint8 forkId,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint8, uint256));
+
+            sellToPancakeInfinity(
+                recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, forkId, amountOutMin
+            );
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,
@@ -170,22 +183,19 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3,
         return ROBINHOOD_POOL_MANAGER;
     }
 
-    function _PANCAKE_INFINITY_VAULT(uint256 poolManagerId) internal pure override returns (address) {
-        return poolManagerId == pancakeInfinityRobinHoodClManagerId ? pancakeInfinityRobinHoodVault : orvexVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return orvexClManager;
-    }
-
-    // Orvex does not have a Bin pool manager
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        revertUnknownPoolManagerId(1);
-    }
-
-    function _PANCAKE_INFINITY_CL_FORK_MANAGER(uint256 poolManagerId) internal pure override returns (address) {
-        if (poolManagerId != pancakeInfinityRobinHoodClManagerId) revertUnknownPoolManagerId(poolManagerId);
-        return pancakeInfinityRobinHoodClManager;
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId == pancakeInfinityForkId) {
+            return (pancakeInfinityRobinHoodVault, pancakeInfinityRobinHoodClManager, address(0));
+        } else if (forkId == orvexForkId) {
+            return (orvexVault, orvexClManager, address(0));
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

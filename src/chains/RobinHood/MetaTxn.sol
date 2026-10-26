@@ -32,8 +32,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
         } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))
-            .or(action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))) {
+            .or(action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -48,11 +47,26 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
 
             if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
                 sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector)) {
+            } else {
                 sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))
-                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             }
+        } else if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector)) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint8 forkId,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint8, uint256)
+            );
+
+            sellToPancakeInfinityVIP(
+                recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, forkId, amountOutMin
+            );
         } else {
             return false;
         }

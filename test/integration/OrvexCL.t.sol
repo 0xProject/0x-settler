@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {RobinHoodSettler} from "src/chains/RobinHood/TakerSubmitted.sol";
 import {RobinHoodSettlerMetaTxn} from "src/chains/RobinHood/MetaTxn.sol";
-import {orvexVault, orvexClManager} from "src/core/pancakeInfinityForks/OrvexCL.sol";
+import {orvexVault, orvexClManager, orvexForkId} from "src/core/pancakeInfinityForks/OrvexCL.sol";
 
 import {PancakeInfinityTest} from "./PancakeInfinity.t.sol";
 
@@ -22,6 +22,10 @@ abstract contract OrvexCLTest is PancakeInfinityTest {
 
     function settlerMetaTxnInitCode() internal override returns (bytes memory) {
         return bytes.concat(type(RobinHoodSettlerMetaTxn).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function forkId() internal pure override returns (uint8) {
+        return orvexForkId;
     }
 
     function vault() internal pure override returns (address) {

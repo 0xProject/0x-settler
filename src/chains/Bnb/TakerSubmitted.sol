@@ -44,12 +44,16 @@ contract BnbSettler is Settler, BnbMixin {
                 uint256 hashMod,
                 bytes memory fills,
                 bytes memory sig,
+                uint8 forkId,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint8, uint256)
             );
 
-            sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToPancakeInfinityVIP(
+                recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, forkId, amountOutMin
+            );
         } else {
             return false;
         }

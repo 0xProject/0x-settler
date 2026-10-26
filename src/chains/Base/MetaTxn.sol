@@ -62,12 +62,15 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
+                uint8 forkId,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint8, uint256)
             );
 
-            sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToPancakeInfinityVIP(
+                recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, forkId, amountOutMin
+            );
         } else {
             return false;
         }

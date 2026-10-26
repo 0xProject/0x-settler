@@ -20,6 +20,7 @@ import {tmp} from "src/utils/512Math.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {UnknownForkId, UnknownPoolManagerId} from "src/core/SettlerErrors.sol";
 import {PoolKey, PoolId, IPancakeInfinityPoolManager} from "src/core/PancakeInfinity.sol";
 import {
     pancakeInfinityVault,
@@ -166,6 +167,10 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         return bytes32(0);
     }
 
+    function forkId() internal pure virtual returns (uint8) {
+        return 0;
+    }
+
     function poolManagerId() internal view virtual returns (uint8) {
         return 0;
     }
@@ -190,6 +195,89 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         _setPancakeInfinityLabels();
     }
 
+    function _executePancakeInfinity(bytes memory fills, uint8 actionForkId, bool feeOnTransfer) internal {
+        (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(
+                ISettlerActions.PANCAKE_INFINITY,
+                (recipient(), address(fromToken()), 1_000_000, feeOnTransfer, hashMul, hashMod, fills, actionForkId, 0)
+            )
+        );
+        ISettlerBase.AllowedSlippage memory slippage;
+        vm.prank(FROM, FROM);
+        settler.execute(slippage, extraActions(actions), bytes32(0));
+    }
+
+    function testPancakeInfinityUnknownFork() public skipIf(poolId() == bytes32(0)) {
+        bytes memory fills = pancakeInfinityFills();
+        vm.expectRevert(abi.encodeWithSelector(UnknownForkId.selector, uint8(255)));
+        _executePancakeInfinity(fills, 255, false);
+    }
+
+    function testPancakeInfinityUnknownForkVIP() public skipIf(poolId() == bytes32(0)) {
+        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
+        (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.PANCAKE_INFINITY_VIP,
+                (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, uint8(255), 0)
+            )
+        );
+        ISettlerBase.AllowedSlippage memory slippage;
+        vm.expectRevert(abi.encodeWithSelector(UnknownForkId.selector, uint8(255)));
+        vm.prank(FROM, FROM);
+        settler.execute(slippage, extraActions(actions), bytes32(0));
+    }
+
+    function testPancakeInfinityUnknownManager() public skipIf(poolId() == bytes32(0)) {
+        bytes memory fills = pancakeInfinityFills();
+        fills[64] = bytes1(uint8(2));
+        vm.expectRevert(abi.encodeWithSelector(UnknownPoolManagerId.selector, uint8(2)));
+        _executePancakeInfinity(fills, forkId(), false);
+    }
+
+    function testPancakeInfinityUnknownManagerAfterSwap() public skipIf(poolId() == bytes32(0)) {
+        bytes memory firstFill = pancakeInfinityFills();
+        firstFill[0] = 0x07;
+        firstFill[1] = 0xa1;
+        firstFill[2] = 0x20; // 500,000 ppm leaves funds for the second fill.
+        bytes memory secondFill = pancakeInfinityFills();
+        secondFill[64] = bytes1(uint8(2));
+        bytes memory fills = bytes.concat(firstFill, secondFill);
+        uint256 beforeBalance = fromToken().balanceOf(FROM);
+        vm.expectRevert(abi.encodeWithSelector(UnknownPoolManagerId.selector, uint8(2)));
+        _executePancakeInfinity(fills, forkId(), false);
+        assertEq(fromToken().balanceOf(FROM), beforeBalance);
+    }
+
+    function testPancakeInfinityMultiplex() public skipIf(poolId() == bytes32(0)) {
+        bytes memory firstFill = pancakeInfinityFills();
+        firstFill[0] = 0x07;
+        firstFill[1] = 0xa1;
+        firstFill[2] = 0x20;
+        bytes memory secondFill = pancakeInfinityFills();
+        if (poolManagerId() == 0) {
+            uint256 limit = sqrtPriceLimitX96(fromToken(), toToken());
+            limit = fromToken() < toToken() ? limit / 2 : limit * 2;
+            if (limit < MIN_SQRT_RATIO) limit = MIN_SQRT_RATIO;
+            if (limit > MAX_SQRT_RATIO) limit = MAX_SQRT_RATIO;
+            for (uint256 i; i < 20; ++i) {
+                secondFill[3 + i] = bytes20(uint160(limit))[i];
+            }
+        }
+        bytes memory fills = bytes.concat(firstFill, secondFill);
+        uint256 beforeBalance = toToken().balanceOf(FROM);
+        _executePancakeInfinity(fills, forkId(), false);
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
+    }
+
+    function testPancakeInfinityFeeOnTransfer() public skipIf(poolId() == bytes32(0)) {
+        uint256 beforeBalance = toToken().balanceOf(FROM);
+        _executePancakeInfinity(pancakeInfinityFills(), forkId(), true);
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
+    }
+
     function testPancakeInfinity() public skipIf(poolId() == bytes32(0x0)) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
@@ -199,7 +287,17 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
                 abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY,
-                    (recipient(), address(fromToken()), 1_000_000, false, hashMul, hashMod, pancakeInfinityFills(), 0)
+                    (
+                        recipient(),
+                        address(fromToken()),
+                        1_000_000,
+                        false,
+                        hashMul,
+                        hashMod,
+                        pancakeInfinityFills(),
+                        forkId(),
+                        0
+                    )
                 )
             )
         );
@@ -231,7 +329,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY_VIP,
-                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, 0)
+                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, forkId(), 0)
                 )
             )
         );
@@ -269,7 +367,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY_VIP,
-                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, 0)
+                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, forkId(), 0)
                 )
             )
         );
@@ -308,7 +406,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.METATXN_PANCAKE_INFINITY_VIP,
-                    (metaTxnRecipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), 0)
+                    (metaTxnRecipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), forkId(), 0)
                 )
             )
         );

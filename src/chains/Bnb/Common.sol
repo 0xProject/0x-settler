@@ -13,7 +13,8 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {
     pancakeInfinityVault,
     pancakeInfinityClManager,
-    pancakeInfinityBinManager
+    pancakeInfinityBinManager,
+    pancakeInfinityForkId
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
@@ -127,10 +128,13 @@ abstract contract BnbMixin is
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
+                uint8 forkId,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint8, uint256));
 
-            sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToPancakeInfinity(
+                recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, forkId, amountOutMin
+            );
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -161,10 +165,10 @@ abstract contract BnbMixin is
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        //} else if (forkId == sushiswapV3ForkId) {
-        //    factory = sushiswapV3BnbFactory;
-        //    initHash = uniswapV3InitHash;
-        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            //} else if (forkId == sushiswapV3ForkId) {
+            //    factory = sushiswapV3BnbFactory;
+            //    initHash = uniswapV3InitHash;
+            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == thenaForkId) {
             factory = thenaFactory;
             initHash = thenaInitHash;
@@ -182,16 +186,14 @@ abstract contract BnbMixin is
         return BNB_POOL_MANAGER;
     }
 
-    function _PANCAKE_INFINITY_VAULT(uint256) internal pure override returns (address) {
-        return pancakeInfinityVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityClManager;
-    }
-
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityBinManager;
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId != pancakeInfinityForkId) revertUnknownForkId(forkId);
+        return (pancakeInfinityVault, pancakeInfinityClManager, pancakeInfinityBinManager);
     }
 
     function _EVC() internal pure override returns (IEVC) {

@@ -7,7 +7,6 @@ interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
     /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
-
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -119,6 +118,7 @@ interface ISettlerActions {
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
+        uint8 forkId,
         uint256 amountOutMin
     ) external;
     function PANCAKE_INFINITY_VIP(
@@ -129,6 +129,7 @@ interface ISettlerActions {
         uint256 hashMod,
         bytes memory fills,
         bytes memory sig,
+        uint8 forkId,
         uint256 amountOutMin
     ) external;
     function METATXN_PANCAKE_INFINITY_VIP(
@@ -138,6 +139,7 @@ interface ISettlerActions {
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
+        uint8 forkId,
         uint256 amountOutMin
     ) external;
 
