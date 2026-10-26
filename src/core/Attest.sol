@@ -39,8 +39,6 @@ abstract contract Attest is Select {
         }
     }
 
-    // `ATTEST` runs at most once per swap, so it is matched after every other action rather than
-    // charging each of them for the comparison.
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
@@ -84,25 +82,28 @@ abstract contract Attest is Select {
         assembly ("memory-safe") {
             metadata := calldataload(0x84)
         }
-        bytes32 structHash = keccak256(
-            abi.encode(
-                _TYPEHASH,
-                _msgSender(),
-                deadline,
-                bytes12(metadata),
-                keccak256(bytes(Cuid.decode(uint128(uint256(metadata)))))
-            )
-        );
+        address taker = _msgSender();
+        string memory appid = Cuid.decode(uint128(uint256(metadata)));
+        bytes32 typeHash = _TYPEHASH;
         bytes32 domain = block.chainid == _chainId() ? _DOMAIN_SEPARATOR : _domainSeparator(block.chainid);
         address authority;
-        // Reuse scratch memory: digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
+        // The struct is encoded past the free memory pointer and the digest in scratch memory, so
+        // nothing is allocated:
+        // structHash = keccak256(abi.encode(typeHash, taker, deadline, bytes12(metadata), keccak256(bytes(appid))));
+        // digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
         // authority = ecrecover(digest, 27 + uint8(uint256(vs) >> 255), r, bytes32(uint256(vs) & (2**255 - 1)));
         // if (authority == address(0)) revert InvalidSignature();
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            mstore(ptr, typeHash)
+            mstore(add(0x20, ptr), taker)
+            mstore(add(0x0c, ptr), shl(0x60, typeHash)) // Clears `taker`'s padding.
+            mstore(add(0x40, ptr), deadline)
+            mstore(add(0x60, ptr), shl(0xa0, shr(0xa0, metadata)))
+            mstore(add(0x80, ptr), keccak256(add(0x20, appid), mload(appid)))
             mstore(0x00, 0x1901)
             mstore(0x20, domain)
-            mstore(0x40, structHash)
+            mstore(0x40, keccak256(ptr, 0xa0))
             mstore(0x00, keccak256(0x1e, 0x42))
             mstore(0x20, add(0x1b, shr(0xff, vs)))
             mstore(0x40, r)
@@ -130,7 +131,7 @@ abstract contract Attest is Select {
         }
     }
 
-    function attestation() internal view returns (bytes memory) {
+    function attestation() internal view returns (bytes memory result) {
         address taker = TransientStorage.getAttestedPayer();
         bytes32 metadata;
         address authority;
@@ -141,6 +142,22 @@ abstract contract Attest is Select {
             authority := tload(authoritySlot)
             metadata := tload(attestationSlot)
         }
-        return abi.encode(taker, bytes12(metadata), Cuid.decode(uint128(uint256(metadata))), authority);
+        // The head is reserved first so that `Cuid.decode`, which allocates at the free memory
+        // pointer, writes the length word and single data word of `appid` (at most 26 bytes)
+        // directly into the tail: result = abi.encode(taker, bytes12(metadata), appid, authority).
+        assembly ("memory-safe") {
+            result := mload(0x40)
+            mstore(0x40, add(0xa0, result))
+        }
+        Cuid.decode(uint128(uint256(metadata)));
+        assembly ("memory-safe") {
+            mstore(result, 0xc0)
+            mstore(add(0x20, result), taker)
+            mstore(add(0x0c, result), shl(0x60, 0xc0)) // Clears `taker`'s padding.
+            mstore(add(0x80, result), authority)
+            mstore(add(0x6c, result), shl(0x60, 0x80)) // Offset to `appid`; clears `authority`'s padding.
+            mstore(add(0x40, result), metadata)
+            mstore(add(0x4c, result), 0x00) // Clears `zid`'s padding and the offset's high bytes.
+        }
     }
 }
