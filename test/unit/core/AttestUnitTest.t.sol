@@ -16,7 +16,13 @@ import {ISettlerMetaTxn} from "src/interfaces/ISettlerMetaTxn.sol";
 import {IAttestation} from "src/interfaces/IAttestation.sol";
 import {IMsgSender} from "src/interfaces/IMsgSender.sol";
 import {PERMIT2} from "src/core/Permit2Payment.sol";
-import {SignatureExpired, InvalidSignature, ActionInvalid, ReentrantPayer} from "src/core/SettlerErrors.sol";
+import {
+    SignatureExpired,
+    InvalidSignature,
+    ActionInvalid,
+    ReentrantPayer,
+    ConfusedDeputy
+} from "src/core/SettlerErrors.sol";
 import {IDodoV2} from "src/core/DodoV2.sol";
 import {Cuid} from "src/utils/Cuid.sol";
 import {Permit2Signature} from "test/utils/Permit2Signature.sol";
@@ -133,6 +139,13 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         actions[2] = _read(address(settler), false);
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+    }
+
+    function test_Attest_ZeroPayerCannotSetAttestation() public {
+        bytes[] memory actions = _actions(address(settler), address(0), block.timestamp, _metadata());
+        vm.expectRevert(ConfusedDeputy.selector);
+        _execute(actions, _metadata(), address(0));
+        reader.checkUnavailable(address(settler));
     }
 
     function test_Attest_OverwritesAuthorityAndAllowsSignatureReuse() public {
@@ -272,11 +285,15 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
 
     function testFuzz_Attest_PackedMetadataRoundTrips(uint128 appid, bytes12 zid, uint128 duration) public {
         bytes32 metadata = bytes32(zid) | bytes32(uint256(appid));
-        _execute(_actions(address(settler), taker, block.timestamp + duration, metadata), metadata, taker);
+        uint256 authorityKey = uint256(appid) + 1;
+        bytes[] memory actions = new bytes[](2);
+        actions[0] = _signed(address(settler), taker, block.timestamp + duration, metadata, authorityKey);
+        actions[1] = _read(address(settler), false);
+        _execute(actions, metadata, taker);
         assertEq(reader.taker(), taker);
         assertEq(reader.zid(), zid);
         assertEq(_pack(reader.appid()), appid);
-        assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.authority(), vm.addr(authorityKey));
     }
 
     function test_Cuid_SpecificationExamplesAndBoundaries() public pure {

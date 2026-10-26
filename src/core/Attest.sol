@@ -24,8 +24,20 @@ abstract contract Attest is Select {
         _DOMAIN_SEPARATOR = _domainSeparator(_chainId());
     }
 
-    function _domainSeparator(uint256 chainId) private view returns (bytes32) {
-        return keccak256(abi.encode(_DOMAIN_TYPEHASH, _NAME_HASH, chainId, address(this)));
+    function _domainSeparator(uint256 chainId) private view returns (bytes32 domain) {
+        bytes32 domainTypeHash = _DOMAIN_TYPEHASH;
+        bytes32 nameHash = _NAME_HASH;
+        // Scratch memory avoids allocation: domain = keccak256(abi.encode(domainTypeHash, nameHash, chainId, address(this))).
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, domainTypeHash)
+            mstore(0x20, nameHash)
+            mstore(0x40, chainId)
+            mstore(0x60, address())
+            domain := keccak256(0x00, 0x80)
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+        }
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -67,19 +79,22 @@ abstract contract Attest is Select {
             )
         );
         bytes32 domain = block.chainid == _chainId() ? _DOMAIN_SEPARATOR : _domainSeparator(block.chainid);
-        bytes32 digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
         address authority;
         bool invalidSignature;
-        // Invalid signatures can return no bytes, leaving the scratch data intact; require nonempty output:
+        // Reuse scratch memory: digest = keccak256(abi.encodePacked(hex"1901", domain, structHash));
         // authority = ecrecover(digest, 27 + uint8(uint256(vs) >> 255), r, bytes32(uint256(vs) & (2**255 - 1))).
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(0x00, digest)
+            mstore(0x00, 0x1901)
+            mstore(0x20, domain)
+            mstore(0x40, structHash)
+            mstore(0x00, keccak256(0x1e, 0x42))
             mstore(0x20, add(0x1b, shr(0xff, vs)))
             mstore(0x40, r)
             mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs))
             authority := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
-            invalidSignature := or(iszero(returndatasize()), iszero(authority))
+            // Successful recovery returns a 160-bit address in 32 bytes, so the product cannot overflow.
+            invalidSignature := iszero(mul(returndatasize(), authority))
             mstore(0x40, ptr)
             mstore(0x60, 0x00)
         }

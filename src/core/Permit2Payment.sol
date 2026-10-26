@@ -190,7 +190,8 @@ library TransientStorage {
             payer := tload(_PAYER_SLOT)
             attested := and(0x01, shr(0xa0, payer))
         }
-        require(payer != address(0) && attested);
+        // Only a live payer can be attested, and clearing the payer clears the entire word.
+        require(attested);
     }
 
     function clearPayer(address expectedOldPayer) internal {

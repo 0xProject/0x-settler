@@ -1478,9 +1478,28 @@ Third, create a new set of
 files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
-(presently MaverickV2, UniswapV4, and Across), replace the `block.chainid` check
-in the constructor (in both `Common.sol` and `BridgeSettler.sol`), and replace
-the UniswapV3 forks. When adding new UniswapV3 forks, be sure that the `factory`
+(presently MaverickV2, UniswapV4, and Across), set the chain ID in `Common.sol`,
+update the `block.chainid` check in the `BridgeSettler.sol` constructor, and
+replace the UniswapV3 forks.
+
+In `Common.sol`, override `_chainId()` as `internal pure` and return the chain's
+literal numeric ID from `chain_config.json`. For example, Base uses:
+
+```solidity
+function _chainId() internal pure override returns (uint256) {
+    return 8453;
+}
+```
+
+Keep the mixin's constructor check as
+`assert(block.chainid == _chainId() || block.chainid == 31337);`.
+The `31337` exception permits local testing; `_chainId()` must still return the
+deployment chain's ID. `Attest` uses this constant to cache its EIP-712 domain
+separator during construction. During settlement, it recomputes the separator
+if `block.chainid` differs from that constant. Do not store the chain ID in an
+immutable.
+
+When adding new UniswapV3 forks, be sure that the `factory`
 address is the address of the contract that `CREATE2`'s the pool. Triple check
 that the deployed pools aren't upgradeable proxies and that the `data` argument
 is passed through the callback unmodified. _**This is critical for security.**_
