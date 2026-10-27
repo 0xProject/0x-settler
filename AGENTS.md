@@ -149,13 +149,16 @@ function test_execute() {
 
 ## Commands
 
-Use the compiler, EVM and optimizer settings in CI (`.github/workflows/test.yml`, `integration.yml`, `size.yml`).
+Setup: Foundry v1.5.1, Node 18.x, `git submodule update --recursive --init`, `npm install`.
+
+Use the compiler, EVM and optimizer settings in CI (`.github/workflows/test.yml`, `integration.yml`, `size.yml`). Tests load contracts that CI builds in earlier steps with pinned settings, so run those build steps before `forge test`.
 
 ```bash
 forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'src/chains/*' --skip 'test/*' --skip 'script/*'
 forge build --sizes -- src/chains/<Chain>          # per-chain size check
-forge test                                          # unit tests
-FOUNDRY_PROFILE=integration forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'   # fork tests, writes gas snapshots (Arbitrum runs separately via ./arbos-forge)
+forge test --skip 'src/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol      # unit tests
+FOUNDRY_PROFILE=integration forge test --skip 'src/*' --skip 'test/integration/arbitrum/*'   # fork tests, writes gas snapshots
+# Arbitrum fork tests need ./arbos-forge from iosiro/arbos-foundry v0.1.1 (see integration.yml)
 COMPARE_GIT_SHA=$(git merge-base HEAD master) npm run compare_gas                            # gas vs master
 npm run check_vips                                  # VIP signatures vs ISettlerActions.sol
 forge fmt <files you changed>                       # never format the whole tree
