@@ -13,12 +13,14 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {
     pancakeInfinityVault,
     pancakeInfinityClManager,
-    pancakeInfinityBinManager
+    pancakeInfinityBinManager,
+    pancakeInfinityForkId
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {FluxPool} from "../../core/FluxPool.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
@@ -45,7 +47,7 @@ import {
 } from "../../core/univ3forks/SquadSwapV3.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
-import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4BnbPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -62,6 +64,8 @@ abstract contract BnbMixin is
     Bebop,
     FluxPool
 {
+    using FastLogic for bool;
+
     constructor() {
         assert(block.chainid == _chainId() || block.chainid == 31337);
     }
@@ -79,19 +83,27 @@ abstract contract BnbMixin is
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(
+                    recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+                );
+            }
         } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
             (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
@@ -121,19 +133,6 @@ abstract contract BnbMixin is
             );
 
             sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
-        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 ppm,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -185,20 +184,27 @@ abstract contract BnbMixin is
         return 0xff7fe6b6951Afd81Bc5eF9d205c28e5117012FD8;
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return BNB_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4BnbPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
-        return pancakeInfinityVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityClManager;
-    }
-
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityBinManager;
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId == pancakeInfinityForkId) {
+            vault = pancakeInfinityVault;
+            clManager = pancakeInfinityClManager;
+            binManager = pancakeInfinityBinManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

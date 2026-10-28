@@ -2,11 +2,22 @@
 
 ### Breaking changes
 
+* Add a `forkId` argument to `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
+  `METATXN_PANCAKE_INFINITY_VIP` that selects the PancakeSwap Infinity fork
+  (after `ppm` in `PANCAKE_INFINITY`; after `permit` in the VIP variants). See
+  [PANCAKE_INFINITY_FORKS.md](PANCAKE_INFINITY_FORKS.md) for the list of forks.
+* Add a `forkId` argument to `UNISWAPV4`, `UNISWAPV4_VIP`, and
+  `METATXN_UNISWAPV4_VIP` that selects the UniswapV4 fork (after `ppm` in
+  `UNISWAPV4`; after `permit` in the VIP variants). See
+  [UNISWAPV4_FORKS.md](UNISWAPV4_FORKS.md) for the list of forks.
+* Remove `TSUNAMI`, `TSUNAMI_VIP`, and `METATXN_TSUNAMI_VIP` from Ink; Tsunami
+  is UniswapV4 fork `1` on Ink
 * Remove `RENEGADE` action from Arbitrum and Base
 * Remove Scroll, Sonic, Berachain, and Mantle chains
 
 ### Non-breaking changes
 
+* Add PancakeSwap Infinity concentrated liquidity pools to Arc
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
