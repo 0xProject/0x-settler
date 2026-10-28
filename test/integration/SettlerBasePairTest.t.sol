@@ -57,6 +57,8 @@ abstract contract SettlerBasePairTest is BasePairTest {
         vm.chainId(31337);
         settler = _deploySettler();
         vm.label(address(settler), "Settler");
+        if (address(fromToken()) != address(0)) deal(address(fromToken()), address(settler), 1);
+        if (address(toToken()) != address(0)) deal(address(toToken()), address(settler), 1);
         vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
         vm.label(address(allowanceHolder), "AllowanceHolder");
         vm.chainId(forkChainId);

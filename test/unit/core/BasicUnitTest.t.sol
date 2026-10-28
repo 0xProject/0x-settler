@@ -69,7 +69,7 @@ contract BasicUnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(selector, amount);
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount)
+            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount + 1)
         );
         _mockExpectCall(
             address(TOKEN),
@@ -91,7 +91,9 @@ contract BasicUnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(selector, amount);
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount / 2)
+            address(TOKEN),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)),
+            abi.encode(amount / 2 + 1)
         );
         _mockExpectCall(
             address(TOKEN),
@@ -112,7 +114,9 @@ contract BasicUnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(selector, amount);
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount * 2)
+            address(TOKEN),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)),
+            abi.encode(amount * 2 + 1)
         );
         _mockExpectCall(
             address(TOKEN),

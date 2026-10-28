@@ -39,7 +39,7 @@ abstract contract FluxPool is SettlerSwapAbstract {
     {
         uint256 sellAmount;
         unchecked {
-            sellAmount = sellToken.fastBalanceOf(address(this)) * ppm / Constants.BASIS;
+            sellAmount = sellToken.fastSpendableBalance() * ppm / Constants.BASIS;
         }
 
         // Equivalent to `abi.encodeCall(IFluxSwap.swapWithCallback, (poolId, zeroForOne, sellAmount, minBuyAmount,

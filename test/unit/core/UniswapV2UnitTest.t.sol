@@ -127,7 +127,7 @@ contract UniswapV2UnitTest is Utils, Test {
         uint256 minBuyAmount = 9087;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
-        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount));
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount + 1));
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, amount)), new bytes(0));
 
         // UniswapV2Pool.getReserves
@@ -146,7 +146,7 @@ contract UniswapV2UnitTest is Utils, Test {
         uint256 minBuyAmount = 1e18;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
-        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount));
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount + 1));
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, amount)), new bytes(0));
 
         // UniswapV2Pool.getReserves
@@ -166,7 +166,7 @@ contract UniswapV2UnitTest is Utils, Test {
         uint256 minBuyAmount = 1;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
-        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount / 2));
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount / 2 + 1));
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, amount / 2)), new bytes(0));
 
         // UniswapV2Pool.getReserves
@@ -185,7 +185,7 @@ contract UniswapV2UnitTest is Utils, Test {
         uint256 minBuyAmount = 9521;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
-        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount * 2));
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount * 2 + 1));
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, amount * 2)), new bytes(0));
 
         // UniswapV2Pool.getReserves
@@ -207,7 +207,7 @@ contract UniswapV2UnitTest is Utils, Test {
         // We emulate a token which has a 50% fee when transferring to the Uniswap pool
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (POOL)), abi.encode(amount / 2));
 
-        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount));
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount + 1));
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, amount)), new bytes(0));
 
         // UniswapV2Pool.getReserves
@@ -228,7 +228,7 @@ contract UniswapV2UnitTest is Utils, Test {
         uint24 swapInfo0 = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
         uint24 swapInfo1 = (TOKEN1 < TOKEN2 ? 1 : 0) | (30 << 8);
 
-        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount * 2));
+        _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount * 2 + 1));
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, amount * 2)), new bytes(0));
 
         // UniswapV2Pool.getReserves
