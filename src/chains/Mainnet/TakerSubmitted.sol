@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {MainnetMixin} from "./Common.sol";
+import {MainnetMixin, MainnetCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -12,20 +12,19 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Attest} from "../../core/Attest.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 // The taker dispatcher must precede the chain dispatcher so candidates retain its checks.
 /// @custom:security-contact security@0x.org
-contract MainnetSettler is MainnetMixin, Settler, Attest {
+contract MainnetSettler is MainnetMixin, Settler, MainnetCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, MainnetMixin, Attest)
+        override(Settler, MainnetMixin, MainnetCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -90,7 +89,7 @@ contract MainnetSettler is MainnetMixin, Settler, Attest {
     function _isRestrictedTarget(address target)
         internal
         view
-        override(Settler, MainnetMixin, Permit2PaymentAbstract)
+        override(Settler, MainnetMixin, MainnetCommon)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -103,7 +102,7 @@ contract MainnetSettler is MainnetMixin, Settler, Attest {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MainnetMixin, Attest)
+        override(Permit2PaymentAbstract, MainnetMixin, MainnetCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);
