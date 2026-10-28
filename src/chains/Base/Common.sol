@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
@@ -306,5 +307,37 @@ abstract contract BaseMixin is
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract BaseCommon is BaseMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(BaseMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BaseMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(BaseMixin, Attest)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

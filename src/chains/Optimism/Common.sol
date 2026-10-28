@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
@@ -161,5 +162,37 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract OptimismCommon is OptimismMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(OptimismMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(OptimismMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(OptimismMixin, Permit2PaymentAbstract)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

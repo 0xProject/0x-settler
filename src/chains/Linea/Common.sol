@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -85,5 +86,18 @@ abstract contract LineaMixin is FreeMemory, SettlerBase, DodoV1 {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract LineaCommon is LineaMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(LineaMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
     }
 }

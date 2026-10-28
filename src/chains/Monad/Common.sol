@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
@@ -129,6 +130,28 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
         internal
         virtual
         override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract MonadCommon is MonadMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(MonadMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(MonadMixin, Attest)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);

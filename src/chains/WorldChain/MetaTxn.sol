@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {WorldChainMixin} from "./Common.sol";
+import {WorldChainCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -10,13 +10,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Select} from "../../core/Select.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract WorldChainSettlerMetaTxn is SettlerMetaTxn, WorldChainMixin, Select {
+contract WorldChainSettlerMetaTxn is SettlerMetaTxn, WorldChainCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -53,7 +52,7 @@ contract WorldChainSettlerMetaTxn is SettlerMetaTxn, WorldChainMixin, Select {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, WorldChainMixin, Select)
+        override(SettlerBase, WorldChainCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -76,7 +75,7 @@ contract WorldChainSettlerMetaTxn is SettlerMetaTxn, WorldChainMixin, Select {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, WorldChainMixin)
+        override(Permit2PaymentAbstract, WorldChainCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

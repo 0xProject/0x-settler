@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {ArbitrumMixin} from "./Common.sol";
+import {ArbitrumCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -10,12 +10,11 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract ArbitrumSettler is Settler, ArbitrumMixin, Attest {
+contract ArbitrumSettler is Settler, ArbitrumCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -70,18 +69,13 @@ contract ArbitrumSettler is Settler, ArbitrumMixin, Attest {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, ArbitrumMixin, Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, ArbitrumCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, ArbitrumMixin, Attest)
+        override(Settler, ArbitrumCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -94,7 +88,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin, Attest {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, ArbitrumMixin, Attest)
+        override(Permit2PaymentAbstract, ArbitrumCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

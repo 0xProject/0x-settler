@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {MonadMixin} from "./Common.sol";
+import {MonadCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -10,13 +10,12 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin, Attest {
+contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -67,7 +66,7 @@ contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin, Attest {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, MonadMixin, Attest)
+        override(SettlerBase, MonadCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -90,7 +89,7 @@ contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin, Attest {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MonadMixin, Attest)
+        override(Permit2PaymentAbstract, MonadCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

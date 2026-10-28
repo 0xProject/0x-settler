@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {BaseMixin} from "./Common.sol";
+import {BaseCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -12,13 +12,12 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2Payment} from "../../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BaseSettler is Settler, BaseMixin, Attest {
+contract BaseSettler is Settler, BaseCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -72,18 +71,13 @@ contract BaseSettler is Settler, BaseMixin, Attest {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, BaseMixin, Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, BaseCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, BaseMixin, Attest)
+        override(Settler, BaseCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -96,7 +90,7 @@ contract BaseSettler is Settler, BaseMixin, Attest {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, BaseMixin, Attest)
+        override(Permit2PaymentAbstract, BaseCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

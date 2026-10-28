@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {MainnetMixin} from "./Common.sol";
+import {MainnetCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -11,12 +11,11 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Attest} from "../../core/Attest.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin, Attest {
+contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -82,7 +81,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin, Attest {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, MainnetMixin, Attest)
+        override(SettlerBase, MainnetCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -92,7 +91,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin, Attest {
         internal
         view
         virtual
-        override(SettlerMetaTxn, MainnetMixin, Permit2PaymentAbstract)
+        override(SettlerMetaTxn, MainnetCommon)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -105,7 +104,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin, Attest {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MainnetMixin, Attest)
+        override(Permit2PaymentAbstract, MainnetCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);
