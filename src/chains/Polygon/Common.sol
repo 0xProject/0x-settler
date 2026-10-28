@@ -25,7 +25,7 @@ import {sushiswapV3PolygonFactory, sushiswapV3ForkId} from "../../core/univ3fork
 import {quickSwapV3Factory, quickSwapV3InitHash, quickSwapV3ForkId} from "../../core/univ3forks/QuickSwapV3.sol";
 import {quickSwapV4Factory, quickSwapV4InitHash, quickSwapV4ForkId} from "../../core/univ3forks/QuickSwapV4.sol";
 
-import {POLYGON_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4PolygonPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -50,14 +50,15 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -113,8 +114,12 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return POLYGON_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4PolygonPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance

@@ -196,7 +196,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             hashMul,
             hashMod,
             fills,
-            amountOutMin
+            amountOutMin,
+            0
         );
         bytes memory encodedBuyAmount =
             _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallbackV2);
