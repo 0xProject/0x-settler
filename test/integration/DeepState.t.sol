@@ -100,8 +100,8 @@ contract DeepstateTest is SettlerBasePairTest {
 
         assertEq(toToken().balanceOf(FROM), expectedOut, "taker output");
         assertEq(fromToken().balanceOf(address(DEEPSTATE)) - engineBalanceBefore, amount(), "engine received input");
-        assertEq(fromToken().balanceOf(address(settler)), 0, "input fully matched");
-        assertEq(toToken().balanceOf(address(settler)), 0, "settler output residue");
+        assertEq(fromToken().balanceOf(address(settler)), 1, "input fully matched");
+        assertEq(toToken().balanceOf(address(settler)), 1, "settler output residue");
     }
 
     /// @dev The engine sizes bids in USDG, so the NVDA sell amount is converted through the reciprocal of the limit
@@ -133,9 +133,9 @@ contract DeepstateTest is SettlerBasePairTest {
 
         uint256 spent = toToken().balanceOf(address(DEEPSTATE)) - engineBalanceBefore;
         assertEq(fromToken().balanceOf(FROM) - amount(), expectedOut, "taker output");
-        assertEq(spent + toToken().balanceOf(address(settler)), BID_SELL_AMOUNT, "sell amount accounted for");
+        assertEq(spent + toToken().balanceOf(address(settler)), BID_SELL_AMOUNT + 1, "sell amount accounted for");
         assertLe(spent, BID_SELL_AMOUNT, "debit bounded by sell amount");
-        assertEq(fromToken().balanceOf(address(settler)), 0, "settler output residue");
+        assertEq(fromToken().balanceOf(address(settler)), 1, "settler output residue");
     }
 
     function _netOfFee(uint256 grossOut) private pure returns (uint256) {

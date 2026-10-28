@@ -356,7 +356,7 @@ abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
     {
         uint256 sellAmount;
         unchecked {
-            sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
+            sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS);
         }
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {

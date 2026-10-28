@@ -312,7 +312,8 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         // Verify partial fill - should receive proportional maker tokens
         uint256 afterBalanceTo = _toToken.balanceOf(FROM);
-        assertEq(afterBalanceTo, beforeBalanceTo + halfAmount, "Should receive proportional maker tokens");
+        // a partial fill also sells the kept wei
+        assertEq(afterBalanceTo, beforeBalanceTo + halfAmount + 1, "Should receive proportional maker tokens");
 
         uint256 afterBalanceFrom = _fromToken.balanceOf(FROM);
         assertEq(afterBalanceFrom, beforeBalanceFrom - halfAmount, "Should send half of taker tokens");

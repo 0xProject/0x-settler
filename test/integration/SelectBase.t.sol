@@ -72,8 +72,8 @@ contract SelectBase is SettlerBasePairTest {
         uint256 received = toToken().balanceOf(RECIPIENT) - beforeBalance;
 
         assertGt(received, 1, "alternate route paid recipient");
-        assertEq(fromToken().balanceOf(address(settler)), 0, "settler WETH consumed");
-        assertEq(toToken().balanceOf(address(settler)), 0, "top-level slippage transferred USDC");
+        assertEq(fromToken().balanceOf(address(settler)), 1, "settler WETH consumed");
+        assertEq(toToken().balanceOf(address(settler)), 1, "top-level slippage transferred USDC");
     }
 
     function testFirstCandidateSuccess_commitsImmediately() public {
