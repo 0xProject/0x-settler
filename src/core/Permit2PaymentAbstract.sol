@@ -80,11 +80,11 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
     ) internal virtual returns (bytes memory);
 
     function _setOperatorAndTryCall(
-        uint256 gasLimit,
         address target,
         bytes memory data,
         uint32 selector,
-        function(bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback,
+        uint256 gasLimit
     ) internal virtual returns (bool);
 
     modifier metaTx(address msgSender, bytes32 witness) virtual;
