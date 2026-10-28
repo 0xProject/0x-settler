@@ -30,11 +30,22 @@
 * Add Nami UniV3 fork to Mainnet, Base, and RobinHood with fork ID 49
 * Add Aero CL UniV3 fork on Base, Optimism, Arbitrum, Mainnet, Ink,
   RobinHood, and Arc with fork ID 50
-* Add `ATTEST` action, which verifies an EIP-712 attestation of the taker and
-  the entrypoint's `zid` argument and exposes the signer to liquidity sources
-  through `attestation()`; see `ISettlerActions` for the signed message. Not
-  available on Abstract, Ink, Linea, Optimism, Plasma, Sepolia, Tempo,
-  Unichain, or WorldChain
+* Add `ATTEST` action, which verifies a signature over the flow provenance
+  metadata. This information is exposed to liquidity sources through `function
+  attestation() external view returns (address taker, bytes12 zid, string memory
+  appid, address authority);`. The EIP-712 type is `Attestation(address
+  taker,uint256 deadline,bytes12 zid,string appid)`. Available on:
+  * Arbitrum
+  * Arc
+  * Avalanche
+  * Base
+  * Bnb
+  * Elysium
+  * HyperEvm
+  * Mainnet
+  * Monad
+  * Polygon
+  * RobinHood
 
 ## 2026-10-22
 
