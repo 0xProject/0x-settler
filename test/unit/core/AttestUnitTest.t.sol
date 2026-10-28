@@ -305,15 +305,15 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
             abi.encodePacked(address(token), uniswapV3ForkId, uint24(3000), uint160(0), address(buyToken));
         bytes[] memory actions = new bytes[](2);
         actions[0] = _signed(address(settler), taker, block.timestamp, _metadata(), AUTHORITY_KEY);
-        actions[1] = abi.encodeCall(ISettlerActions.UNISWAPV3, (taker, 1_000_000, path, 1 ether));
+        actions[1] = abi.encodeCall(ISettlerActions.UNISWAPV3, (taker, 1_000_000, path, 1 ether - 1 wei));
         _execute(actions, _metadata(), taker);
         AttestingPool attesting = AttestingPool(pool);
         assertEq(attesting.taker(), taker);
         assertEq(attesting.zid(), ZID);
         assertEq(attesting.appid(), APPID);
         assertEq(attesting.authority(), vm.addr(AUTHORITY_KEY));
-        assertEq(token.balanceOf(pool), 1 ether);
-        assertEq(buyToken.balanceOf(taker), 1 ether);
+        assertEq(token.balanceOf(pool), 1 ether - 1 wei);
+        assertEq(buyToken.balanceOf(taker), 1 ether - 1 wei);
     }
 
     function testFuzz_Attest_PackedMetadataRoundTrips(uint128 appid, bytes12 zid, uint128 duration) public {
