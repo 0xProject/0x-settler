@@ -346,6 +346,83 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(Cuid.decode(packed), "ch72gsb320000udocl363eofy");
     }
 
+    function _referenceCuid(uint128 packed) private pure returns (string memory) {
+        bytes memory alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+        uint256 length = 17;
+        for (uint256 remaining = uint256(packed) / 36 ** 17; remaining != 0; remaining /= 36) {
+            ++length;
+        }
+        bytes memory result = new bytes(length + 1);
+        result[0] = "c";
+        for (uint256 i = length; i != 0; --i) {
+            result[i] = alphabet[packed % 36];
+            packed /= 36;
+        }
+        return string(result);
+    }
+
+    function test_Cuid_AllDigitPositionsAndLengthBoundaries() public pure {
+        for (uint256 place = 1; place <= type(uint128).max; place *= 36) {
+            assertEq(Cuid.decode(uint128(place - 1)), _referenceCuid(uint128(place - 1)));
+            for (uint256 digit = 1; digit < 36 && digit * place <= type(uint128).max; ++digit) {
+                uint128 packed = uint128(digit * place);
+                assertEq(Cuid.decode(packed), _referenceCuid(packed));
+                assertEq(Cuid.decode(packed + 1), _referenceCuid(packed + 1));
+            }
+        }
+    }
+
+    function testFuzz_Cuid_ReferenceAndMemory(uint256 input) public pure {
+        uint128 packed;
+        uint256 beforePtr;
+        // Dirty input bits and reused memory must not affect the string or its padding.
+        // packed = uint128(input); memory[free:free + 96] = 0xff; the last word is a guard.
+        assembly ("memory-safe") {
+            packed := input
+            beforePtr := mload(0x40)
+            mstore(beforePtr, not(0x00))
+            mstore(add(0x20, beforePtr), not(0x00))
+            mstore(add(0x40, beforePtr), not(0x00))
+        }
+        string memory actual = Cuid.decode(packed);
+        uint256 actualPtr;
+        uint256 afterPtr;
+        uint256 padding;
+        uint256 guard;
+        uint256 zeroSlot;
+        // The attestation ABI requires the string at the allocation start and a zero-padded data word.
+        // padding = uint256(bytes32(actual)) << (8 * bytes(actual).length).
+        assembly ("memory-safe") {
+            actualPtr := actual
+            afterPtr := mload(0x40)
+            padding := shl(shl(0x03, mload(actual)), mload(add(0x20, actual)))
+            guard := mload(add(0x40, beforePtr))
+            zeroSlot := mload(0x60)
+        }
+        assertEq(actualPtr, beforePtr);
+        assertEq(afterPtr, beforePtr + 64);
+        assertEq(padding, 0);
+        assertEq(guard, type(uint256).max);
+        assertEq(zeroSlot, 0);
+        assertEq(actual, _referenceCuid(uint128(input)));
+    }
+
+    function decodeCuid(uint128 packed) external pure returns (string memory) {
+        return Cuid.decode(packed);
+    }
+
+    function test_Cuid_Gas_Zero() public view {
+        assertEq(this.decodeCuid(0), "c00000000000000000");
+    }
+
+    function test_Cuid_Gas_Appid() public view {
+        assertEq(this.decodeCuid(packedAppid), APPID);
+    }
+
+    function test_Cuid_Gas_Maximum() public view {
+        assertEq(this.decodeCuid(type(uint128).max), "cf5lxx1zz5pnorynqglhzmsp33");
+    }
+
     function _select(bytes[][] memory candidates) private view returns (bytes memory) {
         return
             abi.encodeCall(
