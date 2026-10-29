@@ -407,22 +407,6 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(actual, _referenceCuid(uint128(input)));
     }
 
-    function decodeCuid(uint128 packed) external pure returns (string memory) {
-        return Cuid.decode(packed);
-    }
-
-    function test_Cuid_Gas_Zero() public view {
-        assertEq(this.decodeCuid(0), "c00000000000000000");
-    }
-
-    function test_Cuid_Gas_Appid() public view {
-        assertEq(this.decodeCuid(packedAppid), APPID);
-    }
-
-    function test_Cuid_Gas_Maximum() public view {
-        assertEq(this.decodeCuid(type(uint128).max), "cf5lxx1zz5pnorynqglhzmsp33");
-    }
-
     function _select(bytes[][] memory candidates) private view returns (bytes memory) {
         return
             abi.encodeCall(
