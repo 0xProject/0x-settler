@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {Clz} from "../vendor/Clz.sol";
+import {Ternary} from "./Ternary.sol";
+
 library Cuid {
+    using Clz for uint256;
+    using Ternary for bool;
+
     // CUIDv1: https://github.com/paralleldrive/cuid/blob/master/index.js
     // The integer encodes the base-36 text after `c`. The timestamp has no leading zeros;
     // the counter, fingerprint, and random suffix occupy exactly 16 characters.
     function decode(uint128 packed) internal pure returns (string memory result) {
+        uint256 digits;
         // Assembly converts independent groups of base-36 digits in one word without temporary memory.
         // result = "c" + base36(packed, minDigits=17).
         assembly ("memory-safe") {
@@ -32,7 +39,7 @@ library Cuid {
             quotients := and(mask, shr(0x15, mul(0xe38f, groups)))
             let leading := and(mask, shr(0x15, mul(0xe38f, quotients)))
             // x + (256 - 36) * (x / 36 + 256 * (x / 36**2)) places each base-36 digit in one byte.
-            let digits := add(mul(0xdc, add(shl(0x08, leading), quotients)), groups)
+            digits := add(mul(0xdc, add(shl(0x08, leading), quotients)), groups)
 
             mask := 0xffffff0000000000ffffff0000000000ffffff0000000000ffffff
             digits := or(and(mask, digits), shr(0x08, and(not(mask), digits)))
@@ -41,10 +48,15 @@ library Cuid {
             mask := 0xffffffffffffffffffffffff
             digits := or(and(mask, digits), shr(0x20, and(not(mask), digits)))
             digits := or(shl(0xc0, packed), digits)
+        }
 
-            let length := shr(0x03, sub(0x107, clz(digits)))
-            if lt(length, 0x11) { length := 0x11 }
+        uint256 length;
+        unchecked {
+            length = 263 - digits.clz() >> 3;
+            length = (length < 17).ternary(17, length);
+        }
 
+        assembly ("memory-safe") {
             // Digits are at most 35: adding 118 sets bit 7 exactly for letters, without byte carries.
             let letters :=
                 and(
