@@ -134,11 +134,12 @@ abstract contract AttestPairTest is SettlerBasePairTest {
 
     function checkAttestation(address expectedTaker) external view {
         assertEq(msg.sender, address(settler));
-        (address taker, bytes12 zid, string memory appid, address authority) =
+        (address taker, bytes12 zid, string memory appid, address authority, uint40 deadline) =
             IAttestation(address(settler)).attestation();
         assertEq(taker, expectedTaker);
         assertEq(zid, bytes12(ATTEST_METADATA));
         assertEq(appid, "ch72gsb320000udocl363eofy");
         assertEq(authority, MAKER);
+        assertEq(deadline, block.timestamp);
     }
 }

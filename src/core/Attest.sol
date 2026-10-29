@@ -67,7 +67,7 @@ abstract contract Attest is Select {
         assembly ("memory-safe") {
             freeMemPtr := mload(0x40)
         }
-        if (block.timestamp > deadline) {
+        if (block.timestamp > deadline || deadline > type(uint40).max) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
                 mstore(0x20, deadline)
@@ -115,9 +115,9 @@ abstract contract Attest is Select {
         }
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
-        // transient[authoritySlot] = authority; transient[attestationSlot] = metadata
+        // transient[authoritySlot] = uint160(authority) | (deadline << 160); transient[attestationSlot] = metadata
         assembly ("memory-safe") {
-            tstore(authoritySlot, authority)
+            tstore(authoritySlot, or(shl(0xa0, deadline), authority))
             tstore(attestationSlot, metadata)
         }
         TransientStorage.setAttested();
@@ -130,28 +130,32 @@ abstract contract Attest is Select {
         address taker = TransientStorage.getAttestedPayer();
         bytes32 metadata;
         address authority;
+        uint40 deadline;
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
-        // authority = transient[authoritySlot]; metadata = transient[attestationSlot]
+        // (authority, deadline) = unpack(transient[authoritySlot]); metadata = transient[attestationSlot]
         assembly ("memory-safe") {
-            authority := tload(authoritySlot)
+            let packed := tload(authoritySlot)
+            authority := and(0xffffffffffffffffffffffffffffffffffffffff, packed)
+            deadline := and(0xffffffffff, shr(0xa0, packed))
             metadata := tload(attestationSlot)
         }
         // The head is reserved first so that `Cuid.decode`, which allocates at the free memory
         // pointer, writes the length word and single data word of `appid` (at most 26 bytes)
         // directly into the tail
-        // result = abi.encode(taker, bytes12(metadata), appid, authority).
+        // result = abi.encode(taker, bytes12(metadata), appid, authority, deadline).
         assembly ("memory-safe") {
             result := mload(0x40)
-            mstore(0x40, add(0xa0, result))
+            mstore(0x40, add(0xc0, result))
         }
         Cuid.decode(uint128(uint256(metadata)));
         assembly ("memory-safe") {
-            mstore(result, 0xc0)
+            mstore(result, 0xe0)
             mstore(add(0x20, result), taker)
-            mstore(add(0x0c, result), shl(0x60, 0xc0)) // Clears `taker`'s padding.
+            mstore(add(0x0c, result), shl(0x60, 0xe0)) // Clears `taker`'s padding.
+            mstore(add(0xa0, result), deadline)
             mstore(add(0x80, result), authority)
-            mstore(add(0x6c, result), shl(0x60, 0x80)) // Offset to `appid`; clears `authority`'s padding.
+            mstore(add(0x6c, result), shl(0x60, 0xa0)) // Offset to `appid`; clears `authority`'s padding.
             mstore(add(0x40, result), metadata)
             mstore(add(0x4c, result), 0x00) // Clears `zid`'s padding and the offset's high bytes.
         }

@@ -128,6 +128,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(reader.zid(), ZID);
         assertEq(reader.appid(), APPID);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
         reader.checkUnavailable(address(settler));
     }
 
@@ -146,6 +147,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         actions[2] = _read(address(settler), false);
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_ZeroPayerCannotSetAttestation() public {
@@ -155,15 +157,17 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         reader.checkUnavailable(address(settler));
     }
 
-    function test_Attest_OverwritesAuthorityAndAllowsSignatureReuse() public {
+    function test_Attest_OverwritesAuthorityAndDeadlineAndAllowsSignatureReuse() public {
         bytes[] memory actions = new bytes[](3);
-        actions[0] = _signed(address(settler), taker, block.timestamp, _metadata(), AUTHORITY_KEY);
+        actions[0] = _signed(address(settler), taker, type(uint40).max, _metadata(), AUTHORITY_KEY);
         actions[1] = _signed(address(settler), taker, block.timestamp, _metadata(), AUTHORITY_KEY + 1);
         actions[2] = _read(address(settler), false);
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY + 1));
+        assertEq(reader.deadline(), block.timestamp);
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY + 1));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_ExpiredDeadlineReverts() public {
@@ -193,6 +197,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         bytes[] memory actions = _actions(address(settler), taker, block.timestamp, _metadata());
         _execute(actions, _metadata() | bytes32(uint256(type(uint32).max) << 128), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_ChangedSignedFieldsRecoverDifferentAuthorities() public {
@@ -221,6 +226,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
             vm.chainId(chainIds[i]);
             _execute(_actions(address(settler), taker, block.timestamp, _metadata()), _metadata(), taker);
             assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+            assertEq(reader.deadline(), block.timestamp);
         }
     }
 
@@ -232,6 +238,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
             ISettlerBase.AllowedSlippage(payable(address(0)), IERC20(address(0)), 0), actions, _metadata()
         );
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_EmptyRecoveryOutputCannotReusePreviousAuthority() public {
@@ -252,6 +259,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         actions[1] = _read(address(settler), false);
         _execute(actions, _metadata(), taker);
         assertNotEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp + 1);
     }
 
     function test_Attest_ZeroMetadataIsAvailableAfterAttest() public {
@@ -259,6 +267,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(reader.zid(), bytes12(0));
         assertEq(reader.appid(), "c00000000000000000");
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_RevertedExecutionDoesNotLeaveAnAttestation() public {
@@ -288,6 +297,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         );
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_ReadableFromArmedPoolCallback() public {
@@ -312,21 +322,45 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         assertEq(attesting.zid(), ZID);
         assertEq(attesting.appid(), APPID);
         assertEq(attesting.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(attesting.deadline(), block.timestamp);
         assertEq(token.balanceOf(pool), 1 ether - 1 wei);
         assertEq(buyToken.balanceOf(taker), 1 ether - 1 wei);
     }
 
-    function testFuzz_Attest_PackedMetadataRoundTrips(uint128 appid, bytes12 zid, uint128 duration) public {
+    function testFuzz_Attest_PackedMetadataRoundTrips(uint128 appid, bytes12 zid, uint40 deadline) public {
+        vm.warp(deadline);
         bytes32 metadata = bytes32(zid) | bytes32(uint256(appid));
         uint256 authorityKey = uint256(appid) + 1;
         bytes[] memory actions = new bytes[](2);
-        actions[0] = _signed(address(settler), taker, block.timestamp + duration, metadata, authorityKey);
+        actions[0] = _signed(address(settler), taker, deadline, metadata, authorityKey);
         actions[1] = _read(address(settler), false);
         _execute(actions, metadata, taker);
         assertEq(reader.taker(), taker);
         assertEq(reader.zid(), zid);
         assertEq(_pack(reader.appid()), appid);
         assertEq(reader.authority(), vm.addr(authorityKey));
+        assertEq(reader.deadline(), deadline);
+    }
+
+    function test_Attest_DeadlineBoundaries() public {
+        vm.warp(0);
+        uint40[2] memory deadlines = [uint40(0), type(uint40).max];
+        for (uint256 i; i < deadlines.length; ++i) {
+            _execute(_actions(address(settler), taker, deadlines[i], _metadata()), _metadata(), taker);
+            assertEq(reader.deadline(), deadlines[i]);
+            assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+            assertEq(reader.taker(), taker);
+            assertEq(reader.zid(), ZID);
+            assertEq(reader.appid(), APPID);
+        }
+    }
+
+    function testFuzz_Attest_OversizedDeadlineReverts(uint256 deadline) public {
+        deadline = bound(deadline, uint256(type(uint40).max) + 1, type(uint256).max);
+        bytes[] memory actions = _actions(address(settler), taker, deadline, _metadata());
+        vm.expectRevert(abi.encodeWithSelector(SignatureExpired.selector, deadline));
+        _execute(actions, _metadata(), taker);
+        reader.checkUnavailable(address(settler));
     }
 
     function test_Cuid_SpecificationExamplesAndBoundaries() public pure {
@@ -362,6 +396,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         actions[1] = _select(candidates);
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_SelectRetainsChainSpecificDispatch() public {
@@ -378,6 +413,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         actions[1] = _select(candidates);
         _execute(actions, _metadata(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
     }
 
     function test_Attest_SelectCannotDispatchAttest() public {
@@ -417,6 +453,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         _executeMetaTxn(target, false);
         assertEq(reader.taker(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
         reader.checkUnavailable(target);
     }
 
@@ -425,6 +462,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
         _executeMetaTxn(target, true);
         assertEq(reader.taker(), taker);
         assertEq(reader.authority(), vm.addr(AUTHORITY_KEY));
+        assertEq(reader.deadline(), block.timestamp);
         reader.checkUnavailable(target);
     }
 
@@ -477,13 +515,14 @@ contract AttestationCallbackHelper {
     bytes12 public zid;
     string public appid;
     address public authority;
+    uint40 public deadline;
 
     function record(address target) public {
-        (taker, zid, appid, authority) = IAttestation(target).attestation();
+        (taker, zid, appid, authority, deadline) = IAttestation(target).attestation();
     }
 
     function checkUnavailable(address target) external view {
-        try IAttestation(target).attestation() returns (address, bytes12, string memory, address) {
+        try IAttestation(target).attestation() returns (address, bytes12, string memory, address, uint40) {
             revert("attestation must be unavailable");
         } catch (bytes memory reason) {
             require(reason.length == 0, "nonempty attestation revert");
@@ -513,6 +552,7 @@ contract AttestingPool {
     bytes12 public zid;
     string public appid;
     address public authority;
+    uint40 public deadline;
 
     constructor(IERC20 token0, IERC20 token1) {
         _TOKEN0 = token0;
@@ -525,7 +565,7 @@ contract AttestingPool {
     {
         // Settler is waiting for this pool's swap callback. A query with a different selector must
         // leave that expectation in place.
-        (taker, zid, appid, authority) = IAttestation(msg.sender).attestation();
+        (taker, zid, appid, authority, deadline) = IAttestation(msg.sender).attestation();
         (amount0, amount1) = zeroForOne ? (amountSpecified, -amountSpecified) : (-amountSpecified, amountSpecified);
         IUniswapV3Callback(msg.sender).uniswapV3SwapCallback(amount0, amount1, data);
         (zeroForOne ? _TOKEN1 : _TOKEN0).transfer(recipient, uint256(amountSpecified));
