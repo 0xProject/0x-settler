@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {AttestPairTest} from "./SettlerBasePairTest.t.sol";
+import {AttestPairTest} from "./AttestPairTest.t.sol";
 import {IERC2612, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
