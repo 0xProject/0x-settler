@@ -1310,7 +1310,7 @@ recovered signer:
 
 ```solidity
 interface IAttestation {
-    function attestation() external view returns (address taker, bytes12 zid, string memory appid, address authority);
+    function attestation() external view returns (address taker, bytes12 zid, string memory appid, address authority, uint40 deadline);
 }
 ```
 
@@ -1318,17 +1318,18 @@ A liquidity source that Settler calls during settlement can query this from
 inside its own swap function.
 
 ```solidity
-(address taker, bytes12 zid, string memory appid, address authority) = IAttestation(msg.sender).attestation();
+(address taker, bytes12 zid, string memory appid, address authority, uint40 deadline) = IAttestation(msg.sender).attestation();
 ```
 
 Settler does not check who signed. Anybody can build an `ATTEST` action with any
 private key, so `authority` is only the recovered signer. A consumer must
 compare `authority` against its own list of trusted signers and must not act on
-`taker`, `zid`, or `appid` unless `authority` is trusted. Settler does not
-record used signatures; one signature is valid for every swap by the same taker
-until `deadline`. `zid` can be used as a nonce for cancellation, if
-desired. `attestation()` reverts with empty returndata when no `ATTEST` action
-has run in the current swap.
+`taker`, `zid`, `appid`, or `deadline` unless `authority` is trusted. Settler
+does not record used signatures; one signature is valid for every swap by the
+same taker until `deadline`. `zid` can be used as a nonce for cancellation;
+consumers should retain the `zid`/nonce through the signed deadline (inclusive).
+`attestation()` reverts with empty returndata when no `ATTEST` action has run in
+the current swap.
 
 # How to deploy
 
