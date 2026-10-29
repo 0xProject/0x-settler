@@ -192,17 +192,16 @@ contract PermitTest is AttestPairTest {
 
     function testPermit_Attest_UsesForwardedTakerAndEntrypointMetadata() public {
         deal(address(USDC), FROM, amount());
-        uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) =
-            _signERC2612Permit(FROM, address(allowanceHolder), amount(), deadline, FROM_PRIVATE_KEY);
+            _signERC2612Permit(FROM, address(allowanceHolder), amount(), block.timestamp, FROM_PRIVATE_KEY);
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), deadline, r, _vs(v, s)));
+            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), block.timestamp, r, _vs(v, s)));
         bytes[] memory actions = new bytes[](3);
         actions[0] = abi.encodeCall(
             ISettlerActions.TRANSFER_FROM,
             (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), bytes(""))
         );
-        actions[1] = _getAttestAction(FROM, deadline);
+        actions[1] = _getAttestAction(FROM, block.timestamp);
         actions[2] = abi.encodeCall(
             ISettlerActions.BASIC, (address(0), 0, address(this), 0, abi.encodeCall(this.checkAttestation, (FROM)))
         );
