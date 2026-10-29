@@ -118,9 +118,9 @@ abstract contract Attest is Select {
         }
         bytes32 authoritySlot = _AUTHORITY_SLOT;
         bytes32 attestationSlot = _ATTESTATION_SLOT;
-        // transient[authoritySlot] = uint160(authority) | (deadline << 160); transient[attestationSlot] = metadata
+        // transient[authoritySlot] = uint256(uint160(authority)) << 96 | uint256(deadline); transient[attestationSlot] = metadata
         assembly ("memory-safe") {
-            tstore(authoritySlot, or(shl(0xa0, deadline), authority))
+            tstore(authoritySlot, or(shl(0x60, authority), and(0xffffffffff, deadline)))
             tstore(attestationSlot, metadata)
         }
         TransientStorage.setAttested();
@@ -138,8 +138,8 @@ abstract contract Attest is Select {
         bytes32 attestationSlot = _ATTESTATION_SLOT;
         // (authority, deadline) = unpack(transient[authoritySlot]); metadata = transient[attestationSlot]
         assembly ("memory-safe") {
-            authority := tload(authoritySlot)
-            deadline := shr(0xa0, authority)
+            deadline := tload(authoritySlot)
+            authority := shr(0x60, deadline)
             metadata := tload(attestationSlot)
         }
         // The head is reserved first so that `Cuid.decode`, which allocates at the free memory
