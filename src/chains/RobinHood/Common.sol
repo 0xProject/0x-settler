@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -69,7 +70,11 @@ abstract contract RobinHoodMixin is
     using FastLogic for bool;
 
     constructor() {
-        assert(block.chainid == 4663 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 4663;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -262,5 +267,37 @@ abstract contract RobinHoodMixin is
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract RobinHoodCommon is RobinHoodMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(RobinHoodMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(RobinHoodMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(RobinHoodMixin, Attest)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

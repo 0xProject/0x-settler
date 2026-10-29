@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {MainnetMixin} from "./Common.sol";
+import {MainnetMixin, MainnetCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,42 +15,19 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
+// The taker dispatcher must precede the chain dispatcher so candidates retain its checks.
 /// @custom:security-contact security@0x.org
-contract MainnetSettler is Settler, MainnetMixin {
+contract MainnetSettler is MainnetMixin, Settler, MainnetCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, MainnetMixin)
+        override(Settler, MainnetMixin, MainnetCommon)
         returns (bool)
     {
-        if (super._dispatch(i, action, data, slippage)) {
-            return true;
-        } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
-            (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));
-            if (block.timestamp > deadline) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
-                    mstore(0x20, deadline)
-                    revert(0x1c, 0x24)
-                }
-            }
-            if (msg.value > msgValue) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0x4a094431) // selector for `MsgValueMismatch(uint256,uint256)`
-                    mstore(0x20, msgValue)
-                    mstore(0x40, callvalue())
-                    revert(0x1c, 0x44)
-                }
-            }
-        } else if (action == uint32(ISettlerActions.CHECK_SLIPPAGE.selector)) {
-            _checkSlippageAndTransfer(slippage, abi.decode(data, (bool)));
-        } else {
-            return false;
-        }
-        return true;
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -113,7 +90,12 @@ contract MainnetSettler is Settler, MainnetMixin {
         return super._disableVelodrome();
     }
 
-    function _isRestrictedTarget(address target) internal view override(Settler, MainnetMixin) returns (bool) {
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Settler, MainnetMixin, MainnetCommon)
+        returns (bool)
+    {
         return super._isRestrictedTarget(target);
     }
 
@@ -124,7 +106,7 @@ contract MainnetSettler is Settler, MainnetMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MainnetMixin)
+        override(Permit2PaymentAbstract, MainnetMixin, MainnetCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

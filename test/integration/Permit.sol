@@ -5,14 +5,14 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
+import {AttestPairTest} from "./SettlerBasePairTest.t.sol";
 import {IERC2612, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
 import {PermitFailed} from "src/core/SettlerErrors.sol";
 import {PolygonSettler as Settler} from "src/chains/Polygon/TakerSubmitted.sol";
 
-contract PermitTest is SettlerBasePairTest {
+contract PermitTest is AttestPairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IDAIStylePermit internal constant DAI = IDAIStylePermit(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     IERC20MetaTransaction internal constant ROUTE = IERC20MetaTransaction(0x16ECCfDbb4eE1A85A33f3A9B21175Cd7Ae753dB4);
@@ -188,6 +188,42 @@ contract PermitTest is SettlerBasePairTest {
                 )
             )
         );
+    }
+
+    function testPermit_Attest_UsesForwardedTakerAndEntrypointMetadata() public {
+        deal(address(USDC), FROM, amount());
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signERC2612Permit(FROM, address(allowanceHolder), amount(), deadline, FROM_PRIVATE_KEY);
+        bytes memory permitData =
+            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), deadline, r, _vs(v, s)));
+        bytes[] memory actions = new bytes[](3);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.TRANSFER_FROM,
+            (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), bytes(""))
+        );
+        actions[1] = _getAttestAction(FROM, deadline);
+        actions[2] = abi.encodeCall(
+            ISettlerActions.BASIC, (address(0), 0, address(this), 0, abi.encodeCall(this.checkAttestation, (FROM)))
+        );
+        vm.prank(FROM);
+        allowanceHolder.exec(
+            address(settler),
+            address(USDC),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.executeWithPermit,
+                (
+                    ISettlerBase.AllowedSlippage(payable(address(0)), IERC20(address(0)), 0),
+                    actions,
+                    ATTEST_METADATA,
+                    permitData
+                )
+            )
+        );
+        assertEq(USDC.balanceOf(address(this)), amount());
+        assertEq(USDC.balanceOf(FROM), 0);
     }
 
     function testDAIPermit() public {

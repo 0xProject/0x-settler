@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {BnbMixin} from "./Common.sol";
+import {BnbCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -16,7 +16,7 @@ import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BnbSettler is Settler, BnbMixin {
+contract BnbSettler is Settler, BnbCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -55,13 +55,13 @@ contract BnbSettler is Settler, BnbMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target) internal view override(Settler, BnbMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, BnbCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, BnbMixin)
+        override(Settler, BnbCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -74,7 +74,7 @@ contract BnbSettler is Settler, BnbMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, BnbMixin)
+        override(Permit2PaymentAbstract, BnbCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

@@ -15,6 +15,11 @@ interface ISettlerActions {
     // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
     function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
 
+    /// @dev Verify an EIP-712 signature over the taker and the entrypoint's `zid` argument, then
+    ///      expose the signer to liquidity sources through `attestation()` for the rest of the
+    ///      swap.
+    function ATTEST(uint256 deadline, bytes32 r, bytes32 vs) external;
+
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit) external;
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {TempoMixin} from "./Common.sol";
+import {TempoCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
@@ -16,7 +16,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract TempoSettler is Settler, TempoMixin {
+contract TempoSettler is Settler, TempoCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -46,14 +46,14 @@ contract TempoSettler is Settler, TempoMixin {
     }
 
     // Solidity inheritance is stupid
-    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase, TempoMixin) returns (bool) {
+    function _hasRecipientCheck() internal pure override(SettlerAbstract, SettlerBase, TempoCommon) returns (bool) {
         return super._hasRecipientCheck();
     }
 
     function _recipientCheckNeedsToken()
         internal
         pure
-        override(SettlerAbstract, SettlerBase, TempoMixin)
+        override(SettlerAbstract, SettlerBase, TempoCommon)
         returns (bool)
     {
         return super._recipientCheckNeedsToken();
@@ -62,18 +62,18 @@ contract TempoSettler is Settler, TempoMixin {
     function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
-        override(SettlerAbstract, SettlerBase, TempoMixin)
+        override(SettlerAbstract, SettlerBase, TempoCommon)
     {
         super._checkRecipient(sender, recipient, buyToken);
     }
 
-    function _isRestrictedTarget(address target) internal view override(Settler, TempoMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, TempoCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, TempoMixin)
+        override(Settler, TempoCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -86,7 +86,7 @@ contract TempoSettler is Settler, TempoMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, TempoMixin)
+        override(Permit2PaymentAbstract, TempoCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

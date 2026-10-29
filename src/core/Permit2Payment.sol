@@ -176,6 +176,24 @@ library TransientStorage {
         }
     }
 
+    function setAttested() internal {
+        // transient[payerSlot] |= 1 << 160
+        assembly ("memory-safe") {
+            tstore(_PAYER_SLOT, or(shl(0xa0, 0x01), tload(_PAYER_SLOT)))
+        }
+    }
+
+    function getAttestedPayer() internal view returns (address payer) {
+        bool attested;
+        // payer = address(word); attested = bool((word >> 160) & 1)
+        assembly ("memory-safe") {
+            payer := tload(_PAYER_SLOT)
+            attested := and(0x01, shr(0xa0, payer))
+        }
+        // `attested == true` implies `payer != address(0)`
+        require(attested);
+    }
+
     function clearPayer(address expectedOldPayer) internal {
         address oldPayer = getPayer();
         assembly ("memory-safe") {
