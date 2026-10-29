@@ -6,8 +6,11 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 import {IAttestation} from "../interfaces/IAttestation.sol";
 import {TransientStorage} from "./Permit2Payment.sol";
 import {Cuid} from "../utils/Cuid.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 abstract contract Attest is Select {
+    using FastLogic for bool;
+
     bytes32 private constant _AUTHORITY_SLOT =
         bytes32(uint256(uint96(uint256(keccak256("attestation authority slot")) - 1)));
     bytes32 private constant _ATTESTATION_SLOT =
@@ -67,7 +70,7 @@ abstract contract Attest is Select {
         assembly ("memory-safe") {
             freeMemPtr := mload(0x40)
         }
-        if (block.timestamp > deadline || deadline > type(uint40).max) {
+        if ((block.timestamp > deadline).or(deadline >> 40 != 0)) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
                 mstore(0x20, deadline)
@@ -135,9 +138,8 @@ abstract contract Attest is Select {
         bytes32 attestationSlot = _ATTESTATION_SLOT;
         // (authority, deadline) = unpack(transient[authoritySlot]); metadata = transient[attestationSlot]
         assembly ("memory-safe") {
-            let packed := tload(authoritySlot)
-            authority := and(0xffffffffffffffffffffffffffffffffffffffff, packed)
-            deadline := and(0xffffffffff, shr(0xa0, packed))
+            authority := tload(authoritySlot)
+            deadline := shr(0xa0, authority)
             metadata := tload(attestationSlot)
         }
         // The head is reserved first so that `Cuid.decode`, which allocates at the free memory
@@ -153,7 +155,7 @@ abstract contract Attest is Select {
             mstore(result, 0xe0)
             mstore(add(0x20, result), taker)
             mstore(add(0x0c, result), shl(0x60, 0xe0)) // Clears `taker`'s padding.
-            mstore(add(0xa0, result), deadline)
+            mstore(add(0xa0, result), and(0xffffffffff, deadline))
             mstore(add(0x80, result), authority)
             mstore(add(0x6c, result), shl(0x60, 0xa0)) // Offset to `appid`; clears `authority`'s padding.
             mstore(add(0x40, result), metadata)
