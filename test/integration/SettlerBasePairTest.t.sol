@@ -5,6 +5,7 @@ import {BasePairTest} from "./BasePairTest.t.sol";
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
+import {IAttestation} from "src/interfaces/IAttestation.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -102,5 +103,42 @@ abstract contract SettlerBasePairTest is BasePairTest {
             defaultERC20PermitTransfer(address(token), amount_, PERMIT2_FROM_NONCE);
         bytes memory sig = getPermitTransferSignature(permit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
         return (permit, sig);
+    }
+}
+
+abstract contract AttestPairTest is SettlerBasePairTest {
+    bytes32 internal constant ATTEST_METADATA = 0x0123456789abcdef012345670000000008118af9f7385b10f7e214da772b9e3e;
+
+    function _getAttestAction(address taker, uint256 deadline) internal view returns (bytes memory) {
+        bytes32 domain = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
+                keccak256("0xSettler"),
+                block.chainid,
+                address(settler)
+            )
+        );
+        bytes32 contents = keccak256(
+            abi.encode(
+                keccak256("Attestation(address taker,uint256 deadline,bytes12 zid,string appid)"),
+                taker,
+                deadline,
+                bytes12(ATTEST_METADATA),
+                keccak256("ch72gsb320000udocl363eofy")
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(MAKER_PRIVATE_KEY, keccak256(abi.encodePacked(hex"1901", domain, contents)));
+        return abi.encodeCall(ISettlerActions.ATTEST, (deadline, r, bytes32(uint256(s) | uint256(v - 27) << 255)));
+    }
+
+    function checkAttestation(address expectedTaker) external view {
+        assertEq(msg.sender, address(settler));
+        (address taker, bytes12 zid, string memory appid, address authority) =
+            IAttestation(address(settler)).attestation();
+        assertEq(taker, expectedTaker);
+        assertEq(zid, bytes12(ATTEST_METADATA));
+        assertEq(appid, "ch72gsb320000udocl363eofy");
+        assertEq(authority, MAKER);
     }
 }

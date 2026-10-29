@@ -116,4 +116,13 @@ contract HyperEvmSettlerIntent is SettlerIntent, HyperEvmSettlerMetaTxn {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, HyperEvmSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }

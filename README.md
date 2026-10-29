@@ -1301,6 +1301,35 @@ sequenceDiagram
     WETH-->>User: transfer
 ```
 
+## Attestations
+
+A swap may include the `ATTEST` action. It verifies an EIP-712 signature over
+the taker, a deadline, and the `zid` argument of the entrypoint. For the rest of
+that swap, Settler answers `attestation()` with the signed values and the
+recovered signer:
+
+```solidity
+interface IAttestation {
+    function attestation() external view returns (address taker, bytes12 zid, string memory appid, address authority);
+}
+```
+
+A liquidity source that Settler calls during settlement can query this from
+inside its own swap function.
+
+```solidity
+(address taker, bytes12 zid, string memory appid, address authority) = IAttestation(msg.sender).attestation();
+```
+
+Settler does not check who signed. Anybody can build an `ATTEST` action with any
+private key, so `authority` is only the recovered signer. A consumer must
+compare `authority` against its own list of trusted signers and must not act on
+`taker`, `zid`, or `appid` unless `authority` is trusted. Settler does not
+record used signatures; one signature is valid for every swap by the same taker
+until `deadline`. `zid` can be used as a nonce for cancellation, if
+desired. `attestation()` reverts with empty returndata when no `ATTEST` action
+has run in the current swap.
+
 # How to deploy
 
 ## How to pause the contracts
@@ -1478,9 +1507,12 @@ Third, create a new set of
 files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
-(presently MaverickV2, UniswapV4, and Across), replace the `block.chainid` check
-in the constructor (in both `Common.sol` and `BridgeSettler.sol`), and replace
-the UniswapV3 forks. When adding new UniswapV3 forks, be sure that the `factory`
+(presently MaverickV2, UniswapV4, and Across), set the chain ID in `Common.sol`,
+update the `block.chainid` check in the `BridgeSettler.sol` constructor, and
+replace the UniswapV3 forks. In `Common.sol`, override `_chainId()` to return
+the chain's literal numeric ID from `chain_config.json`.
+
+When adding new UniswapV3 forks, be sure that the `factory`
 address is the address of the contract that `CREATE2`'s the pool. Triple check
 that the deployed pools aren't upgradeable proxies and that the `data` argument
 is passed through the callback unmodified. _**This is critical for security.**_

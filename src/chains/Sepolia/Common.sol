@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
@@ -28,7 +29,11 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4 {
     constructor() {
-        assert(block.chainid == 11155111 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 11155111;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -100,6 +105,28 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4
         internal
         virtual
         override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract SepoliaCommon is SepoliaMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(SepoliaMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(SepoliaMixin, Permit2PaymentAbstract)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);

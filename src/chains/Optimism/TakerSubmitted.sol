@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {OptimismMixin} from "./Common.sol";
+import {OptimismCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -14,7 +14,7 @@ import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract OptimismSettler is Settler, OptimismMixin {
+contract OptimismSettler is Settler, OptimismCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -59,13 +59,13 @@ contract OptimismSettler is Settler, OptimismMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target) internal view override(Settler, OptimismMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, OptimismCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, OptimismMixin)
+        override(Settler, OptimismCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -78,7 +78,7 @@ contract OptimismSettler is Settler, OptimismMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, OptimismMixin)
+        override(Permit2PaymentAbstract, OptimismCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

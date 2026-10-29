@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {BaseMixin} from "./Common.sol";
+import {BaseCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -16,7 +16,7 @@ import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
+contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -76,7 +76,7 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, BaseMixin)
+        override(SettlerBase, BaseCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -86,7 +86,7 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, BaseMixin)
+        override(SettlerMetaTxn, BaseCommon)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -99,9 +99,9 @@ contract BaseSettlerMetaTxn is SettlerMetaTxn, BaseMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, BaseMixin)
+        override(Permit2PaymentAbstract, BaseCommon)
         returns (bool, bytes memory)
     {
-        return BaseMixin._fallback(data);
+        return super._fallback(data);
     }
 }

@@ -38,10 +38,6 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         override
         returns (bool)
     {
-        //// NOTICE: Portions of this function have been copy/paste'd into
-        //// `src/chains/Mainnet/TakerSubmitted.sol:MainnetSettler._dispatch`. If you make changes
-        //// here, you need to make sure that corresponding changes are made to that function.
-
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
