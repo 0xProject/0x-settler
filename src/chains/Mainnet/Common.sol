@@ -238,6 +238,10 @@ abstract contract MainnetMixin is
 // `Attest` is listed last so that candidate selection sits above the chain actions in the
 // linearization; see `Select`.
 abstract contract MainnetCommon is MainnetMixin, Attest {
+    function _disableVelodrome() internal pure virtual override(SettlerBase, MainnetMixin) returns (bool) {
+        return super._disableVelodrome();
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
