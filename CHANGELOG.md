@@ -2,6 +2,16 @@
 
 ### Breaking changes
 
+### Non-breaking changes
+
+* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
+  (contract is not deployed; no funds at risk) after a report in
+  Immunefi bug 78645
+
+## 2026-10-29
+
+### Breaking changes
+
 * Add a `forkId` argument to `PANCAKE_INFINITY`, `PANCAKE_INFINITY_VIP`, and
   `METATXN_PANCAKE_INFINITY_VIP` that selects the PancakeSwap Infinity fork
   (after `ppm` in `PANCAKE_INFINITY`; after `permit` in the VIP variants). See
@@ -18,9 +28,6 @@
 ### Non-breaking changes
 
 * Add PancakeSwap Infinity concentrated liquidity pools to Arc
-* Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
-  (contract is not deployed; no funds at risk) after a report in
-  Immunefi bug 78645
 * Add HyperEVM CoreWriter `0x3333333333333333333333333333333333333333` to the
   list of restricted targets
 * On HyperEVM, revert if a payout names a HyperCore system address
