@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {InkMixin} from "./Common.sol";
+import {InkCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,7 +15,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
+contract InkSettlerMetaTxn is SettlerMetaTxn, InkCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -52,7 +52,7 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, InkMixin)
+        override(SettlerBase, InkCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -75,7 +75,7 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, InkMixin)
+        override(Permit2PaymentAbstract, InkCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

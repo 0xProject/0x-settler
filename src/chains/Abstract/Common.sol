@@ -2,6 +2,8 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
+import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -26,7 +28,11 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
     using FastLogic for bool;
 
     constructor() {
-        assert(block.chainid == 2741 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 2741;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -65,5 +71,28 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract AbstractCommon is AbstractMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(AbstractMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isEraVmUniV3Fork(uint8 forkId)
+        internal
+        pure
+        virtual
+        override(AbstractMixin, UniswapV3Fork)
+        returns (bool)
+    {
+        return super._isEraVmUniV3Fork(forkId);
     }
 }

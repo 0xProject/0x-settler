@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
@@ -30,7 +31,11 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
     constructor() {
-        assert(block.chainid == 57073 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 57073;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -96,6 +101,28 @@ abstract contract InkMixin is FreeMemory, SettlerBase, UniswapV4 {
         internal
         virtual
         override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract InkCommon is InkMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(InkMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(InkMixin, Permit2PaymentAbstract)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);

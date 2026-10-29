@@ -3,8 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {CalldataDecoder} from "../SettlerBase.sol";
+import {SettlerBase, CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
@@ -13,12 +12,22 @@ import {revertActionInvalid} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 
 /// @notice Ordered candidate-route selection by revertable self-calls.
-abstract contract Select is SettlerSwapAbstract {
+abstract contract Select is SettlerBase {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using FastLogic for bool;
     using Ternary for bool;
     using CalldataDecoder for bytes[];
+
+    // Listing this base after ordinary dispatchers lets candidates bypass actions in more derived contracts.
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
 
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256,uint256)")))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0xa04c36b2;
@@ -61,7 +70,7 @@ abstract contract Select is SettlerSwapAbstract {
         return empty;
     }
 
-    function select(bytes calldata data) internal {
+    function select(bytes calldata data) internal override {
         uint256 gasCap;
         IERC20 token;
         uint256 targetsData;
@@ -179,7 +188,7 @@ abstract contract Select is SettlerSwapAbstract {
                 data.length := mul(data.length, iszero(tooShort))
             }
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.
-            if (tooShort || !_dispatch(i, action, data, noSlippage)) {
+            if (tooShort || !Select._dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }
         }

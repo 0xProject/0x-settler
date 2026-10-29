@@ -104,3 +104,4 @@ abstract contract SettlerBasePairTest is BasePairTest {
         return (permit, sig);
     }
 }
+

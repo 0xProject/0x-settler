@@ -32,7 +32,7 @@ SettlerSwapAbstract (virtual dispatch interface)
     +-- BridgeSettlerBase (tokenId=5)
 ```
 
-Each chain has its own `Common.sol` mixin that inherits from `SettlerBase` and adds chain-specific DEX support (e.g., `MainnetMixin` adds MakerPSM, MaverickV2, DodoV1/V2, UniswapV4, BalancerV3, and Ekubo).
+Each chain has its own `Common.sol` mixin that inherits from `SettlerBase` and adds chain-specific DEX support (e.g., `MainnetMixin` adds MakerPSM, MaverickV2, DodoV1/V2, UniswapV4, BalancerV3, and Ekubo). The same file declares `<Chain>Common`, which derives from the mixin and then from `Attest` (candidate selection plus attestation) or `Select` (candidate selection only). Every flavor of that chain derives from `<Chain>Common`, so the choice is made once per chain and the selection dispatcher always sits above the chain actions in the linearization.
 
 ### Directory Structure
 
@@ -47,7 +47,7 @@ src/
 │
 ├── chains/                  # Chain-specific implementations (~27 chains)
 │   └── <ChainName>/
-│       ├── Common.sol       # Chain mixin (DEX integrations)
+│       ├── Common.sol       # Chain mixin (DEX integrations) + <Chain>Common (Attest or Select on top)
 │       ├── TakerSubmitted.sol
 │       ├── MetaTxn.sol
 │       ├── Intent.sol
@@ -387,7 +387,7 @@ See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for the
 ### Adding a New Chain
 
 1. Create chain directory: `src/chains/<ChainName>/`
-2. Create `Common.sol` with chain-specific mixin
+2. Create `Common.sol` with the chain-specific mixin and `<Chain>Common is <Chain>Mixin, Attest` (or `Select`)
 3. Create flavor files: `TakerSubmitted.sol`, `MetaTxn.sol`, `Intent.sol`, `BridgeSettler.sol`
 4. Configure UniV3 forks in `_uniV3ForkInfo()`
 5. Configure UniV4 forks in `_uniV4ForkInfo()` if UniswapV4 is available

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {AbstractMixin} from "./Common.sol";
+import {AbstractCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,7 +15,7 @@ import {AbstractContext} from "../../Context.sol";
 import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 /// @custom:security-contact security@0x.org
-contract AbstractSettler is Settler, AbstractMixin {
+contract AbstractSettler is Settler, AbstractCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -39,7 +39,7 @@ contract AbstractSettler is Settler, AbstractMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, AbstractMixin)
+        override(Settler, AbstractCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -49,7 +49,7 @@ contract AbstractSettler is Settler, AbstractMixin {
         return super._msgSender();
     }
 
-    function _isEraVmUniV3Fork(uint8 forkId) internal pure override(AbstractMixin, UniswapV3Fork) returns (bool) {
+    function _isEraVmUniV3Fork(uint8 forkId) internal pure override(AbstractCommon, UniswapV3Fork) returns (bool) {
         return super._isEraVmUniV3Fork(forkId);
     }
 }
