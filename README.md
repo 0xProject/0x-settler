@@ -1326,11 +1326,10 @@ private key, so `authority` is only the recovered signer. A consumer must
 compare `authority` against its own list of trusted signers and must not act on
 `taker`, `zid`, `appid`, or `deadline` unless `authority` is trusted. Settler
 does not record used signatures; one signature is valid for every swap by the
-same taker until `deadline`. Deadlines above `type(uint40).max` are rejected.
-`zid` can be used as a nonce for cancellation; consumers should retain canceled
-nonces through the latest signed deadline for that nonce (inclusive).
-`attestation()` reverts with empty returndata when no `ATTEST` action has run
-in the current swap.
+same taker until `deadline`. `zid` can be used as a nonce for cancellation;
+consumers should retain the `zid`/nonce through the signed deadline (inclusive).
+`attestation()` reverts with empty returndata when no `ATTEST` action has run in
+the current swap.
 
 # How to deploy
 

@@ -34,7 +34,8 @@
   metadata. This information is exposed to liquidity sources through `function
   attestation() external view returns (address taker, bytes12 zid, string memory
   appid, address authority, uint40 deadline);`. The EIP-712 type is
-  `Attestation(address taker,uint256 deadline,bytes12 zid,string appid)`. Available on:
+  `Attestation(address taker,uint256 deadline,bytes12 zid,string
+  appid)`. Available on:
   * Arbitrum
   * Arc
   * Avalanche
