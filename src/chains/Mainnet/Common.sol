@@ -17,16 +17,12 @@ import {EkuboV2} from "../../core/EkuboV2.sol";
 import {EkuboV3} from "../../core/EkuboV3.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
-import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {FastLogic} from "../../utils/FastLogic.sol";
-import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 import {aeroMainnetFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
-import "../../core/Constants.sol" as Constants;
 
 import {
     uniswapV3MainnetFactory,
@@ -65,72 +61,25 @@ abstract contract MainnetMixin is
     EkuboV3,
     Bebop
 {
-    using SafeTransferLib for IERC20;
-    using SafeTransferLib for address payable;
     using FastLogic for bool;
-    using Ternary for bool;
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+    function _disableVelodrome() internal pure virtual override returns (bool) {
+        return true;
+    }
+
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
         override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        //// NOTICE: we re-implement the base `_dispatch` implementation here so that we can remove
-        //// the `VELODROME` action JUST on this chain because it does little-to-no volume.
-
-        if (action == uint32(ISettlerActions.RFQ.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                address maker,
-                bytes memory makerSig,
-                IERC20 takerToken,
-                uint256 maxTakerAmount
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
-
-            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
-        } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
-            (address recipient, uint256 ppm, bytes memory path, uint256 amountOutMin) =
-                abi.decode(data, (address, uint256, bytes, uint256));
-
-            sellToUniswapV3(recipient, ppm, path, amountOutMin);
-        } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
-            (address recipient, address sellToken, uint256 ppm, address pool, uint24 swapInfo, uint256 amountOutMin) =
-                abi.decode(data, (address, address, uint256, address, uint24, uint256));
-
-            sellToUniswapV2(recipient, sellToken, ppm, pool, swapInfo, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BASIC.selector)) {
-            (IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory _data) =
-                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
-
-            basicSellToPool(sellToken, ppm, pool, offset, _data);
-        } /* `VELODROME` is removed */
-        else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
-                abi.decode(data, (address, IERC20, uint256, uint256, uint256));
-            _checkRecipient(address(this), recipient, token);
-            bool isETH = (address(token) == Constants.ETH_ADDRESS);
-            uint256 balance = isETH ? address(this).balance : token.fastSpendableBalance();
-            if (balance > expectedAmount) {
-                uint256 cap;
-                unchecked {
-                    cap = balance * maxPpm / Constants.BASIS;
-                    balance -= expectedAmount;
-                    balance = balance * surplusPpm / Constants.BASIS;
-                }
-                balance = (balance > cap).ternary(cap, balance);
-                if (isETH) {
-                    recipient.safeTransferETH(balance);
-                } else {
-                    token.safeTransfer(recipient, balance);
-                }
-            }
+        if (super._dispatch(i, action, data, slippage)) {
+            return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
                 address recipient,
@@ -205,8 +154,6 @@ abstract contract MainnetMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, ppm, dodo, quoteForBase, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
-            select(data);
         } else {
             return false;
         }

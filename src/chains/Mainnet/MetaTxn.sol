@@ -87,6 +87,10 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         return super._dispatch(i, action, data, slippage);
     }
 
+    function _disableVelodrome() internal pure virtual override(SettlerBase, MainnetMixin) returns (bool) {
+        return super._disableVelodrome();
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view

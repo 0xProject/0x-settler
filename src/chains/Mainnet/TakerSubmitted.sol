@@ -109,6 +109,10 @@ contract MainnetSettler is Settler, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
+    function _disableVelodrome() internal pure override(SettlerBase, MainnetMixin) returns (bool) {
+        return super._disableVelodrome();
+    }
+
     function _isRestrictedTarget(address target) internal view override(Settler, MainnetMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }

@@ -87,6 +87,10 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
+    function _disableVelodrome() internal pure virtual returns (bool) {
+        return false;
+    }
+
     function _hasRecipientCheck() internal pure virtual override returns (bool) {
         return false;
     }
@@ -134,10 +138,6 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         override
         returns (bool)
     {
-        //// NOTICE: This function has been largely copy/paste'd into
-        //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
-        //// need to make sure that corresponding changes are made to that function.
-
         if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
                 address recipient,
@@ -164,7 +164,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
             basicSellToPool(sellToken, ppm, pool, offset, _data);
-        } else if (action == uint32(ISettlerActions.VELODROME.selector)) {
+        } else if ((action == uint32(ISettlerActions.VELODROME.selector)).andNot(_disableVelodrome())) {
             (address recipient, uint256 ppm, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
 
