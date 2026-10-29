@@ -709,6 +709,16 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
         _checkAfterExecution(_safe);
 
+        // If the Guard is removed, that must be the final action of the multicall. `check()` below
+        // implements a stricter check that rejects Guard removal entirely during a multicall. The
+        // checks below on the number of signers exist only to keep the `lockDown`/`unlock` game
+        // non-degenerate for future Guard'd transactions, so they do not apply to the end state of
+        // the transaction that uninstalls the Guard. This permits the Safe ownership to be
+        // reconfigured atomically with Guard removal
+        if (_maybeSetGuardRemoved(_safe)) {
+            return;
+        }
+
         // Some basic safety checks. If violated, the game theory of the `lockDown`/`unlock` game
         // becomes degenerate. These are not included in `_checkAfterExecution` because we want to
         // allow the Safe to be in an intermediate invalid state during a multicall as long as the
@@ -729,11 +739,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                 }
             }
         }
-
-        // Likewise, this is not included in `_checkAfterExecution`. If the Guard is removed, that
-        // must be the final action of the multicall. `check()` below implements a stricter check
-        // that rejects Guard removal entirely during a multicall.
-        _maybeSetGuardRemoved(_safe);
     }
 
     function check() external view {
@@ -748,7 +753,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     // This function has mostly the same checks as `_checkAfterExecution`, but is returns `false`
     // on failure of those checks instead of reverting.
     function _checkAfterExecutionReturnBool(ISafeMinimal _safe) internal view returns (bool result) {
-        result = true;
+        result = lockedDownBy == address(0);
 
         // See comments in `_checkAfterExecution` for an explanation of all these conditions
         result = result && _safe.masterCopy() == _SINGLETON;
@@ -761,7 +766,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
         // These checks against the signer configuration of the Safe are not included in
         // `_checkAfterExecution` to allow `this.check()` to pass on some intermediate/temporary
-        // invalid states that will fail `checkAfterExecution`.
+        // invalid states that `checkAfterExecution` rejects, unless the transaction uninstalls the
+        // Guard.
         uint256 ownerCount;
         result = result && (ownerCount = _safe.ownerCount()) >= _MINIMUM_OWNERS;
         uint256 threshold;
@@ -825,13 +831,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _guardRemoved = true;
     }
 
-    function _maybeSetGuardRemoved(ISafeMinimal _safe) internal {
+    function _maybeSetGuardRemoved(ISafeMinimal _safe) internal returns (bool removed) {
         // We do not revert if `_safe.getGuard()` returns a value other than `address(this)`. This
         // allows uninstallation of the Guard (through the timelock, obviously) to later permit
         // upgrades to other singleton implementation contracts. However, we do set the
         // `_guardRemoved` flag, which disables all Guard functionality (failing open). It is not
         // possible to un-set `_guardRemoved` once set.
-        if (_safe.getGuard() != address(this)) {
+        if (removed = _safe.getGuard() != address(this)) {
             _removeSelf();
         }
     }
@@ -1006,6 +1012,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function lockDown() external normalOperation onlyOwner {
         ISafeMinimal _safe = safe;
+        if (_safe.getGuard() != address(this)) {
+            revert GuardNotInstalled();
+        }
 
         bytes32 txHash = _unlockTxHash(_safe);
         _requirePreApproved(_safe, txHash);

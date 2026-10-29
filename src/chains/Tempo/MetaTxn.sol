@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {TempoMixin} from "./Common.sol";
+import {TempoCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {BlockTempoSystemContracts} from "./BlockTempoSystemContracts.sol";
 
@@ -17,7 +17,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
+contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -33,16 +33,17 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -54,17 +55,27 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
         internal
         pure
         virtual
-        override(SettlerAbstract, SettlerBase, TempoMixin)
+        override(SettlerAbstract, SettlerBase, TempoCommon)
         returns (bool)
     {
         return super._hasRecipientCheck();
+    }
+
+    function _recipientCheckNeedsToken()
+        internal
+        pure
+        virtual
+        override(SettlerAbstract, SettlerBase, TempoCommon)
+        returns (bool)
+    {
+        return super._recipientCheckNeedsToken();
     }
 
     function _checkRecipient(address sender, address recipient, IERC20 buyToken)
         internal
         view
         virtual
-        override(SettlerAbstract, SettlerBase, TempoMixin)
+        override(SettlerAbstract, SettlerBase, TempoCommon)
     {
         super._checkRecipient(sender, recipient, buyToken);
     }
@@ -72,7 +83,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, TempoMixin)
+        override(SettlerBase, TempoCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -86,7 +97,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, TempoMixin)
+        override(SettlerMetaTxn, TempoCommon)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -95,7 +106,7 @@ contract TempoSettlerMetaTxn is SettlerMetaTxn, TempoMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, TempoMixin)
+        override(Permit2PaymentAbstract, TempoCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

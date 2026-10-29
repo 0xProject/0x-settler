@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {InkMixin} from "./Common.sol";
+import {InkCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
-
-import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -17,9 +15,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
-    using FastLogic for bool;
-
+contract InkSettlerMetaTxn is SettlerMetaTxn, InkCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -31,27 +27,21 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.METATXN_TSUNAMI_VIP.selector))) {
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, uint256)
             );
 
-            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.METATXN_TSUNAMI_VIP.selector))
-                sellToUniswapV4VIP(
-                    _TSUNAMI_POOL_MANAGER, recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
-                );
-            }
+            sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -62,7 +52,7 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, InkMixin)
+        override(SettlerBase, InkCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -85,7 +75,7 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, InkMixin)
+        override(Permit2PaymentAbstract, InkCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

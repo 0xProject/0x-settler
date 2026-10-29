@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {AbstractMixin} from "./Common.sol";
+import {AbstractCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -16,7 +16,7 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 /// @custom:security-contact security@0x.org
-contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
+contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -38,7 +38,7 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, AbstractMixin)
+        override(SettlerBase, AbstractCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -62,7 +62,7 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
         internal
         pure
         virtual
-        override(AbstractMixin, UniswapV3Fork)
+        override(AbstractCommon, UniswapV3Fork)
         returns (bool)
     {
         return super._isEraVmUniV3Fork(forkId);

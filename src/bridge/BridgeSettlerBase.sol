@@ -45,6 +45,10 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual override {}
 
     function _requireValidSettler(address settler) private view {

@@ -2,18 +2,22 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {Hanji} from "../../core/Hanji.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {FluxPool} from "../../core/FluxPool.sol";
+import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId, revertUnknownPoolManagerId} from "../../core/SettlerErrors.sol";
+import {aeroRobinHoodFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3RobinhoodFactory,
@@ -35,12 +39,16 @@ import {sheriffFactory, sheriffInitHash, sheriffForkId} from "../../core/univ3fo
 import {swapHoodV3Factory, swapHoodV3InitHash, swapHoodV3ForkId} from "../../core/univ3forks/SwapHoodV3.sol";
 import {gigaDexV3Factory, gigaDexV3InitHash, gigaDexV3ForkId} from "../../core/univ3forks/GigaDexV3.sol";
 import {alandaleFactory, alandaleInitHash, alandaleForkId} from "../../core/univ3forks/Alandale.sol";
+import {namiRobinhoodFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
-import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
-import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
-import {orvexVault, orvexClManager} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 
-import {FastLogic} from "../../utils/FastLogic.sol";
+import {uniswapV4RobinhoodPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
+import {
+    pancakeInfinityForkId,
+    pancakeInfinityRobinHoodVault,
+    pancakeInfinityRobinHoodClManager
+} from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
+import {orvexVault, orvexClManager, orvexForkId} from "../../core/pancakeInfinityForks/OrvexCL.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -58,7 +66,11 @@ abstract contract RobinHoodMixin is
     using FastLogic for bool;
 
     constructor() {
-        assert(block.chainid == 4663 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 4663;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -71,25 +83,26 @@ abstract contract RobinHoodMixin is
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3.selector))
             .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
-                revert("unimplemented");
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+                sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else {
+                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(
+                    recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+                );
             }
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
@@ -171,6 +184,14 @@ abstract contract RobinHoodMixin is
             factory = alandaleFactory;
             initHash = alandaleInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiRobinhoodFactory;
+            initHash = namiInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroRobinHoodFactory;
+            initHash = aeroInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
@@ -180,21 +201,32 @@ abstract contract RobinHoodMixin is
         return 0x388e0D8f610a80C75e8a049C39DDc5816f56c012;
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return ROBINHOOD_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4RobinhoodPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
-        return orvexVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return orvexClManager;
-    }
-
-    // Orvex does not have a Bin pool manager
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        revertUnknownPoolManagerId(1);
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId == pancakeInfinityForkId) {
+            vault = pancakeInfinityRobinHoodVault;
+            clManager = pancakeInfinityRobinHoodClManager;
+            binManager = address(0);
+        } else if (forkId == orvexForkId) {
+            vault = orvexVault;
+            clManager = orvexClManager;
+            // Orvex does not have a Bin pool manager
+            binManager = address(0);
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance
@@ -215,5 +247,37 @@ abstract contract RobinHoodMixin is
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract RobinHoodCommon is RobinHoodMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(RobinHoodMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(RobinHoodMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(RobinHoodMixin, Attest)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
@@ -25,7 +26,7 @@ import {sushiswapV3PolygonFactory, sushiswapV3ForkId} from "../../core/univ3fork
 import {quickSwapV3Factory, quickSwapV3InitHash, quickSwapV3ForkId} from "../../core/univ3forks/QuickSwapV3.sol";
 import {quickSwapV4Factory, quickSwapV4InitHash, quickSwapV4ForkId} from "../../core/univ3forks/QuickSwapV4.sol";
 
-import {POLYGON_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4PolygonPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -33,7 +34,11 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, UniswapV4, Bebop {
     constructor() {
-        assert(block.chainid == 137 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 137;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -50,14 +55,15 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 ppm, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -113,8 +119,12 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return POLYGON_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4PolygonPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance
@@ -135,5 +145,37 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract PolygonCommon is PolygonMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(PolygonMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(PolygonMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(PolygonMixin, Attest)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
@@ -22,7 +23,11 @@ import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3 {
     constructor() {
-        assert(block.chainid == 9745 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 9745;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -66,5 +71,18 @@ abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3 {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract PlasmaCommon is PlasmaMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(PlasmaMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
     }
 }

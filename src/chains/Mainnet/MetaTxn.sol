@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {MainnetMixin} from "./Common.sol";
+import {MainnetCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,7 +15,7 @@ import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
+contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -29,8 +29,22 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector))) {
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, uint256)
+            );
+
+            sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+        } else if ((action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -43,11 +57,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
 
-            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector))
-                sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            }
+            sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } /* else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
@@ -66,7 +76,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, MainnetMixin)
+        override(SettlerBase, MainnetCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -76,7 +86,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, MainnetMixin)
+        override(SettlerMetaTxn, MainnetCommon)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -89,7 +99,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MainnetMixin)
+        override(Permit2PaymentAbstract, MainnetCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

@@ -275,6 +275,10 @@ function verify_contract {
     if [[ $foundry_flavor == zkfoundry ]] ; then
         _verify_extra_flags+=(--zksync)
     fi
+    # Elysium's explorer is finicky
+    if (( chainid == 99901 )) ; then
+        _verify_extra_flags+=(--skip-is-verified-check)
+    fi
     declare -r -a _verify_extra_flags
 
     declare _verify_etherscanApi

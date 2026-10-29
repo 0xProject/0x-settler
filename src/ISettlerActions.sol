@@ -15,6 +15,11 @@ interface ISettlerActions {
     // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
     function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
 
+    /// @dev Verify an EIP-712 signature over the taker and the entrypoint's `zid` argument, then
+    ///      expose the signer to liquidity sources through `attestation()` for the rest of the
+    ///      swap.
+    function ATTEST(uint256 deadline, bytes32 r, bytes32 vs) external;
+
     /// @dev Transfer funds from metatransaction requestor into the Settler contract using Permit2. Only for use in `Settler.executeMetaTxn` where the signature is provided as calldata
     function METATXN_TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit) external;
 
@@ -51,41 +56,11 @@ interface ISettlerActions {
         uint256 maxTakerAmount
     ) external;
 
-    // TODO: remove these actions and generalize the existing `UNISWAPV4` actions
-    function TSUNAMI(
-        address recipient,
-        address sellToken,
-        uint256 ppm,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) external;
-    function TSUNAMI_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        bytes memory sig,
-        uint256 amountOutMin
-    ) external;
-    function METATXN_TSUNAMI_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) external;
-
     function UNISWAPV4(
         address recipient,
         address sellToken,
         uint256 ppm,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -95,6 +70,7 @@ interface ISettlerActions {
     function UNISWAPV4_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -105,6 +81,7 @@ interface ISettlerActions {
     function METATXN_UNISWAPV4_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -146,6 +123,7 @@ interface ISettlerActions {
         address recipient,
         address sellToken,
         uint256 ppm,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -155,6 +133,7 @@ interface ISettlerActions {
     function PANCAKE_INFINITY_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -165,6 +144,7 @@ interface ISettlerActions {
     function METATXN_PANCAKE_INFINITY_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint8 forkId,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
@@ -336,17 +316,6 @@ interface ISettlerActions {
     ) external;
 
     function FLUXPOOL(address sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) external;
-
-    function RENEGADE(
-        address recipient,
-        address sellToken,
-        address buyToken,
-        uint256 maxSellAmount,
-        bool refundNativeEth,
-        uint256 maxRefundAmount,
-        bytes memory data,
-        uint256 minBuyAmount
-    ) external;
 
     struct BebopMakerSignature {
         bytes signatureBytes;

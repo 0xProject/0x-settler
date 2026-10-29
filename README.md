@@ -125,11 +125,8 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
-  Arbitrum, Bnb, World Chain, Fantom Sonic, Ink, Avalanche, Unichain, Berachain,
-  Scroll, HyperEvm, Plasma, Monad mainnet, Abstract, Linea, Tempo, RobinHood,
-  Arc)
-* `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Mantle)
+  Arbitrum, Bnb, World Chain, Ink, Avalanche, Unichain, HyperEvm, Plasma, Monad,
+  Abstract, Linea, Tempo, RobinHood, Arc, Elysium)
 
 ### ERC2771 forwarding MultiCall address
 
@@ -1304,6 +1301,36 @@ sequenceDiagram
     WETH-->>User: transfer
 ```
 
+## Attestations
+
+A swap may include the `ATTEST` action. It verifies an EIP-712 signature over
+the taker, a deadline, and the `zid` argument of the entrypoint. For the rest of
+that swap, Settler answers `attestation()` with the signed values and the
+recovered signer:
+
+```solidity
+interface IAttestation {
+    function attestation() external view returns (address taker, bytes12 zid, string memory appid, address authority, uint40 deadline);
+}
+```
+
+A liquidity source that Settler calls during settlement can query this from
+inside its own swap function.
+
+```solidity
+(address taker, bytes12 zid, string memory appid, address authority, uint40 deadline) = IAttestation(msg.sender).attestation();
+```
+
+Settler does not check who signed. Anybody can build an `ATTEST` action with any
+private key, so `authority` is only the recovered signer. A consumer must
+compare `authority` against its own list of trusted signers and must not act on
+`taker`, `zid`, `appid`, or `deadline` unless `authority` is trusted. Settler
+does not record used signatures; one signature is valid for every swap by the
+same taker until `deadline`. `zid` can be used as a nonce for cancellation;
+consumers should retain the `zid`/nonce through the signed deadline (inclusive).
+`attestation()` reverts with empty returndata when no `ATTEST` action has run in
+the current swap.
+
 # How to deploy
 
 ## How to pause the contracts
@@ -1459,6 +1486,12 @@ If `PUSH0` is not supported, then `hardfork.shanghai` should be `false` in
 `hardfork.cancun` should be `false` in `chain_config.json`. If `CLZ` is not
 supported, then `hardfork.osaka` should be `false` in `chain_config.json`.
 
+`hardfork.amsterdam` is not about opcode support. It should be `true` only on
+chains that meter gas in two dimensions (EIP-8037). On those chains the EIP-7825
+cap of 2^24 applies to execution gas only, so the deployment scripts stop
+capping the transaction gas limit at 2^24 and cap it at the block gas limit
+instead. The compiler configuration is unaffected.
+
 You may be tempted to use a blockchain explorer (e.g. Etherscan or Tenderly) to
 examine the trace of the resulting transaction or to read the logs. You may also
 be tempted to do an `eth_call`, local fork, devnet, or some other form of
@@ -1475,9 +1508,12 @@ Third, create a new set of
 files. A good way to start is by copying
 [`src/chains/Sepolia/*.sol`](src/chains/Sepolia/). You'll need to change the
 names of all the contracts, remove references to missing liquidity sources
-(presently MaverickV2, UniswapV4, and Across), replace the `block.chainid` check
-in the constructor (in both `Common.sol` and `BridgeSettler.sol`), and replace
-the UniswapV3 forks. When adding new UniswapV3 forks, be sure that the `factory`
+(presently MaverickV2, UniswapV4, and Across), set the chain ID in `Common.sol`,
+update the `block.chainid` check in the `BridgeSettler.sol` constructor, and
+replace the UniswapV3 forks. In `Common.sol`, override `_chainId()` to return
+the chain's literal numeric ID from `chain_config.json`.
+
+When adding new UniswapV3 forks, be sure that the `factory`
 address is the address of the contract that `CREATE2`'s the pool. Triple check
 that the deployed pools aren't upgradeable proxies and that the `data` argument
 is passed through the callback unmodified. _**This is critical for security.**_

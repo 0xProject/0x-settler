@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {BaseMixin} from "./Common.sol";
+import {BaseCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
+
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
@@ -15,16 +17,20 @@ import {Permit2Payment} from "../../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
-contract BaseSettler is Settler, BaseMixin {
+contract BaseSettler is Settler, BaseCommon {
+    using FastLogic for bool;
+
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -32,10 +38,17 @@ contract BaseSettler is Settler, BaseMixin {
                 bytes memory sig,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
+                sellToPancakeInfinityVIP(
+                    recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+                );
+            }
         } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
             (
                 address recipient,
@@ -51,21 +64,6 @@ contract BaseSettler is Settler, BaseMixin {
             );
 
             sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 amountOutMin
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-
-            sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -73,13 +71,13 @@ contract BaseSettler is Settler, BaseMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target) internal view override(Settler, BaseMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, BaseCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, BaseMixin)
+        override(Settler, BaseCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -92,9 +90,9 @@ contract BaseSettler is Settler, BaseMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, BaseMixin)
+        override(Permit2PaymentAbstract, BaseCommon)
         returns (bool, bytes memory)
     {
-        return BaseMixin._fallback(data);
+        return super._fallback(data);
     }
 }

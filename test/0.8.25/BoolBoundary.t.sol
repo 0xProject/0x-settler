@@ -158,7 +158,7 @@ contract BoolBoundaryHarness {
         assembly ("memory-safe") {
             feeOnTransfer := 0x02
         }
-        return Encoder.encode(0x12345678, address(0x11), IERC20(address(0x22)), 1, feeOnTransfer, 1, 2, fills, 3);
+        return Encoder.encode(0x12345678, address(0x11), IERC20(address(0x22)), 1, feeOnTransfer, 1, 2, fills, 3, 0);
     }
 
     function flashEncodeVip(bytes memory fills, bytes memory sig) external pure returns (bytes memory data) {
@@ -171,7 +171,7 @@ contract BoolBoundaryHarness {
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
             permitted: ISignatureTransfer.TokenPermissions({token: address(0x33), amount: 4}), nonce: 5, deadline: 6
         });
-        return Encoder.encodeVIP(0x12345678, address(0x11), feeOnTransfer, 1, 2, fills, permit, sig, isForwarded, 3);
+        return Encoder.encodeVIP(0x12345678, address(0x11), feeOnTransfer, 1, 2, fills, permit, sig, isForwarded, 3, 0);
     }
 }
 

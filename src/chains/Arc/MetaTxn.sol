@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {ArcMixin} from "./Common.sol";
+import {ArcCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -17,7 +17,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
+contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -36,19 +36,22 @@ contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, uint256)
             );
 
             if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+                sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             } else { // if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))
-                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+                sellToPancakeInfinityVIP(
+                    recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+                );
             }
         } else {
             return false;
@@ -60,7 +63,7 @@ contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, ArcMixin)
+        override(SettlerBase, ArcCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -83,7 +86,7 @@ contract ArcSettlerMetaTxn is SettlerMetaTxn, ArcMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, ArcMixin)
+        override(Permit2PaymentAbstract, ArcCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

@@ -48,6 +48,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         new NonceBump();
         settlerMetaTxn = _deploySettlerMetaTxn();
         vm.chainId(forkChainId);
+        deal(address(fromToken()), address(settlerMetaTxn), 1);
+        deal(address(toToken()), address(settlerMetaTxn), 1);
 
         // ### Taker ###
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
@@ -319,6 +321,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.makePersistent(address(settlerMetaTxn));
         vm.createSelectFork(_testChainId(), MainnetDefaultFork._testBlockNumber());
         vm.setEvmVersion("cancun");
+        deal(address(fromToken()), address(settlerMetaTxn), 1); // the new fork drops the kept wei
         deal(address(fromToken()), FROM, amount());
         vm.prank(FROM);
         require(fromToken().approve(address(PERMIT2), type(uint256).max));

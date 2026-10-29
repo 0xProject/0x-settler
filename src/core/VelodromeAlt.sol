@@ -213,7 +213,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
                 // will revert with an overflow. Therefore, it can't be so large that multiplying by
                 // a "reasonable" `ppm` value could overflow. We don't care to protect against
                 // unreasonable `ppm` values because that just means the taker is griefing themself.
-                sellAmount = (sellToken.fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS);
+                sellAmount = (sellToken.fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS);
             }
             if (sellAmount != 0) {
                 _checkRecipient(address(this), address(pair), sellToken);

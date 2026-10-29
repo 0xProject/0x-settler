@@ -373,6 +373,12 @@ using StateLib for State global;
 library Encoder {
     using FastLogic for bool;
 
+    // Offsets, from an encoded `bytes memory` pointer, of the bytes between the header and the fills
+    uint256 private constant _EXTRA_DATA_OFFSET = 212;
+    uint256 private constant _EXTRA_DATA_OFFSET_VIP = 306;
+
+    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills for the
+    /// caller to fill in; `extraData` locates them.
     function encode(
         uint256 unlockSelector,
         address recipient,
@@ -382,7 +388,8 @@ library Encoder {
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        uint256 amountOutMin
+        uint256 amountOutMin,
+        uint256 extraDataSize
     ) internal view returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
@@ -393,7 +400,7 @@ library Encoder {
             data := mload(0x40)
 
             let pathLen := mload(fills)
-            mcopy(add(0xd4, data), add(0x20, fills), pathLen)
+            mcopy(add(add(_EXTRA_DATA_OFFSET, extraDataSize), data), add(0x20, fills), pathLen)
 
             mstore(add(0xb4, data), ppm)
             mstore(add(0xb1, data), sellToken)
@@ -404,16 +411,18 @@ library Encoder {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x70, pathLen))
+            mstore(add(0x44, data), add(add(0x70, pathLen), extraDataSize))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0xb4, pathLen))
+            mstore(data, add(add(0xb4, pathLen), extraDataSize))
             mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
 
-            mstore(0x40, add(data, add(0xd4, pathLen)))
+            mstore(0x40, add(add(data, add(0xd4, pathLen)), extraDataSize))
         }
     }
 
+    /// `extraDataSize` uninitialized bytes are reserved between the header and the fills for the
+    /// caller to fill in; `extraDataVIP` locates them.
     function encodeVIP(
         uint256 unlockSelector,
         address recipient,
@@ -424,7 +433,8 @@ library Encoder {
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         bool isForwarded,
-        uint256 amountOutMin
+        uint256 amountOutMin,
+        uint256 extraDataSize
     ) internal pure returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
@@ -438,7 +448,7 @@ library Encoder {
             let sigLen := mload(sig)
 
             {
-                let ptr := add(0x132, data)
+                let ptr := add(add(_EXTRA_DATA_OFFSET_VIP, extraDataSize), data)
 
                 // sig length as 3 bytes goes at the end of the callback
                 mstore(sub(add(sigLen, add(pathLen, ptr)), 0x1d), sigLen)
@@ -464,12 +474,24 @@ library Encoder {
             mstore(add(0x78, data), hashMul)
             mstore(add(0x68, data), amountOutMin)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
+            mstore(add(0x44, data), add(add(0xd1, add(pathLen, sigLen)), extraDataSize))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0x115, add(pathLen, sigLen)))
+            mstore(data, add(add(0x115, add(pathLen, sigLen)), extraDataSize))
 
             mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
+        }
+    }
+
+    function extraData(bytes memory data) internal pure returns (uint256 ptr) {
+        assembly ("memory-safe") {
+            ptr := add(_EXTRA_DATA_OFFSET, data)
+        }
+    }
+
+    function extraDataVIP(bytes memory data) internal pure returns (uint256 ptr) {
+        assembly ("memory-safe") {
+            ptr := add(_EXTRA_DATA_OFFSET_VIP, data)
         }
     }
 }
@@ -683,9 +705,7 @@ library Decoder {
 
                 unchecked {
                     NotePtr globalSell = state.globalSell();
-                    globalSell.setAmount(
-                        (globalSell.token().fastBalanceOf(address(this)) * ppm).unsafeDiv(Constants.BASIS)
-                    );
+                    globalSell.setAmount((globalSell.token().fastSpendableBalance() * ppm).unsafeDiv(Constants.BASIS));
                 }
             } else {
                 assert(payer == address(0));

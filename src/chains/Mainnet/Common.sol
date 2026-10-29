@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IPSM, MakerPSM} from "../../core/MakerPSM.sol";
@@ -24,6 +25,7 @@ import {Ternary} from "../../utils/Ternary.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroMainnetFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 import "../../core/Constants.sol" as Constants;
 
 import {
@@ -40,8 +42,10 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {rubiconCLMMFactory, rubiconCLMMInitHash, rubiconCLMMForkId} from "../../core/univ3forks/RubiconCLMM.sol";
+import {namiMainnetFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
-import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4MainnetPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -66,7 +70,11 @@ abstract contract MainnetMixin is
     using Ternary for bool;
 
     constructor() {
-        assert(block.chainid == 1 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 1;
     }
 
     function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -111,7 +119,7 @@ abstract contract MainnetMixin is
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             _checkRecipient(address(this), recipient, token);
             bool isETH = (address(token) == Constants.ETH_ADDRESS);
-            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            uint256 balance = isETH ? address(this).balance : token.fastSpendableBalance();
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {
@@ -126,8 +134,21 @@ abstract contract MainnetMixin is
                     token.safeTransfer(recipient, balance);
                 }
             }
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-                .or(action == uint32(ISettlerActions.BALANCERV3.selector))
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 ppm,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
+
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if ((action == uint32(ISettlerActions.BALANCERV3.selector))
                 .or(action == uint32(ISettlerActions.EKUBO.selector))) {
             (
                 address recipient,
@@ -140,9 +161,7 @@ abstract contract MainnetMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+            if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
                 sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else { // if (action == uint32(ISettlerActions.EKUBO.selector))
                 sellToEkuboV2(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
@@ -216,6 +235,14 @@ abstract contract MainnetMixin is
             factory = rubiconCLMMFactory;
             initHash = rubiconCLMMInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == namiForkId) {
+            factory = namiMainnetFactory;
+            initHash = namiInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroMainnetFactory;
+            initHash = aeroInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
@@ -227,8 +254,12 @@ abstract contract MainnetMixin is
     }
     */
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return MAINNET_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4MainnetPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance
@@ -249,5 +280,37 @@ abstract contract MainnetMixin is
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract MainnetCommon is MainnetMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(MainnetMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(MainnetMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(MainnetMixin, Attest)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }
