@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       sets: ${{ steps.plan.outputs.sets }}
       versions: ${{ steps.plan.outputs.versions }}
@@ -28,6 +28,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install Node.js 18.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 18.x
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -40,14 +45,16 @@ jobs:
       - name: Resolve the compiler of every deployable contract
         id: plan
         run: |
-          python3 -I .github/yul-optimizer-bug/plan.py
+          node js/plan-yul-optimizer-bug.js --self-test
+          node js/compare-bytecode.js --self-test
+          node js/plan-yul-optimizer-bug.js
           echo "cache-suffix=${{ hashFiles('.github/yul-optimizer-bug/patches/**', '.github/yul-optimizer-bug/build-patched-solc.sh', '.github/yul-optimizer-bug/verify-patched-solc.sh', '.github/yul-optimizer-bug/repro/**') }}" >> "$GITHUB_OUTPUT"
 
   solc:
     name: patched solc ${{ matrix.version }}
     needs: plan
     if: needs.plan.outputs.versions != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -57,22 +64,18 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Compute the cache key
-        id: key
-        run: echo "key=patched-solc-${{ matrix.version }}-${ImageOS:-$RUNNER_OS}-${{ needs.plan.outputs.cache-suffix }}" >> "$GITHUB_OUTPUT"
-
       - name: Restore the patched solc
         id: restore
         uses: actions/cache/restore@v4
         with:
           path: patched-solc/solc-${{ matrix.version }}
-          key: ${{ steps.key.outputs.key }}
+          key: patched-solc-${{ matrix.version }}-ubuntu-24.04-${{ runner.arch }}-${{ needs.plan.outputs.cache-suffix }}
 
       - name: Install build dependencies
         if: steps.restore.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build libboost-filesystem-dev libboost-program-options-dev libboost-system-dev libboost-test-dev
+          sudo apt-get install -y --no-install-recommends cmake libboost-filesystem-dev libboost-program-options-dev libboost-system-dev libboost-test-dev
 
       - name: Build the patched solc
         if: steps.restore.outputs.cache-hit != 'true'
@@ -93,56 +96,94 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: patched-solc/solc-${{ matrix.version }}
-          key: ${{ steps.key.outputs.key }}
+          key: ${{ steps.restore.outputs.cache-primary-key }}
+
+      - name: Archive the patched solc
+        run: tar -C patched-solc -cz --file=patched-solc-${{ matrix.version }}.tar.gz solc-${{ matrix.version }}
+
+      - name: Upload the patched solc
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-solc-${{ matrix.version }}
+          path: patched-solc-${{ matrix.version }}.tar.gz
+          if-no-files-found: error
+          compression-level: 0
 
   check:
-    name: ${{ matrix.set.name }}
+    name: Compare deployable bytecode
     needs:
       - plan
       - solc
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.solc.result != 'failure' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        set: ${{ fromJSON(needs.plan.outputs.sets) }}
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
     steps:
+      - name: Require successful compiler preparation
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SOLC_RESULT: ${{ needs.solc.result }}
+          VERSIONS: ${{ needs.plan.outputs.versions }}
+        run: |
+          [[ "$PLAN_RESULT" == success ]]
+          [[ "$SOLC_RESULT" == success || ( "$SOLC_RESULT" == skipped && "$VERSIONS" == '[]' ) ]]
+
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Unaffected compiler release
-        if: ${{ !matrix.set.affected }}
-        run: echo 'solc ${{ matrix.set.solc }} does not have the bug; nothing to compare'
+      - name: Install Node.js 18.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 18.x
 
       - name: Install Foundry
-        if: matrix.set.affected
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.5.1
 
       - name: Install dependencies
-        if: matrix.set.affected
         run: git submodule update --recursive --init
 
-      - name: Compute the cache key
-        if: matrix.set.affected
-        id: key
-        run: echo "key=patched-solc-${{ matrix.set.solc }}-${ImageOS:-$RUNNER_OS}-${{ needs.plan.outputs.cache-suffix }}" >> "$GITHUB_OUTPUT"
-
-      - name: Restore the patched solc
-        if: matrix.set.affected
-        uses: actions/cache/restore@v4
+      - name: Download the patched compilers
+        if: needs.plan.outputs.versions != '[]'
+        uses: actions/download-artifact@v4
         with:
-          path: patched-solc/solc-${{ matrix.set.solc }}
-          key: ${{ steps.key.outputs.key }}
-          fail-on-cache-miss: true
+          pattern: patched-solc-*
+          path: patched-solc
+          merge-multiple: true
+
+      - name: Extract the patched compilers
+        if: needs.plan.outputs.versions != '[]'
+        env:
+          VERSIONS: ${{ needs.plan.outputs.versions }}
+        run: |
+          jq -r '.[]' <<< "$VERSIONS" > "$RUNNER_TEMP/yul-optimizer-versions"
+          while IFS= read -r version ; do
+            tar -C patched-solc -xz --file="patched-solc/patched-solc-$version.tar.gz"
+            test -x "patched-solc/solc-$version"
+          done < "$RUNNER_TEMP/yul-optimizer-versions"
 
       - name: Compare stock and patched bytecode
-        if: matrix.set.affected
-        run: .github/yul-optimizer-bug/check-set.sh
         env:
-          SET_PATHS: ${{ matrix.set.paths }}
-          SET_EVM: ${{ matrix.set.evm }}
-          SET_RUNS: ${{ matrix.set.runs }}
-          PATCHED_SOLC: patched-solc/solc-${{ matrix.set.solc }}
+          BUILD_SETS: ${{ needs.plan.outputs.sets }}
+        run: |
+          jq -c '.[]' <<< "$BUILD_SETS" > "$RUNNER_TEMP/yul-optimizer-sets"
+          failed=0
+          while IFS= read -r build_set ; do
+            echo "::group::$(jq -r '.name' <<< "$build_set")"
+            if jq -e '.affected' <<< "$build_set" > /dev/null ; then
+              export SET_PATHS SET_EVM SET_RUNS SET_SOLC SET_FLATTEN PATCHED_SOLC
+              SET_PATHS=$(jq -r '.paths | join(" ")' <<< "$build_set")
+              SET_EVM=$(jq -r '.evm // ""' <<< "$build_set")
+              SET_RUNS=$(jq -r '.runs // ""' <<< "$build_set")
+              SET_SOLC=$(jq -r '.solc' <<< "$build_set")
+              SET_FLATTEN=$(jq -r '.flatten // false' <<< "$build_set")
+              PATCHED_SOLC="patched-solc/solc-$SET_SOLC"
+              if ! .github/yul-optimizer-bug/check-set.sh ; then
+                failed=1
+              fi
+            else
+              echo 'Compiler release is not affected; nothing to compare'
+            fi
+            echo '::endgroup::'
+          done < "$RUNNER_TEMP/yul-optimizer-sets"
+          exit "$failed"

@@ -3,7 +3,7 @@
 # Builds the given solc release from source with the KnowledgeBase fix applied and writes the
 # binary to the output path. The binary reports a release version string, so sources with an
 # exact `pragma solidity =X.Y.Z` accept it.
-set -Eeufo pipefail
+set -Eeuo pipefail -o noglob
 
 version=$1
 out=$(realpath -m "$2")
@@ -36,14 +36,14 @@ git apply --verbose "$patches"/v"$patch_version".diff
 
 mkdir build
 cd build
-CMAKE_POLICY_VERSION_MINIMUM=3.5 cmake -G Ninja ..  \
+cmake -G 'Unix Makefiles' ..                       \
     -DCMAKE_BUILD_TYPE=Release                      \
     -DTESTS=OFF                                     \
     -DUSE_Z3=OFF                                    \
     -DUSE_CVC5=OFF                                  \
     -DPEDANTIC=OFF                                  \
     -DSOLC_LINK_STATIC=OFF
-ninja solc
+cmake --build . --target solc --parallel 2
 
 ./solc/solc --version
 if ! ./solc/solc --version | grep -q '^Version: '"$version"'+' ; then
