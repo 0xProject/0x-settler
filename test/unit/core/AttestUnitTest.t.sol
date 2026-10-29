@@ -47,7 +47,7 @@ contract AttestUnitTest is Permit2Signature, DeployPermit2 {
 
     function setUp() public {
         deployPermit2();
-        settler = new BaseSettler(bytes20(0));
+        settler = BaseSettler(payable(deployCode("TakerSubmitted.sol:BaseSettler", abi.encode(bytes20(0)))));
         reader = new AttestationCallbackHelper();
         token = new MockERC20("Token", "T", 18);
         taker = vm.addr(TAKER_KEY);
