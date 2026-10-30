@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IAllowanceTransfer} from "@permit2/interfaces/IAllowanceTransfer.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {uniswapV4ForkId} from "src/core/univ4forks/UniswapV4.sol";
 
 import {Settler} from "src/Settler.sol";
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
@@ -143,7 +144,8 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         );
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.UNISWAPV4_VIP, (FROM, permit, false, hashMul, hashMod, fills, sig, slippageLimit())
+                ISettlerActions.UNISWAPV4_VIP,
+                (FROM, permit, uniswapV4ForkId, false, hashMul, hashMod, fills, sig, slippageLimit())
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
@@ -179,7 +181,17 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.UNISWAPV4,
-                (FROM, address(fromTokenCompat), 1_000_000, false, hashMul, hashMod, fills, slippageLimit())
+                (
+                    FROM,
+                    address(fromTokenCompat),
+                    1_000_000,
+                    uniswapV4ForkId,
+                    false,
+                    hashMul,
+                    hashMod,
+                    fills,
+                    slippageLimit()
+                )
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({

@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
@@ -21,7 +22,7 @@ import {
 import {dackieSwapV3WorldChainFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
 import {pancakeSwapV3InitHash, IPancakeSwapV3Callback} from "../../core/univ3forks/PancakeSwapV3.sol";
 
-import {WORLDCHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4WorldChainPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -29,7 +30,11 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
     constructor() {
-        assert(block.chainid == 480 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 480;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -46,14 +51,15 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
                 address recipient,
                 IERC20 sellToken,
                 uint256 ppm,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
@@ -79,8 +85,12 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return WORLDCHAIN_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4WorldChainPoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     // I hate Solidity inheritance
@@ -88,6 +98,28 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
         internal
         virtual
         override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract WorldChainCommon is WorldChainMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(WorldChainMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(WorldChainMixin, Permit2PaymentAbstract)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {RobinHoodMixin} from "./Common.sol";
+import {RobinHoodCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -16,7 +16,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract RobinHoodSettler is Settler, RobinHoodMixin {
+contract RobinHoodSettler is Settler, RobinHoodCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -25,8 +25,30 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))
             .or(action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, bytes, uint256)
+            );
+
+            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
+                sellToPancakeInfinityVIP(
+                    recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+                );
+            }
+        } else if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -40,13 +62,7 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector)) {
-                sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector))
-                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            }
+            sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -54,13 +70,13 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target) internal view override(Settler, RobinHoodMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, RobinHoodCommon) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, RobinHoodMixin)
+        override(Settler, RobinHoodCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -73,7 +89,7 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, RobinHoodMixin)
+        override(Permit2PaymentAbstract, RobinHoodCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

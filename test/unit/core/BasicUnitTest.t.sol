@@ -18,6 +18,10 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function sellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {
@@ -65,7 +69,7 @@ contract BasicUnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(selector, amount);
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount)
+            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount + 1)
         );
         _mockExpectCall(
             address(TOKEN),
@@ -87,7 +91,9 @@ contract BasicUnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(selector, amount);
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount / 2)
+            address(TOKEN),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)),
+            abi.encode(amount / 2 + 1)
         );
         _mockExpectCall(
             address(TOKEN),
@@ -108,7 +114,9 @@ contract BasicUnitTest is Utils, Test {
         bytes memory data = abi.encodePacked(selector, amount);
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount * 2)
+            address(TOKEN),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)),
+            abi.encode(amount * 2 + 1)
         );
         _mockExpectCall(
             address(TOKEN),

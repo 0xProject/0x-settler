@@ -9,7 +9,12 @@ import {DeBridge} from "../../core/DeBridge.sol";
 import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
 
-contract HyperEvmBridgeSettler is BridgeSettler, DeBridge, Across, Mayan {
+import {BlockHyperEvmSystemContracts} from "./BlockHyperEvmSystemContracts.sol";
+
+// Solidity inheritance is stupid
+import {SettlerAbstract} from "../../SettlerAbstract.sol";
+
+contract HyperEvmBridgeSettler is BridgeSettler, BlockHyperEvmSystemContracts, DeBridge, Across, Mayan {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 999 || block.chainid == 31337);
     }
@@ -42,10 +47,28 @@ contract HyperEvmBridgeSettler is BridgeSettler, DeBridge, Across, Mayan {
         return true;
     }
 
+    // I hate Solidity inheritance
+    function _hasRecipientCheck()
+        internal
+        pure
+        override(SettlerAbstract, BridgeSettlerBase, BlockHyperEvmSystemContracts)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, BridgeSettlerBase, BlockHyperEvmSystemContracts)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view
-        override(BridgeSettler, Permit2PaymentAbstract)
+        override(BridgeSettler, BlockHyperEvmSystemContracts, Permit2PaymentAbstract)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

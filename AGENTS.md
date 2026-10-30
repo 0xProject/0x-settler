@@ -13,10 +13,10 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 
 - `src/Settler.sol`, `SettlerMetaTxn.sol`, `SettlerIntent.sol`, `src/bridge/BridgeSettler.sol`: one flavor per mode above. The first three share `SettlerBase.sol`.
 - `src/core/`: actions, venue integrations and payment code shared by the flavors.
-- `src/chains/<Chain>/Common.sol`: which actions each chain supports. Each chain also has one file per flavor.
+- `src/chains/<Chain>/Common.sol`: which actions each chain supports, and whether its `<Chain>Common` adds `Attest` (candidate selection plus attestation) or `Select` (candidate selection only). Each chain also has one file per flavor. All but the bridge settler derive from `<Chain>Common`.
 - `src/ISettlerActions.sol`: action signatures and the argument-order rules in its header.
 - `src/core/SettlerErrors.sol`: every custom error.
-- `UNISWAPV3_FORKS.md`: UniswapV3 fork IDs and upgradeability notes.
+- `UNISWAPV3_FORKS.md`: UniswapV3 fork IDs and upgradeability notes. `UNISWAPV4_FORKS.md` and `PANCAKE_INFINITY_FORKS.md` list UniswapV4 and PancakeSwap Infinity fork IDs.
 - The default branch is `master`.
 
 ## How to work

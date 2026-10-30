@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Attest} from "../../core/Attest.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
@@ -13,9 +14,9 @@ import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {
     pancakeInfinityVault,
     pancakeInfinityClManager,
-    pancakeInfinityBinManager
+    pancakeInfinityBinManager,
+    pancakeInfinityForkId
 } from "../../core/pancakeInfinityForks/PancakeInfinity.sol";
-import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
 import {FluxPool} from "../../core/FluxPool.sol";
@@ -26,6 +27,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroBaseFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3BaseFactory,
@@ -56,8 +58,10 @@ import {
 } from "../../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/AlienBaseV3.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
+import {namiBaseFactory, namiInitHash, namiForkId} from "../../core/univ3forks/Nami.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
-import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
+import {uniswapV4BasePoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -71,7 +75,6 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    Renegade,
     Bebop,
     Hanji,
     FluxPool
@@ -79,15 +82,15 @@ abstract contract BaseMixin is
     using FastLogic for bool;
 
     constructor() {
-        assert(block.chainid == 8453 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 8453;
     }
 
     function _fluxSwap() internal pure override returns (address) {
         return 0x388e0D8f610a80C75e8a049C39DDc5816f56c012;
-    }
-
-    function _renegadeGasSponsorV2() internal pure override returns (address) {
-        return 0xD9E0507D706408D0f14E22e50880189Fd915be80;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -100,8 +103,27 @@ abstract contract BaseMixin is
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
-            .or(action == uint32(ISettlerActions.BALANCERV3.selector))
             .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 ppm,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, uint8, bool, uint256, uint256, bytes, uint256));
+
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(
+                    recipient, sellToken, ppm, forkId, feeOnTransfer, hashMul, hashMod, fills, amountOutMin
+                );
+            }
+        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -113,13 +135,7 @@ abstract contract BaseMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
-                sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
-                sellToPancakeInfinity(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            }
+            sellToBalancerV3(recipient, sellToken, ppm, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -149,28 +165,6 @@ abstract contract BaseMixin is
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
 
             sellToDodoV2(recipient, sellToken, ppm, dodo, quoteForBase, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                IERC20 buyToken,
-                uint256 maxSellAmount,
-                bool refundNativeEth,
-                uint256 maxRefundAmount,
-                bytes memory renegadeData,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, IERC20, uint256, bool, uint256, bytes, uint256));
-
-            sellToRenegade(
-                recipient,
-                sellToken,
-                buyToken,
-                maxSellAmount,
-                refundNativeEth,
-                maxRefundAmount,
-                renegadeData,
-                minBuyAmount
-            );
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,
@@ -243,6 +237,13 @@ abstract contract BaseMixin is
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
+                } else if (forkId == namiForkId) {
+                    factory = namiBaseFactory;
+                    initHash = namiInitHash;
+                    callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+                } else if (forkId == aeroForkId) {
+                    factory = aeroBaseFactory;
+                    initHash = aeroInitHash;
                 } else {
                     revertUnknownForkId(forkId);
                 }
@@ -250,20 +251,27 @@ abstract contract BaseMixin is
         }
     }
 
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return BASE_POOL_MANAGER;
+    function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
+        if (forkId == uniswapV4ForkId) {
+            poolManager = uniswapV4BasePoolManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
-    function _PANCAKE_INFINITY_VAULT() internal pure override returns (address) {
-        return pancakeInfinityVault;
-    }
-
-    function _PANCAKE_INFINITY_CL_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityClManager;
-    }
-
-    function _PANCAKE_INFINITY_BIN_MANAGER() internal pure override returns (address) {
-        return pancakeInfinityBinManager;
+    function _pancakeInfinityForkInfo(uint8 forkId)
+        internal
+        pure
+        override
+        returns (address vault, address clManager, address binManager)
+    {
+        if (forkId == pancakeInfinityForkId) {
+            vault = pancakeInfinityVault;
+            clManager = pancakeInfinityClManager;
+            binManager = pancakeInfinityBinManager;
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 
     function _fallback(bytes calldata data)
@@ -299,5 +307,37 @@ abstract contract BaseMixin is
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+}
+
+// `Attest` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract BaseCommon is BaseMixin, Attest {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(BaseMixin, Attest)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BaseMixin, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(BaseMixin, Attest)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

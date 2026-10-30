@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {MonadMixin} from "./Common.sol";
+import {MonadCommon} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -14,7 +14,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract MonadSettler is Settler, MonadMixin {
+contract MonadSettler is Settler, MonadCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
@@ -24,6 +24,7 @@ contract MonadSettler is Settler, MonadMixin {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
@@ -31,10 +32,11 @@ contract MonadSettler is Settler, MonadMixin {
                 bytes memory sig,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data,
+                (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
             (
                 address recipient,
@@ -68,7 +70,7 @@ contract MonadSettler is Settler, MonadMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(Settler, MonadMixin)
+        override(Settler, MonadCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -81,7 +83,7 @@ contract MonadSettler is Settler, MonadMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, MonadMixin)
+        override(Permit2PaymentAbstract, MonadCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

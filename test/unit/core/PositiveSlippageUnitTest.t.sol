@@ -31,21 +31,21 @@ contract PositiveSlippageUnitTest is Test {
         _executeToken(2_000_000, 1_000_000, 250_000, BASIS);
 
         assertEq(token.balanceOf(recipient), 250_000);
-        assertEq(token.balanceOf(address(settler)), 1_750_000);
+        assertEq(token.balanceOf(address(settler)), 1_750_001);
     }
 
     function test_PositiveSlippage_CapsTokenTransfer() public {
         _executeToken(2_000_000, 1_000_000, 750_000, 100_000);
 
         assertEq(token.balanceOf(recipient), 200_000);
-        assertEq(token.balanceOf(address(settler)), 1_800_000);
+        assertEq(token.balanceOf(address(settler)), 1_800_001);
     }
 
     function test_PositiveSlippage_DoesNotTransferWithoutSurplus() public {
         _executeToken(1_000_000, 1_500_000, BASIS, BASIS);
 
         assertEq(token.balanceOf(recipient), 0);
-        assertEq(token.balanceOf(address(settler)), 1_000_000);
+        assertEq(token.balanceOf(address(settler)), 1_000_001);
     }
 
     function test_PositiveSlippage_TransfersProportionOfEthSurplus() public {
@@ -72,11 +72,11 @@ contract PositiveSlippageUnitTest is Test {
         uint256 cappedAmount = uint256(balance) * maxPpm / BASIS;
         uint256 transferredAmount = proportionalAmount < cappedAmount ? proportionalAmount : cappedAmount;
         assertEq(token.balanceOf(recipient), transferredAmount);
-        assertEq(token.balanceOf(address(settler)), uint256(balance) - transferredAmount);
+        assertEq(token.balanceOf(address(settler)), uint256(balance) + 1 - transferredAmount);
     }
 
     function _executeToken(uint256 balance, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) private {
-        token.mint(address(settler), balance);
+        token.mint(address(settler), balance + 1); // + kept wei
         _execute(IERC20(address(token)), expectedAmount, surplusPpm, maxPpm);
     }
 

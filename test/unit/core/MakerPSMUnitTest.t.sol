@@ -18,6 +18,10 @@ contract MakerPSMDummy is MakerPSM {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     IPSM psm;
@@ -141,11 +145,11 @@ contract MakerPSMDummy is MakerPSM {
     }
 
     function _setOperatorAndTryCall(
-        uint256,
         address,
         bytes memory,
         uint32,
-        function(bytes calldata) internal returns (bytes memory)
+        function(bytes calldata) internal returns (bytes memory),
+        uint256
     ) internal pure override returns (bool) {
         revert("unimplemented");
     }
@@ -295,7 +299,9 @@ contract MakerPSMUnitTest is Utils, Test {
         uint256 ppm = 1_000_000;
         uint256 amount = 99999;
 
-        _mockExpectCall(PSM_GEM, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
+        _mockExpectCall(
+            PSM_GEM, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount + 1)
+        );
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(0));
 
@@ -323,7 +329,7 @@ contract MakerUsddPSMUnitTest is MakerPSMUnitTest {
         uint256 amount = 99999;
         uint256 amountOutMin = amount * 1 ether / 1e6;
 
-        _mockExpectCall(USDT, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
+        _mockExpectCall(USDT, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount + 1));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
 
@@ -337,7 +343,7 @@ contract MakerUsddPSMUnitTest is MakerPSMUnitTest {
         // buyAmount = 1e18 - 1e15 = 999_000_000_000_000_000
         uint256 expectedOut = 999_000_000_000_000_000;
 
-        _mockExpectCall(USDT, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
+        _mockExpectCall(USDT, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount + 1));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(tin));
         _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
 

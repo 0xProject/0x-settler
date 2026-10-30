@@ -12,6 +12,7 @@ import {CurveTricryptoPairTest} from "./CurveTricryptoPairTest.t.sol";
 import {DodoV1PairTest} from "./DodoV1PairTest.t.sol";
 import {MaverickV2PairTest} from "./MaverickV2PairTest.t.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
+import {AttestPairTest} from "./AttestPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
@@ -21,6 +22,7 @@ import {EkuboV2Test} from "./EkuboV2.t.sol";
 import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
@@ -39,7 +41,8 @@ contract USDCWETHTest is
     Permit2TransferTest,
     EkuboV2Test,
     EkuboV3Test,
-    BebopPairTest
+    BebopPairTest,
+    AttestPairTest
 {
     function setUp()
         public
@@ -63,6 +66,25 @@ contract USDCWETHTest is
 
     function _testName() internal pure override returns (string memory) {
         return "USDC-WETH";
+    }
+
+    function testSettler_Attest_UniswapV3() public {
+        bytes[] memory actions = new bytes[](4);
+        actions[0] = _getDefaultFromPermit2Action();
+        actions[1] = _getAttestAction(FROM, block.timestamp);
+        actions[2] = abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 1_000_000, uniswapV3Path(), 0));
+        actions[3] = abi.encodeCall(
+            ISettlerActions.BASIC, (address(0), 0, address(this), 0, abi.encodeCall(this.checkAttestation, (FROM)))
+        );
+        uint256 beforeBalance = toToken().balanceOf(FROM);
+        vm.startPrank(FROM);
+        snapStartName("settler_attest_uniswapV3");
+        settler.execute(
+            ISettlerBase.AllowedSlippage(payable(address(0)), IERC20(address(0)), 0), actions, ATTEST_METADATA
+        );
+        snapEnd();
+        vm.stopPrank();
+        assertGt(toToken().balanceOf(FROM), beforeBalance);
     }
 
     function fromToken() internal pure override returns (IERC20) {

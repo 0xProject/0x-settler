@@ -312,7 +312,8 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             hashMul,
             hashMod,
             fills,
-            amountOutMin
+            amountOutMin,
+            0
         );
         // If, for some insane reason, the first 4 bytes of `recipient` alias the selector for the
         // only mutative function of Settler (`execute` or `executeMetaTxn`, as appropriate), then
@@ -353,7 +354,8 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             permit,
             sig,
             _isForwarded(),
-            amountOutMin
+            amountOutMin,
+            0
         );
         // See comment in `sellToBalancerV3` about why `recipient` aliasing a valid selector is
         // ultimately harmless.
@@ -562,7 +564,9 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
+            _checkRecipient(
+                msg.sender, recipient, _recipientCheckNeedsToken() ? state.buy().token() : IERC20(address(0))
+            );
             uint256 globalBuyAmount =
                 Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {

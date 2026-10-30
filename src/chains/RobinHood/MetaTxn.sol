@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {RobinHoodMixin} from "./Common.sol";
+import {RobinHoodCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -17,7 +17,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
+contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodCommon {
     using FastLogic for bool;
 
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
@@ -32,8 +32,28 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
         } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
-            .or(action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))
             .or(action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, uint256)
+            );
+
+            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))
+                sellToPancakeInfinityVIP(
+                    recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin
+                );
+            }
+        } else if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -46,13 +66,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
 
-            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector)) {
-                sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector))
-                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            }
+            sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -63,7 +77,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, RobinHoodMixin)
+        override(SettlerBase, RobinHoodCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -77,7 +91,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, RobinHoodMixin)
+        override(SettlerMetaTxn, RobinHoodCommon)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -86,7 +100,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, RobinHoodMixin)
+        override(Permit2PaymentAbstract, RobinHoodCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

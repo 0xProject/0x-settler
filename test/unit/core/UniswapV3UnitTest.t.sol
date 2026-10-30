@@ -22,6 +22,10 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     address private constant _PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
@@ -209,11 +213,11 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
     }
 
     function _setOperatorAndTryCall(
-        uint256,
         address,
         bytes memory,
         uint32,
-        function(bytes calldata) internal returns (bytes memory)
+        function(bytes calldata) internal returns (bytes memory),
+        uint256
     ) internal pure override returns (bool) {
         revert("unimplemented");
     }
@@ -321,7 +325,9 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount;
 
-        _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        _mockExpectCall(
+            TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount + 1)
+        );
         bool zeroForOne = TOKEN0 < TOKEN1;
 
         deployCodeTo(
@@ -354,7 +360,9 @@ contract UniswapV3UnitTest is Utils, Test {
         uint256 amount = 99999;
         uint256 minBuyAmount = amount + 1;
 
-        _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
+        _mockExpectCall(
+            TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount + 1)
+        );
         bool zeroForOne = TOKEN0 < TOKEN1;
 
         deployCodeTo(

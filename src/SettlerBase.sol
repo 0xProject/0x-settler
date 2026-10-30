@@ -15,9 +15,9 @@ import {RfqOrderSettlement} from "./core/RfqOrderSettlement.sol";
 import {UniswapV3Fork} from "./core/UniswapV3Fork.sol";
 import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
-import {Select} from "./core/Select.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
 
@@ -55,13 +55,18 @@ library CalldataDecoder {
     }
 }
 
-abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome, Select {
+abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
+    using UnsafeMath for uint256;
     using SafeTransferLib for address payable;
     using FastLogic for bool;
     using Ternary for bool;
 
     receive() external payable {}
+
+    function select(bytes calldata data) internal virtual;
+
+    function _chainId() internal pure virtual returns (uint256);
 
     event GitCommit(bytes20 indexed);
 
@@ -89,6 +94,10 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
+    function _recipientCheckNeedsToken() internal pure virtual override returns (bool) {
+        return false;
+    }
+
     function _checkRecipient(address sender, address recipient, IERC20 buyToken) internal view virtual override {}
 
     function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
@@ -113,7 +122,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         if (Constants.isNative(buyToken)) {
             recipient.safeTransferETH(amountOut);
         } else {
-            buyToken.safeTransfer(recipient, amountOut);
+            buyToken.safeTransfer(recipient, amountOut.unsafeDec(amountOut > minAmountOut));
         }
 
         // zeroize `slippage`
@@ -167,7 +176,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =
                 abi.decode(data, (address, IERC20, uint256, uint256, uint256));
             _checkRecipient(address(this), recipient, token);
-            uint256 balance = Constants.compatSelfBalance(token);
+            uint256 balance = Constants.isNative(token) ? address(this).balance : token.fastSpendableBalance();
             if (balance > expectedAmount) {
                 uint256 cap;
                 unchecked {

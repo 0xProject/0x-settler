@@ -225,7 +225,8 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             hashMul,
             hashMod,
             fills,
-            amountOutMin
+            amountOutMin,
+            0
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
@@ -259,7 +260,8 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
             permit,
             sig,
             _isForwarded(),
-            amountOutMin
+            amountOutMin,
+            0
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
             address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
@@ -465,7 +467,9 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            _checkRecipient(msg.sender, recipient, _hasRecipientCheck() ? state.buy().token() : IERC20(address(0)));
+            _checkRecipient(
+                msg.sender, recipient, _recipientCheckNeedsToken() ? state.buy().token() : IERC20(address(0))
+            );
             uint256 globalBuyAmount =
                 CompactTake.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {

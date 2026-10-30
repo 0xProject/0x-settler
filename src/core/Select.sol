@@ -3,8 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {CalldataDecoder} from "../SettlerBase.sol";
+import {SettlerBase, CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
@@ -13,15 +12,25 @@ import {revertActionInvalid} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 
 /// @notice Ordered candidate-route selection by revertable self-calls.
-abstract contract Select is SettlerSwapAbstract {
+abstract contract Select is SettlerBase {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using FastLogic for bool;
     using Ternary for bool;
     using CalldataDecoder for bytes[];
 
-    // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256)")))
-    uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0x1bbdbb47;
+    // Listing this base after ordinary dispatchers lets candidates bypass actions in more derived contracts.
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
+    }
+
+    // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256,uint256)")))
+    uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0xa04c36b2;
 
     // An overestimate of the gas consumed between reading `gas()` and the trial `CALL`, including
     // the call's own access cost. This bound is the soundness condition for skipping a failed
@@ -33,24 +42,24 @@ abstract contract Select is SettlerSwapAbstract {
         bytes[] calldata actions;
         IERC20 token;
         uint256 minOut;
-        // Read the internally constructed callback head without writing memory:
-        //     [0x00 actions offset][0x20 token][0x40 minOut][actions length][offsets/actions]
-        // `select` built the head and copied the complete candidate region once. Reads past the end
-        // of the trial calldata return zero. A failing action reverts only this trial.
+        uint256 beforeBalance;
+        // Read the callback head without writing memory:
+        //     [0x00 actions offset][0x20 token][0x40 minOut][0x60 beforeBalance][actions length][offsets/actions]
+        // `select` built the head and copied the complete candidate region.
         assembly ("memory-safe") {
             actions.offset := add(data.offset, calldataload(data.offset))
             actions.length := calldataload(actions.offset)
             actions.offset := add(0x20, actions.offset)
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
+            beforeBalance := calldataload(add(0x60, data.offset))
         }
         // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
-        // assets held by Settler. This is outside `SELECT`'s threat model. Final slippage still
+        // assets held by Settler. This is outside `SELECT`'s threat model. The slippage check
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
-        uint256 balBefore = Constants.compatSelfBalance(token);
         _runActions(actions);
-        uint256 score = Constants.compatSelfBalance(token) - balBefore;
+        uint256 score = Constants.compatSelfBalance(token) - beforeBalance;
         if (score < minOut) {
             assembly ("memory-safe") {
                 mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`
@@ -61,15 +70,16 @@ abstract contract Select is SettlerSwapAbstract {
         return empty;
     }
 
-    function select(bytes calldata data) internal {
+    function select(bytes calldata data) internal override {
         uint256 gasCap;
+        IERC20 token;
         uint256 targetsData;
         uint256 candsData;
         uint256 candsLength;
         uint256 n;
         bytes memory callData;
         // Follow and bound both top-level array offsets. The candidate region is copied once after
-        // the private callback head, preserving every valid relative candidate offset.
+        // the callback head, preserving those calldata offsets.
         assembly ("memory-safe") {
             let dataStart := data.offset
             let dataEnd := add(dataStart, data.length)
@@ -77,7 +87,7 @@ abstract contract Select is SettlerSwapAbstract {
             err := or(gt(0x80, data.length), err)
             gasCap := calldataload(dataStart)
             err := or(or(shr(0x40, gasCap), iszero(gasCap)), err)
-            let token := calldataload(add(0x20, dataStart))
+            token := calldataload(add(0x20, dataStart))
             err := or(or(shr(0xa0, token), iszero(token)), err)
 
             let targetsOffset := calldataload(add(0x40, dataStart))
@@ -99,12 +109,20 @@ abstract contract Select is SettlerSwapAbstract {
 
             candsLength := sub(dataEnd, candsData)
             callData := mload(0x40)
-            let dst := add(0x84, callData)
+            let dst := add(0xa4, callData)
             calldatacopy(dst, candsData, candsLength)
             mstore(add(0x44, callData), token)
             mstore(add(0x04, callData), _EXECUTE_SELECTED_SELECTOR)
-            mstore(callData, add(0x64, candsLength))
+            mstore(callData, add(0x84, candsLength))
             mstore(0x40, add(dst, candsLength))
+        }
+
+        {
+            uint256 beforeBalance = Constants.compatSelfBalance(token);
+            // callData.beforeBalance = beforeBalance;
+            assembly ("memory-safe") {
+                mstore(add(0x84, callData), beforeBalance)
+            }
         }
 
         // A trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
@@ -118,11 +136,11 @@ abstract contract Select is SettlerSwapAbstract {
         uint256 i;
         while (true) {
             // Select one candidate in the shared callback buffer by changing only its dynamic
-            // offset and target. The token, selector, length, and copied region remain unchanged.
+            // offset and target.
             assembly ("memory-safe") {
                 let offset := calldataload(add(shl(0x05, i), candsData))
                 if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
-                mstore(add(0x24, callData), add(0x60, offset))
+                mstore(add(0x24, callData), add(0x80, offset))
                 mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
             }
 
@@ -130,18 +148,20 @@ abstract contract Select is SettlerSwapAbstract {
                 i++;
             }
             bool isLast = i == n;
-            uint256 beforeGas = gasleft();
-            bool bubbleFailure = isLast.or(beforeGas < beforeGasThreshold);
-            uint256 gasLimit = isLast.ternary(beforeGas, gasCap);
+            uint256 beforeGas;
 
-            if (_setOperatorAndTryCall(gasLimit, address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected))
-            {
+            if (_setOperatorAndTryCall(
+                    address(this),
+                    callData,
+                    _EXECUTE_SELECTED_SELECTOR,
+                    _executeSelected,
+                    (!isLast).ternary(gasCap, beforeGas = gasleft())
+                )) {
                 break;
             }
 
-            if (bubbleFailure) {
-                // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and
-                // bubble it.
+            if (isLast.or(beforeGas < beforeGasThreshold)) {
+                // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and bubble.
                 assembly ("memory-safe") {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
@@ -168,7 +188,7 @@ abstract contract Select is SettlerSwapAbstract {
                 data.length := mul(data.length, iszero(tooShort))
             }
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.
-            if (tooShort || !_dispatch(i, action, data, noSlippage)) {
+            if (tooShort || !Select._dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
             }
         }

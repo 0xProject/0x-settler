@@ -110,7 +110,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             // passed as authenticated calldata, so this is a GIGO error that we
             // do not attempt to fix.
             unchecked {
-                sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * ppm / Constants.BASIS;
+                sellAmount = IERC20(sellToken).fastSpendableBalance() * ppm / Constants.BASIS;
             }
             _checkRecipient(address(this), pool, IERC20(sellToken));
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);
@@ -127,7 +127,9 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
         }
-        _checkRecipient(pool, recipient, _hasRecipientCheck() ? pool.fastToken0or1(zeroForOne) : IERC20(address(0)));
+        _checkRecipient(
+            pool, recipient, _recipientCheckNeedsToken() ? pool.fastToken0or1(zeroForOne) : IERC20(address(0))
+        );
         pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }

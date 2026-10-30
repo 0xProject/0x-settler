@@ -2,6 +2,7 @@
 pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
+import {Select} from "../../core/Select.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
@@ -33,7 +34,11 @@ import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract LineaMixin is FreeMemory, SettlerBase, DodoV1 {
     constructor() {
-        assert(block.chainid == 59144 || block.chainid == 31337);
+        assert(block.chainid == _chainId() || block.chainid == 31337);
+    }
+
+    function _chainId() internal pure override returns (uint256) {
+        return 59144;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -81,5 +86,18 @@ abstract contract LineaMixin is FreeMemory, SettlerBase, DodoV1 {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+}
+
+// `Select` is listed last so that candidate selection sits above the chain actions in the
+// linearization; see `Select`.
+abstract contract LineaCommon is LineaMixin, Select {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override(LineaMixin, Select)
+        returns (bool)
+    {
+        return super._dispatch(i, action, data, slippage);
     }
 }

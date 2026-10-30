@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {UnichainMixin} from "./Common.sol";
+import {UnichainCommon} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,7 +15,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
-contract UnichainSettlerMetaTxn is SettlerMetaTxn, UnichainMixin {
+contract UnichainSettlerMetaTxn is SettlerMetaTxn, UnichainCommon {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -31,16 +31,17 @@ contract UnichainSettlerMetaTxn is SettlerMetaTxn, UnichainMixin {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                uint8 forkId,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, uint8, bool, uint256, uint256, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToUniswapV4VIP(recipient, forkId, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
@@ -51,7 +52,7 @@ contract UnichainSettlerMetaTxn is SettlerMetaTxn, UnichainMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, UnichainMixin)
+        override(SettlerBase, UnichainCommon)
         returns (bool)
     {
         return super._dispatch(i, action, data, slippage);
@@ -74,7 +75,7 @@ contract UnichainSettlerMetaTxn is SettlerMetaTxn, UnichainMixin {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, UnichainMixin)
+        override(Permit2PaymentAbstract, UnichainCommon)
         returns (bool, bytes memory)
     {
         return super._fallback(data);

@@ -22,6 +22,23 @@ contract HyperEvmSettlerIntent is SettlerIntent, HyperEvmSettlerMetaTxn {
     constructor(bytes20 gitCommit) HyperEvmSettlerMetaTxn(gitCommit) {}
 
     // Solidity inheritance is stupid
+    function _hasRecipientCheck()
+        internal
+        pure
+        override(SettlerAbstract, SettlerBase, HyperEvmSettlerMetaTxn)
+        returns (bool)
+    {
+        return super._hasRecipientCheck();
+    }
+
+    function _checkRecipient(address sender, address recipient, IERC20 buyToken)
+        internal
+        view
+        override(SettlerAbstract, SettlerBase, HyperEvmSettlerMetaTxn)
+    {
+        super._checkRecipient(sender, recipient, buyToken);
+    }
+
     function executeMetaTxn(
         AllowedSlippage memory slippage,
         bytes[] calldata actions,
@@ -98,5 +115,14 @@ contract HyperEvmSettlerIntent is SettlerIntent, HyperEvmSettlerMetaTxn {
         returns (bool)
     {
         return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, HyperEvmSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

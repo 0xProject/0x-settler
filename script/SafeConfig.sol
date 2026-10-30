@@ -17,13 +17,11 @@ library SafeConfig {
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 143 // monad
-                || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
                 || block.chainid == 2741 // abstract
                 || block.chainid == 4217 // tempo
                 || block.chainid == 4663 // robinhood
-                || block.chainid == 5000 // mantle
                 || block.chainid == 5042 // arc
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
@@ -31,8 +29,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
-                || block.chainid == 80094 // berachain
-                || block.chainid == 534352 // scroll
+                || block.chainid == 99901 // elysium
         ) {
             return false;
         }
@@ -49,13 +46,11 @@ library SafeConfig {
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 143 // monad
-                || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
                 || block.chainid == 2741 // abstract
                 || block.chainid == 4217 // tempo
                 || block.chainid == 4663 // robinhood
-                || block.chainid == 5000 // mantle
                 || block.chainid == 5042 // arc
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
@@ -63,8 +58,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
-                || block.chainid == 80094 // berachain
-                || block.chainid == 534352 // scroll
+                || block.chainid == 99901 // elysium
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -85,12 +79,10 @@ library SafeConfig {
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 143 // monad
-                || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
                 || block.chainid == 4217 // tempo
                 || block.chainid == 4663 // robinhood
-                || block.chainid == 5000 // mantle
                 || block.chainid == 5042 // arc
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
@@ -98,8 +90,7 @@ library SafeConfig {
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
-                || block.chainid == 80094 // berachain
-                || block.chainid == 534352 // scroll
+                || block.chainid == 99901 // elysium
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
