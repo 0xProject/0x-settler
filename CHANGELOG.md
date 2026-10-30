@@ -8,7 +8,7 @@
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 
-## 2026-10-29
+## 2026-10-30
 
 ### Breaking changes
 
