@@ -117,8 +117,6 @@ abstract contract RobinHoodMixin is
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, ppm, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.DEEPSTATE.selector)) {
-            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.FLUXPOOL.selector)) {
             (IERC20 sellToken, uint256 ppm, bytes32 poolId, bool zeroForOne, uint256 minBuyAmount) =
                 abi.decode(data, (IERC20, uint256, bytes32, bool, uint256));
