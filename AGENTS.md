@@ -11,7 +11,7 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 
 ## Map
 
-- `src/Settler.sol`, `SettlerMetaTxn.sol`, `SettlerIntent.sol`, `src/bridge/BridgeSettler.sol`: one flavor per mode above. The first three share `SettlerBase.sol`.
+- `src/Settler.sol`, `src/SettlerMetaTxn.sol`, `src/SettlerIntent.sol`, `src/bridge/BridgeSettler.sol`: one flavor per mode above. The first three share `src/SettlerBase.sol`.
 - `src/core/`: actions, venue integrations and payment code shared by the flavors.
 - `src/chains/<Chain>/Common.sol`: which actions each chain supports, and whether its `<Chain>Common` adds `Attest` (candidate selection plus attestation) or `Select` (candidate selection only). Each chain also has one file per flavor. All but the bridge settler derive from `<Chain>Common`.
 - `src/ISettlerActions.sol`: action signatures and the argument-order rules in its header.
@@ -40,7 +40,7 @@ Deployed contracts are immutable, hold user funds during a transaction, and sit 
 
 - **Measure.** Measure gas and deployed bytecode size for any optimization, and record how. When gas is equal, choose the smaller bytecode.
 - **Prefer Solidity.** Use assembly where it measurably saves gas or size, or where Solidity cannot express the operation, and say why in a comment when the reason is not obvious. Mark assembly `memory-safe` when it meets [Solidity's memory-safety rules](https://docs.soliditylang.org/en/latest/assembly.html#memory-safety).
-- **Duplicated code.** Update every copy of code duplicated for gas, such as the `_dispatchVIP` copies in every chain's flavor files, and say in each copy that it is duplicated.
+- **Duplicated code.** When you duplicate code for gas, say so in each copy and update every copy together (see `src/utils/Ternary.sol`).
 
 ### Assembly style
 
