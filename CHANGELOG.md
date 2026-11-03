@@ -7,6 +7,11 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+
+## 2026-11-03
+
+### Non-breaking changes
+
 * Add UniswapV3 UniV3 fork on Elysium chain
 * Add UniswapV4 actions to Elysium chain
 
