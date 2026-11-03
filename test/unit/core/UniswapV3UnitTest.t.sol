@@ -16,6 +16,10 @@ import {Utils} from "../Utils.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {Test} from "@forge-std/Test.sol";
+import {ElysiumSettler} from "src/chains/Elysium/TakerSubmitted.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {UnknownForkId} from "src/core/SettlerErrors.sol";
 
 contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
     function _hasRecipientCheck() internal pure virtual override returns (bool) {
@@ -277,6 +281,55 @@ contract UniswapV3PoolDirtyForwardedBoolDummy {
             }
         }
         return RETURN_DATA;
+    }
+}
+
+contract ElysiumUniswapV3UnitTest is Utils, Test {
+    ElysiumSettler private settler;
+    address private token0;
+    address private token1;
+    address private pool;
+
+    function setUp() public {
+        settler = new ElysiumSettler(bytes20(0));
+        token0 = _createNamedRejectionDummy("token0");
+        token1 = _createNamedRejectionDummy("token1");
+        (address first, address second) = token0 < token1 ? (token0, token1) : (token1, token0);
+        pool = AddressDerivation.deriveDeterministicContract(
+            0x1707327F626496A7b5b3872e7E4d2879Df7d7a9f,
+            keccak256(abi.encode(first, second, uint24(500))),
+            uniswapV3InitHash
+        );
+        deployCodeTo(
+            "UniswapV3UnitTest.t.sol:UniswapV3PoolDummy",
+            abi.encode(abi.encode(token0 < token1 ? int256(1) : -int256(1), token0 < token1 ? -int256(1) : int256(1))),
+            pool
+        );
+        vm.mockCall(token0, abi.encodeCall(IERC20.balanceOf, (address(settler))), abi.encode(uint256(2)));
+    }
+
+    function _path(uint8 forkId) private view returns (bytes memory) {
+        uint160 limit = token0 < token1 ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+        return abi.encodePacked(token0, forkId, uint24(500), limit, token1);
+    }
+
+    function _slippage() private pure returns (ISettlerBase.AllowedSlippage memory) {
+        return ISettlerBase.AllowedSlippage(payable(address(0)), IERC20(address(0)), 0);
+    }
+
+    function test_Elysium_UniswapV3_selfFunded_authenticatesPoolCallback() public {
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(ISettlerActions.UNISWAPV3, (address(this), 1_000_000, _path(0), 1));
+        _mockExpectCall(token0, abi.encodeCall(IERC20.transfer, (pool, 1)), abi.encode(true));
+        vm.expectCall(pool, abi.encodeWithSelector(IUniswapV3Pool.swap.selector));
+        assertTrue(settler.execute(_slippage(), actions, bytes32(0)));
+    }
+
+    function test_Elysium_UniswapV3_unknownFork_reverts() public {
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(ISettlerActions.UNISWAPV3, (address(this), 1_000_000, _path(1), 0));
+        vm.expectRevert(abi.encodeWithSelector(UnknownForkId.selector, uint8(1)));
+        settler.execute(_slippage(), actions, bytes32(0));
     }
 }
 

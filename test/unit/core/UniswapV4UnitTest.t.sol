@@ -36,6 +36,15 @@ import {StdInvariant} from "@forge-std/StdInvariant.sol";
 import {Vm} from "@forge-std/Vm.sol";
 
 import {console} from "@forge-std/console.sol";
+import {ElysiumSettler} from "src/chains/Elysium/TakerSubmitted.sol";
+import {ElysiumSettlerMetaTxn} from "src/chains/Elysium/MetaTxn.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {UnknownForkId} from "src/core/SettlerErrors.sol";
+import {uniswapV4ElysiumPoolManager} from "src/core/univ4forks/UniswapV4.sol";
+import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
+import {Permit2Signature} from "../../utils/Permit2Signature.sol";
+import {DeployPermit2} from "lib/permit2/test/utils/DeployPermit2.sol";
 
 uint256 constant TOTAL_SUPPLY = 1 ether * 1 ether;
 address constant testPrediction = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
@@ -418,28 +427,32 @@ abstract contract BaseUniswapV4UnitTest is Test {
     }
 
     function _deployPoolManager() internal returns (address poolManagerSrc) {
+        return _deployPoolManager(address(POOL_MANAGER));
+    }
+
+    function _deployPoolManager(address target) internal returns (address poolManagerSrc) {
         poolManagerSrc = vm.deployCode("PoolManager.sol:PoolManager", abi.encode(address(this)));
         require(poolManagerSrc != address(0));
         bytes memory poolManagerCode = poolManagerSrc.code;
         uint256 replaceCount = _replaceAll(
             poolManagerCode,
             bytes32(bytes20(uint160(poolManagerSrc))),
-            bytes32(bytes20(uint160(address(POOL_MANAGER)))),
+            bytes32(bytes20(uint160(target))),
             bytes32(bytes20(type(uint160).max))
         );
         console.log("replaced", replaceCount, "occurrences of pool manager immutable address");
-        vm.etch(address(POOL_MANAGER), poolManagerCode);
-        vm.label(address(POOL_MANAGER), "PoolManager");
+        vm.etch(target, poolManagerCode);
+        vm.label(target, "PoolManager");
 
         vm.record();
-        (bool success, bytes memory returndata) = address(POOL_MANAGER).staticcall(abi.encodeWithSignature("owner()"));
+        (bool success, bytes memory returndata) = target.staticcall(abi.encodeWithSignature("owner()"));
         success.maybeRevert(returndata);
         assert(abi.decode(returndata, (address)) == address(0));
-        (bytes32[] memory readSlots,) = vm.accesses(address(POOL_MANAGER));
+        (bytes32[] memory readSlots,) = vm.accesses(target);
         assert(readSlots.length == 1);
         bytes32 ownerSlot = readSlots[0];
-        assert(vm.load(address(POOL_MANAGER), ownerSlot) == bytes32(0));
-        vm.store(address(POOL_MANAGER), ownerSlot, bytes32(uint256(uint160(address(this)))));
+        assert(vm.load(target, ownerSlot) == bytes32(0));
+        vm.store(target, ownerSlot, bytes32(uint256(uint160(address(this)))));
     }
 }
 
@@ -1523,4 +1536,155 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     }
 
     function invariant_vacuous() external pure {}
+}
+
+contract ElysiumUniswapV4UnitTest is BaseUniswapV4UnitTest, Permit2Signature, DeployPermit2, IUnlockCallback {
+    ElysiumSettler private settler;
+    ElysiumSettlerMetaTxn private metaSettler;
+    ISignatureTransfer private constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+    uint256 private constant PRIVATE_KEY = 0x1234;
+    uint256 private constant SELL_AMOUNT = 1 ether;
+    PoolKey private key;
+    MockERC20 private sellToken;
+    MockERC20 private buyToken;
+
+    function setUp() public {
+        _deployPoolManager(address(uniswapV4ElysiumPoolManager));
+        deployPermit2();
+        settler = new ElysiumSettler(bytes20(0));
+        metaSettler = new ElysiumSettlerMetaTxn(bytes20(0));
+        sellToken = new MockERC20("Token A", "A", 18);
+        buyToken = new MockERC20("Token B", "B", 18);
+        if (address(sellToken) > address(buyToken)) {
+            (sellToken, buyToken) = (buyToken, sellToken);
+        }
+        key = PoolKey(Currency.wrap(address(sellToken)), Currency.wrap(address(buyToken)), 500, 10, IHooks(address(0)));
+        sellToken.mint(address(this), 100 ether);
+        buyToken.mint(address(this), 100 ether);
+        IPoolManager(address(uniswapV4ElysiumPoolManager)).initialize(key, 1 << 96);
+        uniswapV4ElysiumPoolManager.unlock(new bytes(0));
+    }
+
+    function unlockCallback(bytes calldata) external returns (bytes memory) {
+        require(msg.sender == address(uniswapV4ElysiumPoolManager));
+        (BalanceDelta delta,) = IPoolManager(msg.sender)
+            .modifyLiquidity(
+                key,
+                IPoolManager.ModifyLiquidityParams({
+                    tickLower: -600, tickUpper: 600, liquidityDelta: 1000 ether, salt: 0
+                }),
+                new bytes(0)
+            );
+        uniswapV4ElysiumPoolManager.sync(IERC20(address(sellToken)));
+        sellToken.transfer(msg.sender, uint128(-delta.amount0()));
+        uniswapV4ElysiumPoolManager.settle();
+        uniswapV4ElysiumPoolManager.sync(IERC20(address(buyToken)));
+        buyToken.transfer(msg.sender, uint128(-delta.amount1()));
+        uniswapV4ElysiumPoolManager.settle();
+        return new bytes(0);
+    }
+
+    function _fills() private view returns (bytes memory) {
+        return abi.encodePacked(
+            uint24(1_000_000),
+            uint160(TickMath.MIN_SQRT_PRICE + 1),
+            bytes1(0x01),
+            buyToken,
+            key.fee,
+            key.tickSpacing,
+            key.hooks,
+            uint24(0)
+        );
+    }
+
+    function _hashMod() private view returns (uint256 hashMod) {
+        for (hashMod = 8;; ++hashMod) {
+            if (uint160(address(sellToken)) % hashMod % 8 != uint160(address(buyToken)) % hashMod % 8) {
+                return hashMod;
+            }
+        }
+    }
+
+    function _slippage(address recipient) private view returns (ISettlerBase.AllowedSlippage memory) {
+        return ISettlerBase.AllowedSlippage(payable(recipient), IERC20(address(buyToken)), 1);
+    }
+
+    function test_Elysium_UniswapV4_selfFunded_swaps() public {
+        sellToken.mint(address(settler), SELL_AMOUNT);
+        uint256 boughtBefore = buyToken.balanceOf(address(this));
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV4,
+            (address(settler), address(sellToken), 1_000_000, 0, false, 1, _hashMod(), _fills(), 1)
+        );
+        assertTrue(settler.execute(_slippage(address(this)), actions, bytes32(0)));
+        assertEq(sellToken.balanceOf(address(settler)), 1);
+        assertGt(buyToken.balanceOf(address(this)), boughtBefore);
+    }
+
+    function _permit() private returns (ISignatureTransfer.PermitTransferFrom memory permit) {
+        address user = vm.addr(PRIVATE_KEY);
+        sellToken.mint(user, SELL_AMOUNT);
+        vm.prank(user);
+        sellToken.approve(address(PERMIT2), SELL_AMOUNT);
+        return defaultERC20PermitTransfer(address(sellToken), SELL_AMOUNT, 0);
+    }
+
+    function test_Elysium_UniswapV4_vip_swaps() public {
+        ISignatureTransfer.PermitTransferFrom memory permit = _permit();
+        bytes memory sig = getPermitTransferSignature(permit, address(settler), PRIVATE_KEY, PERMIT2.DOMAIN_SEPARATOR());
+        address user = vm.addr(PRIVATE_KEY);
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV4_VIP, (address(settler), permit, 0, false, 1, _hashMod(), _fills(), sig, 1)
+        );
+        vm.prank(user);
+        assertTrue(settler.execute(_slippage(user), actions, bytes32(0)));
+        assertEq(sellToken.balanceOf(user), 0);
+        assertGt(buyToken.balanceOf(user), 0);
+    }
+
+    function test_Elysium_UniswapV4_metaTxnVip_swaps() public {
+        ISignatureTransfer.PermitTransferFrom memory permit = _permit();
+        address user = vm.addr(PRIVATE_KEY);
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.METATXN_UNISWAPV4_VIP, (address(metaSettler), permit, 0, false, 1, _hashMod(), _fills(), 1)
+        );
+        bytes32 witness = keccak256(
+            abi.encode(
+                keccak256(
+                    "SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)"
+                ),
+                user,
+                buyToken,
+                uint256(1),
+                keccak256(abi.encodePacked(keccak256(actions[0])))
+            )
+        );
+        bytes32 typehash = keccak256(
+            "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)"
+        );
+        bytes memory sig = getPermitWitnessTransferSignature(
+            permit, address(metaSettler), PRIVATE_KEY, typehash, witness, PERMIT2.DOMAIN_SEPARATOR()
+        );
+        assertTrue(metaSettler.executeMetaTxn(_slippage(user), actions, bytes32(0), user, sig));
+        assertEq(sellToken.balanceOf(user), 0);
+        assertGt(buyToken.balanceOf(user), 0);
+    }
+
+    function test_Elysium_UniswapV4_unknownFork_reverts() public {
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.UNISWAPV4,
+            (address(this), address(sellToken), 1_000_000, 1, false, 1, _hashMod(), _fills(), 0)
+        );
+        vm.expectRevert(abi.encodeWithSelector(UnknownForkId.selector, uint8(1)));
+        settler.execute(_slippage(address(this)), actions, bytes32(0));
+    }
+
+    function test_Elysium_UniswapV4_unauthorizedCallback_reverts() public {
+        vm.expectRevert();
+        IUnlockCallback(address(settler)).unlockCallback(new bytes(0));
+    }
 }
