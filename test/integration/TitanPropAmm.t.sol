@@ -2,11 +2,15 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
+import {GasSnapshot} from "@forge-gas-snapshot/GasSnapshot.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
+import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
 /// Titan's maker interface: the caller transfers `amountIn` to the venue, then calls `swap`.
 interface IPropAMM {
@@ -21,9 +25,13 @@ interface IPropAMM {
 }
 
 /// @dev Each case forks mainnet just before a real fill through Titan's router, so the maker's
-/// price update for that block is already applied, and sells the same amount through Settler.
-contract TitanPropAmmTest is Test {
+/// price update for that block is already applied, and the taker sells the same amount through
+/// AllowanceHolder and Settler.
+contract TitanPropAmmTest is Test, GasSnapshot {
+    using SafeTransferLib for IERC20;
+
     uint256 private constant BASIS = 1_000_000;
+    IAllowanceHolder private constant ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
     IERC20 private constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20 private constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IERC20 private constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
@@ -41,26 +49,45 @@ contract TitanPropAmmTest is Test {
     }
 
     function _fork(Fill memory fill) private {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), fill.txHash);
+        vm.createSelectFork("mainnet", fill.txHash);
         vm.setEvmVersion("osaka");
         vm.chainId(31337);
         settler = new MainnetSettler(bytes20(0));
         vm.chainId(1);
-        // Settler keeps 1 wei of each token, so fund `amountIn + 1` and sell all of it.
-        deal(address(fill.tokenIn), address(settler), fill.amountIn + 1);
+        // Settler keeps 1 wei of each token, so seed it like a deployed Settler.
+        deal(address(fill.tokenIn), address(settler), 1);
+        deal(address(fill.tokenOut), address(settler), 1);
+        deal(address(fill.tokenIn), TAKER, fill.amountIn);
+        vm.prank(TAKER);
+        fill.tokenIn.safeApprove(address(ALLOWANCE_HOLDER), type(uint256).max);
     }
 
-    function _execute(IERC20 buyToken, bytes memory action) private returns (uint256 out) {
-        uint256 before = buyToken.balanceOf(TAKER);
-        bytes[] memory actions = new bytes[](1);
-        actions[0] = action;
-        vm.prank(TAKER, TAKER);
-        settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(TAKER), buyToken: buyToken, minAmountOut: 1}),
-            actions,
-            bytes32(0)
+    function _execute(Fill memory fill, bytes memory action, string memory snap) private returns (uint256 out) {
+        ISignatureTransfer.PermitTransferFrom memory permit;
+        permit.permitted.token = address(fill.tokenIn);
+        permit.permitted.amount = fill.amountIn;
+        permit.deadline = block.timestamp;
+        bytes[] memory actions = new bytes[](2);
+        actions[0] = abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0)));
+        actions[1] = action;
+        bytes memory data = abi.encodeCall(
+            settler.execute,
+            (
+                ISettlerBase.AllowedSlippage({recipient: payable(TAKER), buyToken: fill.tokenOut, minAmountOut: 1}),
+                actions,
+                bytes32(0)
+            )
         );
-        out = buyToken.balanceOf(TAKER) - before;
+
+        uint256 before = fill.tokenOut.balanceOf(TAKER);
+        vm.startPrank(TAKER, TAKER);
+        if (bytes(snap).length != 0) snapStart(snap);
+        ALLOWANCE_HOLDER.exec(address(settler), address(fill.tokenIn), fill.amountIn, payable(address(settler)), data);
+        if (bytes(snap).length != 0) snapEnd();
+        vm.stopPrank();
+        out = fill.tokenOut.balanceOf(TAKER) - before;
+        assertEq(fill.tokenIn.balanceOf(TAKER), 0, "taker input spent");
+        assertEq(fill.tokenIn.balanceOf(address(settler)), 1, "input fully sold");
     }
 
     function _push(Fill memory fill) private view returns (bytes memory) {
@@ -71,11 +98,9 @@ contract TitanPropAmmTest is Test {
         return abi.encodeCall(ISettlerActions.BASIC_PUSH, (address(fill.tokenIn), BASIS, fill.venue, 0x44, swap));
     }
 
-    function _check(Fill memory fill) private {
+    function _check(Fill memory fill, string memory snap) private {
         _fork(fill);
-        // The final slippage check keeps 1 wei when the balance exceeds `minAmountOut`.
-        assertEq(_execute(fill.tokenOut, _push(fill)), fill.amountOut - 1, "output matches the on-chain fill");
-        assertEq(fill.tokenIn.balanceOf(address(settler)), 1, "input fully sold");
+        assertEq(_execute(fill, _push(fill), snap), fill.amountOut, "output matches the on-chain fill");
     }
 
     function _kipseli() private pure returns (Fill memory) {
@@ -90,7 +115,7 @@ contract TitanPropAmmTest is Test {
     }
 
     function testKipseli_usdcToWeth() public {
-        _check(_kipseli());
+        _check(_kipseli(), "allowanceHolder_basicPush_kipseli_USDC-WETH");
     }
 
     function testBopAmm_wethToUsdc() public {
@@ -102,7 +127,8 @@ contract TitanPropAmmTest is Test {
                 USDC,
                 636992272156649468,
                 1537370489
-            )
+            ),
+            "allowanceHolder_basicPush_bopAmm_WETH-USDC"
         );
     }
 
@@ -116,7 +142,8 @@ contract TitanPropAmmTest is Test {
                 WETH,
                 37249149019,
                 16372396188334286947
-            )
+            ),
+            "allowanceHolder_basicPush_USDT-WETH"
         );
     }
 
@@ -141,7 +168,7 @@ contract TitanPropAmmTest is Test {
     function testSelect_freshQuote_commitsTitan() public {
         Fill memory fill = _kipseli();
         _fork(fill);
-        assertEq(_execute(fill.tokenOut, _select(fill)), fill.amountOut - 1, "Titan candidate committed");
+        assertEq(_execute(fill, _select(fill), ""), fill.amountOut, "Titan candidate committed");
     }
 
     function testSelect_staleQuote_fallsBack() public {
@@ -150,11 +177,10 @@ contract TitanPropAmmTest is Test {
         // One second later the maker's update no longer matches `block.timestamp`, so the venue reverts.
         vm.warp(block.timestamp + 1);
         uint256 snap = vm.snapshotState();
-        uint256 fallbackOut = _execute(fill.tokenOut, _uniswapV3(fill));
+        uint256 fallbackOut = _execute(fill, _uniswapV3(fill), "");
         vm.revertToState(snap);
 
         // The reverted candidate's push is undone, so the fallback sells the whole input.
-        assertEq(_execute(fill.tokenOut, _select(fill)), fallbackOut, "fallback committed");
-        assertEq(fill.tokenIn.balanceOf(address(settler)), 1, "input fully sold");
+        assertEq(_execute(fill, _select(fill), ""), fallbackOut, "fallback committed");
     }
 }

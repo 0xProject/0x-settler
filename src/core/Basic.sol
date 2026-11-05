@@ -17,7 +17,7 @@ abstract contract Basic is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using Revert for bool;
 
-    /// @dev Sell to a pool by approval or, if `push`, by transfer before the call; native ETH always goes as `value`.
+    /// @dev Sell to a pool by approval or, if `push`, by transfer before the call. Native ETH always goes as `value`.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
     function basicSellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data, bool push)
         internal

@@ -241,7 +241,7 @@ interface ISettlerActions {
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
     /// @dev Like `BASIC`, but transfers the sell amount to `pool` before the call instead of approving it, for venues
-    /// that expect payment up front (e.g. Titan prop AMMs' `swap`)
+    /// that expect payment up front (e.g. Titan prop AMMs' `swap`). The pool keeps whatever the call does not use.
     function BASIC_PUSH(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
     /// @dev Fills one Deepstate book with the current `sellToken` balance. Native ETH is the ERC-7528 address in

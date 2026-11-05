@@ -94,7 +94,9 @@ contract BasicUnitTest is Utils, Test {
         bytes4 selector = bytes4(hex"12345678");
 
         _mockExpectCall(
-            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount * 2 + 1)
+            address(TOKEN),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)),
+            abi.encode(amount * 2 + 1)
         );
         _mockExpectCall(address(TOKEN), abi.encodeCall(IERC20.transfer, (POOL, amount)), abi.encode(true));
         vm.expectCall(address(TOKEN), abi.encodeWithSelector(IERC20.allowance.selector), 0);
