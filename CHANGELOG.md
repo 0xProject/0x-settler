@@ -4,6 +4,9 @@
 
 ### Non-breaking changes
 
+* Add `BASIC_PUSH` action on all chains. It is `BASIC`, but transfers the sell
+  amount to `pool` instead of approving it, for venues that take payment before
+  the call (e.g. Titan prop AMMs)
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
