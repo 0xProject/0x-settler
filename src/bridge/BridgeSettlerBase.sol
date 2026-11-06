@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {IERC721Owner} from "../IERC721Owner.sol";
 import {DEPLOYER} from "../deployer/DeployerAddress.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -12,6 +13,7 @@ import {uint512} from "../utils/512Math.sol";
 import {IDeployer} from "../deployer/IDeployer.sol";
 import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
+import {RfqOrderSettlement} from "../core/RfqOrderSettlement.sol";
 import {Relay} from "../core/Relay.sol";
 import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
 import {CCIP} from "../core/CCIP.sol";
@@ -20,7 +22,7 @@ import "../core/Constants.sol" as Constants;
 
 import {SettlerBridgeAbstract} from "../SettlerAbstract.sol";
 
-abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, LayerZeroOFT, CCIP {
+abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, RfqOrderSettlement, Relay, LayerZeroOFT, CCIP {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -90,6 +92,17 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 IERC20(token).safeApproveIfBelow(address(ALLOWANCE_HOLDER), amount);
                 ALLOWANCE_HOLDER.exec(settler, token, amount, payable(settler), settlerData);
             }
+        } else if (action == uint32(IBridgeSettlerActions.RFQ.selector)) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                address maker,
+                bytes memory makerSig,
+                IERC20 takerToken,
+                uint256 maxTakerAmount
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
+
+            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
         } else if (action == uint32(IBridgeSettlerActions.BASIC.selector)) {
             (address bridgeToken, uint256 ppm, address pool, uint256 offset, bytes memory bridgeData) =
                 abi.decode(data, (address, uint256, address, uint256, bytes));

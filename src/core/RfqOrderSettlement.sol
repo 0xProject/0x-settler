@@ -3,14 +3,14 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
+import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import "./Constants.sol" as Constants;
 
-abstract contract RfqOrderSettlement is SettlerSwapAbstract {
+abstract contract RfqOrderSettlement is SettlerAbstract {
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;

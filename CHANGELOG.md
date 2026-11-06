@@ -4,6 +4,11 @@
 
 ### Non-breaking changes
 
+* Add `RFQ` to BridgeSettler on Abstract, Arbitrum, Arc, Avalanche, Base, Bnb,
+  Elysium, HyperEvm, Ink, Linea, Mainnet, Monad, Optimism, Plasma, Polygon,
+  RobinHood, Sepolia, Tempo, Unichain, and WorldChain so the maker's quote is
+  bound to the user instead of to the shared BridgeSettler contract, after a
+  report in Immunefi bug 96410
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645

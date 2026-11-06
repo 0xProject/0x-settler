@@ -124,10 +124,6 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
@@ -167,10 +163,6 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
         returns (bool)
     {
         return super._isRestrictedTarget(target);
-    }
-
-    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
-        revert("unimplemented");
     }
 
     function _div512to256(uint512, uint512) internal view override returns (uint256) {

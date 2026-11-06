@@ -17,6 +17,9 @@ import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
+import {Permit2Signature} from "../utils/Permit2Signature.sol";
+import {DeployPermit2} from "lib/permit2/test/utils/DeployPermit2.sol";
+import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}
@@ -72,7 +75,7 @@ contract BridgeSettlerTestBase is Test {
 }
 
 contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
 
         vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
@@ -206,5 +209,196 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         bridgeSettler.execute{value: amount}(bridgeActions, bytes32(0));
 
         assertEq(address(bridgeDummy).balance, amount, "Bridge did not receive the assets");
+    }
+}
+
+contract BridgeSettlerRfqTest is BridgeSettlerUnitTest, Permit2Signature, DeployPermit2 {
+    uint256 internal constant MAKER_PRIVATE_KEY = 0x0ff1c1a1;
+    address internal MAKER = vm.addr(MAKER_PRIVATE_KEY);
+    uint256 internal constant MAKER_NONCE = 1;
+    bytes32 internal constant CONSIDERATION_TYPEHASH =
+        keccak256("Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)");
+    bytes32 internal constant RFQ_PERMIT2_WITNESS_TYPEHASH = keccak256(
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,Consideration consideration)Consideration(address token,uint256 amount,address counterparty,bool partialFillAllowed)TokenPermissions(address token,uint256 amount)"
+    );
+    bytes4 internal constant INVALID_SIGNER_SELECTOR = bytes4(keccak256("InvalidSigner()"));
+    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    ISignatureTransfer internal permit2;
+    IERC20 internal buyToken;
+    address internal user;
+    uint256 internal constant SELL_AMOUNT = 2000;
+    uint256 internal constant BUY_AMOUNT = 1 ether;
+
+    function setUp() public override {
+        super.setUp();
+        permit2 = ISignatureTransfer(deployPermit2());
+        buyToken = IERC20(address(new MockERC20("Buy Token", "BT", 18)));
+        user = makeAddr("user");
+
+        deal(address(token), user, SELL_AMOUNT);
+        vm.prank(user);
+        token.approve(address(ALLOWANCE_HOLDER), type(uint256).max);
+
+        deal(address(buyToken), MAKER, BUY_AMOUNT);
+        vm.prank(MAKER);
+        buyToken.approve(address(permit2), type(uint256).max);
+    }
+
+    function _makerNonceUsed() internal view returns (bool) {
+        return permit2.nonceBitmap(MAKER, MAKER_NONCE >> 8) & (1 << uint8(MAKER_NONCE)) != 0;
+    }
+
+    // The maker quotes `BUY_AMOUNT` of `buyToken` for `SELL_AMOUNT` of `token`, bound to `taker` and spendable
+    // only by `spender`.
+    function _makerQuote(address taker, address spender)
+        internal
+        view
+        returns (ISignatureTransfer.PermitTransferFrom memory makerPermit, bytes memory makerSig)
+    {
+        makerPermit = defaultERC20PermitTransfer(address(buyToken), BUY_AMOUNT, MAKER_NONCE);
+        bytes32 witness = keccak256(
+            bytes.concat(
+                CONSIDERATION_TYPEHASH,
+                abi.encode(
+                    RfqOrderSettlement.Consideration({
+                        token: token, amount: SELL_AMOUNT, counterparty: taker, partialFillAllowed: true
+                    })
+                )
+            )
+        );
+        makerSig = getPermitWitnessTransferSignature(
+            makerPermit, spender, MAKER_PRIVATE_KEY, RFQ_PERMIT2_WITNESS_TYPEHASH, witness, permit2.DOMAIN_SEPARATOR()
+        );
+    }
+
+    function _rfqAction(ISignatureTransfer.PermitTransferFrom memory makerPermit, bytes memory makerSig)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return abi.encodeCall(
+            IBridgeSettlerActions.RFQ,
+            (address(bridgeSettler), makerPermit, MAKER, makerSig, address(token), SELL_AMOUNT)
+        );
+    }
+
+    function _executeThroughAllowanceHolder(address taker, uint256 amount, bytes[] memory bridgeActions) internal {
+        vm.prank(taker);
+        ALLOWANCE_HOLDER.exec(
+            address(bridgeSettler),
+            address(token),
+            amount,
+            payable(address(bridgeSettler)),
+            abi.encodeCall(BridgeSettler.execute, (bridgeActions, bytes32(0)))
+        );
+    }
+
+    function testRfq() public {
+        (ISignatureTransfer.PermitTransferFrom memory makerPermit, bytes memory makerSig) =
+            _makerQuote(user, address(bridgeSettler));
+
+        // 1. Take the assets from the user
+        // 2. Fill the maker's quote, paying the maker from BridgeSettler
+        // 3. Bridge the maker's assets to the dummy bridge
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(token), SELL_AMOUNT),
+            _rfqAction(makerPermit, makerSig),
+            abi.encodeCall(
+                IBridgeSettlerActions.BASIC,
+                (
+                    address(buyToken),
+                    1_000_000,
+                    address(bridgeDummy),
+                    0x24,
+                    abi.encodeCall(BridgeDummy.take, (address(buyToken), 0))
+                )
+            )
+        );
+
+        vm.expectCall(address(token), abi.encodeCall(IERC20.transfer, (MAKER, SELL_AMOUNT)));
+        vm.expectCall(
+            address(buyToken), abi.encodeCall(IERC20.transferFrom, (MAKER, address(bridgeSettler), BUY_AMOUNT))
+        );
+        _executeThroughAllowanceHolder(user, SELL_AMOUNT, bridgeActions);
+
+        assertTrue(_makerNonceUsed());
+        assertEq(token.balanceOf(user), 0);
+        assertEq(token.balanceOf(MAKER), SELL_AMOUNT);
+        assertEq(buyToken.balanceOf(MAKER), 0);
+        // first use: BridgeSettler keeps 1 wei
+        assertEq(buyToken.balanceOf(address(bridgeDummy)), BUY_AMOUNT - 1, "Bridge did not receive the assets");
+        assertEq(buyToken.balanceOf(address(bridgeSettler)), 1);
+    }
+
+    function testRfqReuseByOtherSenderReverts() public {
+        (ISignatureTransfer.PermitTransferFrom memory makerPermit, bytes memory makerSig) =
+            _makerQuote(user, address(bridgeSettler));
+        address attacker = makeAddr("attacker");
+
+        // Zero fill: the attacker brings no taker token
+        bytes[] memory bridgeActions = ActionDataBuilder.build(_rfqAction(makerPermit, makerSig));
+        vm.prank(attacker);
+        vm.expectRevert(INVALID_SIGNER_SELECTOR);
+        bridgeSettler.execute(bridgeActions, bytes32(0));
+        assertFalse(_makerNonceUsed());
+
+        // Dust fill: the attacker brings one base unit of taker token
+        deal(address(token), attacker, 1);
+        vm.prank(attacker);
+        token.approve(address(ALLOWANCE_HOLDER), type(uint256).max);
+        bridgeActions =
+            ActionDataBuilder.build(_getDefaultTransferFrom(address(token), 1), _rfqAction(makerPermit, makerSig));
+        vm.expectRevert(INVALID_SIGNER_SELECTOR);
+        _executeThroughAllowanceHolder(attacker, 1, bridgeActions);
+        assertFalse(_makerNonceUsed());
+
+        // The user's own transaction still fills
+        bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(token), SELL_AMOUNT), _rfqAction(makerPermit, makerSig)
+        );
+        _executeThroughAllowanceHolder(user, SELL_AMOUNT, bridgeActions);
+        assertTrue(_makerNonceUsed());
+        assertEq(token.balanceOf(MAKER), SELL_AMOUNT);
+        assertEq(buyToken.balanceOf(address(bridgeSettler)), BUY_AMOUNT);
+    }
+
+    function testRfqReuseThroughSettlerReverts() public {
+        (ISignatureTransfer.PermitTransferFrom memory makerPermit, bytes memory makerSig) =
+            _makerQuote(user, address(bridgeSettler));
+        address attacker = makeAddr("attacker");
+
+        // The same action nested in a Settler call names a different Permit2 spender
+        bytes[] memory settlerActions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.RFQ, (address(settler), makerPermit, MAKER, makerSig, address(token), SELL_AMOUNT)
+            )
+        );
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            abi.encodeCall(
+                IBridgeSettlerActions.SETTLER_SWAP,
+                (
+                    ETH_ADDRESS,
+                    0,
+                    address(settler),
+                    abi.encodeCall(
+                        ISettlerTakerSubmitted.execute,
+                        (
+                            ISettlerBase.AllowedSlippage({
+                                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                            }),
+                            settlerActions,
+                            bytes32(0)
+                        )
+                    )
+                )
+            )
+        );
+
+        vm.mockCall(address(DEPLOYER), abi.encodeCall(IERC721View.ownerOf, (2)), abi.encode(address(settler)));
+        vm.prank(attacker);
+        vm.expectRevert(INVALID_SIGNER_SELECTOR);
+        bridgeSettler.execute(bridgeActions, bytes32(0));
+        assertFalse(_makerNonceUsed());
     }
 }

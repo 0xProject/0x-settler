@@ -11,6 +11,21 @@ interface IBridgeSettlerActions {
     /// @dev Execute swaps in Settler
     function SETTLER_SWAP(address token, uint256 amount, address settler, bytes calldata settlerData) external;
 
+    /// @dev Settle an RfqOrder between Maker and BridgeSettler. Transferring funds from the BridgeSettler contract to
+    /// maker. Retaining funds in the BridgeSettler contract.
+    /// The maker's signature names the taker as counterparty. Filling here rather than in the Settler called by
+    /// `SETTLER_SWAP` binds the quote to the user instead of to this shared contract, so nobody else can spend the
+    /// signature.
+    // Pre-req: Funded
+    function RFQ(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address maker,
+        bytes memory makerSig,
+        address takerToken,
+        uint256 maxTakerAmount
+    ) external;
+
     /// @dev msgValueMin is interpreted as an lower bound on the expected msg.value, not as an exact specification
     function UNDERPAYMENT_CHECK(uint256 msgValueMin) external;
 
