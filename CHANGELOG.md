@@ -4,6 +4,8 @@
 
 ### Non-breaking changes
 
+* Add `BASIC_PUSH` action on all chains, which transfers the sell amount to
+  `pool` instead of approving it
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
