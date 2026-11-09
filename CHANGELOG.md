@@ -4,12 +4,17 @@
 
 ### Non-breaking changes
 
-* Add ElyxaV4 and EleosV4 UniswapV4 forks on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
 
-## 2026-11-09
+## 2026-11-09 PM
+
+### Non-breaking changes
+
+* Add ElyxaV4 and EleosV4 UniswapV4 forks on Elysium chain
+
+## 2026-11-09 AM
 
 ### Non-breaking changes
 
