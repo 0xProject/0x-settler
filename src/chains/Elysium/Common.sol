@@ -24,6 +24,8 @@ import {uniswapV4ElysiumPoolManager, uniswapV4ForkId} from "../../core/univ4fork
 import {elysPumpV4PoolManager, elysPumpV4ForkId} from "../../core/univ4forks/ElysPumpV4.sol";
 import {kleosV4PoolManager, kleosV4ForkId} from "../../core/univ4forks/KleosV4.sol";
 import {boxaV4PoolManager, boxaV4ForkId} from "../../core/univ4forks/BoxaV4.sol";
+import {elyxaV4PoolManager, elyxaV4ForkId} from "../../core/univ4forks/ElyxaV4.sol";
+import {eleosV4PoolManager, eleosV4ForkId} from "../../core/univ4forks/EleosV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -91,6 +93,10 @@ abstract contract ElysiumMixin is FreeMemory, SettlerBase, UniswapV4 {
             poolManager = kleosV4PoolManager;
         } else if (forkId == boxaV4ForkId) {
             poolManager = boxaV4PoolManager;
+        } else if (forkId == elyxaV4ForkId) {
+            poolManager = elyxaV4PoolManager;
+        } else if (forkId == eleosV4ForkId) {
+            poolManager = eleosV4PoolManager;
         } else {
             revertUnknownForkId(forkId);
         }
