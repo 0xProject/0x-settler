@@ -9,3 +9,7 @@
    3. KleosV4
    <!-- -->
    4. BoxaV4
+   <!-- -->
+   5. ElyxaV4
+   <!-- -->
+   6. EleosV4
