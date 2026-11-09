@@ -4,10 +4,15 @@
 
 ### Non-breaking changes
 
-* Add ElysPumpV4, KleosV4, and BoxaV4 UniswapV4 forks on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+
+## 2026-11-09
+
+### Non-breaking changes
+
+* Add ElysPumpV4, KleosV4, and BoxaV4 UniswapV4 forks on Elysium chain
 
 ## 2026-11-03
 
