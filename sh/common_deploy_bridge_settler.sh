@@ -12,7 +12,7 @@ else
     trap 'trap - EXIT; set +eu; rm -f '"$(printf '%q' "$flat_bridge_settler_source")" EXIT
 fi
 
-forge flatten -o "$flat_bridge_settler_source" src/chains/"$chain_display_name"/BridgeSettler.sol >/dev/null
+FOUNDRY_SOLC_VERSION=0.8.34 forge flatten -o "$flat_bridge_settler_source" src/chains/"$chain_display_name"/BridgeSettler.sol >/dev/null
 FOUNDRY_SOLC_VERSION=0.8.34 forge build "$flat_bridge_settler_source"
 
 declare bridge_settler_artifact
