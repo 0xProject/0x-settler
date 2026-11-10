@@ -60,6 +60,10 @@ contract MainnetSettlerIntent is SettlerIntent, MainnetSettlerMetaTxn {
         return super._mandatorySlippageCheck();
     }
 
+    function _disableVelodrome() internal pure override(SettlerBase, MainnetSettlerMetaTxn) returns (bool) {
+        return super._disableVelodrome();
+    }
+
     function _tokenId() internal pure override(SettlerIntent, SettlerMetaTxn, SettlerAbstract) returns (uint256) {
         return super._tokenId();
     }
