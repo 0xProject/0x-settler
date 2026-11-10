@@ -476,7 +476,7 @@ function _validate_single_safe_confirmation {
         "$_validate_single_safe_confirmation_signing_hash" \
         "$_validate_single_safe_confirmation_transaction_data" \
         "$_validate_single_safe_confirmation_packed" \
-        1 >/dev/null
+        1 >/dev/null || return 1
 
     echo "$_validate_single_safe_confirmation_normalized"
 }
