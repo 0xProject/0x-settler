@@ -155,12 +155,4 @@ declare renew_authority_calldata
 renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" $auth_deadline)"
 declare -r renew_authority_calldata
 
-declare struct_json
-struct_json="$(eip712_json "$renew_authority_calldata")"
-declare -r struct_json
-
-declare signature
-signature="$(sign_call "$struct_json")"
-declare -r signature
-
-save_signature renew_authority "$renew_authority_calldata" "$signature"
+sign_and_save_signature renew_authority "$renew_authority_calldata"

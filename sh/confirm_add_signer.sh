@@ -149,12 +149,4 @@ declare addOwner_call
 addOwner_call="$(cast calldata "$addOwner_sig" "$new_owner" $threshold)"
 declare -r addOwner_call
 
-declare struct_json
-struct_json="$(eip712_json "$addOwner_call" 0 "$safe_address")"
-declare -r struct_json
-
-declare signature
-signature="$(sign_call "$struct_json")"
-declare -r signature
-
-save_signature add_signer "$addOwner_call" "$signature" 0 "$safe_address"
+sign_and_save_signature add_signer "$addOwner_call" 0 "$safe_address"

@@ -2,6 +2,10 @@ declare safe_url
 safe_url="$(get_config safe.apiUrl)"
 declare -r safe_url
 
+function sts_safe_transactions_enabled {
+    [[ $safe_url != 'NOT SUPPORTED' && ${FORCE_IGNORE_STS-No} != [Yy]es ]]
+}
+
 declare safe_version
 safe_version="$(cast call --rpc-url "$rpc_url" "$safe_address" 'VERSION()(string)')"
 if [[ $safe_version =~ ^\"([0-9]+\.[0-9]+\.[0-9]+)\"$ ]] ; then
