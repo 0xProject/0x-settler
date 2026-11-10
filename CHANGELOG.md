@@ -4,6 +4,7 @@
 
 ### Non-breaking changes
 
+* Add Aero CL UniV3 fork on Elysium chain with fork ID 50
 * Add ZyoraV4 UniswapV4 fork on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
