@@ -4,6 +4,7 @@
 
 ### Non-breaking changes
 
+* Add ZyoraV4 UniswapV4 fork on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
