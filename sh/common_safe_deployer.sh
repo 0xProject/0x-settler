@@ -176,10 +176,6 @@ function load_pending_sts_safe_transactions {
     jq -Mc .results <<<"$_load_pending_sts_safe_transactions_page"
 }
 
-function sts_safe_transactions_enabled {
-    [[ $safe_url != 'NOT SUPPORTED' && ${FORCE_IGNORE_STS-No} != [Yy]es ]]
-}
-
 function _require_expected_sts_safe_transaction {
     declare -r _require_expected_sts_safe_transaction_json="$1"
     shift
