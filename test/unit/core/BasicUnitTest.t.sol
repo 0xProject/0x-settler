@@ -25,7 +25,11 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
     function _checkRecipient(address, address, IERC20) internal view virtual override {}
 
     function sellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {
-        super.basicSellToPool(sellToken, ppm, pool, offset, data);
+        super.basicSellToPool(sellToken, ppm, pool, offset, data, false);
+    }
+
+    function pushToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) public {
+        super.basicSellToPool(sellToken, ppm, pool, offset, data, true);
     }
 
     function _tokenId() internal pure override returns (uint256) {
@@ -80,6 +84,25 @@ contract BasicUnitTest is Utils, Test {
         _mockExpectCall(address(POOL), data, abi.encode(true));
 
         basic.sellToPool(TOKEN, ppm, POOL, offset, data);
+    }
+
+    /// @dev `push` transfers the patched amount to the pool instead of approving it
+    function testBasicPushSell() public {
+        uint256 ppm = 500_000;
+        uint256 offset = 4;
+        uint256 amount = 99999;
+        bytes4 selector = bytes4(hex"12345678");
+
+        _mockExpectCall(
+            address(TOKEN),
+            abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)),
+            abi.encode(amount * 2 + 1)
+        );
+        _mockExpectCall(address(TOKEN), abi.encodeCall(IERC20.transfer, (POOL, amount)), abi.encode(true));
+        vm.expectCall(address(TOKEN), abi.encodeWithSelector(IERC20.allowance.selector), 0);
+        _mockExpectCall(address(POOL), abi.encodePacked(selector, amount), abi.encode(true));
+
+        basic.pushToPool(TOKEN, ppm, POOL, offset, abi.encodePacked(selector, uint256(0)));
     }
 
     /// @dev adjust the balange of the contract to be less than expected

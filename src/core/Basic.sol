@@ -17,9 +17,11 @@ abstract contract Basic is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using Revert for bool;
 
-    /// @dev Sell to a pool with a generic approval, transferFrom interaction.
+    /// @dev Sell to a pool by approval or, if `push`, by transfer before the call.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
-    function basicSellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data) internal {
+    function basicSellToPool(IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory data, bool push)
+        internal
+    {
         if (_isRestrictedTarget(pool)) {
             revertConfusedDeputy();
         }
@@ -57,7 +59,10 @@ abstract contract Basic is SettlerAbstract {
             assembly ("memory-safe") {
                 mstore(add(data, offset), amount)
             }
-            if (address(sellToken) != pool) {
+            if (push) {
+                _checkRecipient(address(this), pool, sellToken);
+                sellToken.safeTransfer(pool, amount);
+            } else if (address(sellToken) != pool) {
                 sellToken.safeApproveIfBelow(pool, amount);
             }
         }
