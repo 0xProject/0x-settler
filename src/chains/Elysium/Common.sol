@@ -11,6 +11,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroElysiumFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3ElysiumFactory,
@@ -79,6 +80,10 @@ abstract contract ElysiumMixin is FreeMemory, SettlerBase, UniswapV4 {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3ElysiumFactory;
             initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroElysiumFactory;
+            initHash = aeroInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
