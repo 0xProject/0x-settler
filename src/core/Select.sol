@@ -52,10 +52,6 @@ abstract contract Select is SettlerBase {
             minOut := calldataload(add(0x40, data.offset))
             beforeBalance := calldataload(add(0x60, data.offset))
         }
-        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
-        // assets held by Settler. This is outside `SELECT`'s threat model. The slippage check
-        // enforces the taker's minimum.
-        // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         _runActions(actions, token, minOut, beforeBalance);
         return empty;
     }
@@ -170,6 +166,10 @@ abstract contract Select is SettlerBase {
                 revertActionInvalid(i, action, data);
             }
         }
+        // A candidate can meet its target by liquidating unexpected assets or unexpected amounts of
+        // assets held by Settler. This is outside `SELECT`'s threat model. The global slippage check
+        // enforces the taker's minimum.
+        // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
         uint256 score = Constants.compatSelfBalance(token) - beforeBalance;
         if (score < minOut) {
             assembly ("memory-safe") {
