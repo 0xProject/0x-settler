@@ -140,7 +140,7 @@ abstract contract Select is SettlerBase {
             unchecked {
                 i++;
             }
-            if ((i == n).or(gasleft() < beforeGasThreshold)) {
+            if ((i == n).or(beforeGasThreshold > gasleft())) {
                 _runActions(actions, token, minOut, beforeBalance);
                 return;
             }
