@@ -137,8 +137,7 @@ abstract contract Select is SettlerBase {
                 i++;
             }
             if ((i == n).or(beforeGasThreshold > gasleft())) {
-                _runActions(actions, token, minOut, beforeBalance);
-                return;
+                return _runActions(actions, token, minOut, beforeBalance);
             }
 
             if (_setOperatorAndTryCall(address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected, gasCap)) {
