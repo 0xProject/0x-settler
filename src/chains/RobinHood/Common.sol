@@ -168,52 +168,67 @@ abstract contract RobinHoodMixin is
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == uniswapV3ForkId) {
-            factory = uniswapV3RobinhoodFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == sushiswapV3ForkId) {
-            factory = sushiswapV3RobinhoodFactory;
-            initHash = uniswapV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == robinSwapV3ForkId) {
-            factory = robinSwapV3Factory;
-            initHash = prjxV3InitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == pancakeSwapV3ForkId) {
-            factory = pancakeSwapV3Factory;
-            initHash = pancakeSwapV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        } else if (forkId == upForkId) {
-            factory = upFactory;
-            initHash = upInitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == sheriffForkId) {
-            factory = sheriffFactory;
-            initHash = sheriffInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == swapHoodV3ForkId) {
-            factory = swapHoodV3Factory;
-            initHash = swapHoodV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        } else if (forkId == gigaDexV3ForkId) {
-            factory = gigaDexV3Factory;
-            initHash = gigaDexV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        } else if (forkId == alandaleForkId) {
-            factory = alandaleFactory;
-            initHash = alandaleInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == namiForkId) {
-            factory = namiRobinhoodFactory;
-            initHash = namiInitHash;
-            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
-        } else if (forkId == aeroForkId) {
-            factory = aeroRobinHoodFactory;
-            initHash = aeroInitHash;
-            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        initHash = uniswapV3InitHash;
+        callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        if (forkId < swapHoodV3ForkId) {
+            if (forkId < sushiswapV3ForkId) {
+                if (forkId == uniswapV3ForkId) {
+                    factory = uniswapV3RobinhoodFactory;
+                } else if (forkId == pancakeSwapV3ForkId) {
+                    factory = pancakeSwapV3Factory;
+                    initHash = pancakeSwapV3InitHash;
+                    callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+                } else {
+                    revertUnknownForkId(forkId);
+                }
+            } else {
+                if (forkId == sushiswapV3ForkId) {
+                    factory = sushiswapV3RobinhoodFactory;
+                } else if (forkId == upForkId) {
+                    factory = upFactory;
+                    initHash = upInitHash;
+                } else if (forkId == sheriffForkId) {
+                    factory = sheriffFactory;
+                    initHash = sheriffInitHash;
+                    callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+                } else {
+                    revertUnknownForkId(forkId);
+                }
+            }
         } else {
-            revertUnknownForkId(forkId);
+            if (forkId < alandaleForkId) {
+                callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
+                if (forkId == swapHoodV3ForkId) {
+                    factory = swapHoodV3Factory;
+                    initHash = swapHoodV3InitHash;
+                } else if (forkId == robinSwapV3ForkId) {
+                    factory = robinSwapV3Factory;
+                    initHash = prjxV3InitHash;
+                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+                } else if (forkId == gigaDexV3ForkId) {
+                    factory = gigaDexV3Factory;
+                    initHash = gigaDexV3InitHash;
+                } else {
+                    revertUnknownForkId(forkId);
+                }
+            } else {
+                callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+                if (forkId == alandaleForkId) {
+                    factory = alandaleFactory;
+                    initHash = alandaleInitHash;
+                } else if (forkId == namiForkId) {
+                    factory = namiRobinhoodFactory;
+                    initHash = namiInitHash;
+                } else if (forkId == aeroForkId) {
+                    factory = aeroRobinHoodFactory;
+                    initHash = aeroInitHash;
+                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+                } else {
+                    revertUnknownForkId(forkId);
+                }
+            }
+            // This explicit branch return reduces deployed size with the configured compiler.
+            return (factory, initHash, callbackSelector);
         }
     }
 
