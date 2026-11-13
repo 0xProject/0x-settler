@@ -30,10 +30,9 @@ abstract contract Select is SettlerBase {
     // uint32(bytes4(keccak256("executeSelected(bytes[],address,uint256,uint256)")))
     uint32 private constant _EXECUTE_SELECTED_SELECTOR = 0xa04c36b2;
 
-    // An overestimate of the gas consumed between reading `gas()` and the trial `CALL`, including
-    // the call's own access cost. This bound is the soundness condition for skipping a failed
-    // trial. Adding one failing empty candidate measured 3,603 gas (solc 0.8.34 via-IR,
-    // 2026-08-31), bounding this plumbing from far above; 8192 is more than double that bound.
+    // An overestimate of the gas consumed between reading `gas()` and the start of the trial's
+    // context. This bound is the soundness condition for skipping a failed trial. Measured: 587 gas
+    // (solc 0.8.34 via-IR, 2026-11-13).
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory empty) {
