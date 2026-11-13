@@ -2,6 +2,9 @@
 
 ### Breaking changes
 
+* Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE` inside `SELECT` with
+  `ActionInvalid`
+
 ### Non-breaking changes
 
 * Add Aero CL UniV3 fork on Elysium chain with fork ID 50
