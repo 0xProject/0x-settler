@@ -227,7 +227,7 @@ abstract contract RobinHoodMixin is
                     revertUnknownForkId(forkId);
                 }
             }
-            // This explicit branch return reduces deployed size with the configured compiler.
+            // This explicit return reduces deployed size
             return (factory, initHash, callbackSelector);
         }
     }

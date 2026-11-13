@@ -19,7 +19,6 @@ import {revertActionInvalid, SignatureExpired, MsgValueMismatch, revertConfusedD
 import {Revert} from "./utils/Revert.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 
-// Inherit selection so candidates cannot dispatch taker-only checks.
 abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, Select, Permit {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];

@@ -2,11 +2,8 @@
 
 ### Breaking changes
 
-* Execute final or underfunded `SELECT` candidates without a self-call on
-  Abstract, Arbitrum, Arc, Avalanche, Base, Bnb, Elysium, HyperEvm, Ink,
-  Linea, Mainnet, Monad, Optimism, Plasma, Polygon, RobinHood, Sepolia,
-  Tempo, Unichain, and WorldChain. Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE`
-  inside all candidates with `ActionInvalid`.
+* Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE` inside `SELECT` with
+  `ActionInvalid`
 
 ### Non-breaking changes
 

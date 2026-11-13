@@ -265,10 +265,8 @@ interface ISettlerActions {
 
     /// @dev Tries `candidates` in order and commits the first whose increase in Settler's `token`
     ///      balance meets its `targets` entry. A decrease reverts the candidate. Candidates run
-    ///      in self-calls with `trialGasLimit` gas, except final candidates or those that cannot
-    ///      receive that much gas, which run directly in the current call. Candidates cannot
-    ///      dispatch `ATTEST`, `NATIVE_CHECK`, or `CHECK_SLIPPAGE`. `trialGasLimit` must be nonzero
-    ///      and fit in 64 bits.
+    ///      with `trialGasLimit` gas. Candidates cannot run `ATTEST`, `NATIVE_CHECK`, or
+    ///      `CHECK_SLIPPAGE`. `trialGasLimit` must be nonzero and fit in 64 bits.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
