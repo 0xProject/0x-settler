@@ -7,7 +7,6 @@ import {SettlerBase, CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
-import {Ternary} from "../utils/Ternary.sol";
 import {revertActionInvalid} from "./SettlerErrors.sol";
 import "./Constants.sol" as Constants;
 
@@ -16,7 +15,6 @@ abstract contract Select is SettlerBase {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using FastLogic for bool;
-    using Ternary for bool;
     using CalldataDecoder for bytes[];
 
     // Listing this base after ordinary dispatchers lets candidates bypass actions in more derived contracts.
@@ -58,15 +56,7 @@ abstract contract Select is SettlerBase {
         // assets held by Settler. This is outside `SELECT`'s threat model. The slippage check
         // enforces the taker's minimum.
         // See https://web.archive.org/web/20240913184335/https://kebabsec.xyz/posts/critical_vulnerability_in_uniswapx/
-        _runActions(actions);
-        uint256 score = Constants.compatSelfBalance(token) - beforeBalance;
-        if (score < minOut) {
-            assembly ("memory-safe") {
-                mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`
-                mstore(0x20, score)
-                revert(0x1c, 0x24)
-            }
-        }
+        _runActions(actions, token, minOut, beforeBalance);
         return empty;
     }
 
@@ -117,12 +107,9 @@ abstract contract Select is SettlerBase {
             mstore(0x40, add(dst, candsLength))
         }
 
-        {
-            uint256 beforeBalance = Constants.compatSelfBalance(token);
-            // callData.beforeBalance = beforeBalance;
-            assembly ("memory-safe") {
-                mstore(add(0x84, callData), beforeBalance)
-            }
+        uint256 beforeBalance = Constants.compatSelfBalance(token);
+        assembly ("memory-safe") {
+            mstore(add(0x84, callData), beforeBalance)
         }
 
         // A trial is fully funded when EIP-150's clamp still forwards the whole `gasCap` after
@@ -135,45 +122,36 @@ abstract contract Select is SettlerBase {
 
         uint256 i;
         while (true) {
+            bytes[] calldata actions;
+            uint256 minOut;
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target.
             assembly ("memory-safe") {
                 let offset := calldataload(add(shl(0x05, i), candsData))
                 if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
                 mstore(add(0x24, callData), add(0x80, offset))
-                mstore(add(0x64, callData), calldataload(add(shl(0x05, i), targetsData)))
+                minOut := calldataload(add(shl(0x05, i), targetsData))
+                mstore(add(0x64, callData), minOut)
+                actions.offset := add(candsData, offset)
+                actions.length := calldataload(actions.offset)
+                actions.offset := add(0x20, actions.offset)
             }
 
             unchecked {
                 i++;
             }
-            bool isLast = i == n;
-            uint256 beforeGas;
-
-            if (_setOperatorAndTryCall(
-                    address(this),
-                    callData,
-                    _EXECUTE_SELECTED_SELECTOR,
-                    _executeSelected,
-                    (!isLast).ternary(gasCap, beforeGas = gasleft())
-                )) {
-                break;
+            if ((i == n).or(gasleft() < beforeGasThreshold)) {
+                _runActions(actions, token, minOut, beforeBalance);
+                return;
             }
 
-            if (isLast.or(beforeGas < beforeGasThreshold)) {
-                // Copy revert reason from returndata to `[ptr, ptr + returndatasize())` and bubble.
-                assembly ("memory-safe") {
-                    let ptr := mload(0x40)
-                    returndatacopy(ptr, 0x00, returndatasize())
-                    revert(ptr, returndatasize())
-                }
+            if (_setOperatorAndTryCall(address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected, gasCap)) {
+                return;
             }
         }
     }
 
-    function _runActions(bytes[] calldata actions) private {
-        // A nested `CHECK_SLIPPAGE` no-ops against this zeroed struct in taker-submitted Settler.
-        // The other flavors do not dispatch it, so there it reverts only its own trial.
+    function _runActions(bytes[] calldata actions, IERC20 token, uint256 minOut, uint256 beforeBalance) private {
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {
@@ -190,6 +168,14 @@ abstract contract Select is SettlerBase {
             // Not `FastLogic.or`: `_dispatch` must not run on the cleared length.
             if (tooShort || !Select._dispatch(i, action, data, noSlippage)) {
                 revertActionInvalid(i, action, data);
+            }
+        }
+        uint256 score = Constants.compatSelfBalance(token) - beforeBalance;
+        if (score < minOut) {
+            assembly ("memory-safe") {
+                mstore(0x00, 0xa55fee2e) // selector for `Shortfall(uint256)`
+                mstore(0x20, score)
+                revert(0x1c, 0x24)
             }
         }
     }

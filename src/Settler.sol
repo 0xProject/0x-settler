@@ -8,9 +8,10 @@ import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {Permit} from "./core/Permit.sol";
+import {Select} from "./core/Select.sol";
 
 import {AbstractContext} from "./Context.sol";
-import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
+import {CalldataDecoder} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
@@ -18,7 +19,8 @@ import {revertActionInvalid, SignatureExpired, MsgValueMismatch, revertConfusedD
 import {Revert} from "./utils/Revert.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 
-abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase, Permit {
+// Inherit selection so candidates cannot dispatch taker-only checks.
+abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, Select, Permit {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
     using Revert for bool;

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Vm} from "@forge-std/Vm.sol";
+import {Vm, VmSafe} from "@forge-std/Vm.sol";
+import {GasSnapshot} from "@forge-gas-snapshot/GasSnapshot.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
@@ -452,7 +453,7 @@ contract SelectUnitTest is Permit2Signature, DeployPermit2 {
 error ActionInvalid(uint256 i, bytes4 action, bytes data);
 
 /// @dev Separate contract: SelectUnitTest sits at the unit-profile deploy-gas ceiling.
-contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
+contract SelectDecodeTest is GasSnapshot, Permit2Signature, DeployPermit2 {
     BaseSettler internal settler;
     MockERC20 internal buy;
     Pool internal p0;
@@ -538,6 +539,47 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         return address(settler).call{gas: txGas, value: value}(
             abi.encodeCall(settler.execute, (slippage, ActionDataBuilder.build(action), bytes32(0)))
         );
+    }
+
+    function test_gas_trialDispatch() public {
+        p0.set(7 ether, false);
+        for (uint256 i; i < 3; i++) {
+            uint256 snapshot = vm.snapshotState();
+            uint256 n = i == 0 ? 1 : 2;
+            bytes[][] memory candidates = new bytes[][](n);
+            candidates[0] = _candidate(address(p0));
+            if (n == 2) candidates[1] = _candidate(address(p1));
+            (bool ok,) = _tryExecute(
+                _selectAction(TEST_GAS_CAP, address(buy), new uint256[](n), candidates), i == 1 ? 180_000 : 1_000_000, 0
+            );
+            snapLastCall(
+                i == 0
+                    ? "settler_selectFinalTrial_UNIT"
+                    : i == 1 ? "settler_selectUnderfundedTrial_UNIT" : "settler_selectFundedTrial_UNIT"
+            );
+            assertTrue(ok);
+            assertEq(buy.balanceOf(recipient), 7 ether);
+            assertTrue(vm.revertToState(snapshot));
+        }
+    }
+
+    function test_directTrial_hasNoSelfCall() public {
+        p0.set(7 ether, false);
+        for (uint256 n = 1; n <= 2; n++) {
+            bytes[][] memory candidates = new bytes[][](n);
+            candidates[0] = _candidate(address(p0));
+            if (n == 2) candidates[1] = _candidate(address(p1));
+            bytes memory action = _selectAction(type(uint64).max, address(buy), new uint256[](n), candidates);
+            vm.startStateDiffRecording();
+            _runAction(action, 7 ether);
+            Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+            for (uint256 i; i < accesses.length; i++) {
+                if (accesses[i].kind == VmSafe.AccountAccessKind.Call && accesses[i].account == address(settler)) {
+                    assertNotEq(accesses[i].accessor, address(settler), "trial must execute directly");
+                }
+            }
+            assertEq(buy.balanceOf(recipient), n * 7 ether);
+        }
     }
 
     function testFuzz_gasLimit_cannotSkipSuccessfulCandidate(uint256 txGas) public {
@@ -707,18 +749,39 @@ contract SelectDecodeTest is Permit2Signature, DeployPermit2 {
         vm.revertToState(snapshot);
     }
 
-    function test_nativeCheck_nestedValueCheckSeesZero() public {
+    function test_nativeCheck_rejectsExcessValueAtEntry() public {
         vm.deal(taker, 1 ether);
         bytes memory nativeCheck = abi.encodeCall(ISettlerActions.NATIVE_CHECK, (type(uint256).max, 0));
-        (bool topOk, bytes memory topResult) = _tryExecute(nativeCheck, 500_000, 1 ether);
-        assertFalse(topOk);
-        assertEq(topResult, abi.encodeWithSelector(MsgValueMismatch.selector, 0, 1 ether));
-        bytes[][] memory candidates = new bytes[][](1);
-        candidates[0] = ActionDataBuilder.build(nativeCheck);
-        bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](1), candidates);
-        (bool nestedOk,) = _tryExecute(action, 500_000, 1 ether);
-        assertTrue(nestedOk);
-        assertEq(address(settler).balance, 1 ether);
+        (bool ok, bytes memory result) = _tryExecute(nativeCheck, 500_000, 1 ether);
+        assertFalse(ok);
+        assertEq(result, abi.encodeWithSelector(MsgValueMismatch.selector, 0, 1 ether));
+    }
+
+    function test_candidates_rejectTakerChecks() public {
+        p0.set(7 ether, false);
+        for (uint256 check; check < 2; check++) {
+            bytes4 selector =
+                check == 0 ? ISettlerActions.NATIVE_CHECK.selector : ISettlerActions.CHECK_SLIPPAGE.selector;
+            bytes memory data = check == 0 ? abi.encode(type(uint256).max, 0) : abi.encode(false);
+            for (uint256 trial; trial < 3; trial++) {
+                uint256 snapshot = vm.snapshotState();
+                uint256 n = trial == 0 ? 1 : 2;
+                bytes[][] memory candidates = new bytes[][](n);
+                candidates[0] = ActionDataBuilder.build(bytes.concat(selector, data));
+                if (n == 2) candidates[1] = _candidate(address(p0));
+                bytes memory action = _selectAction(TEST_GAS_CAP, address(buy), new uint256[](n), candidates);
+                (bool ok, bytes memory result) = _tryExecute(action, trial == 1 ? 180_000 : 1_000_000, 0);
+                if (trial == 2) {
+                    assertTrue(ok);
+                    assertEq(buy.balanceOf(recipient), 7 ether);
+                } else {
+                    assertFalse(ok);
+                    assertEq(result, abi.encodeWithSelector(ActionInvalid.selector, 0, selector, data));
+                    assertEq(buy.balanceOf(recipient), 0);
+                }
+                assertTrue(vm.revertToState(snapshot));
+            }
+        }
     }
 
     function test_bounds_dirtyTokenUpperBits_reverts() public {
