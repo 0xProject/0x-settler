@@ -118,11 +118,12 @@ abstract contract Select is SettlerBase {
 
         uint256 i;
         while (true) {
+            uint256 offset;
             uint256 minOut;
             // Select one candidate in the shared callback buffer by changing only its dynamic
             // offset and target.
             assembly ("memory-safe") {
-                let offset := calldataload(add(shl(0x05, i), candsData))
+                offset := calldataload(add(shl(0x05, i), candsData))
                 if gt(offset, sub(candsLength, 0x20)) { revert(0x00, 0x00) }
                 mstore(add(0x24, callData), add(0x80, offset))
                 minOut := calldataload(add(shl(0x05, i), targetsData))
@@ -135,7 +136,6 @@ abstract contract Select is SettlerBase {
             if ((i == n).or(beforeGasThreshold > gasleft())) {
                 bytes[] calldata actions;
                 assembly ("memory-safe") {
-                    let offset := calldataload(add(shl(0x05, i), candsData))
                     actions.offset := add(candsData, offset)
                     actions.length := calldataload(actions.offset)
                     actions.offset := add(0x20, actions.offset)
