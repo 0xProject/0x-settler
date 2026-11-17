@@ -110,11 +110,15 @@ abstract contract MainnetMixin is
                 abi.decode(data, (address, address, uint256, address, uint24, uint256));
 
             sellToUniswapV2(recipient, sellToken, ppm, pool, swapInfo, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BASIC.selector)) {
+        } else if (
+            (action == uint32(ISettlerActions.BASIC.selector)).or(action == uint32(ISettlerActions.BASIC_PUSH.selector))
+        ) {
             (IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory _data) =
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
-            basicSellToPool(sellToken, ppm, pool, offset, _data);
+            basicSellToPool(
+                sellToken, ppm, pool, offset, _data, action == uint32(ISettlerActions.BASIC_PUSH.selector)
+            );
         } /* `VELODROME` is removed */
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 surplusPpm, uint256 maxPpm) =

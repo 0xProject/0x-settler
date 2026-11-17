@@ -4,6 +4,8 @@
 
 ### Non-breaking changes
 
+* Add `BASIC_PUSH` action on all chains, which transfers the sell amount to
+  `pool` instead of approving it
 * Add Aero CL UniV3 fork on Elysium chain with fork ID 50
 * Add ZyoraV4 UniswapV4 fork on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`

@@ -238,6 +238,13 @@ contract RecipientCheckUnitTest is Test {
         _expectBlocked(abi.encodeCall(ISettlerActions.VELODROME, (recipient, 1_000_000, pool, uint24(1), 0)));
     }
 
+    function test_RecipientCheck_BasicPush_PoolPayment_Reverts() public {
+        settler.expectTransfer(address(settler), pool, IERC20(address(sellToken)));
+        _expectBlocked(
+            abi.encodeCall(ISettlerActions.BASIC_PUSH, (address(sellToken), 1_000_000, pool, 0, abi.encode(0)))
+        );
+    }
+
     function test_RecipientCheck_UniswapV3_PoolPayment_UsesSettler() public {
         address v3Pool = _uniV3Pool();
         vm.etch(v3Pool, address(new RecipientCheckV3Pool()).code);
