@@ -6,9 +6,23 @@
 
 * Add `BASIC_PUSH` action on all chains, which transfers the sell amount to
   `pool` instead of approving it
+* Add Aero CL UniV3 fork on Elysium chain with fork ID 50
+* Add ZyoraV4 UniswapV4 fork on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+
+## 2026-11-09 PM
+
+### Non-breaking changes
+
+* Add ElyxaV4 and EleosV4 UniswapV4 forks on Elysium chain
+
+## 2026-11-09 AM
+
+### Non-breaking changes
+
+* Add ElysPumpV4, KleosV4, and BoxaV4 UniswapV4 forks on Elysium chain
 
 ## 2026-11-03
 

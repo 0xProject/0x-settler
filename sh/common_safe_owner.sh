@@ -73,6 +73,13 @@ function sign_call {
     echo "$_sign_call_result"
 }
 
+function _signature_file {
+    declare -r _signature_file_prefix="$1"
+    shift
+
+    echo "$project_root"/"$_signature_file_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_"$(nonce)".txt
+}
+
 function save_signature {
     declare -r _save_signature_prefix="$1"
     shift
@@ -113,9 +120,9 @@ function save_signature {
 
     cast wallet verify --no-hash --address "$signer" "$signing_hash" "$_save_signature_signature" >&2
 
-    if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
+    if ! sts_safe_transactions_enabled ; then
         declare signature_file
-        signature_file="$project_root"/"$_save_signature_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
+        signature_file="$(_signature_file "$_save_signature_prefix")"
         echo "$_save_signature_signature" >"$signature_file"
 
         echo "Signature saved to '$signature_file'" >&2
@@ -148,4 +155,49 @@ function save_signature {
 
         echo 'Signature submitted' >&2
     fi
+}
+
+function sign_and_save_signature {
+    declare -r _sign_and_save_signature_prefix="$1"
+    shift
+
+    declare -r _sign_and_save_signature_call="$1"
+    shift
+
+    declare _sign_and_save_signature_signing_hash
+    _sign_and_save_signature_signing_hash="$(eip712_hash "$_sign_and_save_signature_call" "$@")"
+    declare -r _sign_and_save_signature_signing_hash
+
+    declare _sign_and_save_signature_existing=''
+    if ! sts_safe_transactions_enabled ; then
+        declare _sign_and_save_signature_file
+        _sign_and_save_signature_file="$(_signature_file "$_sign_and_save_signature_prefix")"
+        declare -r _sign_and_save_signature_file
+        if [[ -f $_sign_and_save_signature_file ]] ; then
+            _sign_and_save_signature_existing="$(<"$_sign_and_save_signature_file")"
+        fi
+    else
+        # The service answers 404 until someone proposes the transaction.
+        _sign_and_save_signature_existing="$(
+            curl -s --fail --retry 5 "$safe_url"'/v1/multisig-transactions/'"$_sign_and_save_signature_signing_hash"'/' \
+            | jq -Mr --arg owner "${signer,,}" '.confirmations[] | select((.owner | ascii_downcase) == $owner) | .signature'
+        )" || true
+    fi
+
+    if [[ -n $_sign_and_save_signature_existing ]] \
+        && cast wallet verify --no-hash --address "$signer" "$_sign_and_save_signature_signing_hash" "$_sign_and_save_signature_existing" >&2
+    then
+        echo 'Not signing Safe transaction '"$_sign_and_save_signature_signing_hash"' (nonce '"$(nonce)"') again' >&2
+        return 0
+    fi
+
+    declare _sign_and_save_signature_struct_json
+    _sign_and_save_signature_struct_json="$(eip712_json "$_sign_and_save_signature_call" "$@")"
+    declare -r _sign_and_save_signature_struct_json
+
+    declare _sign_and_save_signature_signature
+    _sign_and_save_signature_signature="$(sign_call "$_sign_and_save_signature_struct_json")"
+    declare -r _sign_and_save_signature_signature
+
+    save_signature "$_sign_and_save_signature_prefix" "$_sign_and_save_signature_call" "$_sign_and_save_signature_signature" "$@"
 }

@@ -136,13 +136,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare target="${deploy_calldatas[2]}"
     deploy_calldatas=( "${deploy_calldatas[@]:3:$((${#deploy_calldatas[@]}-3))}" )
 
-    declare struct_json
-    struct_json="$(eip712_json "$deploy_calldata" $operation "$target")"
-
-    declare signature
-    signature="$(sign_call "$struct_json")"
-
-    save_signature settler_confirmation "$deploy_calldata" "$signature" $operation "$target"
+    sign_and_save_signature settler_confirmation "$deploy_calldata" $operation "$target"
 
     SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
 done

@@ -208,13 +208,5 @@ if [[ ${1:-unset} = 'confirm' ]] ; then
     upgrade_calldata="$(cast calldata 'upgradeAndCall(address,bytes)(bool)' "$deployed_address" "$upgrade_calldata")"
     declare -r upgrade_calldata
 
-    declare struct_json
-    struct_json="$(eip712_json "$upgrade_calldata")"
-    declare -r struct_json
-
-    declare signature
-    signature="$(sign_call "$struct_json")"
-    declare -r signature
-
-    save_signature deployer_upgrade "$upgrade_calldata" "$signature"
+    sign_and_save_signature deployer_upgrade "$upgrade_calldata"
 fi

@@ -154,12 +154,4 @@ declare swapOwner_call
 swapOwner_call="$(cast calldata "$swapOwner_sig" "$prev_owner_addr" "$old_owner" "$new_owner")"
 declare -r swapOwner_call
 
-declare struct_json
-struct_json="$(eip712_json "$swapOwner_call" 0 "$safe_address")"
-declare -r struct_json
-
-declare signature
-signature="$(sign_call "$struct_json")"
-declare -r signature
-
-save_signature replace_signer "$swapOwner_call" "$signature" 0 "$safe_address"
+sign_and_save_signature replace_signer "$swapOwner_call" 0 "$safe_address"

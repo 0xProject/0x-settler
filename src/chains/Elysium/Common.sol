@@ -11,6 +11,7 @@ import {FreeMemory} from "../../utils/FreeMemory.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
+import {aeroElysiumFactory, aeroInitHash, aeroForkId} from "../../core/univ3forks/Aero.sol";
 
 import {
     uniswapV3ElysiumFactory,
@@ -21,6 +22,12 @@ import {
 
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {uniswapV4ElysiumPoolManager, uniswapV4ForkId} from "../../core/univ4forks/UniswapV4.sol";
+import {elysPumpV4PoolManager, elysPumpV4ForkId} from "../../core/univ4forks/ElysPumpV4.sol";
+import {kleosV4PoolManager, kleosV4ForkId} from "../../core/univ4forks/KleosV4.sol";
+import {boxaV4PoolManager, boxaV4ForkId} from "../../core/univ4forks/BoxaV4.sol";
+import {elyxaV4PoolManager, elyxaV4ForkId} from "../../core/univ4forks/ElyxaV4.sol";
+import {eleosV4PoolManager, eleosV4ForkId} from "../../core/univ4forks/EleosV4.sol";
+import {zyoraV4PoolManager, zyoraV4ForkId} from "../../core/univ4forks/ZyoraV4.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
@@ -74,6 +81,10 @@ abstract contract ElysiumMixin is FreeMemory, SettlerBase, UniswapV4 {
             factory = uniswapV3ElysiumFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == aeroForkId) {
+            factory = aeroElysiumFactory;
+            initHash = aeroInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
@@ -82,6 +93,18 @@ abstract contract ElysiumMixin is FreeMemory, SettlerBase, UniswapV4 {
     function _uniV4ForkInfo(uint8 forkId) internal pure override returns (IPoolManager poolManager) {
         if (forkId == uniswapV4ForkId) {
             poolManager = uniswapV4ElysiumPoolManager;
+        } else if (forkId == elysPumpV4ForkId) {
+            poolManager = elysPumpV4PoolManager;
+        } else if (forkId == kleosV4ForkId) {
+            poolManager = kleosV4PoolManager;
+        } else if (forkId == boxaV4ForkId) {
+            poolManager = boxaV4PoolManager;
+        } else if (forkId == elyxaV4ForkId) {
+            poolManager = elyxaV4PoolManager;
+        } else if (forkId == eleosV4ForkId) {
+            poolManager = eleosV4PoolManager;
+        } else if (forkId == zyoraV4ForkId) {
+            poolManager = zyoraV4PoolManager;
         } else {
             revertUnknownForkId(forkId);
         }
