@@ -59,11 +59,13 @@ abstract contract Basic is SettlerAbstract {
             assembly ("memory-safe") {
                 mstore(add(data, offset), amount)
             }
-            if (push) {
-                _checkRecipient(address(this), pool, sellToken);
-                sellToken.safeTransfer(pool, amount);
-            } else if (address(sellToken) != pool) {
-                sellToken.safeApproveIfBelow(pool, amount);
+            if (address(sellToken) != pool) {
+                if (push) {
+                    _checkRecipient(address(this), pool, sellToken);
+                    sellToken.safeTransfer(pool, amount);
+                } else {
+                    sellToken.safeApproveIfBelow(pool, amount);
+                }
             }
         }
         (success, returnData) = payable(pool).call{value: value}(data);

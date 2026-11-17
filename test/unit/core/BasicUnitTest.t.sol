@@ -105,6 +105,22 @@ contract BasicUnitTest is Utils, Test {
         basic.pushToPool(TOKEN, ppm, POOL, offset, abi.encodePacked(selector, uint256(0)));
     }
 
+    /// @dev Like an approval to the sell token itself, a push to it is skipped
+    function testBasicPushSellToToken() public {
+        uint256 ppm = 1_000_000;
+        uint256 offset = 4;
+        uint256 amount = 99999;
+        bytes4 selector = bytes4(hex"12345678");
+
+        _mockExpectCall(
+            address(TOKEN), abi.encodeWithSelector(IERC20.balanceOf.selector, address(basic)), abi.encode(amount + 1)
+        );
+        vm.expectCall(address(TOKEN), abi.encodeWithSelector(IERC20.transfer.selector), 0);
+        _mockExpectCall(address(TOKEN), abi.encodePacked(selector, amount), abi.encode(true));
+
+        basic.pushToPool(TOKEN, ppm, address(TOKEN), offset, abi.encodePacked(selector, uint256(0)));
+    }
+
     /// @dev adjust the balange of the contract to be less than expected
     function testBasicSellLowerBalanceAmount() public {
         uint256 ppm = 1_000_000;
