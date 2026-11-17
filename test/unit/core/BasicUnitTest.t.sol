@@ -105,7 +105,7 @@ contract BasicUnitTest is Utils, Test {
         basic.pushToPool(TOKEN, ppm, POOL, offset, abi.encodePacked(selector, uint256(0)));
     }
 
-    /// @dev Like an approval to the sell token itself, a push to it is skipped
+    /// @dev When the pool is the sell token, `push` transfers nothing
     function testBasicPushSellToToken() public {
         uint256 ppm = 1_000_000;
         uint256 offset = 4;
