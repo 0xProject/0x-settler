@@ -40,12 +40,8 @@ interface IXStock is IERC20 {
     function getSharesByUnderlyingAmount(uint256) external view returns (uint256);
 }
 
-/// @dev A taker that can't receive native.
-contract NoNative {}
-
 abstract contract XBridgeTestBase is BridgeSettlerIntegrationTest {
     address constant XBRIDGE = 0x9eC0e4A4c411493773E01e2ABF4D42395788846b;
-    address constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     IXStock constant TSLAX = IXStock(0x8aD3c73F833d3F9A523aB01476625F269aEB7Cf0);
 
@@ -57,8 +53,11 @@ abstract contract XBridgeTestBase is BridgeSettlerIntegrationTest {
 
     bytes32 recipient;
     address custody;
+    bool rejectNative;
 
-    receive() external payable {}
+    receive() external payable {
+        if (rejectNative) revert();
+    }
 
     function setUp() public virtual override {
         super.setUp();
@@ -84,11 +83,6 @@ abstract contract XBridgeTestBase is BridgeSettlerIntegrationTest {
         return abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_TO_XBRIDGE, (recipient, address(token), dstSel, chainSpecificArgs)
         );
-    }
-
-    /// @dev Returns the native token left after the fee to the taker.
-    function _refundAction() internal view returns (bytes memory) {
-        return abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 1_000_000, address(this), 0, bytes("")));
     }
 
     function _exec(IERC20 sellToken, uint256 sellAmount, uint256 value, bytes[] memory actions) internal {
@@ -148,17 +142,15 @@ abstract contract XBridgeTestBase is BridgeSettlerIntegrationTest {
     function _bridgeFromTaker(IXStock token, uint256 amount, uint64 dstSel, bytes memory chainSpecificArgs) internal {
         _fund(token, amount);
         uint256 fee = IXBridge(XBRIDGE).getDeliveryFeeCost(dstSel, recipient, address(token), amount, chainSpecificArgs);
-        uint256 excess = 1 ether;
-        deal(address(this), fee + excess);
+        uint256 value = fee * 110 / 100;
+        deal(address(this), value);
 
         uint256 custodySharesBefore = token.sharesOf(custody);
         uint256 xBridgeNativeBefore = XBRIDGE.balance;
         assertEq(token.balanceOf(address(bridgeSettler)), 0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultTransferFrom(address(token), amount),
-            _bridgeAction(token, dstSel, chainSpecificArgs),
-            _refundAction()
+            _getDefaultTransferFrom(address(token), amount), _bridgeAction(token, dstSel, chainSpecificArgs)
         );
 
         // A transfer moves whole shares, so BridgeSettler can end up with slightly less than the
@@ -170,10 +162,10 @@ abstract contract XBridgeTestBase is BridgeSettlerIntegrationTest {
             abi.encodeCall(IXBridge.send, (dstSel, recipient, address(token), received, chainSpecificArgs))
         );
         vm.recordLogs();
-        _exec(token, amount, fee + excess, actions);
+        _exec(token, amount, value, actions);
 
         _checkBridged(token, dstSel, custodySharesBefore);
-        assertEq(address(this).balance, excess, "taker should pay exactly the fee");
+        assertEq(address(this).balance, value - fee, "taker should pay exactly the fee");
         assertEq(address(bridgeSettler).balance, 0, "BridgeSettler native balance");
         // xBridge forwards the fee to the CCIP router, so anything above the fee would stay here.
         assertEq(XBRIDGE.balance, xBridgeNativeBefore, "xBridge native balance");
@@ -270,23 +262,20 @@ contract XBridgeMainnetTest is XBridgeTestBase {
 
         // The fee doesn't depend on the amount, so it can be quoted before the swap output is known.
         uint256 fee = IXBridge(XBRIDGE).getDeliveryFeeCost(ARBITRUM_SELECTOR, recipient, address(TSLAX), 1, "");
-        uint256 excess = 1 ether;
-        deal(address(this), fee + excess);
+        uint256 value = fee * 110 / 100;
+        deal(address(this), value);
         uint256 custodySharesBefore = TSLAX.sharesOf(custody);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultTransferFrom(address(USDC), sellAmount),
-            swap,
-            _bridgeAction(TSLAX, ARBITRUM_SELECTOR, ""),
-            _refundAction()
+            _getDefaultTransferFrom(address(USDC), sellAmount), swap, _bridgeAction(TSLAX, ARBITRUM_SELECTOR, "")
         );
         vm.recordLogs();
-        _exec(USDC, sellAmount, fee + excess, actions);
+        _exec(USDC, sellAmount, value, actions);
 
         // The bridged amount is whatever Settler paid out, which the quote couldn't know.
         _checkBridged(TSLAX, ARBITRUM_SELECTOR, custodySharesBefore);
         assertEq(USDC.balanceOf(address(this)), 0, "taker USDC");
-        assertEq(address(this).balance, excess, "taker should pay exactly the fee");
+        assertEq(address(this).balance, value - fee, "taker should pay exactly the fee");
         assertEq(address(bridgeSettler).balance, 0, "BridgeSettler native balance");
     }
 
@@ -314,8 +303,7 @@ contract XBridgeMainnetTest is XBridgeTestBase {
                 IBridgeSettlerActions.BASIC,
                 (address(token), feePpm, address(token), 0x24, abi.encodeCall(IERC20.transfer, (feeRecipient, 0)))
             ),
-            _bridgeAction(token, ARBITRUM_SELECTOR, ""),
-            _refundAction()
+            _bridgeAction(token, ARBITRUM_SELECTOR, "")
         );
         vm.expectCall(
             XBRIDGE, fee, abi.encodeCall(IXBridge.send, (ARBITRUM_SELECTOR, recipient, address(token), expected, ""))
@@ -327,34 +315,54 @@ contract XBridgeMainnetTest is XBridgeTestBase {
         assertEq(token.sharesOf(feeRecipient), feeShares, "fee shares");
     }
 
-    function testRevertRefundRejected() public {
+    function testRevertTakerRejectsRefund() public {
         uint256 amount = 1e18;
         _fund(TSLAX, amount);
         uint256 fee = IXBridge(XBRIDGE).getDeliveryFeeCost(ARBITRUM_SELECTOR, recipient, address(TSLAX), amount, "");
-        deal(address(this), fee + 1 ether);
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            _getDefaultTransferFrom(address(TSLAX), amount),
-            _bridgeAction(TSLAX, ARBITRUM_SELECTOR, ""),
-            abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 1_000_000, address(new NoNative()), 0, bytes("")))
-        );
-        vm.expectRevert(new bytes(0));
-        _exec(TSLAX, amount, fee + 1 ether, actions);
-    }
-
-    function testExcessStaysInBridgeSettlerWithoutRefund() public {
-        uint256 amount = 1e18;
-        _fund(TSLAX, amount);
-        uint256 fee = IXBridge(XBRIDGE).getDeliveryFeeCost(ARBITRUM_SELECTOR, recipient, address(TSLAX), amount, "");
-        uint256 excess = 1 ether;
-        deal(address(this), fee + excess);
+        uint256 value = fee * 110 / 100;
+        deal(address(this), value);
+        rejectNative = true;
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultTransferFrom(address(TSLAX), amount), _bridgeAction(TSLAX, ARBITRUM_SELECTOR, "")
         );
-        _exec(TSLAX, amount, fee + excess, actions);
+        vm.expectRevert(new bytes(0));
+        _exec(TSLAX, amount, value, actions);
+    }
 
-        assertEq(address(bridgeSettler).balance, excess, "excess should stay in BridgeSettler");
+    /// @dev With nothing left after the fee, the taker isn't called, so a taker that can't receive
+    /// native can still pay the exact fee.
+    function testExactFeeMakesNoRefund() public {
+        uint256 amount = 1e18;
+        _fund(TSLAX, amount);
+        uint256 fee = IXBridge(XBRIDGE).getDeliveryFeeCost(ARBITRUM_SELECTOR, recipient, address(TSLAX), amount, "");
+        deal(address(this), fee);
+        rejectNative = true;
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(TSLAX), amount), _bridgeAction(TSLAX, ARBITRUM_SELECTOR, "")
+        );
+        _exec(TSLAX, amount, fee, actions);
+
+        assertEq(address(this).balance, 0, "taker native balance");
+        assertEq(address(bridgeSettler).balance, 0, "BridgeSettler native balance");
+    }
+
+    /// @dev Native that BridgeSettler held before the call goes to the taker with the rest.
+    function testNativeAlreadyHeldGoesToTaker() public {
+        uint256 amount = 1e18;
+        _fund(TSLAX, amount);
+        uint256 fee = IXBridge(XBRIDGE).getDeliveryFeeCost(ARBITRUM_SELECTOR, recipient, address(TSLAX), amount, "");
+        deal(address(this), fee);
+        deal(address(bridgeSettler), 0.5 ether);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(TSLAX), amount), _bridgeAction(TSLAX, ARBITRUM_SELECTOR, "")
+        );
+        _exec(TSLAX, amount, fee, actions);
+
+        assertEq(address(this).balance, 0.5 ether, "taker native balance");
+        assertEq(address(bridgeSettler).balance, 0, "BridgeSettler native balance");
     }
 
     function testRevertBelowFee() public {

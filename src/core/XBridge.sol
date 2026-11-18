@@ -29,13 +29,14 @@ interface IXBridge {
 /// @notice BridgeSettler integration for xStocks through Backed's xBridge
 abstract contract XBridge is SettlerAbstract {
     using SafeTransferLib for IERC20;
+    using SafeTransferLib for address payable;
 
     /// @notice xBridge proxy, the same address on every chain where xBridge is deployed
     /// (https://docs.xstocks.fi/developers/bridge)
     address internal constant XBRIDGE = 0x9eC0e4A4c411493773E01e2ABF4D42395788846b;
 
     /// @notice Bridge this contract's whole balance of the xStock through xBridge, paying the CCIP
-    /// fee in native token.
+    /// fee in native token and sending the rest of the native balance to the taker.
     /// @param recipient Receiver on the destination chain, an EVM address left-padded to 32 bytes or
     /// a Solana account
     /// @param chainSpecificArgs Ignored for EVM destinations. Solana destinations need the accounts
@@ -63,14 +64,21 @@ abstract contract XBridge is SettlerAbstract {
             }
             if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
 
-            // xBridge keeps any native sent above the fee, and only Backed can withdraw it. Pay the
-            // exact fee so that the rest stays here for a later action to return to the taker.
+            // xBridge keeps any native sent above the fee, and only Backed can withdraw it, so pay
+            // exactly the fee.
             mstore(args, 0x5d2a9df2) // selector for `send(uint64,bytes32,address,uint256,bytes)`
             if iszero(call(gas(), XBRIDGE, mload(0x00), add(0x1c, args), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+        }
+
+        // Native left here after the transaction can be taken by anyone, so return it to the taker.
+        // A taker that can't receive it reverts the whole call.
+        uint256 rest = address(this).balance;
+        if (rest != 0) {
+            payable(_msgSender()).safeTransferETH(rest);
         }
     }
 }

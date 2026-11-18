@@ -55,8 +55,8 @@ interface IBridgeSettlerActions {
     /// paying fees in native token.
     function DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER(bytes calldata depositAndBridgeCallData) external;
 
-    /// @dev Bridge xStocks through xBridge, paying the exact fee in native token. Native token
-    /// above the fee stays in BridgeSettler.
+    /// @dev Bridge xStocks through xBridge, paying the exact fee in native token and sending the
+    /// rest of the native balance to the taker.
     function BRIDGE_TO_XBRIDGE(
         bytes32 recipient,
         address token,
