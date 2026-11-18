@@ -8,13 +8,14 @@ import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {DeBridge} from "../../core/DeBridge.sol";
 import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
+import {XBridge} from "../../core/XBridge.sol";
 
 import {BlockHyperEvmSystemContracts} from "./BlockHyperEvmSystemContracts.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-contract HyperEvmBridgeSettler is BridgeSettler, BlockHyperEvmSystemContracts, DeBridge, Across, Mayan {
+contract HyperEvmBridgeSettler is BridgeSettler, BlockHyperEvmSystemContracts, DeBridge, Across, Mayan, XBridge {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 999 || block.chainid == 31337);
     }
@@ -41,6 +42,10 @@ contract HyperEvmBridgeSettler is BridgeSettler, BlockHyperEvmSystemContracts, D
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
             bytes memory protocolAndData = abi.decode(data, (bytes));
             bridgeNativeToMayan(protocolAndData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
+            (bytes32 recipient, IERC20 token, uint64 destinationChainSelector, bytes memory chainSpecificArgs) =
+                abi.decode(data, (bytes32, IERC20, uint64, bytes));
+            bridgeToXBridge(recipient, token, destinationChainSelector, chainSpecificArgs);
         } else {
             return false;
         }

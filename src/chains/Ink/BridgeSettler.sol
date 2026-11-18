@@ -7,8 +7,9 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
+import {XBridge} from "../../core/XBridge.sol";
 
-contract InkBridgeSettler is BridgeSettler, Across, StargateV2 {
+contract InkBridgeSettler is BridgeSettler, Across, StargateV2, XBridge {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 57073 || block.chainid == 31337);
     }
@@ -29,6 +30,10 @@ contract InkBridgeSettler is BridgeSettler, Across, StargateV2 {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_STARGATE_V2.selector)) {
             (IERC20 token, address pool, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
             bridgeToStargateV2(token, pool, sendData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
+            (bytes32 recipient, IERC20 token, uint64 destinationChainSelector, bytes memory chainSpecificArgs) =
+                abi.decode(data, (bytes32, IERC20, uint64, bytes));
+            bridgeToXBridge(recipient, token, destinationChainSelector, chainSpecificArgs);
         } else {
             return false;
         }
