@@ -9,6 +9,9 @@
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add `BRIDGE_TO_XBRIDGE` action to BridgeSettler on Mainnet, Arbitrum, Bnb,
+  Optimism, Ink, Monad, and HyperEvm for bridging xStocks through Backed's
+  xBridge
 
 ## 2026-11-09 PM
 

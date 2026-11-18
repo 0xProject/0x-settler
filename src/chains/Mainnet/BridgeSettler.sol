@@ -11,8 +11,9 @@ import {Mayan} from "../../core/Mayan.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
 import {DeBridge} from "../../core/DeBridge.sol";
 import {NucleusTeller} from "../../core/NucleusTeller.sol";
+import {XBridge} from "../../core/XBridge.sol";
 
-contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge, NucleusTeller {
+contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge, NucleusTeller, XBridge {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -44,6 +45,10 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBri
         } else if (action == uint32(IBridgeSettlerActions.DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER.selector)) {
             bytes memory depositAndBridgeCallData = abi.decode(data, (bytes));
             depositAndBridgeToNucleusTeller(depositAndBridgeCallData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
+            (bytes32 recipient, IERC20 token, uint64 destinationChainSelector, bytes memory chainSpecificArgs) =
+                abi.decode(data, (bytes32, IERC20, uint64, bytes));
+            bridgeToXBridge(recipient, token, destinationChainSelector, chainSpecificArgs);
         } else {
             return false;
         }
