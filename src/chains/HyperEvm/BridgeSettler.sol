@@ -43,9 +43,8 @@ contract HyperEvmBridgeSettler is BridgeSettler, BlockHyperEvmSystemContracts, D
             bytes memory protocolAndData = abi.decode(data, (bytes));
             bridgeNativeToMayan(protocolAndData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
-            (bytes32 recipient, IERC20 token, uint64 destinationChainSelector, bytes memory chainSpecificArgs) =
-                abi.decode(data, (bytes32, IERC20, uint64, bytes));
-            bridgeToXBridge(recipient, token, destinationChainSelector, chainSpecificArgs);
+            bytes memory sendData = abi.decode(data, (bytes));
+            bridgeToXBridge(sendData);
         } else {
             return false;
         }
