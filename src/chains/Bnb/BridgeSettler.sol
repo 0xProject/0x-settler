@@ -42,9 +42,8 @@ contract BnbBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge,
             (uint256 globalFee, bytes memory createOrderData) = abi.decode(data, (uint256, bytes));
             bridgeToDeBridge(globalFee, createOrderData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
-            (bytes32 recipient, IERC20 token, uint64 destinationChainSelector, bytes memory chainSpecificArgs) =
-                abi.decode(data, (bytes32, IERC20, uint64, bytes));
-            bridgeToXBridge(recipient, token, destinationChainSelector, chainSpecificArgs);
+            bytes memory sendData = abi.decode(data, (bytes));
+            bridgeToXBridge(sendData);
         } else {
             return false;
         }

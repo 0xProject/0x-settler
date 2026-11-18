@@ -29,56 +29,48 @@ interface IXBridge {
 /// @notice BridgeSettler integration for xStocks through Backed's xBridge
 abstract contract XBridge is SettlerAbstract {
     using SafeTransferLib for IERC20;
-    using SafeTransferLib for address payable;
 
     /// @notice xBridge proxy, the same address on every chain where xBridge is deployed
     /// (https://docs.xstocks.fi/developers/bridge)
     address internal constant XBRIDGE = 0x9eC0e4A4c411493773E01e2ABF4D42395788846b;
 
-    /// @notice Bridge this contract's whole balance of the xStock through xBridge, paying the CCIP
-    /// fee in native token and sending the rest of the native balance to the taker.
-    /// @param recipient Receiver on the destination chain, an EVM address left-padded to 32 bytes or
-    /// a Solana account
-    /// @param chainSpecificArgs Ignored for EVM destinations. Solana destinations need the accounts
-    /// that CCIP passes to the receiving program.
-    function bridgeToXBridge(
-        bytes32 recipient,
-        IERC20 token,
-        uint64 destinationChainSelector,
-        bytes memory chainSpecificArgs
-    ) internal {
+    /// @notice Bridge this contract's whole balance of the xStock through xBridge, paying fees in
+    /// native token
+    /// @param sendData Encoded call to `IXBridge.send` without selector
+    function bridgeToXBridge(bytes memory sendData) internal {
+        IERC20 token;
+        assembly ("memory-safe") {
+            // sendData layout in memory:
+            // +0x00: bytes length
+            // +0x20: destinationChainSelector
+            // +0x40: tokenReceiver
+            // +0x60: token                     <- read
+            // +0x80: amount                    <- override
+            // +0xa0: offset to chainSpecificArgs
+            // Dirty upper bits in `token` aren't masked; xBridge's ABI decoder rejects them.
+            token := mload(add(0x60, sendData))
+        }
+
         uint256 amount = token.fastBalanceOf(address(this));
         token.safeApproveIfBelow(XBRIDGE, amount);
 
-        bytes memory args = abi.encode(destinationChainSelector, recipient, token, amount, chainSpecificArgs);
         assembly ("memory-safe") {
-            // Both calls take the same arguments. Encoding them once and writing each selector over
-            // the length slot is smaller and cheaper than two Solidity calls. Nothing reads the
-            // encoding afterwards, so the length isn't restored.
-            let len := mload(args)
-            mstore(args, 0x387cb1d9) // selector for `getDeliveryFeeCost(uint64,bytes32,address,uint256,bytes)`
-            if iszero(staticcall(gas(), XBRIDGE, add(0x1c, args), add(0x04, len), 0x00, 0x20)) {
+            mstore(add(0x80, sendData), amount)
+
+            // Temporarily clobber the bytes length slot with the function selector
+            let len := mload(sendData)
+            mstore(sendData, 0x5d2a9df2) // selector for `send(uint64,bytes32,address,uint256,bytes)`
+
+            // `XBRIDGE` is hardcoded and doesn't clash with restricted targets (AllowanceHolder & Permit2).
+            // Forward the full native balance for the fee; xBridge keeps any excess.
+            if iszero(call(gas(), XBRIDGE, selfbalance(), add(0x1c, sendData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
 
-            // xBridge keeps any native sent above the fee, and only Backed can withdraw it, so pay
-            // exactly the fee.
-            mstore(args, 0x5d2a9df2) // selector for `send(uint64,bytes32,address,uint256,bytes)`
-            if iszero(call(gas(), XBRIDGE, mload(0x00), add(0x1c, args), add(0x04, len), 0x00, 0x00)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-        }
-
-        // Native left here after the transaction can be taken by anyone, so return it to the taker.
-        // A taker that can't receive it reverts the whole call.
-        uint256 rest = address(this).balance;
-        if (rest != 0) {
-            payable(_msgSender()).safeTransferETH(rest);
+            // Restore clobbered length
+            mstore(sendData, len)
         }
     }
 }

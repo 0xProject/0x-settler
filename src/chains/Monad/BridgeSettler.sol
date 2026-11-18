@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.34;
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
@@ -34,9 +33,8 @@ contract MonadBridgeSettler is BridgeSettler, Across, Mayan, XBridge {
             bytes memory protocolAndData = abi.decode(data, (bytes));
             bridgeNativeToMayan(protocolAndData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
-            (bytes32 recipient, IERC20 token, uint64 destinationChainSelector, bytes memory chainSpecificArgs) =
-                abi.decode(data, (bytes32, IERC20, uint64, bytes));
-            bridgeToXBridge(recipient, token, destinationChainSelector, chainSpecificArgs);
+            bytes memory sendData = abi.decode(data, (bytes));
+            bridgeToXBridge(sendData);
         } else {
             return false;
         }
