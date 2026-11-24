@@ -32,7 +32,7 @@ abstract contract XBridge is SettlerAbstract {
 
     /// @notice xBridge proxy, the same address on every chain where xBridge is deployed
     /// (https://docs.xstocks.fi/developers/bridge)
-    address internal constant XBRIDGE = 0x9eC0e4A4c411493773E01e2ABF4D42395788846b;
+    address private constant XBRIDGE = 0x9eC0e4A4c411493773E01e2ABF4D42395788846b;
 
     /// @notice Bridge this contract's whole balance of the xStock through xBridge, paying fees in
     /// native token
