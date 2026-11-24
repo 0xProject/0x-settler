@@ -214,6 +214,15 @@ contract HyperEvmSystemContractsUnitTest is Permit2Signature, DeployPermit2 {
         );
     }
 
+    function test_SystemContracts_BasicPush_PoolPayment_SystemAddress_Reverts() public {
+        _expectBlocked(
+            abi.encodeCall(
+                ISettlerActions.BASIC_PUSH, (address(sellToken), 1_000_000, USDT0_SYSTEM_ADDRESS, 0, abi.encode(0))
+            ),
+            USDT0_SYSTEM_ADDRESS
+        );
+    }
+
     function test_SystemContracts_UniswapV3_PoolPayment_SystemAddress_Reverts() public {
         bytes memory path =
             abi.encodePacked(address(sellToken), kittenSwapForkId, uint24(500), uint160(0), address(buyToken));
