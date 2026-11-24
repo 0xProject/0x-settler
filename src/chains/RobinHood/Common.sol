@@ -174,12 +174,10 @@ abstract contract RobinHoodMixin is
             if (forkId < sushiswapV3ForkId) {
                 if (forkId == uniswapV3ForkId) {
                     factory = uniswapV3RobinhoodFactory;
-                } else if (forkId == pancakeSwapV3ForkId) {
+                } else {
                     factory = pancakeSwapV3Factory;
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-                } else {
-                    revertUnknownForkId(forkId);
                 }
             } else {
                 if (forkId == sushiswapV3ForkId) {
