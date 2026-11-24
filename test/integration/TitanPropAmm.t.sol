@@ -169,15 +169,15 @@ contract TitanBopAmmTest is
         ))
 {}
 
-// USDT's `transfer` returns nothing.
+/// USDT's `transfer` returns nothing.
 contract TitanUsdtInTest is
-    TitanPropAmmTest(Fill(
-            "USDT-WETH",
-            0x0e81ee5cc1b937ade579be477b8ef0579b64c44c616e5e9724ac6b7016e6b341,
-            0x5979458912F80B96d30D4220af8E2e4925A33320,
-            USDT,
-            WETH,
-            37249149019,
-            16372396188334286947
-        ))
+    TitanPropAmmTest(Fill({
+            name: "USDT-WETH",
+            txHash: 0x0e81ee5cc1b937ade579be477b8ef0579b64c44c616e5e9724ac6b7016e6b341,
+            venue: 0x5979458912F80B96d30D4220af8E2e4925A33320,
+            tokenIn: USDT,
+            tokenOut: WETH,
+            amountIn: 37249149019,
+            amountOut: 16372396188334286947
+        }))
 {}
