@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
+import {ISettlerActions} from "../ISettlerActions.sol";
 import {SettlerBase, CalldataDecoder} from "../SettlerBase.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -24,6 +25,10 @@ abstract contract Select is SettlerBase {
         override
         returns (bool)
     {
+        if (action == uint32(ISettlerActions.SELECT.selector)) {
+            select(data);
+            return true;
+        }
         return super._dispatch(i, action, data, slippage);
     }
 
@@ -55,7 +60,7 @@ abstract contract Select is SettlerBase {
         return empty;
     }
 
-    function select(bytes calldata data) internal override {
+    function select(bytes calldata data) private {
         uint256 gasCap;
         IERC20 token;
         uint256 targetsData;
@@ -135,6 +140,7 @@ abstract contract Select is SettlerBase {
             if ((i == n).or(beforeGasThreshold > gasleft())) {
                 bytes[] calldata actions;
                 assembly ("memory-safe") {
+                    mstore(0x40, callData)
                     actions.offset := add(candsData, offset)
                     actions.length := calldataload(actions.offset)
                     actions.offset := add(0x20, actions.offset)
@@ -143,6 +149,9 @@ abstract contract Select is SettlerBase {
             }
 
             if (_setOperatorAndTryCall(address(this), callData, _EXECUTE_SELECTED_SELECTOR, _executeSelected, gasCap)) {
+                assembly ("memory-safe") {
+                    mstore(0x40, callData)
+                }
                 return;
             }
         }
