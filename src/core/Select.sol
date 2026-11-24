@@ -36,7 +36,7 @@ abstract contract Select is SettlerBase {
     uint256 private constant _SELECT_OVERHEAD_GAS = 8192;
 
     function _executeSelected(bytes calldata data) private returns (bytes memory empty) {
-        bytes[] calldata actions;
+        uint256 actions;
         IERC20 token;
         uint256 minOut;
         uint256 beforeBalance;
@@ -44,9 +44,7 @@ abstract contract Select is SettlerBase {
         //     [0x00 actions offset][0x20 token][0x40 minOut][0x60 beforeBalance][actions length][offsets/actions]
         // `select` built the head and copied the complete candidate region.
         assembly ("memory-safe") {
-            actions.offset := add(data.offset, calldataload(data.offset))
-            actions.length := calldataload(actions.offset)
-            actions.offset := add(0x20, actions.offset)
+            actions := add(data.offset, calldataload(data.offset))
             token := calldataload(add(0x20, data.offset))
             minOut := calldataload(add(0x40, data.offset))
             beforeBalance := calldataload(add(0x60, data.offset))
@@ -133,11 +131,9 @@ abstract contract Select is SettlerBase {
                 i++;
             }
             if ((i == n).or(beforeGasThreshold > gasleft())) {
-                bytes[] calldata actions;
+                uint256 actions;
                 assembly ("memory-safe") {
-                    actions.offset := add(candsData, offset)
-                    actions.length := calldataload(actions.offset)
-                    actions.offset := add(0x20, actions.offset)
+                    actions := add(candsData, offset)
                 }
                 return _runActions(actions, token, minOut, beforeBalance);
             }
@@ -148,7 +144,13 @@ abstract contract Select is SettlerBase {
         }
     }
 
-    function _runActions(bytes[] calldata actions, IERC20 token, uint256 minOut, uint256 beforeBalance) private {
+    function _runActions(uint256 actionsHead, IERC20 token, uint256 minOut, uint256 beforeBalance) private {
+        bytes[] calldata actions;
+        // Both entry paths point at the candidate's array length word.
+        assembly ("memory-safe") {
+            actions.length := calldataload(actionsHead)
+            actions.offset := add(0x20, actionsHead)
+        }
         AllowedSlippage memory noSlippage;
         uint256 it;
         assembly ("memory-safe") {
