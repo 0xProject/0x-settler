@@ -112,15 +112,15 @@ abstract contract TitanPropAmmTest is Test, GasSnapshot {
 }
 
 contract TitanKipseliTest is
-    TitanPropAmmTest(Fill(
-            "kipseli_USDC-WETH",
-            0x0e0ec86c89c92803fb893a361d35a25c40971de88f4b78f3348a330fc14d7547,
-            0x71e790dd841c8A9061487cb3E78C288E75cE0B3d,
-            USDC,
-            WETH,
-            38090391587,
-            16275738422600551969
-        ))
+    TitanPropAmmTest(Fill({
+            name: "kipseli_USDC-WETH",
+            txHash: 0x0e0ec86c89c92803fb893a361d35a25c40971de88f4b78f3348a330fc14d7547,
+            venue: 0x71e790dd841c8A9061487cb3E78C288E75cE0B3d,
+            tokenIn: USDC,
+            tokenOut: WETH,
+            amountIn: 38090391587,
+            amountOut: 16275738422600551969
+        }))
 {
     // The USDC/WETH 0.05% UniswapV3 pool. USDC is token0, so the price limit is the minimum.
     function _uniswapV3() private view returns (bytes memory) {
@@ -157,15 +157,15 @@ contract TitanKipseliTest is
 }
 
 contract TitanBopAmmTest is
-    TitanPropAmmTest(Fill(
-            "bopAmm_WETH-USDC",
-            0x9db87c2fccc7b079ba818c916ba0b59dbf34f0dd32c561468bd4c61d39467438,
-            0xB09AAA8933626d7E4C48D65dAd2D77021CFBCA9a,
-            WETH,
-            USDC,
-            636992272156649468,
-            1537370489
-        ))
+    TitanPropAmmTest(Fill({
+            name: "bopAmm_WETH-USDC",
+            txHash: 0x9db87c2fccc7b079ba818c916ba0b59dbf34f0dd32c561468bd4c61d39467438,
+            venue: 0xB09AAA8933626d7E4C48D65dAd2D77021CFBCA9a,
+            tokenIn: WETH,
+            tokenOut: USDC,
+            amountIn: 636992272156649468,
+            amountOut: 1537370489
+        }))
 {}
 
 /// USDT's `transfer` returns nothing.
