@@ -6,7 +6,7 @@ import {GasSnapshot} from "@forge-gas-snapshot/GasSnapshot.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
@@ -45,7 +45,6 @@ abstract contract TitanPropAmmTest is Test, GasSnapshot {
     using SafeTransferLib for IERC20;
 
     uint256 internal constant BASIS = 1_000_000;
-    IAllowanceHolder private constant ALLOWANCE_HOLDER = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
     address private constant TAKER = address(0x7a4e5);
 
     Fill internal fill;
