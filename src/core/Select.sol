@@ -139,7 +139,6 @@ abstract contract Select is SettlerBase {
             }
             if ((i == n).or(beforeGasThreshold > gasleft())) {
                 bytes[] calldata actions;
-                // No free-memory modifier wraps `SELECT`, so release the callback buffer here.
                 assembly ("memory-safe") {
                     mstore(0x40, callData)
                     actions.offset := add(candsData, offset)
