@@ -2,6 +2,9 @@
 
 ### Breaking changes
 
+* Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE` inside `SELECT` with
+  `ActionInvalid`
+
 ### Non-breaking changes
 
 * Add `BASIC_PUSH` action on all chains, which transfers the sell amount to
