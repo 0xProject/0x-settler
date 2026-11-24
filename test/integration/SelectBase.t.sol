@@ -86,6 +86,20 @@ contract SelectBase is SettlerBasePairTest {
         assertGt(toToken().balanceOf(RECIPIENT) - beforeBalance, 1, "first candidate paid recipient");
     }
 
+    function testUnderfundedCandidate_commitsFirstRoute() public {
+        bytes[][] memory candidates = _twoCandidates(0, type(uint256).max);
+        uint256 expectedOutput = _standaloneOutput(candidates[0]);
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultFromPermit2Action(),
+            abi.encodeCall(ISettlerActions.SELECT, (type(uint64).max, address(toToken()), new uint256[](2), candidates))
+        );
+        uint256 beforeBalance = toToken().balanceOf(RECIPIENT);
+
+        _snapExecute("settler_selectUnderfunded", actions, expectedOutput);
+
+        assertEq(toToken().balanceOf(RECIPIENT) - beforeBalance, expectedOutput);
+    }
+
     function testAllTargetsMiss_reverts() public {
         bytes[][] memory candidates = _twoCandidates(0, 0);
         uint256[] memory targets = new uint256[](2);

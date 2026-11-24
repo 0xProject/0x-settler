@@ -2,6 +2,9 @@
 
 ### Breaking changes
 
+* Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE` inside `SELECT` with
+  `ActionInvalid`
+
 ### Non-breaking changes
 
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
