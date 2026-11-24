@@ -6,8 +6,9 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
+import {XBridge} from "../../core/XBridge.sol";
 
-contract MonadBridgeSettler is BridgeSettler, Across, Mayan {
+contract MonadBridgeSettler is BridgeSettler, Across, Mayan, XBridge {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 143 || block.chainid == 31337);
     }
@@ -31,6 +32,9 @@ contract MonadBridgeSettler is BridgeSettler, Across, Mayan {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
             bytes memory protocolAndData = abi.decode(data, (bytes));
             bridgeNativeToMayan(protocolAndData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_XBRIDGE.selector)) {
+            bytes memory sendData = abi.decode(data, (bytes));
+            bridgeToXBridge(sendData);
         } else {
             return false;
         }
