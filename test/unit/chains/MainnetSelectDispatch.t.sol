@@ -7,7 +7,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
-import {Shortfall, SignatureExpired, ActionInvalid} from "src/core/SettlerErrors.sol";
+import {Shortfall, ActionInvalid} from "src/core/SettlerErrors.sol";
 
 contract MainnetSelectDispatchTest is Test {
     MainnetSettler private settler;
@@ -64,11 +64,15 @@ contract MainnetSelectDispatchTest is Test {
         _execute(actions);
     }
 
-    function test_mainnetSelect_nativeCheck_remainsReachable() public {
+    function test_mainnetSelect_nativeCheck_isNotDispatched() public {
         bytes[] memory candidate = new bytes[](1);
         candidate[0] = abi.encodeCall(ISettlerActions.NATIVE_CHECK, (uint256(0), uint256(0)));
         bytes[] memory actions = _select(0, candidate);
-        vm.expectRevert(abi.encodeWithSelector(SignatureExpired.selector, 0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ActionInvalid.selector, 0, ISettlerActions.NATIVE_CHECK.selector, abi.encode(uint256(0), uint256(0))
+            )
+        );
         _execute(actions);
     }
 

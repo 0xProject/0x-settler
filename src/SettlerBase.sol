@@ -64,8 +64,6 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
     receive() external payable {}
 
-    function select(bytes calldata data) internal virtual;
-
     function _chainId() internal pure virtual returns (uint256);
 
     event GitCommit(bytes20 indexed);
@@ -162,11 +160,15 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                 abi.decode(data, (address, address, uint256, address, uint24, uint256));
 
             sellToUniswapV2(recipient, sellToken, ppm, pool, swapInfo, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BASIC.selector)) {
+        } else if (
+            (action == uint32(ISettlerActions.BASIC.selector)).or(action == uint32(ISettlerActions.BASIC_PUSH.selector))
+        ) {
             (IERC20 sellToken, uint256 ppm, address pool, uint256 offset, bytes memory _data) =
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
-            basicSellToPool(sellToken, ppm, pool, offset, _data);
+            basicSellToPool(
+                sellToken, ppm, pool, offset, _data, action == uint32(ISettlerActions.BASIC_PUSH.selector)
+            );
         } else if ((action == uint32(ISettlerActions.VELODROME.selector)).andNot(_disableVelodrome())) {
             (address recipient, uint256 ppm, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
@@ -191,8 +193,6 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                     token.safeTransfer(recipient, balance);
                 }
             }
-        } else if (action == uint32(ISettlerActions.SELECT.selector)) {
-            select(data);
         } else {
             return false;
         }

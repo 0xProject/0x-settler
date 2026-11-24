@@ -240,6 +240,10 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
 
+    /// @dev Like `BASIC`, but transfers the sell amount to `pool` instead of approving it. The call must spend
+    /// all of it, or the rest stays with `pool`.
+    function BASIC_PUSH(address sellToken, uint256 ppm, address pool, uint256 offset, bytes calldata data) external;
+
     /// @dev Fills one Deepstate book with the current `sellToken` balance. Native ETH is the ERC-7528 address in
     /// both `sellToken` and `buyToken`. Unmatched quantity is discarded rather than rested, so it stays in the
     /// Settler as `sellToken` for later actions.
@@ -265,9 +269,8 @@ interface ISettlerActions {
 
     /// @dev Tries `candidates` in order and commits the first whose increase in Settler's `token`
     ///      balance meets its `targets` entry. A decrease reverts the candidate. Candidates run
-    ///      with Settler as the caller and no value, so they must not contain `CHECK_SLIPPAGE` or
-    ///      `NATIVE_CHECK`. Each non-final candidate gets `trialGasLimit` gas, which must be
-    ///      nonzero and fit in 64 bits.
+    ///      with `trialGasLimit` gas. Candidates cannot run `ATTEST`, `NATIVE_CHECK`, or
+    ///      `CHECK_SLIPPAGE`. `trialGasLimit` must be nonzero and fit in 64 bits.
     // Pre-req: Funded
     function SELECT(uint256 trialGasLimit, address token, uint256[] calldata targets, bytes[][] calldata candidates)
         external;
