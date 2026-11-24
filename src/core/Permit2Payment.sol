@@ -419,6 +419,13 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         assert(!_hasMetaTxn());
     }
 
+    function _proportionalSellAmount(IERC20 token, uint256 sellAmount) private view returns (uint256) {
+        unchecked {
+            sellAmount = Constants.BASIS - ~sellAmount;
+        }
+        return tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(Constants.BASIS);
+    }
+
     function _permitToSellAmountCalldata(address owner, ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
         view
@@ -428,11 +435,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         sellAmount = permit.permitted.amount;
         if (~sellAmount < Constants.BASIS) {
             if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
-                unchecked {
-                    sellAmount = Constants.BASIS - ~sellAmount;
-                }
-                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
-                    .unsafeDiv(Constants.BASIS);
+                sellAmount = _proportionalSellAmount(IERC20(permit.permitted.token), sellAmount);
             }
         }
     }
@@ -446,11 +449,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         sellAmount = permit.permitted.amount;
         if (~sellAmount < Constants.BASIS) {
             if (owner == address(0)) { // sentinel for `_msgSender()` to avoid extra TLOAD
-                unchecked {
-                    sellAmount = Constants.BASIS - ~sellAmount;
-                }
-                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount)
-                    .unsafeDiv(Constants.BASIS);
+                sellAmount = _proportionalSellAmount(IERC20(permit.permitted.token), sellAmount);
             }
         }
     }
