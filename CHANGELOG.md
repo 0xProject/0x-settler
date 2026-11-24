@@ -2,9 +2,6 @@
 
 ### Breaking changes
 
-* Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE` inside `SELECT` with
-  `ActionInvalid`
-
 ### Non-breaking changes
 
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
@@ -13,8 +10,14 @@
 
 ## 2026-11-24
 
+### Breaking changes
+
+* Reject `NATIVE_CHECK` and `CHECK_SLIPPAGE` inside `SELECT` with
+  `ActionInvalid`
+
 ### Non-breaking changes
 
+* Reduce the gas cost of `SELECT` on all chains
 * Add `BASIC_PUSH` action on all chains, which transfers the sell amount to
   `pool` instead of approving it
 * Add Aero CL UniV3 fork on Elysium chain with fork ID 50
