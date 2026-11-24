@@ -4,9 +4,33 @@
 
 ### Non-breaking changes
 
+* Add Aero CL UniV3 fork on Elysium chain with fork ID 50
+* Add ZyoraV4 UniswapV4 fork on Elysium chain
 * Fix a `metaTx` malleability bug in `CrossChainReceiverFactory`
   (contract is not deployed; no funds at risk) after a report in
   Immunefi bug 78645
+* Add `BRIDGE_TO_XBRIDGE` action to BridgeSettler on Mainnet, Arbitrum, Bnb,
+  Optimism, Ink, Monad, and HyperEvm for bridging xStocks through Backed's
+  xBridge
+
+## 2026-11-09 PM
+
+### Non-breaking changes
+
+* Add ElyxaV4 and EleosV4 UniswapV4 forks on Elysium chain
+
+## 2026-11-09 AM
+
+### Non-breaking changes
+
+* Add ElysPumpV4, KleosV4, and BoxaV4 UniswapV4 forks on Elysium chain
+
+## 2026-11-03
+
+### Non-breaking changes
+
+* Add UniswapV3 UniV3 fork on Elysium chain
+* Add UniswapV4 actions to Elysium chain
 
 ## 2026-10-30
 

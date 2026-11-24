@@ -54,4 +54,7 @@ interface IBridgeSettlerActions {
     /// @dev Wraps PAXG into WPAXG and bridges the resulting shares through Nucleus Teller,
     /// paying fees in native token.
     function DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER(bytes calldata depositAndBridgeCallData) external;
+
+    /// @dev Bridge xStocks through Backed's xBridge, paying fees in native token
+    function BRIDGE_TO_XBRIDGE(bytes calldata sendData) external;
 }

@@ -176,12 +176,4 @@ new_feature_calldata="$(
 )"
 declare -r new_feature_calldata
 
-declare struct_json
-struct_json="$(eip712_json "$new_feature_calldata" 1)"
-declare -r struct_json
-
-declare signature
-signature="$(sign_call "$struct_json")"
-declare -r signature
-
-save_signature new_feature "$new_feature_calldata" "$signature" 1
+sign_and_save_signature new_feature "$new_feature_calldata" 1

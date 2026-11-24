@@ -161,12 +161,4 @@ declare removeOwner_call
 removeOwner_call="$(cast calldata "$removeOwner_sig" "$prev_owner_addr" "$old_owner" $new_threshold)"
 declare -r removeOwner_call
 
-declare struct_json
-struct_json="$(eip712_json "$removeOwner_call" 0 "$safe_address")"
-declare -r struct_json
-
-declare signature
-signature="$(sign_call "$struct_json")"
-declare -r signature
-
-save_signature remove_signer "$removeOwner_call" "$signature" 0 "$safe_address"
+sign_and_save_signature remove_signer "$removeOwner_call" 0 "$safe_address"

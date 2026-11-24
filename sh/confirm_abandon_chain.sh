@@ -159,13 +159,7 @@ if [[ ${SAFE_GUARD_OVERRIDE:-${safe_guard:-null}} != [nN][uU][lL][lL] ]] ; then
     remove_guard_call="$(cast calldata "$setGuard_sig" "$(cast address-zero)")"
     declare -r remove_guard_call
 
-    declare struct_json
-    struct_json="$(eip712_json "$remove_guard_call" 0 "$safe_address")"
-
-    declare signature
-    signature="$(sign_call "$struct_json")"
-
-    save_signature abandon_chain_guard_removal "$remove_guard_call" "$signature" 0 "$safe_address"
+    sign_and_save_signature abandon_chain_guard_removal "$remove_guard_call" 0 "$safe_address"
     echo 'SafeGuard removal signed. Now signing the abandonment transaction for the next nonce.' >&2
 
     # The abandonment executes at the next nonce, after the Guard is removed, so its
@@ -210,12 +204,4 @@ multisend_calldata="$(build_multisend_calldata "${calls[@]}")"
 declare -r multisend_calldata
 
 # Sign the transaction (operation=1 for delegatecall to multicall)
-declare struct_json
-struct_json="$(eip712_json "$multisend_calldata" 1)"
-declare -r struct_json
-
-declare signature
-signature="$(sign_call "$struct_json")"
-declare -r signature
-
-save_signature abandon_chain "$multisend_calldata" "$signature" 1
+sign_and_save_signature abandon_chain "$multisend_calldata" 1

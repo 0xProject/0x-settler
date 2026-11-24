@@ -1,0 +1,12 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = []
+auto_detect_solc = false
+via_ir = true
+optimizer = true
+optimizer_runs = 2_000
+evm_version = "osaka"
+bytecode_hash = "none"
+cbor_metadata = false

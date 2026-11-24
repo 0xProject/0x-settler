@@ -18,5 +18,6 @@ IPoolManager constant uniswapV4MonadPoolManager = IPoolManager(0x188d586Ddcf5243
 IPoolManager constant uniswapV4TempoPoolManager = IPoolManager(0x33620f62C5b9B2086dD6b62F4A297A9f30347029);
 IPoolManager constant uniswapV4RobinhoodPoolManager = IPoolManager(0x8366a39CC670B4001A1121B8F6A443A643e40951);
 IPoolManager constant uniswapV4ArcPoolManager = IPoolManager(0x8366a39CC670B4001A1121B8F6A443A643e40951);
+IPoolManager constant uniswapV4ElysiumPoolManager = IPoolManager(0xE2e105d3F7209A9DA11f83cCf3E7398a753823F1);
 
 uint8 constant uniswapV4ForkId = 0;

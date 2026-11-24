@@ -82,6 +82,10 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetCommon {
         return super._dispatch(i, action, data, slippage);
     }
 
+    function _disableVelodrome() internal pure virtual override(SettlerBase, MainnetCommon) returns (bool) {
+        return super._disableVelodrome();
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view
