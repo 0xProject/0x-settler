@@ -107,15 +107,19 @@ contract PropAmmMuxUnitTest is Test {
         vs[2] = v2;
     }
 
+    function _swap(uint256 minOut, IPropAMM primary, IPropAMM[] memory backups) private {
+        vm.prank(PAYER);
+        mux.swap(
+            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, minOut, RECIPIENT, block.timestamp, primary, backups
+        );
+    }
+
     function test_primaryHitsWithoutQuotingBackups() public {
         v0.setBehavior(0, 500, true, false);
         v1.setBehavior(600, 600, false, false);
         v2.setBehavior(700, 700, false, false);
 
-        vm.prank(PAYER);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 450, RECIPIENT, block.timestamp, v0, _backups2()
-        );
+        _swap(450, v0, _backups2());
         assertEq(v0.quoteCalls(), 0, "primary never quoted");
         assertEq(v1.quoteCalls(), 0, "backup 1 not quoted on primary hit");
         assertEq(v2.quoteCalls(), 0, "backup 2 not quoted on primary hit");
@@ -128,10 +132,7 @@ contract PropAmmMuxUnitTest is Test {
         v1.setBehavior(510, 510, false, false);
         v2.setBehavior(530, 530, false, false);
 
-        vm.prank(PAYER);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 500, RECIPIENT, block.timestamp, v0, _backups2()
-        );
+        _swap(500, v0, _backups2());
         assertEq(tokenIn.balanceOf(address(v0)), 0, "reverted primary transfer rolled back");
         assertEq(tokenIn.balanceOf(address(v2)), 100);
         assertEq(tokenOut.balanceOf(RECIPIENT), 530);
@@ -142,40 +143,29 @@ contract PropAmmMuxUnitTest is Test {
         v1.setBehavior(505, 505, false, false);
         v2.setBehavior(0, 0, true, true);
 
-        vm.prank(PAYER);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 500, RECIPIENT, block.timestamp, v0, _backups2()
-        );
+        _swap(500, v0, _backups2());
         assertEq(tokenIn.balanceOf(address(v0)), 0, "under-delivering primary rolled back");
         assertEq(tokenIn.balanceOf(address(v1)), 100);
         assertEq(tokenOut.balanceOf(RECIPIENT), 505);
     }
 
     function test_bestMode_picksMaxAndSkipsZeroOrShortReturn() public {
-        v0.setBehavior(0, 0, false, false);
         v1.setBehavior(999, 999, false, false);
         v1.setShortQuoteReturn(true);
         v2.setBehavior(420, 420, false, false);
 
-        vm.prank(PAYER);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 0, RECIPIENT, block.timestamp, NO_PRIMARY, _venues3()
-        );
+        _swap(0, NO_PRIMARY, _venues3());
         assertEq(tokenIn.balanceOf(address(v2)), 100);
         assertEq(tokenOut.balanceOf(RECIPIENT), 420);
     }
 
     function test_overQuotingVenue_revertsAgainstItsOwnQuote() public {
-        // v0 over-quotes (1000) to beat honest v1 (700), then delivers only minOut (500).
         v0.setBehavior(1000, 500, false, false);
         v1.setBehavior(700, 700, false, false);
         v2.setBehavior(0, 0, true, true);
 
-        vm.prank(PAYER);
         vm.expectRevert(abi.encodeWithSelector(PropAmmMux.InsufficientOutput.selector, 1000, 500));
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 500, RECIPIENT, block.timestamp, NO_PRIMARY, _venues3()
-        );
+        _swap(500, NO_PRIMARY, _venues3());
     }
 
     function test_winningBackupSwapReverts_revertsWholeCall() public {
@@ -183,11 +173,8 @@ contract PropAmmMuxUnitTest is Test {
         v1.setBehavior(550, 550, false, false);
         v2.setBehavior(0, 0, true, true);
 
-        vm.prank(PAYER);
         vm.expectRevert("stale");
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 500, RECIPIENT, block.timestamp, NO_PRIMARY, _venues3()
-        );
+        _swap(500, NO_PRIMARY, _venues3());
     }
 
     function test_gasBurningQuote_doesNotStarveHealthyBackup() public {
@@ -218,32 +205,20 @@ contract PropAmmMuxUnitTest is Test {
     }
 
     function test_zeroQuotesAllBelowMinOutAndEmpty_revertNoLiveVenue() public {
-        v0.setBehavior(0, 0, false, false);
         v1.setBehavior(0, 0, true, true);
-        v2.setBehavior(0, 0, false, false);
 
-        vm.prank(PAYER);
         vm.expectRevert(PropAmmMux.NoLiveVenue.selector);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 0, RECIPIENT, block.timestamp, NO_PRIMARY, _venues3()
-        );
+        _swap(0, NO_PRIMARY, _venues3());
 
         v0.setBehavior(490, 490, false, false);
         v1.setBehavior(499, 499, false, false);
         uint256 balBefore = tokenIn.balanceOf(PAYER);
-        vm.prank(PAYER);
         vm.expectRevert(PropAmmMux.NoLiveVenue.selector);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 500, RECIPIENT, block.timestamp, NO_PRIMARY, _venues3()
-        );
+        _swap(500, NO_PRIMARY, _venues3());
         assertEq(tokenIn.balanceOf(PAYER), balBefore);
 
-        IPropAMM[] memory empty = new IPropAMM[](0);
-        vm.prank(PAYER);
         vm.expectRevert(PropAmmMux.NoLiveVenue.selector);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 1, RECIPIENT, block.timestamp, NO_PRIMARY, empty
-        );
+        _swap(1, NO_PRIMARY, new IPropAMM[](0));
     }
 
     function test_security_nonSelfTrySwap_thirdPartyCaller_andWeirdVenues() public {
@@ -261,7 +236,6 @@ contract PropAmmMuxUnitTest is Test {
         );
         assertEq(tokenIn.balanceOf(PAYER), 1000 ether);
 
-        // Venues set to mux or token addresses and duplicates are handled cleanly.
         v1.setBehavior(510, 510, false, false);
         IPropAMM[] memory weird = new IPropAMM[](4);
         weird[0] = IPropAMM(address(mux));
@@ -269,10 +243,7 @@ contract PropAmmMuxUnitTest is Test {
         weird[2] = v1;
         weird[3] = v1;
 
-        vm.prank(PAYER);
-        mux.swap(
-            IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, 500, RECIPIENT, block.timestamp, NO_PRIMARY, weird
-        );
+        _swap(500, NO_PRIMARY, weird);
         assertEq(tokenOut.balanceOf(RECIPIENT), 510);
     }
 
@@ -283,8 +254,6 @@ contract PropAmmMuxUnitTest is Test {
         usdt.approve(address(mux), type(uint256).max);
 
         v0.setBehavior(500, 500, false, false);
-        v1.setBehavior(0, 0, true, true);
-        v2.setBehavior(0, 0, true, true);
 
         vm.prank(PAYER);
         mux.swap(
@@ -306,11 +275,8 @@ contract PropAmmMuxUnitTest is Test {
         v1.setBehavior(q1, s1, q1 == 0, false);
         v2.setBehavior(q2, q2, q2 == 0, false);
 
-        vm.prank(PAYER);
         if (usePrimary && pSwap > 0 && pSwap >= minOut) {
-            mux.swap(
-                IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, minOut, RECIPIENT, block.timestamp, v0, _backups2()
-            );
+            _swap(minOut, v0, _backups2());
             assertEq(tokenOut.balanceOf(RECIPIENT), pSwap);
             return;
         }
@@ -321,21 +287,15 @@ contract PropAmmMuxUnitTest is Test {
 
         if (!v1Eligible && !v2Eligible) {
             vm.expectRevert(PropAmmMux.NoLiveVenue.selector);
-            mux.swap(
-                IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, minOut, RECIPIENT, block.timestamp, primary, _backups2()
-            );
+            _swap(minOut, primary, _backups2());
         } else if (v1Eligible && (!v2Eligible || q1 >= q2)) {
             if (s1 < q1) {
                 vm.expectRevert(abi.encodeWithSelector(PropAmmMux.InsufficientOutput.selector, q1, s1));
             }
-            mux.swap(
-                IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, minOut, RECIPIENT, block.timestamp, primary, _backups2()
-            );
+            _swap(minOut, primary, _backups2());
             if (s1 >= q1) assertEq(tokenOut.balanceOf(RECIPIENT), s1);
         } else {
-            mux.swap(
-                IERC20(address(tokenIn)), IERC20(address(tokenOut)), 100, minOut, RECIPIENT, block.timestamp, primary, _backups2()
-            );
+            _swap(minOut, primary, _backups2());
             assertEq(tokenOut.balanceOf(RECIPIENT), q2);
         }
     }

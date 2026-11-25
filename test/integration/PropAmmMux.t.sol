@@ -23,7 +23,6 @@ IPropAMM constant GOLIATH  = IPropAMM(0x4367985A63063fc970b009c6E599e9225181f551
 IPropAMM constant STELAXIS = IPropAMM(0x77047Af6CD8f7f84d96A020a2833d24916b75FDE);
 IPropAMM constant NO_PRIMARY = IPropAMM(address(0));
 
-/// @dev Mainnet fork tests of `PropAmmMux` behind `MainnetSettler`, `ALLOWANCE_HOLDER`, and `SELECT`.
 contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
     using SafeTransferLib for IERC20;
 
@@ -102,7 +101,6 @@ contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
         bytes memory callData = abi.encodeCall(
             PropAmmMux.swap, (tokenIn, tokenOut, 0, minOut, address(settler), type(uint256).max, primary, backups)
         );
-        // `amountIn` is the third word after the selector (0x44)
         return abi.encodeCall(ISettlerActions.BASIC, (address(tokenIn), BASIS, address(mux), 0x44, callData));
     }
 
@@ -126,8 +124,19 @@ contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
         return abi.encodeCall(ISettlerActions.UNISWAPV3, (address(settler), BASIS, path, 0));
     }
 
-    /// Block 26486293: Goliath is inactive, Stelaxis and Kipseli are live; primary fails over to
-    /// Stelaxis and post-SELECT `POSITIVE_SLIPPAGE` collects surplus above the hurdle.
+    function _select(bytes memory firstAction, uint256 target) internal view returns (bytes memory) {
+        bytes[][] memory candidates = new bytes[][](2);
+        candidates[0] = new bytes[](1);
+        candidates[0][0] = firstAction;
+        candidates[1] = new bytes[](1);
+        candidates[1][0] = _uniV3UsdcToWeth();
+
+        uint256[] memory targets = new uint256[](2);
+        targets[0] = target;
+        return abi.encodeCall(ISettlerActions.SELECT, (500_000, address(WETH), targets, candidates));
+    }
+
+    /// Block 26486293: Goliath is inactive while Stelaxis and Kipseli are live.
     function testSelect_primaryInactive_recoversBestBackupAndSurplus() public {
         uint256 amountIn = 6_954_542_247;
         _setupAtBlock(26_486_293, USDC, WETH, amountIn);
@@ -138,18 +147,10 @@ contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
         uint256 kipseliQuote = KIPSELI.quote(USDC, WETH, amountIn);
         assertGt(stelaxisQuote, kipseliQuote);
 
-        IPropAMM[] memory backups = _venues(KIPSELI, STELAXIS, TEMPEST);
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = new bytes[](1);
-        candidates[0][0] = _basicMux(USDC, WETH, relaxedTarget, GOLIATH, backups);
-        candidates[1] = new bytes[](1);
-        candidates[1][0] = _uniV3UsdcToWeth();
-
-        uint256[] memory targets = new uint256[](2);
-        targets[0] = relaxedTarget;
-
         bytes[] memory actions = new bytes[](2);
-        actions[0] = abi.encodeCall(ISettlerActions.SELECT, (500_000, address(WETH), targets, candidates));
+        actions[0] = _select(
+            _basicMux(USDC, WETH, relaxedTarget, GOLIATH, _venues(KIPSELI, STELAXIS, TEMPEST)), relaxedTarget
+        );
         actions[1] = abi.encodeCall(
             ISettlerActions.POSITIVE_SLIPPAGE, (FEE_RECIPIENT, address(WETH), hurdle, BASIS, BASIS)
         );
@@ -161,7 +162,7 @@ contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
         assertEq(takerOut + feeOut, stelaxisQuote, "total equals best live backup quote");
     }
 
-    /// Block 26486293 warped +12s: all venues are stale, `PropAmmMux` reverts, and `SELECT` commits UniV3.
+    /// Block 26486293 warped +12s: all venues are stale.
     function testSelect_allVenuesStale_commitsFallback() public {
         uint256 amountIn = 6_954_542_247;
         _setupAtBlock(26_486_293, USDC, WETH, amountIn);
@@ -172,20 +173,12 @@ contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
         uint256 fallbackOut = _executeOne(USDC, WETH, amountIn, _uniV3UsdcToWeth(), false);
         vm.revertToState(snap);
 
-        bytes[][] memory candidates = new bytes[][](2);
-        candidates[0] = new bytes[](1);
-        candidates[0][0] = _basicMux(USDC, WETH, fallbackOut, NO_PRIMARY, _venues4(GOLIATH, KIPSELI, STELAXIS, TEMPEST));
-        candidates[1] = new bytes[](1);
-        candidates[1][0] = _uniV3UsdcToWeth();
-
-        uint256[] memory targets = new uint256[](2);
-        targets[0] = fallbackOut;
-
-        bytes memory selectAction = abi.encodeCall(ISettlerActions.SELECT, (500_000, address(WETH), targets, candidates));
+        bytes memory selectAction = _select(
+            _basicMux(USDC, WETH, fallbackOut, NO_PRIMARY, _venues4(GOLIATH, KIPSELI, STELAXIS, TEMPEST)), fallbackOut
+        );
         assertEq(_executeOne(USDC, WETH, amountIn, selectAction, false), fallbackOut, "fallback committed");
     }
 
-    /// Block 26485859: `swapBest` mode (`primary == 0`) picks the max live quote across all venues.
     function testSwapBest_multiLive_picksHighestQuote() public {
         uint256 amountIn = 5 ether;
         _setupAtBlock(26_485_859, WETH, USDC, amountIn);
@@ -203,7 +196,6 @@ contract PropAmmMuxIntegrationTest is Test, GasSnapshot {
         assertEq(out, expectedMax, "picked highest live quote");
     }
 
-    /// Steady-state primary-hit gas measurement with Settler already holding max approval to mux.
     function testPrimaryHit_steadyStateGas() public {
         uint256 amountIn = 5 ether;
         _setupAtBlock(26_485_859, WETH, USDC, amountIn);

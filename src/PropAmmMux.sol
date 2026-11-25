@@ -16,22 +16,17 @@ interface IPropAMM {
     ) external returns (uint256 amountOut);
 }
 
-/// @notice Stateless, immutable dispatcher across push-model `IPropAMM` venues.
-/// Pulls `amountIn` directly from `msg.sender` to the chosen venue and reverts when no venue clears
-/// `minOut` so Settler `SELECT` runs its fallback. When quoting backups, only the highest-quoted
-/// venue is attempted and must deliver at least its quote.
+/// @notice A failed primary fill rolls back its token transfer before backups are quoted.
 contract PropAmmMux {
     using SafeTransferLib for IERC20;
 
     uint256 private constant _PRIMARY_GAS = 350_000;
-    uint256 private constant _QUOTE_GAS = 0x249f0; // 150,000
+    uint256 private constant _QUOTE_GAS = 150_000;
 
     error NoLiveVenue();
     error InsufficientOutput(uint256 expected, uint256 actual);
     error OnlySelf();
 
-    /// @notice If `primary` is non-zero, try it directly without quoting; on failure (or when
-    /// `primary` is zero), quote `backups` and fill the highest live quote that meets `minOut`.
     /// `amountIn` sits at calldata offset `0x44` for Settler `BASIC`.
     function swap(
         IERC20 tokenIn,
@@ -44,15 +39,35 @@ contract PropAmmMux {
         IPropAMM[] calldata backups
     ) external {
         if (address(primary) != address(0)) {
-            try this._trySwap{gas: _PRIMARY_GAS}(
-                primary, msg.sender, tokenIn, tokenOut, amountIn, minOut, recipient, deadline
-            ) {
-                return;
-            } catch {}
+            bytes memory data = abi.encodeCall(
+                this._trySwap, (primary, msg.sender, tokenIn, tokenOut, amountIn, minOut, recipient, deadline)
+            );
+            bool filled;
+            // Cap gas and copy zero return bytes: `filled = address(this).call{gas: _PRIMARY_GAS}(data)`.
+            assembly ("memory-safe") {
+                filled := call(_PRIMARY_GAS, address(), 0x00, add(0x20, data), mload(data), 0x00, 0x00)
+            }
+            if (filled) return;
         }
 
-        (IPropAMM winner, uint256 bestQuote) = _pickBest(backups, tokenIn, tokenOut, amountIn, minOut);
-        if (address(winner) == address(0)) revert NoLiveVenue();
+        IPropAMM winner;
+        uint256 bestQuote;
+        bytes memory query = abi.encodeCall(IPropAMM.quote, (tokenIn, tokenOut, amountIn));
+        for (uint256 i; i < backups.length; ++i) {
+            IPropAMM venue = backups[i];
+            uint256 q;
+            // Cap gas and copy at most one word: `q = ok && ret.length >= 32 ? abi.decode(ret, (uint256)) : 0`.
+            assembly ("memory-safe") {
+                if call(_QUOTE_GAS, venue, 0x00, add(0x20, query), mload(query), 0x00, 0x20) {
+                    if lt(0x1f, returndatasize()) { q := mload(0x00) }
+                }
+            }
+            if (q > bestQuote) {
+                bestQuote = q;
+                winner = venue;
+            }
+        }
+        if (address(winner) == address(0) || bestQuote < minOut) revert NoLiveVenue();
         _fill(winner, msg.sender, tokenIn, tokenOut, amountIn, bestQuote, recipient, deadline);
     }
 
@@ -85,44 +100,5 @@ contract PropAmmMux {
         venue.swap(tokenIn, tokenOut, amountIn, minOut, recipient, deadline);
         uint256 amountOut = tokenOut.fastBalanceOf(recipient) - beforeBal;
         if (amountOut < minOut) revert InsufficientOutput(minOut, amountOut);
-    }
-
-    function _pickBest(
-        IPropAMM[] calldata venues,
-        IERC20 tokenIn,
-        IERC20 tokenOut,
-        uint256 amountIn,
-        uint256 minOut
-    ) private returns (IPropAMM winner, uint256 bestQuote) {
-        for (uint256 i; i < venues.length; ++i) {
-            (bool ok, uint256 q) = _tryQuote(venues[i], tokenIn, tokenOut, amountIn);
-            if (ok && q >= minOut && q > bestQuote) {
-                bestQuote = q;
-                winner = venues[i];
-            }
-        }
-    }
-
-    function _tryQuote(IPropAMM venue, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn)
-        private
-        returns (bool ok, uint256 amountOut)
-    {
-        // Bounded low-level `call`: accepts a successful call returning at least 32 bytes, avoids
-        // ABI-decode reverts on malformed data, and caps gas so one venue cannot starve backups.
-        // Equivalent to:
-        //   try venue.quote{gas: _QUOTE_GAS}(tokenIn, tokenOut, amountIn) returns (uint256 out) {
-        //       return (true, out);
-        //   } catch { return (false, 0); }
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(ptr, 0xb646638400000000000000000000000000000000000000000000000000000000)
-            mstore(add(0x04, ptr), tokenIn)
-            mstore(add(0x24, ptr), tokenOut)
-            mstore(add(0x44, ptr), amountIn)
-            ok := call(_QUOTE_GAS, venue, 0x00, ptr, 0x64, 0x00, 0x20)
-            if and(ok, lt(0x1f, returndatasize())) {
-                amountOut := mload(0x00)
-            }
-        }
     }
 }
